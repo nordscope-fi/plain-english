@@ -1,0 +1,392 @@
+# Behavioural corpus. Every case here is an assertion about the engine.
+#
+#   expect: pass    no error-severity findings
+#   expect: block   at least one error finding; `rule` must be among them
+#   warns: [id]     exactly these warn-severity rule ids must fire
+#
+# Adding a rule means adding at least one `block` case and one `pass` case that
+# exercises its `unless` clause. Every bug that reaches a user gets a case in
+# regressions.yml so it can never come back.
+
+cases:
+  # ==========================================================================
+  # False positives verified against the original regex before the rewrite.
+  # All 13 of these blocked under the old pattern. None may block now.
+  # ==========================================================================
+
+  - name: "fails silently is standard technical usage"
+    expect: pass
+    text: "The parser fails silently when the file is missing."
+
+  - name: "mechanical keyboard is an ordinary noun phrase"
+    expect: pass
+    text: "Use a mechanical keyboard for this."
+
+  - name: "underscores as a noun describing characters"
+    expect: pass
+    text: "The filename underscores are significant."
+
+  - name: "underscores inside an identifier"
+    expect: pass
+    text: "Rename it to my_var_underscores_here."
+
+  - name: "banned words inside a fenced code block"
+    expect: pass
+    text: |
+      Here is the call:
+
+      ```js
+      const url = leverage.utilize();
+      ```
+
+  - name: "banned word inside a URL"
+    expect: pass
+    text: "See https://example.com/dive-into-rust for details."
+
+  - name: "banned word inside quoted third-party text"
+    expect: pass
+    text: "> Customer wrote: we want to leverage your API"
+
+  - name: "holistic medicine is a real domain term"
+    expect: pass
+    text: "A holistic medicine startup, our client."
+
+  - name: "plain hyphenated number range"
+    expect: pass
+    text: "This runs 4-6 hours."
+
+  - name: "cutting edges plural is not the buzzword"
+    expect: pass
+    text: "The cutting edges of the sheet are welded."
+
+  - name: "boasts about is the ordinary verb"
+    expect: pass
+    text: "He boasts about the uptime figures constantly."
+
+  - name: "identifier in inline code"
+    expect: pass
+    text: "Import it with `import { synergy } from './lib'` at the top."
+
+  - name: "quietly in a code comment inside a fence"
+    expect: pass
+    text: |
+      ```python
+      # exits quietly when the queue drains
+      sys.exit(0)
+      ```
+
+  # ==========================================================================
+  # Punctuation
+  # ==========================================================================
+
+  - name: "em dash blocks"
+    expect: block
+    rule: em-dash
+    text: "The build failed — the cache was stale."
+
+  - name: "em dash inside a code fence passes"
+    expect: pass
+    text: |
+      ```
+      printf 'a — b'
+      ```
+
+  - name: "en dash used as a sentence break warns"
+    expect: pass
+    warns: [en-dash-as-punctuation]
+    text: "The build failed – the cache was stale."
+
+  - name: "en dash in a numeric range passes"
+    expect: pass
+    text: "Sections 4–7 cover the migration."
+
+  # ==========================================================================
+  # Stock transitions
+  # ==========================================================================
+
+  - name: "furthermore blocks"
+    expect: block
+    rule: furthermore
+    text: "Furthermore, the cache was stale."
+
+  - name: "moreover blocks"
+    expect: block
+    rule: moreover
+    text: "Moreover, the cache was stale."
+
+  - name: "in conclusion blocks"
+    expect: block
+    rule: in-conclusion
+    text: "In conclusion, the migration worked."
+
+  - name: "it is worth noting blocks"
+    expect: block
+    rule: worth-noting
+    text: "It's worth noting that the cache was stale."
+
+  - name: "it is important to note blocks"
+    expect: block
+    rule: worth-noting
+    text: "It is important to note that the cache was stale."
+
+  - name: "at the end of the day as a discourse marker blocks"
+    expect: block
+    rule: at-the-end-of-the-day
+    text: "At the end of the day, the cache was stale."
+
+  - name: "at the end of the day in the literal temporal sense passes"
+    expect: pass
+    text: "The batch runs at the end of the day and writes a summary."
+
+  - name: "let us dive in blocks"
+    expect: block
+    rule: lets-dive-in
+    text: "Let's dive in and see what broke."
+
+  - name: "dive into warns"
+    expect: pass
+    warns: [dive-into]
+    text: "Dive into the access logs to find the request."
+
+  - name: "dive into a pool passes"
+    expect: pass
+    text: "Do not dive into the pool from the side."
+
+  # ==========================================================================
+  # Corporate verbs
+  # ==========================================================================
+
+  - name: "leverage as a verb blocks"
+    expect: block
+    rule: leverage
+    text: "We leverage the existing cache for this."
+
+  - name: "financial leverage passes"
+    expect: pass
+    text: "The financial leverage ratio stayed under 2.0 all year."
+
+  - name: "leveraged buyout passes"
+    expect: pass
+    text: "The firm financed it as a leveraged buyout in 2019."
+
+  - name: "utilize blocks"
+    expect: block
+    rule: utilize
+    text: "We utilize the existing cache for this."
+
+  - name: "utilisation is a real capacity term and passes"
+    expect: pass
+    text: "CPU utilization stayed under 40% during the run."
+
+  - name: "delve blocks"
+    expect: block
+    rule: delve
+    text: "Let us delve into the access logs."
+
+  - name: "showcase blocks"
+    expect: block
+    rule: showcase
+    text: "This page showcases the new report."
+
+  - name: "glass showcase passes"
+    expect: pass
+    text: "The samples sit in a glass showcase by the entrance."
+
+  - name: "boasts blocks"
+    expect: block
+    rule: boasts
+    text: "The service boasts 99.9% uptime."
+
+  - name: "underscores as a verb warns"
+    expect: pass
+    warns: [underscores-verb]
+    text: "That result underscores the need for a second check."
+
+  # ==========================================================================
+  # Buzzwords
+  # ==========================================================================
+
+  - name: "seamless blocks"
+    expect: block
+    rule: seamless
+    text: "The migration was seamless."
+
+  - name: "seamless pipe passes"
+    expect: pass
+    text: "Order the seamless pipe in 40mm."
+
+  - name: "cutting-edge blocks"
+    expect: block
+    rule: cutting-edge
+    text: "A cutting-edge approach to caching."
+
+  - name: "cutting edge with a space blocks"
+    expect: block
+    rule: cutting-edge
+    text: "A cutting edge approach to caching."
+
+  - name: "holistic warns"
+    expect: pass
+    warns: [holistic]
+    text: "We took a holistic view of the pipeline."
+
+  - name: "synergy blocks"
+    expect: block
+    rule: synergy
+    text: "The synergy between the two teams paid off."
+
+  - name: "paradigm shift blocks"
+    expect: block
+    rule: paradigm-shift
+    text: "This is a paradigm shift in how we cache."
+
+  - name: "game-changer blocks"
+    expect: block
+    rule: game-changer
+    text: "The new index is a game-changer."
+
+  - name: "unlock the potential blocks"
+    expect: block
+    rule: unlock-the
+    text: "This will unlock the potential of the dataset."
+
+  - name: "unlock the door passes"
+    expect: pass
+    text: "The badge will unlock the door on the second floor."
+
+  - name: "unlock the account passes"
+    expect: pass
+    text: "Support can unlock the account after three failed logins."
+
+  - name: "elevate your blocks"
+    expect: block
+    rule: elevate-your
+    text: "Elevate your reporting with the new dashboard."
+
+  - name: "in today's fast-paced blocks"
+    expect: block
+    rule: in-todays-x
+    text: "In today's fast-paced environment, caching matters."
+
+  # ==========================================================================
+  # AI self-reference
+  # ==========================================================================
+
+  - name: "as an AI blocks"
+    expect: block
+    rule: as-an-ai
+    text: "As an AI, I cannot open that file."
+
+  - name: "as a large language model blocks"
+    expect: block
+    rule: as-an-ai
+    text: "As a large language model, I cannot open that file."
+
+  # ==========================================================================
+  # Soft-focus adverbs (warn, because each has a real technical sense)
+  # ==========================================================================
+
+  - name: "bare silently warns"
+    expect: pass
+    warns: [silently]
+    text: "The job silently rewrote the config."
+
+  - name: "silently ignores passes"
+    expect: pass
+    text: "The parser silently ignores unknown keys."
+
+  - name: "silent mode passes"
+    expect: pass
+    text: "Run the installer in silent mode."
+
+  - name: "quietly warns"
+    expect: pass
+    warns: [quietly]
+    text: "The job quietly rewrote the config."
+
+  - name: "mechanically warns"
+    expect: pass
+    warns: [mechanical]
+    text: "The script mechanically applies the same edit everywhere."
+
+  - name: "mechanical engineer passes"
+    expect: pass
+    text: "Ask the mechanical engineer about the tolerance."
+
+  - name: "load-bearing as a metaphor blocks"
+    expect: block
+    rule: load-bearing
+    text: "That default is load-bearing for the whole pipeline."
+
+  - name: "load-bearing wall passes"
+    expect: pass
+    text: "The survey confirmed it is a load-bearing wall."
+
+  # ==========================================================================
+  # Masking: structure that must never be scanned
+  # ==========================================================================
+
+  - name: "YAML frontmatter is not scanned"
+    expect: pass
+    text: |
+      ---
+      title: Leverage and synergy in caching
+      ---
+
+      The cache holds parsed results for an hour.
+
+  - name: "indented code block is not scanned"
+    expect: pass
+    text: |
+      Run this:
+
+          leverage --utilize --seamless
+
+      Then check the output.
+
+  - name: "markdown link target is not scanned"
+    expect: pass
+    text: "See [the guide](https://example.com/leverage-synergy) for the steps."
+
+  - name: "markdown link text IS scanned"
+    expect: block
+    rule: leverage
+    text: "See [how to leverage the cache](https://example.com/guide) for the steps."
+
+  - name: "autolink is not scanned"
+    expect: pass
+    text: "Docs live at <https://example.com/seamless-migration>."
+
+  - name: "nested fence with a longer marker is not scanned"
+    expect: pass
+    text: |
+      ````md
+      ```js
+      leverage()
+      ```
+      ````
+
+  - name: "text after a closed fence IS scanned"
+    expect: block
+    rule: leverage
+    text: |
+      ```js
+      const a = 1;
+      ```
+
+      We leverage that value downstream.
+
+  - name: "blockquote is not scanned"
+    expect: pass
+    text: |
+      > Furthermore, we utilize a holistic paradigm shift.
+
+      Their words, not ours.
+
+  - name: "text after a blockquote IS scanned"
+    expect: block
+    rule: furthermore
+    text: |
+      > Their original wording is preserved here.
+
+      Furthermore, the cache was stale.

@@ -36,8 +36,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "render": "node --experimental-strip-types src/cli.ts render",
-    "lint:self": "node --experimental-strip-types src/cli.ts lint docs README.md",
+    "render": "node dist/cli.js render",
+    "lint:self": "node dist/cli.js lint docs README.md",
     "check:refs": "bash scripts/check-no-private-refs.sh",
     "check:refs:history": "bash scripts/check-no-private-refs.sh --history",
     "pretest": "npm run check:refs",

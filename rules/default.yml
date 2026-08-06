@@ -1,0 +1,275 @@
+# plain-english default ruleset
+#
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH.
+#
+# docs/writing-style.md and integrations/claude-code/prompts/*.txt are GENERATED
+# from this file by `plain-english render`. CI fails if they drift. Never edit
+# the generated files by hand; edit this one and re-render.
+#
+# severity:
+#   error  blocks the write and exits non-zero
+#   warn   reported, never blocks
+#
+# unless:
+#   regexes that cancel a match. Use these for words with a legitimate
+#   technical or domain sense. A match inside code, a URL, or a blockquote is
+#   already excluded by the masking pass and needs no `unless` entry.
+
+version: 1
+
+meta:
+  title: "Writing Style: AI-Tell Patterns to Cut"
+  intro: >-
+    Applies to everything written in or by this project: chat replies, docs,
+    commit messages, PR descriptions, and issue text. Not just the channels a
+    hook can check.
+
+punctuation:
+  - id: em-dash
+    severity: error
+    match: "—"
+    message: "No em dashes. Use a comma, parentheses, or a full stop."
+
+  - id: en-dash-as-punctuation
+    severity: warn
+    match: "\\s–\\s"
+    message: "An en dash used as a sentence break is the same tell as an em dash."
+
+rules:
+  # ---------------------------------------------------------------- stock transitions
+  - id: furthermore
+    severity: error
+    match: "\\bfurthermore\\b"
+    message: "Start the sentence with its own point."
+
+  - id: moreover
+    severity: error
+    match: "\\bmoreover\\b"
+    message: "Start the sentence with its own point."
+
+  - id: in-conclusion
+    severity: error
+    match: "\\bin conclusion\\b"
+    message: "State the conclusion. Do not announce it."
+
+  - id: worth-noting
+    severity: error
+    match: "\\bit'?s worth noting\\b|\\bit is worth noting\\b|\\bit is important to note\\b"
+    message: "If it is worth noting, note it."
+
+  - id: at-the-end-of-the-day
+    severity: error
+    # Only the discourse-marker use (followed by a comma). The literal temporal
+    # sense ("the batch runs at the end of the day") stays legal.
+    match: "\\bat the end of the day,"
+    message: "Cut the phrase and state the point."
+
+  - id: lets-dive-in
+    severity: error
+    match: "\\blet'?s dive in\\b"
+    message: "Start with the content."
+
+  - id: dive-into
+    severity: warn
+    match: "\\bdiv(e|es|ing) into\\b"
+    unless:
+      - "\\bdiv(e|es|ing) into (the )?(pool|water|sea|ocean|wreck)\\b"
+    message: "Usually 'read', 'look at', or just the verb for what you are doing."
+
+  # ---------------------------------------------------------------- corporate verbs
+  - id: leverage
+    severity: error
+    match: "\\bleverag(e|es|ed|ing)\\b"
+    unless:
+      # Finance and engineering senses are real terms.
+      - "\\b(financial|operating|debt|net|balance.sheet)\\s+leverage\\b"
+      - "\\bleverage\\s+(ratio|point|effect)\\b"
+      - "\\bleveraged\\s+(buyout|loan|finance|etf)\\b"
+    message: "Use 'use'."
+
+  - id: utilize
+    severity: error
+    # Deliberately does not match 'utilization', a real capacity-planning term.
+    match: "\\butiliz(e|es|ed|ing)\\b|\\butilis(e|es|ed|ing)\\b"
+    message: "Use 'use'."
+
+  - id: delve
+    severity: error
+    match: "\\bdelv(e|es|ed|ing)\\b"
+    message: "Use 'look at', 'read', or 'go through'."
+
+  - id: showcase
+    severity: error
+    match: "\\bshowcas(e|es|ed|ing)\\b"
+    unless:
+      - "\\b(glass|display|trophy|museum)\\s+showcase\\b"
+    message: "Use 'show'."
+
+  - id: boasts
+    severity: error
+    match: "\\bboasts\\b"
+    unless:
+      - "\\bboasts?\\s+about\\b"
+    message: "State the number without the verb: 'uptime is 99.9%'."
+
+  - id: underscores-verb
+    severity: warn
+    # The AI tell is always the transitive verb ("this underscores the need").
+    # Requiring a following determiner keeps the plural noun ("the filename
+    # underscores are significant") out of scope without needing an exception.
+    match: "\\bunderscor(es|ed|ing)\\s+(the|that|this|these|those|a|an|how|why|just|again|its|our|their|his|her)\\b"
+    unless:
+      # Identifier context, where the word is a literal character name.
+      - "_"
+    message: "Use 'shows', 'proves', or drop the sentence."
+
+  # ---------------------------------------------------------------- buzzwords
+  - id: seamless
+    severity: error
+    match: "\\bseamless(ly)?\\b"
+    unless:
+      # Manufacturing sense.
+      - "\\bseamless\\s+(pipe|tube|steel|garment|knit|weld)\\b"
+    message: "Say what actually happens, or cut the word."
+
+  - id: cutting-edge
+    severity: error
+    # Bounded so 'cutting edges of the sheet' does not match.
+    match: "\\bcutting[- ]edge\\b"
+    message: "Name the thing that is new."
+
+  - id: holistic
+    severity: warn
+    match: "\\bholistic(ally)?\\b"
+    unless:
+      - "\\bholistic\\s+(medicine|health|healing|therapy|wellness|practitioner|nutrition)\\b"
+    message: "Say which parts you mean."
+
+  - id: synergy
+    severity: error
+    match: "\\bsynerg(y|ies|istic|istically)\\b"
+    message: "Name the actual benefit."
+
+  - id: paradigm-shift
+    severity: error
+    match: "\\bparadigm shift\\b"
+    message: "Say what changed."
+
+  - id: game-changer
+    severity: error
+    match: "\\bgame[- ]chang(er|ing)\\b"
+    message: "Say what it changes."
+
+  - id: unlock-the
+    severity: error
+    # Only the marketing sense. 'unlock the door' and 'unlock the account' pass.
+    match: "\\bunlock (the|your) (potential|power|value|secret|secrets|full)\\b"
+    message: "Say what becomes possible."
+
+  - id: elevate-your
+    severity: error
+    match: "\\belevate your\\b"
+    message: "Say what improves."
+
+  - id: in-todays-x
+    severity: error
+    match: "\\bin today'?s (fast[- ]paced|digital|business|competitive|modern)\\b"
+    message: "Cut the opener and start with the point."
+
+  # ---------------------------------------------------------------- AI self-reference
+  - id: as-an-ai
+    severity: error
+    match: "\\bas an AI\\b|\\bas a large language model\\b"
+    message: "Cut it."
+
+  # ---------------------------------------------------------------- soft-focus adverbs
+  # These have real technical senses, so they warn instead of blocking.
+  - id: silently
+    severity: warn
+    match: "\\bsilent(ly)?\\b"
+    unless:
+      - "\\bfails?\\s+silently\\b"
+      - "\\bfailed\\s+silently\\b"
+      - "\\bsilently\\s+(ignor|drop|discard|swallow|skip|truncat|overwrit|fail)"
+      - "\\bsilent\\s+(mode|install|failure|corruption|film|letter|partner)\\b"
+    message: "Say what happened and what it affected."
+
+  - id: quietly
+    severity: warn
+    match: "\\bquietly\\b"
+    message: "Say what happened and what it affected."
+
+  - id: mechanical
+    severity: warn
+    match: "\\bmechanical(ly)?\\b"
+    unless:
+      - "\\bmechanical\\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\\b"
+    message: "Say what the process actually does."
+
+  - id: load-bearing
+    severity: error
+    match: "\\bload[- ]bearing\\b"
+    unless:
+      # Structural engineering sense.
+      - "\\bload[- ]bearing\\s+(wall|walls|beam|column|member|structure|capacity|frame)\\b"
+    message: "Say what depends on it."
+
+# Sentence shapes a regex cannot reach. These are checked by the semantic layer
+# only. `render` copies them into the generated prompt text and into the docs.
+structures:
+  - id: binary-contrast
+    name: "Binary contrast cliche"
+    description: "Stating what something is not, then what it is, as a rhetorical flourish."
+    bad: "This isn't just a bug. It's a trust problem."
+    good: "This bug will make people distrust the report."
+
+  - id: short-clause-contrast
+    name: "Short-clause contrast (X rather than Y)"
+    description: >-
+      The same move compressed into one clause. Needs judgment: "rather than" is
+      often perfectly ordinary ("fix the cause rather than the symptom"). Flag it
+      only when it is a paired noun-vs-noun contrast added for effect.
+    bad: "Treat that as a floor rather than a rate."
+    good: "Treat that as a floor: real usage is probably higher, since the sample skews toward older records."
+
+  - id: throat-clearing
+    name: "Throat-clearing opener"
+    description: "Stalling before the actual point."
+    bad: "Here's the thing: the deal stalled because..."
+    good: "The deal stalled because..."
+
+  - id: faux-insight
+    name: "Faux-insight setup"
+    description: "Manufactured suspense before a plain fact."
+    bad: "What nobody tells you about churn is..."
+    good: "State the fact directly."
+
+  - id: weasel-attribution
+    name: "Weasel attribution"
+    description: "A claim backed by an unnamed authority."
+    bad: "Experts agree this is best practice."
+    good: "Name the actual source, or drop the claim."
+
+  - id: fake-strong-verbs
+    name: "Fake-strong verbs on weak claims"
+    description: "Inflating what something plainly does."
+    bad: "This property serves as a centralized hub for deal stage."
+    good: "This property stores the deal stage."
+
+  - id: meta-commentary
+    name: "Meta-commentary about the writing itself"
+    description: "Narrating that you are being clear or honest instead of just being clear or honest."
+    bad: "To be transparent, I want to flag that..."
+    good: "State the flag."
+
+  - id: synonym-cycling
+    name: "Synonym cycling"
+    description: "Restating the same point across consecutive sentences in near-identical words to sound thorough."
+    bad: "This is a major issue. It's a significant problem. This really matters."
+    good: "Say it once."
+
+  - id: hedging-stacks
+    name: "Hedging stacks"
+    description: "Piling up qualifiers instead of picking one."
+    bad: "It's possible that this might potentially cause..."
+    good: "This could cause..."

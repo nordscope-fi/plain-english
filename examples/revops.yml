@@ -1,0 +1,46 @@
+# Sample project config for a revenue-operations repo.
+#
+# Copy to `.plain-english.yml` at your repo root and edit. This file exists to
+# show the shape of a project config, not to prescribe anyone's vocabulary.
+#
+# The point of `extends: default` is that you never fork the ruleset. You add
+# your own vocabulary, exclude the files that quote banned terms on purpose,
+# and adjust individual severities. Upstream rule fixes still reach you.
+
+version: 1
+extends: default
+
+# Terms that never trigger a finding. Standard platform vocabulary your readers
+# already use daily should go here, so the semantic layer stops asking you to
+# gloss words like "picklist".
+allow:
+  - "\\bSegments?\\b"
+  - "\\bSnippets?\\b"
+  - "\\bpicklist\\b"
+  - "\\bMRR\\b"
+  - "\\bARR\\b"
+  - "\\bpipeline stages?\\b"
+  - "\\bsequences?\\b"
+  - "\\benrollments?\\b"
+  - "\\bworkflows?\\b"
+  - "hs_[a-z_]+"          # namespaced CRM property names
+  - "\\b(Deal|Contact|Company|Ticket)\\b"
+
+# Files the linter skips entirely. Anything that quotes the banned list as
+# reference material belongs here.
+exclude:
+  - "docs/writing-style.md"
+  - "docs/verbatim-quotes/**"
+  - "CHANGELOG.md"
+  - "**/*.min.*"
+
+# Adjust individual rules without forking the file.
+rules:
+  # A sales-adjacent repo writes "showcase" about customer stories often enough
+  # that blocking on it costs more than it saves.
+  - id: showcase
+    severity: warn
+
+  # This repo documents structural work, so the engineering sense dominates.
+  - id: load-bearing
+    severity: off

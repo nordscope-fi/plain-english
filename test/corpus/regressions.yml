@@ -1,0 +1,157 @@
+# One case per escape that reached a user. These are permanent.
+#
+# The rule: when something slips through, the fix is not complete until a case
+# lands here. A corpus that only grows by design intent misses the ways real
+# text actually escapes.
+#
+#   channel   which adapter handles the payload (docs | github | issue)
+#   expect    deny | allow
+#   files     written into a temp dir first; {{TMP}} in the payload resolves to it
+
+cases:
+  - name: "em dash in an issue title"
+    channel: issue
+    expect: deny
+    rule: em-dash
+    why: >-
+      The guard read the description but never the title, so em-dash titles
+      landed for months before anyone noticed. Seven of them.
+    payload:
+      tool_name: mcp__linear__save_issue
+      tool_input:
+        title: "Refresh token race — two workers, one mandate"
+        description: "Two workers can refresh the same token at once."
+
+  - name: "em dash in a patch new_string"
+    channel: issue
+    expect: deny
+    rule: em-dash
+    why: "Patch edits were invisible for the same reason titles were."
+    payload:
+      tool_name: mcp__linear__save_issue
+      tool_input:
+        patch:
+          - old_string: "the old wording"
+            new_string: "the new wording — with a dash"
+
+  - name: "old_string in a patch is NOT judged"
+    channel: issue
+    expect: allow
+    why: >-
+      old_string is existing text being replaced. Judging it means an agent
+      fixing one line of a legacy body gets blocked by the rest of it.
+    payload:
+      tool_name: mcp__linear__save_issue
+      tool_input:
+        patch:
+          - old_string: "Furthermore, we utilize a seamless paradigm shift."
+            new_string: "The importer now retries once."
+
+  - name: "git commit -F bypasses an inline-only scan"
+    channel: github
+    expect: deny
+    rule: delve
+    why: >-
+      A guard that reads only the command string sees no message at all here.
+      Any environment where -F is the habitual form is completely unguarded.
+    files:
+      msg.txt: |
+        fix: correct the retry window
+
+        Let us delve into why the first attempt failed.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "git commit -F {{TMP}}/msg.txt"
+
+  - name: "gh pr create --body-file bypasses an inline-only scan"
+    channel: github
+    expect: deny
+    rule: em-dash
+    files:
+      body.md: |
+        ## Summary
+
+        Fixes the retry window — the first attempt used the wrong unit.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "gh pr create --title 'fix: retry window' --body-file {{TMP}}/body.md"
+
+  - name: "gh issue create -F bypasses an inline-only scan"
+    channel: github
+    expect: deny
+    rule: furthermore
+    files:
+      issue.md: |
+        The importer drops rows silently.
+
+        Furthermore, the counter is never reset.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "gh issue create -t 'importer drops rows' -F {{TMP}}/issue.md"
+
+  - name: "git commit --amend --no-edit carries no new text"
+    channel: github
+    expect: allow
+    why: "No message is being introduced, so there is nothing to judge."
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "git commit --amend --no-edit"
+
+  - name: "read-only gh commands are never judged"
+    channel: github
+    expect: allow
+    why: >-
+      gh pr view output routinely contains other people's prose. Judging read
+      commands makes the guard fire on text the agent did not write.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "gh pr view 42 --json body"
+
+  - name: "a missing -F target does not crash the guard"
+    channel: github
+    expect: allow
+    why: "Fail-open. An unreadable path must never block a commit."
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "git commit -F {{TMP}}/does-not-exist.txt"
+
+  - name: "MultiEdit was not matched by the original hook"
+    channel: docs
+    expect: deny
+    rule: em-dash
+    why: "Only Write and Edit were matched, so MultiEdit wrote unchecked."
+    payload:
+      tool_name: MultiEdit
+      tool_input:
+        file_path: "{{TMP}}/notes.md"
+        edits:
+          - old_string: "before"
+            new_string: "after — with a dash"
+
+  - name: "Edit judges only the inserted side"
+    channel: docs
+    expect: allow
+    why: >-
+      old_string is the text being removed. Blocking on it means you can never
+      edit a file that already contains a banned word.
+    payload:
+      tool_name: Edit
+      tool_input:
+        file_path: "{{TMP}}/notes.md"
+        old_string: "Furthermore, we utilize a seamless approach."
+        new_string: "The importer retries once."
+
+  - name: "non-markdown files are out of scope for the docs channel"
+    channel: docs
+    expect: allow
+    payload:
+      tool_name: Write
+      tool_input:
+        file_path: "{{TMP}}/config.json"
+        content: '{"strategy": "leverage"}'

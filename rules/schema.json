@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nordscope-fi/plain-english/rules/schema.json",
+  "title": "plain-english ruleset",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "extends": {
+      "description": "Base ruleset to build on. Only 'default' is built in; anything else is read as a path.",
+      "type": "string"
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "intro": { "type": "string" }
+      }
+    },
+    "allow": {
+      "description": "Terms that never trigger a finding, even if a rule matches them. Treated as regexes.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "exclude": {
+      "description": "Glob patterns for files the linter skips entirely.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "punctuation": { "$ref": "#/$defs/ruleList" },
+    "rules": { "$ref": "#/$defs/ruleList" },
+    "structures": {
+      "description": "Sentence shapes no regex can reach. Consumed by the semantic layer and the docs generator.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "bad": { "type": "string" },
+          "good": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "ruleList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "severity": {
+            "enum": ["error", "warn", "off"],
+            "default": "error"
+          },
+          "match": {
+            "description": "Regex applied case-insensitively to the masked text. Required unless the entry only overrides severity.",
+            "type": "string",
+            "minLength": 1
+          },
+          "unless": {
+            "description": "Regexes that cancel a match. Checked against the surrounding line.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "message": {
+            "description": "The rewrite hint shown with the finding.",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
