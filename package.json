@@ -1,0 +1,56 @@
+{
+  "name": "@nordscope/plain-english",
+  "version": "0.1.0",
+  "description": "Catch AI writing tells before they land. A linter for banned words and AI-tell sentence shapes, with adapters for Claude Code hooks, pre-commit, and CI.",
+  "keywords": [
+    "linter",
+    "writing",
+    "prose",
+    "ai-detection",
+    "claude-code",
+    "pre-commit",
+    "style-guide"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "plain-english": "dist/cli.js"
+  },
+  "main": "dist/lint.js",
+  "types": "dist/lint.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lint.d.ts",
+      "default": "./dist/lint.js"
+    },
+    "./rules/default.yml": "./rules/default.yml"
+  },
+  "files": [
+    "dist",
+    "rules",
+    "integrations",
+    "examples"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "render": "node --experimental-strip-types src/cli.ts render",
+    "lint:self": "node --experimental-strip-types src/cli.ts lint docs README.md",
+    "check:refs": "bash scripts/check-no-private-refs.sh",
+    "check:refs:history": "bash scripts/check-no-private-refs.sh --history",
+    "pretest": "npm run check:refs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run check:refs && npm run check:refs:history && npm run build && npm test"
+  },
+  "dependencies": {
+    "yaml": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
