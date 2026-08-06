@@ -84,6 +84,25 @@ scan_history() {
   else
     printf 'ok: history clean (%s commits)\n' "$(git rev-list --all --count)"
   fi
+
+  # Unreachable objects are not in `git log`, so the scan above cannot see them.
+  # `git add` on a file that is never committed leaves its blob in .git/objects.
+  # A normal push does not transmit unreachable objects, but a mirror clone or
+  # a bundle does, so a leftover here is worth failing on.
+  local dangling orphan_hits=""
+  dangling=$(git fsck --unreachable --dangling 2>/dev/null | awk '$2=="blob"{print $3}')
+  for obj in $dangling; do
+    if git cat-file blob "$obj" 2>/dev/null | grep -q -E -i -- "$pattern"; then
+      orphan_hits="$orphan_hits$obj"$'\n'
+    fi
+  done
+  if [ -n "$orphan_hits" ]; then
+    printf 'FAIL: private reference(s) in unreachable git objects\n\n%s\n' "$orphan_hits" >&2
+    printf 'Clear them with:\n  git reflog expire --expire-unreachable=now --all && git gc --prune=now\n' >&2
+    status=1
+  else
+    printf 'ok: no private reference in unreachable objects\n'
+  fi
 }
 
 case "$MODE" in
