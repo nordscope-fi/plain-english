@@ -63,8 +63,18 @@ describe("init", () => {
 
   it("makes the shims executable", () => {
     initClaudeCode({ root });
-    const mode = statSync(resolve(root, ".claude/hooks/plain-english-docs.sh")).mode;
-    expect(mode & 0o111, "shim is not executable").toBeGreaterThan(0);
+    const path = resolve(root, ".claude/hooks/plain-english-docs.sh");
+
+    // NTFS has no POSIX permission bits, and Node's chmod on Windows only
+    // touches the read-only flag, so the exec bit is always 0 there. The shim
+    // is a shell script that Windows runs through a shell regardless.
+    if (process.platform === "win32") {
+      expect(statSync(path).isFile()).toBe(true);
+      expect(readFileSync(path, "utf8")).toContain("plain-english hook docs");
+      return;
+    }
+
+    expect(statSync(path).mode & 0o111, "shim is not executable").toBeGreaterThan(0);
   });
 
   it("preserves unrelated hooks under a matcher it also uses", () => {
