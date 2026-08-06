@@ -43,3 +43,7 @@ npm run lint:self
 - A rule with no corpus case.
 - An edit to a generated file.
 - A new dependency without a reason in the pull request description. Runtime dependencies are kept to the markdown parser and a YAML reader.
+
+## Releasing
+
+Maintainers: see [`docs/releasing.md`](docs/releasing.md). The first publish has to be done by hand, because npm cannot attach a trusted publisher to a package name that does not exist yet.

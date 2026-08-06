@@ -2,7 +2,7 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-08-06
 
 ### Added
 
@@ -32,3 +32,5 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - Em dash variants are caught: HTML entities, the fullwidth dash, the horizontal bar, and a zero-width space inside a word.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
+
+[0.1.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.0

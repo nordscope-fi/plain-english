@@ -1,0 +1,114 @@
+name: Release
+
+# Publishes to npm on a version tag, using OIDC trusted publishing.
+#
+# There is no NPM_TOKEN anywhere in this repository, and there should never be
+# one. npm revoked all classic tokens on 2025-12-09, and trusted publishing
+# replaces them: npm verifies the workflow identity directly from GitHub's OIDC
+# token, and attaches provenance automatically.
+#
+# ONE-TIME SETUP, in this order. The order matters and is not obvious:
+#
+#   1. Publish 0.1.0 by hand from a terminal (`npm login && npm publish`).
+#      A trusted publisher cannot be configured for a package name that does
+#      not exist yet, so the first release cannot use this workflow.
+#   2. npmjs.com -> the package -> Settings -> Trusted Publisher. Register:
+#        Organization or user:  nordscope-fi
+#        Repository:            plain-english
+#        Workflow filename:     release.yml     (filename only, no path)
+#        Environment:           npm
+#   3. npmjs.com -> the package -> Settings -> Publishing access ->
+#      "Require two-factor authentication and disallow tokens".
+#   4. GitHub -> Settings -> Environments -> create `npm`, and add yourself as
+#      a required reviewer so a publish needs an explicit approval.
+#
+# After that, releasing is: bump the version, tag, push the tag.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# Nothing is granted by default; each job asks for exactly what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify before publishing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: bash scripts/check-no-private-refs.sh
+      - run: bash scripts/check-no-private-refs.sh --history
+      - run: npm run lint:self
+      - name: Generated files are current
+        run: |
+          npm run render
+          git diff --exit-code -- docs integrations
+      - run: npx --yes publint
+      - run: npx --yes @arethetypeswrong/cli --pack --ignore-rules cjs-resolves-to-esm
+      - name: Tag matches package version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A fork pushing a tag must never be able to publish.
+    if: github.repository_owner == 'nordscope-fi'
+    # Gate on a GitHub environment so a human approves each publish.
+    environment: npm
+    permissions:
+      contents: read
+      # This is what trusted publishing runs on. Without it npm cannot verify
+      # the workflow identity and the publish is rejected.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          # npm's own guidance: never cache in a release build.
+          package-manager-cache: false
+      - name: npm must be new enough for trusted publishing
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          echo "npm $(npm --version), node $(node --version)"
+          node -e "
+            const [maj,min,pat] = process.versions.node.split('.').map(Number);
+            if (maj < 22 || (maj === 22 && min < 14)) {
+              console.error('node >= 22.14.0 is required for trusted publishing');
+              process.exit(1);
+            }
+          "
+      - run: npm ci
+      - run: npm run build
+      # No --provenance flag: trusted publishing attaches provenance itself.
+      - run: npm publish
