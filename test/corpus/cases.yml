@@ -390,3 +390,66 @@ cases:
       > Their original wording is preserved here.
 
       Furthermore, the cache was stale.
+
+  # ==========================================================================
+  # Suppression. These directives are read from masked text, so an example of
+  # one inside a code fence is documentation, not a live directive.
+  # ==========================================================================
+
+  - name: "disable-next-line suppresses the named rule"
+    expect: pass
+    text: |
+      <!-- plain-english-disable-next-line leverage -->
+      We leverage the existing cache here on purpose.
+
+  - name: "disable-next-line does not suppress a different rule"
+    expect: block
+    rule: furthermore
+    text: |
+      <!-- plain-english-disable-next-line leverage -->
+      Furthermore, we leverage the cache.
+
+  - name: "disable-next-line with no rule id suppresses the whole line"
+    expect: pass
+    text: |
+      <!-- plain-english-disable-next-line -->
+      Furthermore, we leverage a seamless paradigm shift.
+
+  - name: "disable-next-line only reaches the next line"
+    expect: block
+    rule: leverage
+    text: |
+      <!-- plain-english-disable-next-line leverage -->
+      We leverage the cache here on purpose.
+      We leverage it again here by mistake.
+
+  - name: "disable-file suppresses everything"
+    expect: pass
+    text: |
+      <!-- plain-english-disable-file -->
+
+      Furthermore, we leverage a seamless paradigm shift.
+
+  - name: "a disable-file example inside a code fence is NOT a directive"
+    expect: block
+    rule: paradigm-shift
+    text: |
+      To turn the linter off for a whole file:
+
+      ```markdown
+      <!-- plain-english-disable-file -->
+      ```
+
+      That is a paradigm shift in how we document this.
+
+  - name: "a disable-next-line example inside a code fence is NOT a directive"
+    expect: block
+    rule: leverage
+    text: |
+      Suppress one rule on one line:
+
+      ```markdown
+      <!-- plain-english-disable-next-line leverage -->
+      ```
+
+      We leverage the cache downstream.

@@ -1,0 +1,103 @@
+import { describe, expect, it } from "vitest";
+import { humanise, renderWritingStyle, renderPrompts } from "../src/render.ts";
+import { compile, loadDefault } from "../src/rules.ts";
+import { lintText } from "../src/lint.ts";
+import type { Rule } from "../src/rules.ts";
+
+const rule = (match: string): Rule => ({ id: "x", severity: "error", match });
+
+describe("humanise", () => {
+  it("keeps an optional group optional", () => {
+    // Collapsing this to "seamlessly" tells the reader the bare word is fine.
+    expect(humanise(rule("\\bseamless(ly)?\\b"))).toBe("seamless[ly]");
+    expect(humanise(rule("\\bholistic(ally)?\\b"))).toBe("holistic[ally]");
+    expect(humanise(rule("\\bsilent(ly)?\\b"))).toBe("silent[ly]");
+  });
+
+  it("renders a required group as a choice", () => {
+    expect(humanise(rule("\\bdelv(e|es|ed|ing)\\b"))).toBe("delv(e/es/ed/ing)");
+  });
+
+  it("collapses a character class used as a separator", () => {
+    expect(humanise(rule("\\bcutting[- ]edge\\b"))).toBe("cutting-edge");
+  });
+
+  it("splits top-level alternation but not nested alternation", () => {
+    expect(humanise(rule("\\bas an AI\\b|\\bas a large language model\\b"))).toBe(
+      "as an AI, as a large language model",
+    );
+    expect(humanise(rule("\\bgame[- ]chang(er|ing)\\b"))).toBe("game-chang(er/ing)");
+  });
+
+  it("renders an optional literal as the straight form", () => {
+    expect(humanise(rule("\\bit'?s worth noting\\b"))).toBe("it's worth noting");
+    expect(humanise(rule("\\blet'?s dive in\\b"))).toBe("let's dive in");
+  });
+
+  it("leaves no regex punctuation in the reader-facing form", () => {
+    const set = compile(loadDefault());
+    for (const r of set.rules) {
+      if (r.severity === "off") continue;
+      const text = humanise(r);
+      expect(text, `${r.id} -> ${text}`).not.toMatch(/[\\?+^$]|\\b/);
+    }
+  });
+
+  it("names the dashes in words", () => {
+    expect(humanise(rule("—"))).toBe("em dash (—)");
+    expect(humanise(rule("\\s–\\s"))).toBe("en dash used as a sentence break");
+  });
+});
+
+describe("generated artifacts", () => {
+  const set = compile(loadDefault());
+
+  it("documents every rule that is not off", () => {
+    const doc = renderWritingStyle(set);
+    for (const r of set.rules) {
+      if (r.severity === "off") continue;
+      expect(doc, `rule ${r.id} missing from the generated doc`).toContain(humanise(r));
+    }
+  });
+
+  it("carries the do-not-edit banner", () => {
+    expect(renderWritingStyle(set)).toContain("GENERATED");
+    for (const p of Object.values(renderPrompts(set))) expect(p).toContain("GENERATED");
+  });
+
+  it("lists every blocking term in each prompt", () => {
+    const prompts = renderPrompts(set);
+    const blocking = set.rules.filter((r) => r.severity === "error");
+    for (const [name, prompt] of Object.entries(prompts)) {
+      for (const r of blocking) {
+        expect(prompt, `${name} prompt is missing ${r.id}`).toContain(humanise(r));
+      }
+    }
+  });
+
+  it("names every sentence shape in each prompt", () => {
+    const prompts = renderPrompts(set);
+    for (const [name, prompt] of Object.entries(prompts)) {
+      for (const s of set.structures) {
+        expect(prompt, `${name} prompt is missing ${s.id}`).toContain(s.name);
+      }
+    }
+  });
+
+  it("the generated style guide lints clean against itself", () => {
+    // It quotes every banned term as reference material, so without its own
+    // disable directive it reports ~30 findings against itself. An adopter
+    // should not have to discover that and hand-write an exclude entry.
+    const doc = renderWritingStyle(set);
+    expect(doc).toContain("plain-english-disable-file");
+    expect(lintText(doc, set).errorCount).toBe(0);
+  });
+
+  it("commits no absolute path, only the placeholder", () => {
+    const prompts = renderPrompts(set);
+    expect(prompts["docs"]).toContain("{{PROJECT_DIR}}");
+    for (const p of Object.values(prompts)) {
+      expect(p).not.toMatch(/\/(Users|home)\//);
+    }
+  });
+});

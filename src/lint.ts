@@ -89,16 +89,28 @@ export function lintText(
   const { allowInlineSuppression = true } = options;
   const findings: Finding[] = [];
 
-  if (allowInlineSuppression && SUPPRESS_FILE.test(text)) {
-    return { findings, errorCount: 0, warnCount: 0 };
-  }
-
-  const masked = maskNonProse(text);
+  // Two views of the same text.
+  //
+  // `directiveView` keeps HTML comments, so suppression directives are
+  // readable, but blanks code fences, so a directive shown as an EXAMPLE inside
+  // a fence is not live. Reading directives from raw source made the generated
+  // style guide disable itself: it documents the disable-file comment in a
+  // fenced block, and every finding in the file vanished without a word.
+  //
+  // `masked` blanks comments as well, so the rule name inside a directive
+  // (`disable-next-line leverage`) is not itself reported as a finding.
+  const directiveView = maskNonProse(text);
+  const masked = maskNonProse(text, { maskComments: true });
   const starts = lineIndex(text);
   const sourceLines = text.split("\n");
   const maskedLines = masked.split("\n");
+
+  if (allowInlineSuppression && SUPPRESS_FILE.test(directiveView)) {
+    return { findings, errorCount: 0, warnCount: 0 };
+  }
+
   const suppressed = allowInlineSuppression
-    ? suppressionsFor(sourceLines)
+    ? suppressionsFor(directiveView.split("\n"))
     : new Map<number, Set<string> | "all">();
 
   for (const rule of ruleSet.rules) {

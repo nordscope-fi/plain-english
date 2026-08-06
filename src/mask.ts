@@ -158,11 +158,33 @@ function inlineRegions(text: string): Region[] {
   return regions;
 }
 
+/** HTML comments. Never rendered, so never prose. */
+function htmlCommentRegions(text: string): Region[] {
+  const regions: Region[] = [];
+  const re = /<!--[\s\S]*?-->/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    regions.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return regions;
+}
+
+export interface MaskOptions {
+  /**
+   * Blank HTML comments too.
+   *
+   * Off for the pass that reads suppression directives, which live in comments.
+   * On for the pass that matches rules, so the word named in a directive
+   * (`disable-next-line leverage`) is not itself reported as a finding.
+   */
+  maskComments?: boolean;
+}
+
 /**
  * Returns a copy of `text` with every non-prose region replaced by spaces.
  * Length and newline positions are preserved so offsets remain valid.
  */
-export function maskNonProse(text: string): string {
+export function maskNonProse(text: string, opts: MaskOptions = {}): string {
   const chars = [...text];
   const apply = (regions: Region[]) => {
     for (const { start, end } of regions) {
@@ -180,6 +202,7 @@ export function maskNonProse(text: string): string {
   apply(indentedCodeRegions(text, chars.join("")));
   apply(blockquoteRegions(text));
   apply(inlineRegions(text));
+  if (opts.maskComments) apply(htmlCommentRegions(text));
 
   return chars.join("");
 }
