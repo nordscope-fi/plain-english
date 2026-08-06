@@ -1,0 +1,24 @@
+name: False negative
+description: Text that should have been flagged and was not
+labels: ["false-negative"]
+body:
+  - type: textarea
+    id: text
+    attributes:
+      label: The text that was missed
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Which rule should have caught it
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `plain-english doctor`
+      render: shell
+    validations:
+      required: true

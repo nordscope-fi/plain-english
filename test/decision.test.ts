@@ -8,7 +8,7 @@ import { initClaudeCode } from "../src/init.ts";
 import { readFileSync } from "node:fs";
 
 const EM = "—";
-const advisory: RuleSet = compile({ ...loadDefault(), failOn: "warn" });
+const advisory: RuleSet = compile({ ...loadDefault(), failOn: "never" });
 const strict: RuleSet = compile({ ...loadDefault(), failOn: "error" });
 
 function docsWrite(dir: string, content: string) {
@@ -20,7 +20,7 @@ function docsWrite(dir: string, content: string) {
 
 describe("advisory is the default", () => {
   it("the built-in ruleset does not block", () => {
-    expect(loadDefault().failOn).toBe("warn");
+    expect(loadDefault().failOn).toBe("never");
   });
 
   it("asks instead of denying", () => {
@@ -96,7 +96,7 @@ describe("init emits permission-rule scoping", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-init-cfg-"));
     initClaudeCode({ root: dir });
     const cfg = readFileSync(resolve(dir, ".plain-english.yml"), "utf8");
-    expect(cfg).toContain("failOn: warn");
+    expect(cfg).toContain("failOn: never");
     rmSync(dir, { recursive: true, force: true });
   });
 });

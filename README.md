@@ -16,10 +16,12 @@ docs/onboarding.md
 3 blocking, 1 warning across 6 files
 ```
 
+Findings are reported and the run exits 0. Blocking is opt-in.
+
 ## Install
 
 ```bash
-npm install -D @nordscope/plain-english
+npm install -D plain-english
 npx plain-english lint .
 ```
 
@@ -119,7 +121,13 @@ rules:                      # adjust without copying the file
     severity: off
 ```
 
-Severities are `error` (blocks, exit 1), `warn` (reported, exit 0) and `off`.
+Severities are `error`, `warn` and `off`. `failOn` decides which of them affects the exit code:
+
+```yaml
+failOn: never    # default: report everything, exit 0
+failOn: error    # blocking findings fail the build and refuse the write
+failOn: warn     # strictest: warnings fail too
+```
 
 ## CLI
 
@@ -140,6 +148,21 @@ plain-english hook <CHANNEL>     PreToolUse adapter (docs|github|issue)
 
 Adding a rule means adding a corpus case that blocks and a case that exercises its exceptions. `npm test` refuses to pass if a rule has neither.
 
+## How this relates to other tools
+
+The rules here are not original, and the sources are worth reading directly.
+
+| Project | What it is |
+|---|---|
+| [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) | The canonical catalogue of these patterns, maintained by WikiProject AI Cleanup. Describes itself as observations, not rules. |
+| [stop-slop](https://github.com/hardikpandya/stop-slop) | A skill file that tells a model what to avoid writing. Generation side. |
+| [Vale](https://github.com/errata-ai/vale) | A general prose linter with a much larger rule surface and a style-package ecosystem. |
+| [textlint](https://github.com/textlint/textlint), [alex](https://github.com/get-alex/alex) | Pluggable prose linting on the unified stack. |
+
+stop-slop and the Wikipedia list describe the patterns. This runs them against text that already exists, deterministically, with a test corpus and an exit code. If you want a model to write better in the first place, use a skill file. If you want to check what landed, use this.
+
+For general prose linting beyond AI tells, use Vale. It is a bigger tool and it is very good.
+
 ## Contributing
 
 Every bug that reaches a user becomes a permanent fixture in `test/corpus/regressions.yml`. If you find a false positive, a case in `test/corpus/cases.yml` is a complete bug report.
@@ -148,6 +171,10 @@ Every bug that reaches a user becomes a permanent fixture in `test/corpus/regres
 npm ci && npm test
 npm run render && git diff --exit-code    # generated files must be current
 ```
+
+## Limitations
+
+[`docs/limitations.md`](docs/limitations.md) covers what this gets wrong and who it gets wrong for: the published false-positive rate against non-native English writers, dialect exposure in the word list, English-only scope, and why the signal decays. Read it before turning on blocking.
 
 ## Design notes
 

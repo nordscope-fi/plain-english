@@ -218,7 +218,7 @@ export function decide(
 
   // Strict mode refuses outright. Otherwise the finding is surfaced to the
   // human, who can wave it through without editing config or removing a hook.
-  const decision: HookDecision = ruleSet.failOn === "error" ? "deny" : "ask";
+  const decision: HookDecision = ruleSet.failOn === "never" ? "ask" : "deny";
   return { allow: false, decision, reason: formatReason(errors, channel), findings };
 }
 

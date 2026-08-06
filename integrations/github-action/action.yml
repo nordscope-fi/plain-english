@@ -26,7 +26,7 @@ runs:
     - name: Lint files
       shell: bash
       run: |
-        npx --yes @nordscope/plain-english@${{ inputs.version }} lint \
+        npx --yes plain-english@${{ inputs.version }} lint \
           ${{ inputs.paths }} --format github --fail-on ${{ inputs.fail-on }}
 
     # The web UI can edit the PR title and body directly, bypassing local hooks.
@@ -38,7 +38,7 @@ runs:
         PR_BODY: ${{ github.event.pull_request.body }}
       run: |
         printf '%s\n\n%s\n' "$PR_TITLE" "$PR_BODY" \
-          | npx --yes @nordscope/plain-english@${{ inputs.version }} lint - \
+          | npx --yes plain-english@${{ inputs.version }} lint - \
               --fail-on ${{ inputs.fail-on }}
 
 branding:

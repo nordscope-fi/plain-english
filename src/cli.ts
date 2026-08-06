@@ -247,7 +247,7 @@ USAGE
 
 LINT OPTIONS
   --format text|json|github          output shape (default: text)
-  --fail-on error|warn|never         exit-code threshold (default: error)
+  --fail-on never|error|warn         exit-code threshold (default: never)
 
 RENDER OPTIONS
   --check                            exit 1 if generated files are stale

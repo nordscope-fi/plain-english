@@ -1,18 +1,33 @@
 {
-  "name": "@nordscope/plain-english",
+  "name": "plain-english",
   "version": "0.1.0",
   "description": "Catch AI writing tells before they land. A linter for banned words and AI-tell sentence shapes, with adapters for Claude Code hooks, pre-commit, and CI.",
   "keywords": [
     "linter",
+    "lint",
+    "static-code-analysis",
     "writing",
     "prose",
+    "markdown",
     "ai-detection",
+    "ai-slop",
     "claude-code",
     "pre-commit",
-    "style-guide"
+    "style-guide",
+    "typescript"
   ],
   "license": "MIT",
+  "author": "NordScope",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nordscope-fi/plain-english.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nordscope-fi/plain-english/issues"
+  },
+  "homepage": "https://github.com/nordscope-fi/plain-english#readme",
   "type": "module",
+  "sideEffects": false,
   "bin": {
     "plain-english": "dist/cli.js"
   },
@@ -23,16 +38,17 @@
       "types": "./dist/lint.d.ts",
       "default": "./dist/lint.js"
     },
-    "./rules/default.yml": "./rules/default.yml"
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "rules",
     "integrations",
-    "examples"
+    "examples",
+    "docs"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -57,6 +73,6 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.10"
   }
 }

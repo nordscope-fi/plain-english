@@ -5,7 +5,7 @@ A checklist for putting this in front of a repo that already has writing in it.
 ## 1. See where you stand before turning anything on
 
 ```bash
-npx @nordscope/plain-english lint . --fail-on never
+npx plain-english lint . --fail-on never
 ```
 
 `--fail-on never` reports without exiting non-zero. On an existing repo the first run is usually noisy, and most of the noise tells you something about the ruleset rather than about your writing.
@@ -23,7 +23,7 @@ The third pile is the interesting one. If a word blocks you more than twice for 
 ## 3. Write a project config
 
 ```bash
-npx @nordscope/plain-english init
+npx plain-english init
 ```
 
 That drops a starter `.plain-english.yml`. Fill in the vocabulary your readers already use daily:
@@ -61,8 +61,8 @@ CI gives you a week of real data at no cost to anybody's flow. A gate that block
 ## 5. Add the write-time hooks
 
 ```bash
-npx @nordscope/plain-english init --claude-code --dry-run
-npx @nordscope/plain-english init --claude-code
+npx plain-english init --claude-code --dry-run
+npx plain-english init --claude-code
 ```
 
 Always dry-run first against a repo with an existing `.claude/settings.json`. The merge preserves unrelated hooks under the same matcher, and the dry run tells you how many it found.

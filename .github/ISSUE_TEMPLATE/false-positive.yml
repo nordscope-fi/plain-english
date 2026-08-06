@@ -1,0 +1,38 @@
+name: False positive
+description: A rule flagged text it should not have flagged
+labels: ["false-positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The sentence that was wrongly flagged usually becomes the test case verbatim, so please paste it exactly.
+  - type: textarea
+    id: text
+    attributes:
+      label: The text that was flagged
+      description: Paste it exactly, including surrounding markdown.
+      render: markdown
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id
+      description: The id in parentheses in the output, for example `leverage`.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this use is legitimate
+      description: Domain, register, or the technical sense of the word.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `plain-english doctor`
+      render: shell
+    validations:
+      required: true
+

@@ -46,12 +46,16 @@ export interface RuleSet {
   version: 1;
   meta: { title: string; intro: string };
   /**
-   * Exit-code threshold. Defaults to "warn", so findings are reported and the
-   * process still exits 0.
+   * Severity threshold at which the exit code becomes non-zero, and at which
+   * the editor hook refuses a write.
    *
-   * Every comparable tool in this space is advisory, and published guidance
-   * puts word-choice rules in the warning tier. A gate people cannot merge past
-   * gets bypassed wholesale, which is worse than no gate. Blocking is opt-in.
+   *   never  report everything and exit 0   (the default)
+   *   error  non-zero when a blocking finding exists
+   *   warn   non-zero when any finding exists, warnings included
+   *
+   * The default is advisory. Comparable tools are advisory, published guidance
+   * puts word-choice rules in the warning tier, and a gate people cannot merge
+   * past gets bypassed. Blocking is something a project opts into.
    */
   failOn: FailOn;
   rules: Rule[];
@@ -250,7 +254,7 @@ function toRuleSet(raw: RawSet): RuleSet {
   }
   return {
     version: 1,
-    failOn: (failOn as FailOn) ?? "warn",
+    failOn: (failOn as FailOn) ?? "never",
     meta: {
       title: typeof meta.title === "string" ? meta.title : "Writing style",
       intro: typeof meta.intro === "string" ? meta.intro : "",

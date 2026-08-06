@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/nordscope-fi/plain-english/discussions
+    about: Ask here rather than opening an issue.
+  - name: Disagree with a rule
+    url: https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md
+    about: Read the limitations first. Several known problems are documented there.

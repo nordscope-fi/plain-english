@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Actions on a faster cadence than dependencies: a compromised action is a
+  # supply-chain problem, a stale library usually is not.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
