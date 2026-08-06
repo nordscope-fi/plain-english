@@ -135,13 +135,45 @@ describe("init", () => {
     expect(() => statSync(resolve(root, ".plain-english.yml"))).toThrow();
   });
 
-  it("substitutes the project directory into the prompt", () => {
+  it("resolves the prompt placeholder", () => {
     initClaudeCode({ root });
     const s = settings();
     const docs = s["hooks"].PreToolUse.find((b: any) => b.matcher.includes("Write"));
     const prompt = docs.hooks.find((h: any) => h.type === "prompt").prompt;
-    expect(prompt).toContain(root);
     expect(prompt).not.toContain("{{PROJECT_DIR}}");
+  });
+
+  // .claude/settings.json is usually committed. Writing the machine's own
+  // directory layout into it breaks the file for every other contributor and
+  // leaks a local path into what may be a public repo. An earlier version did
+  // exactly that, which is the fault this package exists to remove.
+  it("writes no absolute filesystem path into settings.json", () => {
+    initClaudeCode({ root });
+    const raw = readFileSync(resolve(root, ".claude/settings.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    for (const block of parsed.hooks.PreToolUse) {
+      for (const entry of block.hooks) {
+        const prompt: string = entry.prompt ?? "";
+        expect(prompt, `prompt for ${block.matcher} embeds the project path`).not.toContain(root);
+        expect(prompt).not.toMatch(/\/(Users|home)\//);
+      }
+    }
+    // The command hook uses the variable Claude Code expands, not a real path.
+    expect(raw).toContain("$CLAUDE_PROJECT_DIR/.claude/hooks/");
+  });
+
+  it("produces byte-identical settings from two different project roots", () => {
+    initClaudeCode({ root });
+    const a = readFileSync(resolve(root, ".claude/settings.json"), "utf8");
+
+    const other = mkdtempSync(resolve(tmpdir(), "pe-init-other-"));
+    initClaudeCode({ root: other });
+    const b = readFileSync(resolve(other, ".claude/settings.json"), "utf8");
+    rmSync(other, { recursive: true, force: true });
+
+    // Two people running init on the same project must get the same file, or
+    // the settings file churns on every checkout.
+    expect(b).toBe(a);
   });
 });
 

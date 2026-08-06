@@ -159,7 +159,17 @@ export function initClaudeCode(opts: InitOptions): number {
       },
       {
         type: "prompt",
-        prompt: (prompts[c.channel] ?? "").replaceAll("{{PROJECT_DIR}}", root),
+        // Deliberately NOT the absolute path.
+        //
+        // .claude/settings.json is usually committed, so writing the machine's
+        // own directory layout into it breaks the file for every other
+        // contributor and leaks a local path into what may be a public repo.
+        // That is the same fault this package was built to remove.
+        //
+        // The prompt does not need the path anyway: the command hook scopes by
+        // path, and its `if` rule scopes by file type, both before the prompt
+        // is ever reached.
+        prompt: (prompts[c.channel] ?? "").replaceAll("{{PROJECT_DIR}}", "this repository"),
         model,
         timeout: 30,
         continueOnBlock: true,

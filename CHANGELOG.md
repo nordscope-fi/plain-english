@@ -2,6 +2,14 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-08-06
+
+Supersedes 0.1.1, which was tagged but never published.
+
+### Fixed
+
+- `init` no longer writes an absolute filesystem path into `.claude/settings.json`. That file is usually committed, so the machine's own directory layout was breaking the file for every other contributor and leaking a local path into what may be a public repo. The prompt never needed it: the command hook scopes by path and its `if` rule scopes by file type, both before the prompt runs. Two people running `init` on the same project now get byte-identical settings.
+
 ## [0.1.1] - 2026-08-06
 
 ### Fixed
@@ -42,5 +50,6 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
+[0.1.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.0
