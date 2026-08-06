@@ -1,0 +1,15 @@
+- id: plain-english
+  name: plain-english
+  description: Catch AI writing tells in markdown before they are committed.
+  entry: plain-english lint
+  language: node
+  types: [markdown]
+  pass_filenames: true
+
+- id: plain-english-commit-msg
+  name: plain-english (commit message)
+  description: Catch AI writing tells in the commit message itself.
+  entry: plain-english lint
+  language: node
+  stages: [commit-msg]
+  pass_filenames: true

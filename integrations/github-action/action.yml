@@ -1,0 +1,46 @@
+name: plain-english
+description: Catch AI writing tells in markdown, and optionally in the pull request body.
+author: NordScope
+
+inputs:
+  paths:
+    description: Files or directories to lint, space separated.
+    required: false
+    default: "."
+  fail-on:
+    description: Exit-code threshold. One of error, warn, never.
+    required: false
+    default: error
+  check-pr-body:
+    description: Also lint the pull request title and body.
+    required: false
+    default: "false"
+  version:
+    description: Package version to run.
+    required: false
+    default: latest
+
+runs:
+  using: composite
+  steps:
+    - name: Lint files
+      shell: bash
+      run: |
+        npx --yes @nordscope/plain-english@${{ inputs.version }} lint \
+          ${{ inputs.paths }} --format github --fail-on ${{ inputs.fail-on }}
+
+    # The web UI can edit the PR title and body directly, bypassing local hooks.
+    - name: Lint pull request body
+      if: ${{ inputs.check-pr-body == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+      run: |
+        printf '%s\n\n%s\n' "$PR_TITLE" "$PR_BODY" \
+          | npx --yes @nordscope/plain-english@${{ inputs.version }} lint - \
+              --fail-on ${{ inputs.fail-on }}
+
+branding:
+  icon: edit-3
+  color: gray-dark
