@@ -44,10 +44,15 @@ status=0
 
 scan_tree() {
   local hits
-  # -I skips binary files; the pathspec drops this script and anything ignored.
-  hits=$(git grep -n -I -E -i -- "$pattern" -- . ":(exclude)$SELF" 2>/dev/null)
-  # Fall back to grep when nothing is committed yet (fresh git init).
-  if [ -z "$hits" ] && [ -z "$(git ls-files 2>/dev/null)" ]; then
+  # --untracked is what makes this correct: a plain `git grep` searches only
+  # tracked files, so a new file carrying a private reference would pass the
+  # check and then be committed by the very next `git add`. Ignored files stay
+  # out of scope, which is what --exclude-standard preserves.
+  # -I skips binaries; the pathspec drops this script, which holds the denylist.
+  hits=$(git grep -n -I -E -i --untracked --exclude-standard \
+           -- "$pattern" -- . ":(exclude)$SELF" 2>/dev/null)
+  # Fall back to plain grep outside a git repo entirely.
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
     hits=$(grep -rn -I -E -i --exclude-dir=.git --exclude-dir=node_modules \
              --exclude-dir=dist --exclude="$(basename "$SELF")" \
              -- "$pattern" . 2>/dev/null)
