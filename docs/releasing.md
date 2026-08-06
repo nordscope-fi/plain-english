@@ -47,6 +47,8 @@ npm version patch      # or minor, or major
 git push --follow-tags
 ```
 
+`npm version` creates an **annotated** tag, which matters: `git push --follow-tags` pushes annotated tags and silently ignores lightweight ones. Tagging by hand with `git tag v0.1.1` produces a lightweight tag, the push reports "Everything up-to-date", and nothing triggers. Use `git tag -a` if you tag manually.
+
 The tag triggers `release.yml`, which verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint`, `arethetypeswrong`, and a check that the tag matches `package.json`. Then it waits for your approval on the `npm` environment and publishes.
 
 ## Version numbering
