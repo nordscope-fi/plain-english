@@ -2,6 +2,15 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-08-06
+
+### Fixed
+
+- The generated semantic prompts now state that a pass is the normal answer, forbid returning a failure whose own reason says the content is acceptable, and report only the single clearest problem. Without these, a prompt asked to find patterns finds patterns: one document was refused twelve times in a row, twice on wording the model had proposed a turn earlier, and once after reasoning that no violation existed.
+- The prompts no longer restate the banned word list. The deterministic layer has already checked every term by the time a prompt runs, so the prompt judges sentence shapes, which is the part a regex cannot reach.
+- `workflow_dispatch` on the release workflow could never reach the publish job, because the tag check compared `main` against the package version. The check now runs only on a tag push.
+- CI cancels superseded runs instead of queueing them.
+
 ## [0.1.0] - 2026-08-06
 
 ### Added
@@ -33,4 +42,5 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
+[0.1.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.0

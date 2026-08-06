@@ -175,9 +175,38 @@ const JSON_CONTRACT =
   'Respond with ONLY JSON, nothing else: {"ok": true} if it passes, or ' +
   '{"ok": false, "reason": "<quote the offending substring verbatim, then give a one-line plain rewrite>"} if it does not.';
 
+/**
+ * Calibration.
+ *
+ * Asked to find a list of patterns, a model finds patterns. Observed in this
+ * project before these rules existed: one document was refused twelve times in
+ * a row; on two of those the model flagged wording it had itself proposed one
+ * turn earlier; on another it reasoned to the conclusion that no violation
+ * existed and returned a refusal anyway.
+ *
+ * The three rules below target those failures directly. The self-consistency
+ * rule is the important one: a verdict whose own reasoning says the text is
+ * fine must be a pass.
+ */
+const CALIBRATION =
+  "CALIBRATION. Most text you see is fine. A pass is the normal answer, and returning one is " +
+  'a correct, complete job. Do not go looking for something to flag.\n\n' +
+  "SELF-CONSISTENCY. If your reasoning arrives at the conclusion that the text is acceptable, " +
+  'you MUST return {"ok": true}. Never return a failure whose reason says the content passes, ' +
+  "says no violation was found, or hedges about whether a rule applies. A failure means you " +
+  "located a specific, quotable problem and are certain about it.\n\n" +
+  "ONE FLAG. Report the single clearest problem. Do not accumulate borderline observations, " +
+  "and do not flag a phrase you would accept if you saw it in a well-edited document.\n\n" +
+  "NO SECOND-GUESSING A REWRITE. If the text reads as a plain, direct statement of fact, it " +
+  "passes, even if you can imagine a different phrasing.";
+
 const PRECISION =
   "Before writing your reason, quote the exact substring from the text that triggered it. " +
   "If you cannot find that substring verbatim in the text, do not flag it. " +
+  "The deterministic linter has already checked every banned term and blocked the write if it " +
+  "found one, so a term reaching you has already passed that check: judge SENTENCE SHAPES, and " +
+  "flag a listed term only when it is genuinely being used as the tell rather than as ordinary " +
+  "domain vocabulary. " +
   "Do NOT flag: exact technical identifiers that must stay verbatim, text inside code blocks or " +
   "inline code, quoted third-party text in blockquotes, URLs, normal concise writing, or " +
   "stylistic choices outside this list. Be precise, not paranoid.";
@@ -209,6 +238,8 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
     "",
+    CALIBRATION,
+    "",
     PRECISION,
     "",
     JSON_CONTRACT,
@@ -233,6 +264,8 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "--body-file/--notes-file. Ignore branch names, flags, file paths and commit hashes. Flag:",
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
+    "",
+    CALIBRATION,
     "",
     PRECISION,
     "",
@@ -261,6 +294,8 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "- Unglossed internal shorthand",
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
+    "",
+    CALIBRATION,
     "",
     PRECISION,
     "",

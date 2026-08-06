@@ -4,3 +4,8 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .plain-english-cache/
+
+# Claude Code session state, not project content.
+.claude-session-lock
+.claude/
+.playwright-mcp/
