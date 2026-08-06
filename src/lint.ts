@@ -126,10 +126,16 @@ export function lintText(
       const maskedLine = maskedLines[line - 1] ?? "";
       const sourceLine = sourceLines[line - 1] ?? "";
 
-      // `unless` and `allow` are checked against the masked line, so an
+      // `unless` and `allow` are both checked against the masked line, so an
       // exception can never be satisfied by text hiding inside a code span.
+      //
+      // `allow` used to be tested against the matched term alone, which made it
+      // useless: an entry only fired if it matched a banned word, so a project
+      // vocabulary list like "pipeline stages" suppressed nothing at all. The
+      // whole shipped example config was inert. Matching the line is what the
+      // documentation always described.
       if (rule.unlessRe?.some((re) => re.test(maskedLine))) continue;
-      if (ruleSet.allowRe?.some((re) => re.test(m![0]))) continue;
+      if (ruleSet.allowRe?.some((re) => re.test(maskedLine))) continue;
 
       const sup = suppressed.get(line);
       if (sup === "all" || (sup instanceof Set && sup.has(rule.id))) continue;

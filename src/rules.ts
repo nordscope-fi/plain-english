@@ -10,6 +10,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import { findUnsafe } from "./safe-regex.ts";
 
 export type Severity = "error" | "warn" | "off";
 
@@ -150,7 +151,65 @@ function parseSet(text: string, where: string): RawSet {
   if (raw.version !== 1) {
     throw new RuleError(`${where}: version must be 1 (got ${String(raw.version)})`);
   }
+  rejectUnknownKeys(raw as Record<string, unknown>, where);
   return raw;
+}
+
+/** Keys a ruleset or project config may carry. Mirrors rules/schema.json. */
+const KNOWN_TOP_LEVEL = new Set([
+  "version",
+  "extends",
+  "meta",
+  "allow",
+  "exclude",
+  "failOn",
+  "punctuation",
+  "rules",
+  "structures",
+]);
+
+/** Levenshtein distance, used only to suggest the key the author meant. */
+function editDistance(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const cur = new Array<number>(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1]! + 1, prev[j]! + 1, prev[j - 1]! + cost);
+    }
+    prev.splice(0, prev.length, ...cur);
+  }
+  return prev[b.length]!;
+}
+
+/**
+ * A typo'd key used to be accepted in silence, so `allowlist:` for `allow:`
+ * looked like it worked and suppressed nothing. Erroring here, with a
+ * suggestion, is the whole value of shipping a schema.
+ */
+function rejectUnknownKeys(obj: Record<string, unknown>, where: string): void {
+  for (const key of Object.keys(obj)) {
+    if (KNOWN_TOP_LEVEL.has(key)) continue;
+    const lower = key.toLowerCase();
+    // A prefix relationship catches the common shape of this typo, where
+    // someone writes `allowlist` or `excludes` for `allow` and `exclude`.
+    // Edit distance alone misses `allowlist` -> `allow`, which is 4 apart.
+    const near =
+      [...KNOWN_TOP_LEVEL]
+        .filter((k) => lower.startsWith(k.toLowerCase()) || k.toLowerCase().startsWith(lower))
+        .sort((a, b) => b.length - a.length)
+        .map((k) => [k, 0] as const)[0] ??
+      [...KNOWN_TOP_LEVEL]
+        .map((k) => [k, editDistance(lower, k.toLowerCase())] as const)
+        .filter(([, d]) => d <= 3)
+        .sort((x, y) => x[1] - y[1])[0];
+    throw new RuleError(
+      `${where}: unknown key '${key}'` +
+        (near ? `. Did you mean '${near[0]}'?` : "") +
+        `\n  Valid keys: ${[...KNOWN_TOP_LEVEL].sort().join(", ")}`,
+    );
+  }
 }
 
 function toRuleSet(raw: RawSet): RuleSet {
@@ -243,10 +302,26 @@ export function resolveRuleSet(from: string): RuleSet {
   return compile(loadDefault());
 }
 
-/** Compile every regex once. Throws on an invalid pattern, naming the rule. */
+/**
+ * Compile every regex once. Throws on an invalid or unsafe pattern, naming the
+ * rule so the author knows which line of their config to fix.
+ */
 export function compile(set: RuleSet): RuleSet {
+  const guard = (source: string, where: string) => {
+    const unsafe = findUnsafe(source);
+    if (unsafe) {
+      throw new RuleError(
+        `${where}: pattern ${JSON.stringify(source)} can backtrack catastrophically ` +
+          `(${unsafe.kind}: ${unsafe.detail}).\n` +
+          `  This would hang the linter. Rewrite it without the nested repeat, ` +
+          `for example (a+)+ as a+ .`,
+      );
+    }
+  };
+
   for (const rule of set.rules) {
     if (rule.severity === "off" || !rule.match) continue;
+    guard(rule.match, `rule '${rule.id}'`);
     try {
       rule.re = new RegExp(rule.match, "gi");
     } catch (e) {
@@ -256,6 +331,7 @@ export function compile(set: RuleSet): RuleSet {
       );
     }
     rule.unlessRe = (rule.unless ?? []).map((u, i) => {
+      guard(u, `rule '${rule.id}' unless[${i}]`);
       try {
         return new RegExp(u, "i");
       } catch (e) {
@@ -267,6 +343,7 @@ export function compile(set: RuleSet): RuleSet {
     });
   }
   set.allowRe = set.allow.map((a, i) => {
+    guard(a, `allow[${i}]`);
     try {
       return new RegExp(a, "i");
     } catch (e) {

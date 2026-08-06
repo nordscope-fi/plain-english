@@ -8,7 +8,8 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { extname, relative, resolve } from "node:path";
+import { extname, relative, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { renderAll, writeTargets } from "./render.ts";
@@ -16,6 +17,7 @@ import { decide, toHookOutput, type Channel } from "./adapters/claude-hook.ts";
 import { initClaudeCode } from "./init.ts";
 import { matchesAny } from "./glob.ts";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
 
 interface Args {
@@ -238,6 +240,7 @@ USAGE
   plain-english lint [PATH...]        lint files or directories (default: stdin)
   plain-english render               regenerate docs/ and prompt templates
   plain-english explain [RULE]       show a rule, or list them all
+  plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
   plain-english hook <CHANNEL>       PreToolUse adapter (docs|github|issue)
 
@@ -253,12 +256,89 @@ INIT OPTIONS
   --claude-code                      merge hooks into .claude/settings.json
   --dry-run                          print what would change
 
+  --version                          print the version and exit
+
 Config: .plain-english.yml at the repo root, "extends: default".
 Docs:   docs/writing-style.md
 `;
 
+function packageVersion(): string {
+  for (const p of [
+    resolve(HERE, "..", "package.json"),
+    resolve(HERE, "..", "..", "package.json"),
+  ]) {
+    try {
+      return (JSON.parse(readFileSync(p, "utf8")) as { version?: string }).version ?? "unknown";
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return "unknown";
+}
+
+/**
+ * Environment dump for bug reports. The issue template asks for this output,
+ * which is the difference between a reproducible report and a guess.
+ */
+function cmdDoctor(): number {
+  const root = process.cwd();
+  let configPath = "(built-in defaults)";
+  for (let dir = root; ; ) {
+    const hit = [".plain-english.yml", ".plain-english.yaml"]
+      .map((n) => resolve(dir, n))
+      .find((p) => existsSync(p));
+    if (hit) {
+      configPath = relative(root, hit) || hit;
+      break;
+    }
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  let ruleSummary = "(failed to load)";
+  try {
+    const set = resolveRuleSet(root);
+    const active = set.rules.filter((r) => r.severity !== "off");
+    ruleSummary =
+      `${active.length} active ` +
+      `(${active.filter((r) => r.severity === "error").length} error, ` +
+      `${active.filter((r) => r.severity === "warn").length} warn), ` +
+      `${set.rules.length - active.length} off`;
+  } catch (e) {
+    ruleSummary = `(error: ${e instanceof Error ? e.message.split("\n")[0] : String(e)})`;
+  }
+
+  process.stdout.write(
+    [
+      `plain-english ${packageVersion()}`,
+      `node          ${process.version}`,
+      `platform      ${process.platform} ${process.arch}`,
+      `cwd           ${root}`,
+      `config        ${configPath}`,
+      `rules         ${ruleSummary}`,
+      `structures    ${resolveRuleSetSafe(root)}`,
+      "",
+    ].join("\n"),
+  );
+  return 0;
+}
+
+function resolveRuleSetSafe(root: string): string {
+  try {
+    return String(resolveRuleSet(root).structures.length);
+  } catch {
+    return "(unavailable)";
+  }
+}
+
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
+
+  if (args.flags["version"] || args.command === "version") {
+    process.stdout.write(`${packageVersion()}\n`);
+    return 0;
+  }
 
   if (!args.command || args.flags["help"] || args.command === "help") {
     process.stdout.write(USAGE);
@@ -273,6 +353,8 @@ async function main(): Promise<number> {
         return cmdRender(args);
       case "explain":
         return cmdExplain(args);
+      case "doctor":
+        return cmdDoctor();
       case "hook":
         return await cmdHook(args);
       case "init":
