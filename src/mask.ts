@@ -1,213 +1,209 @@
 /**
- * Blank out the parts of a document that are not prose.
+ * Blank out everything in a document that is not prose a reader reads.
  *
- * The original regex guard had no masking at all, which made it fire on code
- * samples, identifiers, URLs and quoted third-party text. Those were the
- * majority of its false positives.
+ * This used to be a stack of regexes over raw text. That approach produced four
+ * separate bugs in a single adversarial pass: HTML `<pre>` and `<code>` blocks
+ * were scanned, TOML frontmatter was not masked, footnote definitions were
+ * swallowed by the link-reference-definition pattern, and four-space-indented
+ * list continuation prose was mistaken for a code block. Vale hit the same
+ * class of bug taking the same route (errata-ai/vale#387).
  *
- * Masking replaces each non-prose region with spaces of the same length rather
- * than deleting it. Offsets stay aligned with the source, so a finding can
- * still report a correct line and column against the original text.
- */
-
-/** A region of the source that should not be scanned. */
-interface Region {
-  start: number;
-  end: number;
-}
-
-const SPACE_PRESERVING_NEWLINES = (s: string): string =>
-  s.replace(/[^\n]/g, " ");
-
-/**
- * YAML frontmatter: a `---` fence on line 1 through the next `---` line.
- * Titles and descriptions there are metadata, not prose the reader sees inline.
- */
-function frontmatterRegion(text: string): Region | null {
-  if (!/^---[ \t]*\r?\n/.test(text)) return null;
-  const close = /\r?\n---[ \t]*(\r?\n|$)/.exec(text);
-  if (!close) return null;
-  return { start: 0, end: close.index + close[0].length };
-}
-
-/**
- * Fenced code blocks, including nested fences.
+ * Parsing removes the class rather than the instances. A markdown parser
+ * already knows what a code span is, so `code`, `inlineCode`, `html`, table
+ * cells and link destinations are simply never visited. Only text nodes and the
+ * few other literal nodes a reader actually reads are kept.
  *
- * A fence closes only on a marker at least as long as the one that opened it
- * and of the same character, which is what lets a ```` ```` ```` block contain a
- * ``` ``` ``` block without ending early.
+ * The output is the same length as the input, with non-prose replaced by
+ * spaces and newlines preserved, so byte offsets stay aligned and a finding can
+ * still report a correct line and column against the original source.
  */
-function fencedCodeRegions(text: string): Region[] {
-  const regions: Region[] = [];
-  const lines = text.split(/(?<=\n)/); // keep line terminators
-  let offset = 0;
-  let open: { char: string; len: number; start: number } | null = null;
 
-  for (const line of lines) {
-    const m = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
-    if (m) {
-      const marker = m[1]!;
-      const char = marker[0]!;
-      const len = marker.length;
-      if (!open) {
-        // An opening fence may carry an info string; a closing one may not.
-        open = { char, len, start: offset };
-      } else if (char === open.char && len >= open.len && !line.slice(m[0].length).trim()) {
-        regions.push({ start: open.start, end: offset + line.length });
-        open = null;
-      }
-    }
-    offset += line.length;
-  }
-  // An unclosed fence masks to end of document, which is what a renderer does.
-  if (open) regions.push({ start: open.start, end: text.length });
-  return regions;
-}
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { gfmFromMarkdown } from "mdast-util-gfm";
+import { gfm } from "micromark-extension-gfm";
+import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
+import { frontmatter } from "micromark-extension-frontmatter";
+import { visit } from "unist-util-visit";
 
 /**
- * Indented code blocks: four spaces or a tab, but only where the line cannot be
- * a list continuation. Kept deliberately narrow to avoid masking wrapped prose.
+ * Node types whose text a reader reads.
+ *
+ * `text` covers ordinary prose. `heading`, `emphasis`, `strong`, `listItem` and
+ * the rest are containers whose `text` children are visited anyway, so they do
+ * not need listing. Link TEXT is prose and is visited; a link DESTINATION is a
+ * URL and lives on `node.url`, which is never a child node, so it is excluded
+ * for free.
  */
-function indentedCodeRegions(text: string, masked: string): Region[] {
-  const regions: Region[] = [];
-  const lineStarts: number[] = [0];
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === "\n") lineStarts.push(i + 1);
-  }
-
-  let blankBefore = true;
-  for (let i = 0; i < lineStarts.length; i++) {
-    const start = lineStarts[i]!;
-    const end = i + 1 < lineStarts.length ? lineStarts[i + 1]! : text.length;
-    const line = text.slice(start, end);
-    // Skip anything already masked (inside a fence).
-    if (masked.slice(start, end).trim() === "" && line.trim() !== "") {
-      blankBefore = false;
-      continue;
-    }
-    const isBlank = line.trim() === "";
-    const isIndentedCode = /^(?: {4}|\t)/.test(line) && !isBlank;
-    // Only treat it as code when a blank line precedes it, matching CommonMark
-    // closely enough to avoid swallowing wrapped list items.
-    if (isIndentedCode && blankBefore) {
-      let scanEnd = end;
-      let j = i + 1;
-      while (j < lineStarts.length) {
-        const s = lineStarts[j]!;
-        const e = j + 1 < lineStarts.length ? lineStarts[j + 1]! : text.length;
-        const l = text.slice(s, e);
-        if (/^(?: {4}|\t)/.test(l) || l.trim() === "") {
-          scanEnd = e;
-          j++;
-        } else break;
-      }
-      regions.push({ start, end: scanEnd });
-      i = j - 1;
-      blankBefore = true;
-      continue;
-    }
-    if (!isBlank) blankBefore = false;
-    else blankBefore = true;
-  }
-  return regions;
-}
-
-/** Blockquotes. Quoted text is someone else's words, so it is never judged. */
-function blockquoteRegions(text: string): Region[] {
-  const regions: Region[] = [];
-  const re = /^[ \t]{0,3}>.*(?:\r?\n[ \t]{0,3}>.*)*/gm;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    regions.push({ start: m.index, end: m.index + m[0].length });
-  }
-  return regions;
-}
+const PROSE_NODES = new Set(["text"]);
 
 /**
- * Inline spans that are not prose:
- *   `code`            identifiers, property names, snippets
- *   <https://...>     autolinks
- *   bare URLs
- *   ](target)         the target half of a markdown link, but NOT the text half
- *   [ref]: target     link reference definitions
+ * Frontmatter formats to recognise. YAML uses `---`, TOML uses `+++` and is
+ * what Hugo and Zola emit. Missing TOML meant a title line was linted as prose.
  */
-function inlineRegions(text: string): Region[] {
-  const regions: Region[] = [];
-  const push = (re: RegExp, group?: number) => {
-    re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(text)) !== null) {
-      if (group === undefined) {
-        regions.push({ start: m.index, end: m.index + m[0].length });
-      } else {
-        const inner = m[group];
-        if (inner === undefined) continue;
-        const at = m.index + m[0].indexOf(inner, m[0].indexOf("](") >= 0 ? m[0].indexOf("](") : 0);
-        regions.push({ start: at, end: at + inner.length });
-      }
-      if (m[0].length === 0) re.lastIndex++;
-    }
-  };
-
-  push(/(`+)[^`]*?\1/g); // inline code, backtick-count aware
-  push(/<[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^>\s]+>/g); // autolink
-  push(/\]\(([^)\s]+)/g, 1); // link target only
-  push(/^[ \t]{0,3}\[[^\]]+\]:[ \t]*\S+/gm); // link reference definition
-  push(/\bhttps?:\/\/\S+/g); // bare URL
-  push(/\b[\w.-]+@[\w.-]+\.\w+\b/g); // email
-  return regions;
-}
-
-/** HTML comments. Never rendered, so never prose. */
-function htmlCommentRegions(text: string): Region[] {
-  const regions: Region[] = [];
-  const re = /<!--[\s\S]*?-->/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    regions.push({ start: m.index, end: m.index + m[0].length });
-  }
-  return regions;
-}
+const FRONTMATTER = ["yaml", { type: "toml", marker: "+" }] as const;
 
 export interface MaskOptions {
   /**
    * Blank HTML comments too.
    *
    * Off for the pass that reads suppression directives, which live in comments.
-   * On for the pass that matches rules, so the word named in a directive
+   * On for the pass that matches rules, so the rule name inside a directive
    * (`disable-next-line leverage`) is not itself reported as a finding.
    */
   maskComments?: boolean;
 }
 
-/**
- * Returns a copy of `text` with every non-prose region replaced by spaces.
- * Length and newline positions are preserved so offsets remain valid.
- */
-export function maskNonProse(text: string, opts: MaskOptions = {}): string {
-  const chars = [...text];
-  const apply = (regions: Region[]) => {
-    for (const { start, end } of regions) {
-      for (let i = start; i < end && i < chars.length; i++) {
-        if (chars[i] !== "\n" && chars[i] !== "\r") chars[i] = " ";
-      }
-    }
-  };
-
-  const fm = frontmatterRegion(text);
-  if (fm) apply([fm]);
-  apply(fencedCodeRegions(text));
-
-  // Indented-code detection needs to know what the fences already covered.
-  apply(indentedCodeRegions(text, chars.join("")));
-  apply(blockquoteRegions(text));
-  apply(inlineRegions(text));
-  if (opts.maskComments) apply(htmlCommentRegions(text));
-
-  return chars.join("");
+interface Span {
+  start: number;
+  end: number;
 }
 
-/** Convenience for callers that want the untouched prose only. */
+/** Spans of prose within the source, from the parsed document. */
+function proseSpans(text: string): Span[] {
+  const tree = fromMarkdown(text, {
+    extensions: [gfm(), frontmatter([...FRONTMATTER])],
+    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
+  });
+
+  const spans: Span[] = [];
+  visit(tree, (node) => {
+    // A table's cells hold identifiers and values far more often than prose,
+    // and the ecosystem convention (mdast-util-to-nlcst) is to skip them.
+    if (node.type === "table") return "skip";
+    // Everything under an html node is raw markup, including <pre> and <code>.
+    if (node.type === "html") return "skip";
+    // A definition is a link target. Footnote definitions are a different node
+    // type and fall through, so their prose is still checked.
+    if (node.type === "definition") return "skip";
+    // A quote is someone else's words. Blocking a customer email that happens
+    // to contain a banned term helps nobody.
+    if (node.type === "blockquote") return "skip";
+
+    // Link TEXT is prose and is visited. A link DESTINATION lives on node.url
+    // and is never a child, so it is excluded already. The exception is an
+    // autolink or a bare URL, where the visible text IS the destination.
+    if (node.type === "link") {
+      const url = (node as { url?: string }).url ?? "";
+      const kids = (node as { children?: { type: string; value?: string }[] }).children ?? [];
+      const onlyText = kids.length === 1 && kids[0]?.type === "text" ? kids[0].value ?? "" : null;
+      if (onlyText !== null && (url === onlyText || url === `mailto:${onlyText}`)) return "skip";
+    }
+
+    if (!PROSE_NODES.has(node.type)) return;
+    const pos = node.position;
+    if (pos?.start?.offset == null || pos?.end?.offset == null) return;
+    spans.push({ start: pos.start.offset, end: pos.end.offset });
+  });
+  return spans;
+}
+
+/**
+ * Content between paired inline HTML code tags.
+ *
+ * The parser reports an inline `<code>` as an `html` node for the opening tag,
+ * a `text` node for the content, and another `html` node for the closing tag.
+ * Skipping `html` therefore drops the tags and keeps the code between them, so
+ * `Use <code>leverage()</code> here.` still produced a finding. These tag pairs
+ * carry code by definition, so the span between them is not prose.
+ */
+const INLINE_CODE_TAGS = /<(code|pre|kbd|samp|var|tt)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+
+function inlineHtmlCodeSpans(text: string): Span[] {
+  const spans: Span[] = [];
+  INLINE_CODE_TAGS.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = INLINE_CODE_TAGS.exec(text)) !== null) {
+    spans.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return spans;
+}
+
+/** HTML comments, for the matching pass. */
+function commentSpans(text: string): Span[] {
+  const spans: Span[] = [];
+  const re = /<!--[\s\S]*?-->/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    spans.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return spans;
+}
+
+/**
+ * Returns a copy of `text` in which everything except prose is replaced by
+ * spaces. Length and newline positions are preserved.
+ */
+export function maskNonProse(text: string, opts: MaskOptions = {}): string {
+  let spans: Span[];
+  try {
+    spans = proseSpans(text);
+  } catch {
+    // A parser failure must never turn into a linter crash. Falling back to
+    // "nothing is prose" is the safe direction: it under-reports rather than
+    // blocking a write on garbage.
+    return text.replace(/[^\n\r]/g, " ");
+  }
+
+  // Start with everything blanked, then restore the prose spans.
+  const out = new Array<string>(text.length);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    out[i] = ch === "\n" || ch === "\r" ? ch : " ";
+  }
+  for (const { start, end } of spans) {
+    for (let i = start; i < end && i < text.length; i++) out[i] = text[i]!;
+  }
+
+  // Re-blank the inside of inline HTML code tags, which the prose pass keeps.
+  for (const { start, end } of inlineHtmlCodeSpans(text)) {
+    for (let i = start; i < end && i < text.length; i++) {
+      const ch = text[i]!;
+      if (ch !== "\n" && ch !== "\r") out[i] = " ";
+    }
+  }
+
+  if (opts.maskComments) {
+    for (const { start, end } of commentSpans(text)) {
+      for (let i = start; i < end && i < text.length; i++) {
+        const ch = text[i]!;
+        if (ch !== "\n" && ch !== "\r") out[i] = " ";
+      }
+    }
+  } else {
+    // Directives live in HTML comments, which the parser reports as `html`
+    // nodes and which the prose pass therefore drops. Restore the comments so
+    // the directive reader can see them. A comment inside a fenced code block
+    // is part of the `code` node, not an `html` node, so it stays blanked and
+    // an example directive in the docs is not treated as a live directive.
+    for (const { start, end } of commentSpans(text)) {
+      if (isInsideCode(text, start)) continue;
+      for (let i = start; i < end && i < text.length; i++) out[i] = text[i]!;
+    }
+  }
+
+  return out.join("");
+}
+
+/** True when an offset falls inside a fenced or indented code block. */
+function isInsideCode(text: string, offset: number): boolean {
+  try {
+    const tree = fromMarkdown(text, {
+      extensions: [gfm(), frontmatter([...FRONTMATTER])],
+      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
+    });
+    let inside = false;
+    visit(tree, "code", (node) => {
+      const s = node.position?.start?.offset;
+      const e = node.position?.end?.offset;
+      if (s != null && e != null && offset >= s && offset < e) inside = true;
+    });
+    return inside;
+  } catch {
+    return false;
+  }
+}
+
+/** Convenience for callers that want the prose only. */
 export function proseOnly(text: string): string {
   return maskNonProse(text)
     .split("\n")
@@ -215,10 +211,4 @@ export function proseOnly(text: string): string {
     .join("\n");
 }
 
-export const __testing = {
-  frontmatterRegion,
-  fencedCodeRegions,
-  blockquoteRegions,
-  inlineRegions,
-  SPACE_PRESERVING_NEWLINES,
-};
+export const __testing = { proseSpans, commentSpans, isInsideCode };

@@ -7,6 +7,7 @@
  */
 
 import { maskNonProse } from "./mask.ts";
+import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
 import { compile, resolveRuleSet, type RuleSet, type Severity } from "./rules.ts";
 
 export interface Finding {
@@ -100,10 +101,18 @@ export function lintText(
   // `masked` blanks comments as well, so the rule name inside a directive
   // (`disable-next-line leverage`) is not itself reported as a finding.
   const directiveView = maskNonProse(text);
-  const masked = maskNonProse(text, { maskComments: true });
+  // Normalisation folds dash variants, dash entities and zero-width characters
+  // to a canonical form at identical length, so offsets stay valid. Without it
+  // the em dash rule was defeated by `&mdash;` and by the fullwidth dash.
+  const normalised = normaliseForMatching(maskNonProse(text, { maskComments: true }));
+  // Zero-width characters have to be deleted to be matched through, which
+  // shifts offsets, so `toSource` maps a match position back to the original.
+  const compacted = stripZeroWidth(normalised);
+  const masked = compacted.text;
+  const toSource = (i: number): number => compacted.map?.[i] ?? i;
   const starts = lineIndex(text);
   const sourceLines = text.split("\n");
-  const maskedLines = masked.split("\n");
+  const maskedLines = normalised.split("\n");
 
   if (allowInlineSuppression && SUPPRESS_FILE.test(directiveView)) {
     return { findings, errorCount: 0, warnCount: 0 };
@@ -122,7 +131,9 @@ export function lintText(
         rule.re.lastIndex++;
         continue;
       }
-      const { line, column } = locate(starts, m.index);
+      const sourceStart = toSource(m.index);
+      const sourceEnd = toSource(m.index + m[0].length - 1) + 1;
+      const { line, column } = locate(starts, sourceStart);
       const maskedLine = maskedLines[line - 1] ?? "";
       const sourceLine = sourceLines[line - 1] ?? "";
 
@@ -143,7 +154,7 @@ export function lintText(
       const finding: Finding = {
         ruleId: rule.id,
         severity: rule.severity,
-        match: text.slice(m.index, m.index + m[0].length),
+        match: text.slice(sourceStart, sourceEnd),
         line,
         column,
         lineText: sourceLine,

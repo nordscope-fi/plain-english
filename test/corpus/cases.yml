@@ -100,6 +100,45 @@ cases:
     expect: pass
     text: "Sections 4–7 cover the migration."
 
+  # Every one of these defeated the em dash rule before normalisation.
+  # None of these require intentional evasion.
+  - name: "em dash as an HTML entity blocks"
+    expect: block
+    rule: em-dash
+    text: "The build failed &mdash; the cache was stale."
+
+  - name: "em dash as a numeric entity blocks"
+    expect: block
+    rule: em-dash
+    text: "The build failed &#8212; the cache was stale."
+
+  - name: "horizontal bar blocks"
+    expect: block
+    rule: em-dash
+    text: "The build failed ― the cache was stale."
+
+  - name: "fullwidth dash blocks"
+    expect: block
+    rule: em-dash
+    text: "The build failed － the cache was stale."
+
+  - name: "zero-width space inside a word does not hide it"
+    expect: block
+    rule: furthermore
+    text: "Fur​thermore, the cache was stale."
+
+  - name: "non-breaking hyphen is treated as a hyphen"
+    expect: block
+    rule: load-bearing
+    text: "That default is load‑bearing for the pipeline."
+
+  - name: "an entity inside a code fence is still not scanned"
+    expect: pass
+    text: |
+      ```html
+      <p>a &mdash; b</p>
+      ```
+
   # ==========================================================================
   # Stock transitions
   # ==========================================================================
@@ -390,6 +429,100 @@ cases:
       > Their original wording is preserved here.
 
       Furthermore, the cache was stale.
+
+  # ==========================================================================
+  # Structure the parser handles that the previous regex masker got wrong.
+  # Each of these was a real bug found by an adversarial pass.
+  # ==========================================================================
+
+  - name: "HTML pre block is not scanned"
+    expect: pass
+    text: |
+      <pre>
+      leverage()
+      </pre>
+
+  - name: "inline HTML code tag content is not scanned"
+    expect: pass
+    text: "Call <code>leverage()</code> to warm the cache."
+
+  - name: "inline HTML kbd content is not scanned"
+    expect: pass
+    text: "Press <kbd>utilize</kbd> to continue."
+
+  - name: "prose after an inline HTML code tag IS scanned"
+    expect: block
+    rule: furthermore
+    text: "Call <code>leverage()</code> first. Furthermore, check the log."
+
+  - name: "TOML frontmatter is not scanned"
+    expect: pass
+    text: |
+      +++
+      title = "Leverage and synergy in caching"
+      +++
+
+      The cache holds parsed results for an hour.
+
+  - name: "body after TOML frontmatter IS scanned"
+    expect: block
+    rule: furthermore
+    text: |
+      +++
+      title = "Caching"
+      +++
+
+      Furthermore, the cache was stale.
+
+  - name: "footnote definition prose IS scanned"
+    expect: block
+    rule: furthermore
+    text: |
+      Here is a claim.[^1]
+
+      [^1]: Furthermore, the cache was stale.
+
+  - name: "link reference definition is not scanned"
+    expect: pass
+    text: |
+      See [the guide][ref].
+
+      [ref]: https://example.com/leverage-synergy
+
+  - name: "four-space-indented list continuation IS prose"
+    expect: block
+    rule: furthermore
+    text: |
+      - item
+
+          Furthermore, this is list body prose, not a code block.
+
+  - name: "setext heading IS scanned"
+    expect: block
+    rule: leverage
+    text: |
+      Leverage the cache
+      ==================
+
+  - name: "image alt text is not scanned"
+    expect: pass
+    text: "![leverage diagram](img.png)"
+
+  - name: "unclosed inline backtick leaves the text as prose"
+    expect: block
+    rule: leverage
+    text: "A ` leverage and more text"
+
+  - name: "CRLF line endings do not break offsets"
+    expect: block
+    rule: furthermore
+    text: "Furthermore, this fails.\r\nSecond line.\r\n"
+
+  - name: "lazy blockquote continuation stays part of the quote"
+    expect: pass
+    text: |
+      > Furthermore
+      we utilize this on the lazy continuation line
 
   # ==========================================================================
   # Suppression. These directives are read from masked text, so an example of
