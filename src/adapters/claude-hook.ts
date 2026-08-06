@@ -31,8 +31,22 @@ export interface HookPayload {
   cwd?: string;
 }
 
+/**
+ * What the hook asks Claude Code to do.
+ *
+ *   allow  nothing to report
+ *   ask    surface to the human and let them decide
+ *   deny   refuse the write outright
+ *
+ * `deny` overrides --dangerously-skip-permissions, so a denied write has no
+ * user-side escape hatch short of removing the hook. That is a lot of power
+ * for a subjective style rule, so it is reserved for the opt-in strict mode.
+ */
+export type HookDecision = "allow" | "ask" | "deny";
+
 export interface Decision {
   allow: boolean;
+  decision: HookDecision;
   reason?: string;
   findings: Finding[];
 }
@@ -165,21 +179,21 @@ export function decide(
 
   if (channel === "docs") {
     filePath = str(input["file_path"]) || str(input["notebook_path"]);
-    if (!filePath) return { allow: true, findings: [] };
-    if (!/\.(md|markdown|mdx)$/i.test(filePath)) return { allow: true, findings: [] };
+    if (!filePath) return { allow: true, decision: "allow", findings: [] };
+    if (!/\.(md|markdown|mdx)$/i.test(filePath)) return { allow: true, decision: "allow", findings: [] };
     if (isAbsolute(filePath) && !isUnderProject(filePath, projectDir)) {
-      return { allow: true, findings: [] };
+      return { allow: true, decision: "allow", findings: [] };
     }
     texts = extractFromFileWrite(tool, input);
   } else if (channel === "github") {
-    if (tool !== "Bash") return { allow: true, findings: [] };
+    if (tool !== "Bash") return { allow: true, decision: "allow", findings: [] };
     texts = extractFromBash(str(input["command"]));
   } else {
     texts = extractFromIssue(input);
   }
 
   texts = texts.filter((t) => t.trim() !== "");
-  if (!texts.length) return { allow: true, findings: [] };
+  if (!texts.length) return { allow: true, decision: "allow", findings: [] };
 
   const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir || process.cwd());
 
@@ -190,7 +204,7 @@ export function decide(
       ? resolve(filePath).slice(resolve(projectDir).length + 1)
       : filePath;
     if (matchesAny(rel, ruleSet.exclude)) {
-      return { allow: true, findings: [] };
+      return { allow: true, decision: "allow", findings: [] };
     }
   }
 
@@ -200,9 +214,12 @@ export function decide(
   }
 
   const errors = findings.filter((f) => f.severity === "error");
-  if (!errors.length) return { allow: true, findings };
+  if (!errors.length) return { allow: true, decision: "allow", findings };
 
-  return { allow: false, reason: formatReason(errors, channel), findings };
+  // Strict mode refuses outright. Otherwise the finding is surfaced to the
+  // human, who can wave it through without editing config or removing a hook.
+  const decision: HookDecision = ruleSet.failOn === "error" ? "deny" : "ask";
+  return { allow: false, decision, reason: formatReason(errors, channel), findings };
 }
 
 const CHANNEL_LABEL: Record<Channel, string> = {
@@ -242,13 +259,19 @@ export function formatReason(errors: Finding[], channel: Channel): string {
   ].join("\n");
 }
 
-/** The PreToolUse JSON Claude Code expects on stdout. */
+/**
+ * The PreToolUse JSON Claude Code expects on stdout.
+ *
+ * `permissionDecision` accepts allow, ask, deny and defer. Emitting nothing
+ * leaves the normal permission flow in charge, which is what an allow means
+ * here.
+ */
 export function toHookOutput(decision: Decision): string {
   if (decision.allow) return "";
   return JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
-      permissionDecision: "deny",
+      permissionDecision: decision.decision,
       permissionDecisionReason: decision.reason,
     },
   });

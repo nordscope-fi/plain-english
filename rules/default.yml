@@ -29,6 +29,27 @@ punctuation:
     severity: error
     match: "—"
     message: "No em dashes. Use a comma, parentheses, or a full stop."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md#the-em-dash-rule"
+
+  # A rate-based alternative, shipped off by default.
+  #
+  # Some published comparisons measure em dash use as a rate (roughly 10.6 per
+  # 1,000 words for GPT-4.1 against a cited baseline of 3.23). That baseline is
+  # drawn from professionally edited prose, where the em dash is a normal
+  # typographic device. In ordinary workplace and technical writing the base
+  # rate is near zero, so for most documents presence is the signal and a
+  # threshold only adds a way to miss it.
+  #
+  # This rule exists for anyone editing in a register where em dashes are
+  # genuinely common, such as published essays or long-form journalism.
+  #
+  # To use it:  em-dash -> severity: off, em-dash-density -> severity: warn
+  - id: em-dash-density
+    severity: off
+    match: "—"
+    perThousandWords: 6
+    message: "Em dash rate is above the configured threshold."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md#the-em-dash-rule"
 
   - id: en-dash-as-punctuation
     severity: warn

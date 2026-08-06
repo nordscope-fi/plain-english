@@ -104,12 +104,13 @@ export function renderWritingStyle(set: RuleSet): string {
   out.push("");
 
   out.push("## Words and phrases", "");
-  out.push("| Term | Severity | Instead |");
-  out.push("|---|---|---|");
+  out.push("| Term | Severity | Instead | Why |");
+  out.push("|---|---|---|---|");
   for (const rule of set.rules) {
     if (rule.severity === "off") continue;
+    const why = rule.link ? `[notes](${rule.link})` : "";
     out.push(
-      `| ${humanise(rule)} | \`${severityMark(rule)}\` | ${rule.message ?? ""} |`,
+      `| ${humanise(rule)} | \`${severityMark(rule)}\` | ${rule.message ?? ""} | ${why} |`,
     );
   }
   out.push("");

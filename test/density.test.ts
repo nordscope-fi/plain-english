@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import { lintText } from "../src/lint.ts";
+import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
+
+const EM = "—";
+
+/** The shipped ruleset with the density rule swapped in for the ban. */
+function densityRuleSet(): RuleSet {
+  const set = loadDefault();
+  for (const r of set.rules) {
+    if (r.id === "em-dash") r.severity = "off";
+    if (r.id === "em-dash-density") r.severity = "warn";
+  }
+  return compile(set);
+}
+
+function words(n: number): string {
+  return Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
+}
+
+describe("density rules fire on rate, not presence", () => {
+  const set = densityRuleSet();
+
+  it("ships off by default so the ban stays the default", () => {
+    const shipped = loadDefault();
+    expect(shipped.rules.find((r) => r.id === "em-dash")?.severity).toBe("error");
+    expect(shipped.rules.find((r) => r.id === "em-dash-density")?.severity).toBe("off");
+  });
+
+  it("one em dash in 1000 words is below the human baseline and passes", () => {
+    const text = `${words(999)} a ${EM} b`;
+    expect(lintText(text, set).findings.map((f) => f.ruleId)).toEqual([]);
+  });
+
+  it("three em dashes in 1000 words matches the human baseline and passes", () => {
+    const text = `${words(997)} a ${EM} b ${EM} c ${EM} d`;
+    expect(lintText(text, set).findings.map((f) => f.ruleId)).toEqual([]);
+  });
+
+  it("ten em dashes in 1000 words is model-shaped and fires", () => {
+    const text = `${words(990)} ${Array.from({ length: 10 }, () => `x ${EM} y`).join(" ")}`;
+    const ids = lintText(text, set).findings.map((f) => f.ruleId);
+    expect(ids).toContain("em-dash-density");
+  });
+
+  it("reports once, not once per occurrence", () => {
+    const text = `${words(990)} ${Array.from({ length: 10 }, () => `x ${EM} y`).join(" ")}`;
+    const hits = lintText(text, set).findings.filter((f) => f.ruleId === "em-dash-density");
+    expect(hits).toHaveLength(1);
+  });
+
+  it("states the measured rate and the threshold", () => {
+    const text = `${words(90)} ${Array.from({ length: 5 }, () => `x ${EM} y`).join(" ")}`;
+    const hit = lintText(text, set).findings.find((f) => f.ruleId === "em-dash-density");
+    expect(hit?.message).toMatch(/per 1,000/);
+    expect(hit?.message).toMatch(/threshold/);
+  });
+
+  it("carries the explanation link", () => {
+    const text = `${words(90)} ${Array.from({ length: 5 }, () => `x ${EM} y`).join(" ")}`;
+    const hit = lintText(text, set).findings.find((f) => f.ruleId === "em-dash-density");
+    expect(hit?.link).toContain("limitations.md");
+  });
+
+  it("does not count em dashes inside code", () => {
+    const text = ["```", Array.from({ length: 20 }, () => `a ${EM} b`).join("\n"), "```"].join("\n");
+    expect(lintText(text, set).findings.map((f) => f.ruleId)).toEqual([]);
+  });
+
+  it("an empty document produces nothing", () => {
+    expect(lintText("", set).findings).toEqual([]);
+  });
+});
+
+describe("the shipped default still bans outright", () => {
+  const set = compile(loadDefault());
+
+  it("one em dash blocks", () => {
+    expect(lintText(`a ${EM} b`, set).errorCount).toBe(1);
+  });
+
+  it("the ban carries the link to the evidence", () => {
+    const hit = lintText(`a ${EM} b`, set).findings.find((f) => f.ruleId === "em-dash");
+    expect(hit?.link).toContain("limitations.md");
+  });
+});

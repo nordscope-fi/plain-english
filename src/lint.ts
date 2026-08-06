@@ -20,6 +20,8 @@ export interface Finding {
   /** The full source line, for context in the report. */
   lineText: string;
   message?: string;
+  /** URL explaining the rule, shown with the finding. */
+  link?: string;
 }
 
 export interface LintResult {
@@ -38,6 +40,10 @@ const SUPPRESS_NEXT =
   /<!--\s*plain-english-disable-next-line(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
 /** `<!-- plain-english-disable-file -->` anywhere in the document. */
 const SUPPRESS_FILE = /<!--\s*plain-english-disable-file\s*-->/i;
+/** `<!-- plain-english-disable rule-a, rule-b -->` starts a suppressed range. */
+const SUPPRESS_RANGE_OFF = /<!--\s*plain-english-disable(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
+/** `<!-- plain-english-enable -->` ends it. */
+const SUPPRESS_RANGE_ON = /<!--\s*plain-english-enable(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
 
 function lineIndex(text: string): number[] {
   const starts = [0];
@@ -62,17 +68,68 @@ function locate(starts: number[], offset: number): { line: number; column: numbe
  * Which rules are suppressed for a given line, from the comment on the line
  * above it. An empty id list suppresses every rule on that line.
  */
+function parseIds(raw: string | undefined): Set<string> | "all" {
+  const ids = (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return ids.length ? new Set(ids) : "all";
+}
+
+function merge(
+  a: Set<string> | "all" | undefined,
+  b: Set<string> | "all",
+): Set<string> | "all" {
+  if (a === undefined) return b;
+  if (a === "all" || b === "all") return "all";
+  return new Set([...a, ...b]);
+}
+
+/**
+ * Which rules are suppressed on each line.
+ *
+ * Three forms, matching the convention the ecosystem settled on:
+ *   <!-- plain-english-disable-next-line rule -->   one line
+ *   <!-- plain-english-disable rule --> ... enable  a range
+ *   <!-- plain-english-disable-file -->             the whole file
+ *
+ * A range directive with no rule ids suppresses everything until the matching
+ * enable, or to the end of the document when the enable is missing.
+ */
 function suppressionsFor(sourceLines: string[]): Map<number, Set<string> | "all"> {
   const map = new Map<number, Set<string> | "all">();
+
   sourceLines.forEach((line, i) => {
     const m = SUPPRESS_NEXT.exec(line);
     if (!m) return;
-    const ids = (m[1] ?? "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    map.set(i + 2, ids.length ? new Set(ids) : "all"); // 1-based, next line
+    map.set(i + 2, merge(map.get(i + 2), parseIds(m[1]))); // 1-based, next line
   });
+
+  let active: Set<string> | "all" | null = null;
+  sourceLines.forEach((line, i) => {
+    // disable-next-line and disable-file both contain "disable", so the range
+    // form has to be matched only when neither of the others applies.
+    const isNext = SUPPRESS_NEXT.test(line);
+    const isFile = SUPPRESS_FILE.test(line);
+    const on = !isNext && !isFile ? SUPPRESS_RANGE_ON.exec(line) : null;
+    const off = !isNext && !isFile ? SUPPRESS_RANGE_OFF.exec(line) : null;
+
+    if (on) {
+      const ids = parseIds(on[1]);
+      if (ids === "all" || active === "all" || active === null) active = null;
+      else {
+        for (const id of ids) active.delete(id);
+        if (active.size === 0) active = null;
+      }
+      return;
+    }
+    if (off) {
+      active = merge(active ?? undefined, parseIds(off[1]));
+      return;
+    }
+    if (active !== null) map.set(i + 1, merge(map.get(i + 1), active));
+  });
+
   return map;
 }
 
@@ -122,8 +179,46 @@ export function lintText(
     ? suppressionsFor(directiveView.split("\n"))
     : new Map<number, Set<string> | "all">();
 
+  // Word count for density rules. Counted once, from prose only.
+  const wordCount = (masked.match(/\b[\p{L}\p{N}'-]+\b/gu) ?? []).length;
+
   for (const rule of ruleSet.rules) {
     if (rule.severity === "off" || !rule.re) continue;
+
+    // A density rule reports nothing until the rate crosses its threshold, so
+    // the whole document has to be counted before any finding is emitted.
+    if (rule.perThousandWords !== undefined) {
+      rule.re.lastIndex = 0;
+      const hits: RegExpExecArray[] = [];
+      let d: RegExpExecArray | null;
+      while ((d = rule.re.exec(masked)) !== null) {
+        if (d[0].length === 0) rule.re.lastIndex++;
+        else hits.push(d);
+      }
+      if (!hits.length || wordCount === 0) continue;
+      const rate = (hits.length / wordCount) * 1000;
+      if (rate <= rule.perThousandWords) continue;
+
+      const first = hits[0]!;
+      const startAt = toSource(first.index);
+      const { line, column } = locate(starts, startAt);
+      const finding: Finding = {
+        ruleId: rule.id,
+        severity: rule.severity,
+        match: text.slice(startAt, toSource(first.index + first[0].length - 1) + 1),
+        line,
+        column,
+        lineText: sourceLines[line - 1] ?? "",
+        message:
+          `${hits.length} in ${wordCount} words is ${rate.toFixed(1)} per 1,000, ` +
+          `over the ${rule.perThousandWords} threshold` +
+          (rule.message ? `. ${rule.message}` : ""),
+      };
+      if (rule.link) finding.link = rule.link;
+      findings.push(finding);
+      continue;
+    }
+
     rule.re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = rule.re.exec(masked)) !== null) {
@@ -160,6 +255,7 @@ export function lintText(
         lineText: sourceLine,
       };
       if (rule.message) finding.message = rule.message;
+      if (rule.link) finding.link = rule.link;
       findings.push(finding);
     }
   }

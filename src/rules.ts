@@ -20,6 +20,13 @@ export interface Rule {
   match: string;
   unless?: string[];
   message?: string;
+  /** URL explaining why the rule exists. Vale calls this `link`. */
+  link?: string;
+  /**
+   * When set, the rule fires only if matches exceed this rate per 1,000 words.
+   * Presence alone is not a finding.
+   */
+  perThousandWords?: number;
   /** Compiled lazily by `compile`. */
   re?: RegExp;
   unlessRe?: RegExp[];
@@ -33,9 +40,20 @@ export interface Structure {
   good?: string;
 }
 
+export type FailOn = "error" | "warn" | "never";
+
 export interface RuleSet {
   version: 1;
   meta: { title: string; intro: string };
+  /**
+   * Exit-code threshold. Defaults to "warn", so findings are reported and the
+   * process still exits 0.
+   *
+   * Every comparable tool in this space is advisory, and published guidance
+   * puts word-choice rules in the warning tier. A gate people cannot merge past
+   * gets bypassed wholesale, which is worse than no gate. Blocking is opt-in.
+   */
+  failOn: FailOn;
   rules: Rule[];
   structures: Structure[];
   allow: string[];
@@ -50,6 +68,8 @@ interface RawRule {
   match?: unknown;
   unless?: unknown;
   message?: unknown;
+  link?: unknown;
+  perThousandWords?: unknown;
 }
 
 interface RawSet {
@@ -112,6 +132,16 @@ function readRules(v: unknown, where: string): Rule[] {
       unless: asStringArray(r.unless, `${where}[${i}] (${r.id}).unless`),
     };
     if (typeof r.message === "string") rule.message = r.message;
+    if (typeof r.link === "string") rule.link = r.link;
+    if (r.perThousandWords !== undefined) {
+      const n = Number(r.perThousandWords);
+      if (!Number.isFinite(n) || n < 0) {
+        throw new RuleError(
+          `${where}[${i}] (${r.id}): perThousandWords must be a non-negative number`,
+        );
+      }
+      rule.perThousandWords = n;
+    }
     return rule;
   });
 }
@@ -214,8 +244,13 @@ function rejectUnknownKeys(obj: Record<string, unknown>, where: string): void {
 
 function toRuleSet(raw: RawSet): RuleSet {
   const meta = raw.meta ?? {};
+  const failOn = (raw as { failOn?: unknown }).failOn;
+  if (failOn !== undefined && !["error", "warn", "never"].includes(String(failOn))) {
+    throw new RuleError(`failOn must be error, warn or never (got ${String(failOn)})`);
+  }
   return {
     version: 1,
+    failOn: (failOn as FailOn) ?? "warn",
     meta: {
       title: typeof meta.title === "string" ? meta.title : "Writing style",
       intro: typeof meta.intro === "string" ? meta.intro : "",
@@ -251,6 +286,8 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.match) existing.match = r.match;
       if (r.unless && r.unless.length) existing.unless = r.unless;
       if (r.message) existing.message = r.message;
+      if (r.link) existing.link = r.link;
+      if (r.perThousandWords !== undefined) existing.perThousandWords = r.perThousandWords;
     } else {
       if (!r.match) {
         throw new RuleError(`rule '${r.id}' is new to this config and needs a 'match'`);
@@ -263,6 +300,7 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
 
   return {
     version: 1,
+    failOn: overlay.failOn ?? base.failOn,
     meta: overlay.meta.title ? overlay.meta : base.meta,
     rules: [...byId.values()],
     structures: [...structures.values()],

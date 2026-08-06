@@ -1,0 +1,20 @@
+# Normalise to LF in the repository and on checkout, on every platform.
+#
+# Without this, Git on Windows checks out CRLF. Test fixtures then carry \r,
+# generated files differ from what `render` writes, and the drift check fails
+# for reasons that have nothing to do with the rules.
+* text=auto eol=lf
+
+# Fixtures encode exact bytes, including line endings, so they are never
+# translated. A CRLF case in the corpus has to stay CRLF to be a CRLF case.
+test/corpus/*.yml -text
+*.snap -text
+
+# Shell scripts must keep LF or they fail to execute.
+*.sh text eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

@@ -90,6 +90,7 @@ function printText(file: string, findings: Finding[], root: string): void {
       `  ${String(f.line).padStart(4)}:${String(f.column).padEnd(3)} ${tag}  ` +
         `${JSON.stringify(f.match)} ${dim(`(${f.ruleId})`)}${hint}\n`,
     );
+    if (f.link) process.stdout.write(dim(`         ${f.link}\n`));
   }
   process.stdout.write("\n");
 }
@@ -98,7 +99,7 @@ async function cmdLint(args: Args): Promise<number> {
   const root = process.cwd();
   const ruleSet = resolveRuleSet(root);
   const format = String(args.flags["format"] ?? "text");
-  const failOn = String(args.flags["fail-on"] ?? "error");
+  const failOn = String(args.flags["fail-on"] ?? ruleSet.failOn);
 
   const all: { file: string; findings: Finding[] }[] = [];
 

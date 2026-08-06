@@ -19,6 +19,12 @@ const MARKER = "plain-english";
 
 interface HookEntry {
   type: string;
+  /**
+   * Permission-rule syntax scoping, e.g. `Write(*.md)`. The hook is not
+   * invoked at all when this does not match, so a prose linter never sees a
+   * source file.
+   */
+  if?: string;
   command?: string;
   prompt?: string;
   model?: string;
@@ -39,12 +45,21 @@ const CHANNELS = [
     channel: "docs",
     matcher: "Write|Edit|MultiEdit|NotebookEdit",
     script: "plain-english-docs.sh",
+    // Markdown only. Without this the hook fires on every source file the
+    // session touches and discards the call after the fact.
+    ifRule: "Write(*.md) or Edit(*.md) or MultiEdit(*.md) or Write(*.mdx) or Edit(*.mdx)",
   },
-  { channel: "github", matcher: "Bash", script: "plain-english-github.sh" },
+  {
+    channel: "github",
+    matcher: "Bash",
+    script: "plain-english-github.sh",
+    ifRule: undefined,
+  },
   {
     channel: "issue",
     matcher: "mcp__linear__save_issue|mcp__linear__save_comment",
     script: "plain-english-issue.sh",
+    ifRule: undefined,
   },
 ] as const;
 
@@ -63,6 +78,10 @@ const STARTER_CONFIG = `# Project config for plain-english.
 
 version: 1
 extends: default
+
+# Findings are reported and the run still exits 0. Set this to "error" to make
+# blocking findings fail the build and refuse the write.
+failOn: warn
 
 # Terms that never trigger a finding. Put your domain vocabulary here.
 allow: []
@@ -132,7 +151,11 @@ export function initClaudeCode(opts: InitOptions): number {
   const blocks: HookBlock[] = CHANNELS.map((c) => ({
     matcher: c.matcher,
     hooks: [
-      { type: "command", command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${c.script}` },
+      {
+        type: "command",
+        command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${c.script}`,
+        ...(c.ifRule ? { if: c.ifRule } : {}),
+      },
       {
         type: "prompt",
         prompt: (prompts[c.channel] ?? "").replaceAll("{{PROJECT_DIR}}", root),

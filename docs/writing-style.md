@@ -14,37 +14,37 @@ Two severities:
 
 ## Words and phrases
 
-| Term | Severity | Instead |
-|---|---|---|
-| em dash (—) | `block` | No em dashes. Use a comma, parentheses, or a full stop. |
-| en dash used as a sentence break | `warn` | An en dash used as a sentence break is the same tell as an em dash. |
-| furthermore | `block` | Start the sentence with its own point. |
-| moreover | `block` | Start the sentence with its own point. |
-| in conclusion | `block` | State the conclusion. Do not announce it. |
-| it's worth noting, it is worth noting, it is important to note | `block` | If it is worth noting, note it. |
-| at the end of the day, | `block` | Cut the phrase and state the point. |
-| let's dive in | `block` | Start with the content. |
-| div(e/es/ing) into | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |
-| leverag(e/es/ed/ing) | `block` | Use 'use'. |
-| utiliz(e/es/ed/ing), utilis(e/es/ed/ing) | `block` | Use 'use'. |
-| delv(e/es/ed/ing) | `block` | Use 'look at', 'read', or 'go through'. |
-| showcas(e/es/ed/ing) | `block` | Use 'show'. |
-| boasts | `block` | State the number without the verb: 'uptime is 99.9%'. |
-| underscor(es/ed/ing) (the/that/this/these/those/a/an/how/why/just/again/its/our/their/his/her) | `warn` | Use 'shows', 'proves', or drop the sentence. |
-| seamless[ly] | `block` | Say what actually happens, or cut the word. |
-| cutting-edge | `block` | Name the thing that is new. |
-| holistic[ally] | `warn` | Say which parts you mean. |
-| synerg(y/ies/istic/istically) | `block` | Name the actual benefit. |
-| paradigm shift | `block` | Say what changed. |
-| game-chang(er/ing) | `block` | Say what it changes. |
-| unlock (the/your) (potential/power/value/secret/secrets/full) | `block` | Say what becomes possible. |
-| elevate your | `block` | Say what improves. |
-| in today's (fast-paced/digital/business/competitive/modern) | `block` | Cut the opener and start with the point. |
-| as an AI, as a large language model | `block` | Cut it. |
-| silent[ly] | `warn` | Say what happened and what it affected. |
-| quietly | `warn` | Say what happened and what it affected. |
-| mechanical[ly] | `warn` | Say what the process actually does. |
-| load-bearing | `block` | Say what depends on it. |
+| Term | Severity | Instead | Why |
+|---|---|---|---|
+| em dash (—) | `block` | No em dashes. Use a comma, parentheses, or a full stop. | [notes](https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md#the-em-dash-rule) |
+| en dash used as a sentence break | `warn` | An en dash used as a sentence break is the same tell as an em dash. |  |
+| furthermore | `block` | Start the sentence with its own point. |  |
+| moreover | `block` | Start the sentence with its own point. |  |
+| in conclusion | `block` | State the conclusion. Do not announce it. |  |
+| it's worth noting, it is worth noting, it is important to note | `block` | If it is worth noting, note it. |  |
+| at the end of the day, | `block` | Cut the phrase and state the point. |  |
+| let's dive in | `block` | Start with the content. |  |
+| div(e/es/ing) into | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |  |
+| leverag(e/es/ed/ing) | `block` | Use 'use'. |  |
+| utiliz(e/es/ed/ing), utilis(e/es/ed/ing) | `block` | Use 'use'. |  |
+| delv(e/es/ed/ing) | `block` | Use 'look at', 'read', or 'go through'. |  |
+| showcas(e/es/ed/ing) | `block` | Use 'show'. |  |
+| boasts | `block` | State the number without the verb: 'uptime is 99.9%'. |  |
+| underscor(es/ed/ing) (the/that/this/these/those/a/an/how/why/just/again/its/our/their/his/her) | `warn` | Use 'shows', 'proves', or drop the sentence. |  |
+| seamless[ly] | `block` | Say what actually happens, or cut the word. |  |
+| cutting-edge | `block` | Name the thing that is new. |  |
+| holistic[ally] | `warn` | Say which parts you mean. |  |
+| synerg(y/ies/istic/istically) | `block` | Name the actual benefit. |  |
+| paradigm shift | `block` | Say what changed. |  |
+| game-chang(er/ing) | `block` | Say what it changes. |  |
+| unlock (the/your) (potential/power/value/secret/secrets/full) | `block` | Say what becomes possible. |  |
+| elevate your | `block` | Say what improves. |  |
+| in today's (fast-paced/digital/business/competitive/modern) | `block` | Cut the opener and start with the point. |  |
+| as an AI, as a large language model | `block` | Cut it. |  |
+| silent[ly] | `warn` | Say what happened and what it affected. |  |
+| quietly | `warn` | Say what happened and what it affected. |  |
+| mechanical[ly] | `warn` | Say what the process actually does. |  |
+| load-bearing | `block` | Say what depends on it. |  |
 
 ## Exceptions
 

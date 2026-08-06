@@ -556,6 +556,58 @@ cases:
       We leverage the cache here on purpose.
       We leverage it again here by mistake.
 
+  - name: "a disable range suppresses until enable"
+    expect: pass
+    text: |
+      <!-- plain-english-disable -->
+
+      Furthermore, we leverage a seamless paradigm shift.
+
+      <!-- plain-english-enable -->
+
+  - name: "text after enable IS checked again"
+    expect: block
+    rule: furthermore
+    text: |
+      <!-- plain-english-disable -->
+
+      We leverage this on purpose.
+
+      <!-- plain-english-enable -->
+
+      Furthermore, the cache was stale.
+
+  - name: "a named disable range only suppresses that rule"
+    expect: block
+    rule: furthermore
+    text: |
+      <!-- plain-english-disable leverage -->
+
+      Furthermore, we leverage the cache.
+
+      <!-- plain-english-enable -->
+
+  - name: "an unclosed disable range runs to the end of the document"
+    expect: pass
+    text: |
+      <!-- plain-english-disable -->
+
+      Furthermore, we leverage a seamless paradigm shift.
+
+      Still suppressed down here.
+
+  - name: "a disable range example inside a code fence is NOT a directive"
+    expect: block
+    rule: paradigm-shift
+    text: |
+      Turn it off for a section:
+
+      ```markdown
+      <!-- plain-english-disable -->
+      ```
+
+      That is a paradigm shift in how we document this.
+
   - name: "disable-file suppresses everything"
     expect: pass
     text: |
