@@ -21,17 +21,28 @@ jobs:
       - run: bash scripts/check-no-private-refs.sh
       - run: bash scripts/check-no-private-refs.sh --history
 
-  # A CLI is shipped as a binary people run on their own machine, so path
-  # handling, shell quoting and line endings all have to be exercised on
-  # Windows and macOS, not just on the runner that happens to be cheapest.
+  # A CLI runs on other people's machines, so path handling, shell quoting and
+  # line endings have to be exercised on Windows and macOS. A full 3x3 cross
+  # product is the wrong way to buy that: GitHub bills macOS at 10x and Windows
+  # at 2x, so 9 jobs cost ~78 billed minutes per run, which exhausts a
+  # 2,000-minute monthly allowance in about 25 runs.
+  #
+  # Node versions vary on Linux, where minutes are 1x. Windows and macOS get
+  # one job each on the current LTS, which is enough to catch platform bugs:
+  # the POSIX-only exec-bit assertion failed on every Windows version equally.
   test:
     name: Test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
         node: ['20', '22', '24']
+        include:
+          - os: windows-latest
+            node: '22'
+          - os: macos-latest
+            node: '22'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
