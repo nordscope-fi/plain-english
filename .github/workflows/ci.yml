@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A superseded run has nothing to tell us, and while runner capacity is tight
+# it competes with the run that does. Cancel the older one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Required check. A private reference must never reach a public commit, so
   # this runs first and independently of the build.
