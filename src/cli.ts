@@ -102,10 +102,19 @@ async function cmdLint(args: Args): Promise<number> {
   const failOn = String(args.flags["fail-on"] ?? ruleSet.failOn);
 
   const all: { file: string; findings: Finding[] }[] = [];
+  // Rules that ran out of match budget. Reported on stderr at the end: a rule
+  // that stopped working is not a finding about the writing, but it must not
+  // pass unmentioned either, or a clean run means two different things.
+  const stalled = new Map<string, Set<string>>();
+  const noteStalled = (file: string, ids: string[]) => {
+    if (ids.length) stalled.set(file, new Set(ids));
+  };
 
   if (!args.positionals.length || args.positionals[0] === "-") {
     const text = await readStdin();
-    all.push({ file: "<stdin>", findings: lintText(text, ruleSet).findings });
+    const res = lintText(text, ruleSet);
+    noteStalled("<stdin>", res.timedOut);
+    all.push({ file: "<stdin>", findings: res.findings });
   } else {
     for (const target of args.positionals) {
       const abs = resolve(root, target);
@@ -117,7 +126,9 @@ async function cmdLint(args: Args): Promise<number> {
         const rel = relative(root, file);
         if (matchesAny(rel, ruleSet.exclude)) continue;
         const text = readFileSync(file, "utf8");
-        all.push({ file, findings: lintText(text, ruleSet).findings });
+        const res = lintText(text, ruleSet);
+        noteStalled(file, res.timedOut);
+        all.push({ file, findings: res.findings });
       }
     }
   }
@@ -160,6 +171,16 @@ async function cmdLint(args: Args): Promise<number> {
     } else {
       process.stdout.write(dim(`clean (${scanned} file${scanned === 1 ? "" : "s"})\n`));
     }
+  }
+
+  // Never suppressed by --format: a partial scan reported as a whole one is
+  // worse than noise in a pipeline, and this goes to stderr so it cannot
+  // corrupt the JSON or annotation output on stdout.
+  for (const [file, ids] of stalled) {
+    process.stderr.write(
+      `plain-english: match budget exhausted on ${relative(root, file)}; ` +
+        `these rules did not run: ${[...ids].sort().join(", ")}\n`,
+    );
   }
 
   if (failOn === "warn") return errors + warns > 0 ? 1 : 0;

@@ -49,7 +49,24 @@ export interface Decision {
   decision: HookDecision;
   reason?: string;
   findings: Finding[];
+  /**
+   * Rules that ran out of match budget on this payload.
+   *
+   * Present only when the scan was incomplete. The write is still allowed,
+   * because a linter must never be the reason a commit cannot happen, but the
+   * caller can tell "nothing found" apart from "did not finish looking".
+   */
+  timedOut?: string[];
 }
+
+/**
+ * Match budget for one hook payload.
+ *
+ * Claude Code kills the hook at thirty seconds. Well under that on purpose: a
+ * write stalled for several seconds is a worse outcome than a banned term
+ * reaching a document that a human is about to read anyway.
+ */
+export const HOOK_BUDGET_MS = 500;
 
 /** Commands that introduce text a human will read. Everything else is ignored. */
 const WRITE_COMMAND =
@@ -209,12 +226,25 @@ export function decide(
   }
 
   const findings: Finding[] = [];
+  const stalled = new Set<string>();
   for (const text of texts) {
-    findings.push(...lintText(text, ruleSet).findings);
+    // A hook payload is one edit, so the budget is tighter than the CLI's:
+    // Claude Code kills the hook at 30 seconds, and a write held up for even a
+    // few is worse than a term slipping through. Fail-open on exhaustion.
+    const res = lintText(text, ruleSet, { budgetMs: HOOK_BUDGET_MS });
+    findings.push(...res.findings);
+    for (const id of res.timedOut) stalled.add(id);
   }
 
   const errors = findings.filter((f) => f.severity === "error");
-  if (!errors.length) return { allow: true, decision: "allow", findings };
+  if (!errors.length) {
+    // Allowing is the only safe answer, but say so rather than reporting a
+    // clean scan. Otherwise a pathological document is the way past the guard.
+    if (stalled.size) {
+      return { allow: true, decision: "allow", findings, timedOut: [...stalled].sort() };
+    }
+    return { allow: true, decision: "allow", findings };
+  }
 
   // The last-resort hatch the refusal message offers. It was advertised for
   // three releases without anything reading it, so `touch` did nothing and the

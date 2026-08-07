@@ -12,6 +12,11 @@ function setWith(match: string, extra: Partial<RuleSet> = {}): RuleSet {
     version: 1,
     meta: { title: "", intro: "" },
     rules: [{ id: "probe", severity: "error", match, unless: [] }],
+    // Both added after this helper was written. Omitting them built a RuleSet
+    // that compiled fine and crashed the moment lintText reached the
+    // readability pass, which no test had done before the deadline cases.
+    readability: [],
+    failOn: "never",
     structures: [],
     allow: [],
     exclude: [],
@@ -83,7 +88,7 @@ describe("catastrophic backtracking is refused at config load", () => {
   });
 });
 
-describe("match deadline is the backstop", () => {
+describe("match deadline bounds a large match count", () => {
   it("returns results normally within budget", () => {
     const out = matchAllWithDeadline(/a/g, "banana", 1000);
     expect(out).not.toBeNull();
@@ -165,5 +170,102 @@ describe("the published schema mirrors the loader", () => {
       readFileSync(resolve(import.meta.dirname, "..", "rules", "default.yml"), "utf8"),
     ) as Record<string, unknown>;
     for (const key of Object.keys(raw)) expect(schema.properties).toHaveProperty(key);
+  });
+});
+
+
+/**
+ * The match deadline, wired into the engine.
+ *
+ * `matchAllWithDeadline` shipped exported, tested and described as the runtime
+ * backstop from 0.1.0, and `lintText` never called it.
+ *
+ * Wiring it in also established what it cannot do. A JavaScript regex match is
+ * atomic: no userland check runs during a single `exec`, so a deadline between
+ * matches bounds a pattern that returns a huge NUMBER of matches and does
+ * nothing about one match that backtracks exponentially. Refusing that pattern
+ * at load is the only defence, which is why the screen matters more than this.
+ */
+describe("the engine honours a match budget", () => {
+  const many = compile(setWith("a"));
+
+  it("reports every rule ran on an ordinary document", () => {
+    expect(lintText("We leverage the cache.", compile(loadDefault())).timedOut).toEqual([]);
+  });
+
+  it("abandons a rule whose match count exhausts the budget", () => {
+    const res = lintText("a".repeat(200_000), many, { budgetMs: 0 });
+    expect(res.timedOut).toContain("probe");
+  });
+
+  it("a timed-out rule reports nothing rather than a partial count", () => {
+    const res = lintText("a".repeat(200_000), many, { budgetMs: 0 });
+    expect(res.findings.filter((f) => f.ruleId === "probe")).toEqual([]);
+  });
+
+  it("an exhausted budget never becomes a blocking finding", () => {
+    // Fail-open: a linter that cannot finish must not refuse the write.
+    expect(lintText("a".repeat(200_000), many, { budgetMs: 0 }).errorCount).toBe(0);
+  });
+
+  it("the budget is shared across rules, not granted to each", () => {
+    const two = compile(
+      setWith("a", {
+        rules: [
+          { id: "one", severity: "error", match: "a", unless: [] },
+          { id: "two", severity: "error", match: "a", unless: [] },
+        ],
+      }),
+    );
+    const res = lintText("a".repeat(200_000), two, { budgetMs: 0 });
+    expect(res.timedOut).toEqual(["one", "two"]);
+  });
+});
+
+/**
+ * The screen is the real defence, so a shape that slips past it is a hole.
+ *
+ * `^(?:[ab]|ab)+$` passed `findUnsafe` and hangs the linter: `skeleton` blanks
+ * a character class down to `[]`, so the overlap check compared a `[` against
+ * an `a` and saw two different first characters. A 49-character document took
+ * 207ms; adding sixteen characters takes it past any timeout worth having.
+ */
+describe("overlapping alternations are seen through character classes", () => {
+  it("rejects a class that overlaps a literal alternative", () => {
+    expect(findUnsafe("^(?:[ab]|ab)+$")).not.toBeNull();
+    expect(findUnsafe("^(?:[ab]|ab)+$")!.kind).toBe("overlapping-alternation");
+  });
+
+  it("rejects it in either order", () => {
+    expect(findUnsafe("(?:a|[abc])*")).not.toBeNull();
+    expect(findUnsafe("(?:[a-z]|ab)+")).not.toBeNull();
+  });
+
+  it("still accepts disjoint alternatives", () => {
+    expect(findUnsafe("(?:cat|dog)+")).toBeNull();
+    expect(findUnsafe("(?:[0-9]|[a-f])+")).toBeNull();
+  });
+
+  it("leaves an unquantified alternation alone", () => {
+    // The shipped word rules are all this shape. Without a quantifier on the
+    // group there is nothing to backtrack over.
+    expect(findUnsafe("\\bleverag(e|es|ed|ing)\\b")).toBeNull();
+  });
+
+  it("refuses rather than guesses when it cannot model a class", () => {
+    // A negated class is the complement of a set, so it may overlap anything.
+    expect(findUnsafe("(?:[^x]|ab)+")).not.toBeNull();
+  });
+
+  it("admits every pattern the shipped ruleset uses", () => {
+    // The compatibility check. A screen that rejects the default rules is a
+    // screen nobody can ship.
+    const set = loadDefault();
+    const all = [...(set.punctuation ?? []), ...set.rules];
+    for (const r of all) {
+      if (r.match) expect(findUnsafe(r.match), `${r.id} match`).toBeNull();
+      for (const u of r.unless ?? []) expect(findUnsafe(u), `${r.id} unless`).toBeNull();
+    }
+    for (const a of set.allow ?? []) expect(findUnsafe(a), "allow").toBeNull();
   });
 });
