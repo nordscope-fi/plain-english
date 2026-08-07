@@ -3,6 +3,7 @@ import { humanise, renderWritingStyle, renderPrompts, renderOutputStyle, renderA
 import { compile, loadDefault } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
+import { resolve } from "node:path";
 
 const rule = (match: string): Rule => ({ id: "x", severity: "error", match });
 
@@ -142,8 +143,14 @@ describe("output style", () => {
   });
 
   it("is emitted by renderAll so the CI drift check covers it", () => {
-    const paths = renderAll(set, "/tmp/root").map((t) => t.path);
-    expect(paths.some((p) => p.endsWith("output-styles/plain-english.md"))).toBe(true);
+    const root = resolve("/tmp/root");
+    const paths = renderAll(set, root).map((t) => t.path);
+    // Built with resolve, not a literal suffix: renderAll returns native paths,
+    // so a hardcoded "output-styles/plain-english.md" never matches on Windows.
+    // Same fault as the exec-bit assertion fixed in a0e5bcf.
+    expect(paths).toContain(
+      resolve(root, "integrations", "claude-code", "output-styles", "plain-english.md"),
+    );
   });
 
   it("lints clean under our own rules", () => {
