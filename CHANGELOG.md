@@ -6,8 +6,26 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ### Added
 
+- Hooks for GitHub Copilot, OpenAI Codex CLI and Cursor, alongside Claude Code. `init --agent <id>` writes that agent's config, `--agent all` writes every one, and the default stays Claude Code so the published command keeps working. Each agent gets a translation table in `src/agents/`: payload in, wire format out, nothing about deciding. That was affordable because Claude Code's hook contract became the shape the others copied. Copilot ships an explicit compatibility mode for it, Codex reuses the same reply vocabulary, and Cursor uses the same event with different field names.
+- `AGENTS.md`, generated from the same ruleset and spliced into the repo's own file between markers. It shares its body with the Claude Code output style, so the two cannot drift, and it is the one instructions artifact roughly twenty agents read. Per-agent rule files were considered and rejected: they fit each host better and are a file per host per release to keep true.
+- `--format sarif`, validated against the official SARIF 2.1.0 tooling with no warnings. It feeds GitHub code scanning, and a SARIF file also renders into the VS Code Problems list, which is where Cursor, Cline and Copilot agent mode read diagnostics from. So one serializer reaches agents this package has no adapter for. The GitHub Action takes a `sarif-file` input; the upload step stays with the caller, because it needs `security-events: write`.
+- `--format unix`, one finding per line as `path:line:col: level: message`. The default `text` format groups findings under a filename heading, which reads better and parses worse. `docs/editors.md` uses it for an `efm-langserver` config covering Neovim, Helix and Emacs, and a VS Code problem matcher.
+- `docs/agents.md`, `docs/post-edit-lint.md` and `docs/editors.md`. The first records which per-agent claims were verified against a running agent and which came from a vendor's documentation, because three of the four are still the latter.
+- `npm test` now builds first and runs the adapter probe afterwards. The probe imports from `dist/`, so it catches a build that compiled but does not run; it had never been wired into anything.
 - `npm version` dates the changelog. The `version` lifecycle script retitles `## [Unreleased]`, adds its link definition, repoints the Unreleased compare link and leaves a fresh heading for next time, all staged into the release commit. It refuses when the section is missing or empty, so a release with no entry fails before anything is tagged. `ALLOW_EMPTY_CHANGELOG=1` overrides. This was a manual checklist item missed on two consecutive releases, both times by someone who had just read the checklist naming it.
 - A test asserting this repository's own changelog has an Unreleased heading, a link definition for every dated release, and either a dated section or a pending entry for the version in `package.json`. It failed on the first run, which is how the missing heading left behind by the 0.3.1 retitle was found.
+
+### Changed
+
+- The acknowledgement file moved to `.plain-english-ack-<channel>` at the repository root, from `.claude/.<channel>-plain-english-ack`. The refusal message tells a human to `touch` it and `touch` will not create a missing parent, so the old path worked only because Claude Code had already made that directory. The old location is still honoured.
+- `src/adapters/claude-hook.ts` is now `src/adapters/hook.ts` and knows nothing about any agent. `decide()` takes a normalised event. Not public API: `exports` publishes `dist/lint.js` only.
+- `initClaudeCode` is now `init`, taking the agents to wire up. The old name is a deprecated re-export for one minor version.
+
+### Fixed
+
+- The install instructions named a command that no longer exists. Claude Code deprecated `/output-style` in v2.1.73 and removed it in v2.1.91; the replacement is `/config`, or the `outputStyle` setting. The README and `docs/adopting.md` had been telling people to run it.
+- `NotebookEdit` is out of the docs channel. It was in the extractor and in the settings matcher while `decide` accepted only `.md`, `.markdown` and `.mdx`, so the branch could never be reached.
+- SARIF rule descriptors omit `name`. The spec requires it to differ from `id` when both are present, and the official validator warns on every rule otherwise.
 
 ## [0.3.1] - 2026-08-07
 

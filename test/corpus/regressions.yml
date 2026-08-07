@@ -5,6 +5,7 @@
 # text actually escapes.
 #
 #   channel   which adapter handles the payload (docs | github | issue)
+#   agent     which agent sent it; claude-code when omitted
 #   expect    deny | allow
 #   files     written into a temp dir first; {{TMP}} in the payload resolves to it
 
@@ -155,3 +156,53 @@ cases:
       tool_input:
         file_path: "{{TMP}}/config.json"
         content: '{"strategy": "leverage"}'
+
+  - name: "codex writes markdown through apply_patch"
+    channel: docs
+    agent: codex
+    expect: deny
+    rule: em-dash
+    why: >-
+      Codex has no Write tool. It edits through apply_patch, so a guard that
+      only knows Write and Edit sees nothing at all and allows every file it
+      writes.
+    payload:
+      tool_name: apply_patch
+      tool_input:
+        input: |
+          *** Begin Patch
+          *** Add File: {{TMP}}/notes.md
+          +The build failed — the cache was stale.
+          *** End Patch
+
+  - name: "an apply_patch touching only source is not prose"
+    channel: docs
+    agent: codex
+    expect: allow
+    why: >-
+      One patch can add to a markdown file and a source file at once. Pooling
+      their added lines runs prose rules over an identifier, so added text is
+      kept per file.
+    payload:
+      tool_name: apply_patch
+      tool_input:
+        input: |
+          *** Begin Patch
+          *** Add File: {{TMP}}/x.ts
+          +const leverage = 1;
+          *** End Patch
+
+  - name: "copilot sends its native camelCase envelope"
+    channel: docs
+    agent: copilot
+    expect: deny
+    rule: em-dash
+    why: >-
+      init installs Copilot in Claude-compatibility mode, but a hand-written
+      config gets the camelCase event instead, where the fields are toolName
+      and toolArgs.
+    payload:
+      toolName: edit
+      toolArgs:
+        path: "{{TMP}}/x.md"
+        new_string: "The build failed — the cache was stale."

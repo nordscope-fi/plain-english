@@ -4,17 +4,20 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
-import { decide, type Channel, type HookPayload } from "../src/adapters/claude-hook.ts";
+import { decide, type Channel, type RawPayload } from "../src/adapters/hook.ts";
+import { byId, DEFAULT_AGENT } from "../src/agents/registry.ts";
 import { compile, loadDefault } from "../src/rules.ts";
 
 interface RegressionCase {
   name: string;
   channel: Channel;
+  /** Which agent sent this payload. Claude Code when omitted. */
+  agent?: string;
   expect: "deny" | "allow";
   rule?: string;
   why?: string;
   files?: Record<string, string>;
-  payload: HookPayload;
+  payload: RawPayload;
 }
 
 const HERE = resolve(import.meta.dirname);
@@ -58,7 +61,9 @@ describe("regressions", () => {
       }
 
       const payload = hydrate(c.payload, tmp);
-      const decision = decide(payload, c.channel, { projectDir: tmp, ruleSet });
+      const profile = byId(c.agent ?? DEFAULT_AGENT);
+      expect(profile, `unknown agent '${c.agent}'`).toBeDefined();
+      const decision = decide(profile!.parse(payload), c.channel, { projectDir: tmp, ruleSet });
       const detail =
         decision.findings
           .map((f) => `${f.severity} ${f.ruleId} ${JSON.stringify(f.match)}`)
@@ -80,10 +85,10 @@ describe("regressions", () => {
 describe("deny messages are actionable", () => {
   it("quotes the offending text and offers the narrow escape hatches first", () => {
     const d = decide(
-      {
+      byId(DEFAULT_AGENT)!.parse({
         tool_name: "Write",
         tool_input: { file_path: resolve(tmp, "x.md"), content: "The build failed — badly." },
-      },
+      }),
       "docs",
       { projectDir: tmp, ruleSet },
     );

@@ -1,7 +1,7 @@
 {
   "name": "plain-english",
   "version": "0.3.1",
-  "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with Claude Code, pre-commit and CI adapters.",
+  "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with hooks for Claude Code, Copilot, Codex and Cursor, plus pre-commit, CI and SARIF.",
   "keywords": [
     "linter",
     "lint",
@@ -16,7 +16,13 @@
     "style-guide",
     "readability",
     "technical-writing",
-    "typescript"
+    "typescript",
+    "copilot",
+    "codex",
+    "cursor",
+    "agents-md",
+    "sarif",
+    "coding-agent"
   ],
   "license": "MIT",
   "author": "NordScope",
@@ -59,10 +65,12 @@
     "check:refs": "bash scripts/check-no-private-refs.sh",
     "check:refs:history": "bash scripts/check-no-private-refs.sh --history",
     "version": "node scripts/date-changelog.mjs",
-    "pretest": "npm run check:refs",
+    "pretest": "npm run check:refs && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run check:refs && npm run check:refs:history && npm run build && npm test"
+    "prepublishOnly": "npm run check:refs && npm run check:refs:history && npm run build && npm test",
+    "probe": "node scripts/probe-adapter.mjs",
+    "posttest": "npm run probe"
   },
   "dependencies": {
     "mdast-util-from-markdown": "^2.0.3",

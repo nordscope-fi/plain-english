@@ -70,6 +70,10 @@ A fourth mitigation is structural: the semantic layer never gets to be the only 
 
 The version this replaces maintained the same word list in five places: a regex pasted into three shell scripts, a prose list inside three prompt bodies, and a table in a markdown file. Nothing checked that they agreed, and they did not.
 
+The same argument decided how four coding agents are supported. Each agent gets a translation table in `src/agents/`, mapping its payload onto one canonical event and one `Decision` back onto its wire format. Nothing about deciding lives in a profile. That was affordable because Claude Code's hook contract turned into the shape the others copied. Copilot ships an explicit compatibility mode for it. Codex uses the same reply vocabulary, and Cursor uses the same event with different words. Four linters would have drifted the way five word lists did.
+
+Per-agent instruction files were the alternative and were rejected. Generating `.cursor/rules/*.mdc`, `.github/instructions/*.instructions.md`, `GEMINI.md` and the rest fits each host better than one shared file does. It is also a file per host per release to keep true. `AGENTS.md` is read by roughly twenty agents, and is worse at none of them by enough to matter.
+
 Here, `rules/default.yml` is the only hand-written source. The docs and the prompt bodies are generated from it, and CI fails when the working tree changes after a render. Four restatements cannot disagree when three of them are outputs.
 
 ## Why the escape hatch is graduated
@@ -78,7 +82,7 @@ A ten-minute acknowledgement file that disables an entire guard is a blunt instr
 
 Five scopes now exist, narrowest first: one rule on one line, one rule across a range, a whole file, a path glob in config, and a severity downgrade in config. The refusal message lists them in that order and names the specific rule id to suppress, so the cheapest correct fix is the one presented first.
 
-The acknowledgement file survives as the sixth and last, still ten minutes and still expiring on its own. It stays because the five above all need a decision about what the right permanent fix is, and somebody mid-task does not always have one. What it should never be is the first thing reached for, which is why the message puts it last and marks it as the human's call.
+The acknowledgement file survives as the sixth and last, still ten minutes and still expiring on its own. It moved to the repository root in 0.4.0, from inside `.claude/`. The message tells a human to `touch` it, and `touch` will not create a missing parent, so the old path worked only because Claude Code had already made that directory. An agent that keeps no directory would have made the advice impossible to follow. It stays because the five above all need a decision about what the right permanent fix is, and somebody mid-task does not always have one. What it should never be is the first thing reached for, which is why the message puts it last and marks it as the human's call.
 
 ## What to watch for when adapting this
 

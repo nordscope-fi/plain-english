@@ -74,13 +74,23 @@ These rules describe how models wrote in 2024 and 2025. Vendors actively suppres
 
 ## What no hook can reach
 
-A chat reply is not a tool call, so none of the linting hooks see it. What reaches chat instead is the output style at `integrations/claude-code/output-styles/plain-english.md`, generated from the same ruleset. Three things are worth knowing about it.
+A chat reply is not a tool call, so none of the linting hooks see it. What reaches chat instead is a prompt, and which prompt depends on the agent.
 
-It is a prompt, not a gate. Claude Code appends it to the end of the system prompt and reminds the model of it each turn, which makes it the strongest lever available here, and it is still an instruction that can be ignored. Nothing measures compliance.
+For Claude Code it is the output style at `integrations/claude-code/output-styles/plain-english.md`, generated from the same ruleset. Everywhere else it is the `AGENTS.md` section from `integrations/agents-md/plain-english.md`, also generated from it. Three things are worth knowing.
 
-It does not apply to subagents. A subagent runs its own system prompt, so any research or exploration agent keeps writing the old way.
+Both are prompts, not gates. Claude Code appends the output style to the end of the system prompt and reminds the model of it each turn, which makes it the strongest lever available here, and it is still an instruction that can be ignored. `AGENTS.md` is weaker again: it is loaded once at session start rather than restated per turn. Nothing measures compliance in either case.
 
-One hook does reach chat text, and this document previously claimed none did. `MessageDisplay` fires while a reply renders and can replace what appears on screen through `displayContent`. Two limits make it unsuitable for this ruleset today. It is display-only, so the transcript and the model's own view keep the original text. And it fires per batch of completed lines with a ten second budget, so it can substitute a word and cannot restructure a reply. Its input schema is also currently contested: the docs describe `message_text` and `is_final_chunk`, neither of which appears in the shipped 2.1.224 binary, which uses `delta` and `final`. Anything built on it needs a stdin log first.
+Neither applies to subagents. A subagent runs its own system prompt, so any research or exploration agent keeps writing the old way.
+
+One hook does reach chat text, and this document previously claimed none did. It is Claude Code's alone; none of the other three agents has an equivalent. `MessageDisplay` fires while a reply renders and can replace what appears on screen through `displayContent`. Two limits make it unsuitable for this ruleset today. It is display-only, so the transcript and the model's own view keep the original text. And it fires per batch of completed lines with a ten second budget, so it can substitute a word and cannot restructure a reply. Its input schema is also currently contested: the docs describe `message_text` and `is_final_chunk`, neither of which appears in the shipped 2.1.224 binary, which uses `delta` and `final`. Anything built on it needs a stdin log first.
+
+## What each agent cannot reach
+
+The deterministic rules run identically everywhere. The rest does not.
+
+The semantic layer, which judges the nine sentence shapes a regex cannot, rides on a prompt hook. Claude Code has one. Copilot documents an equivalent this package does not yet use. Codex and Cursor have none, so on those two the sentence shapes are covered by the prompt in `AGENTS.md` and by nothing that runs.
+
+Two vendor behaviours are worth knowing before you rely on a refusal. Copilot's cloud coding agent treats `ask` as `deny`, so the advisory default is blocking there. Codex will not run a hook until the user approves it with `/hooks`, and asks again whenever the command string changes. `docs/agents.md` records both, along with which claims here were verified against a running agent and which were taken from a vendor's documentation.
 
 ## The semantic layer has a false-positive floor
 
