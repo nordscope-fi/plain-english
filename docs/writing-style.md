@@ -128,9 +128,35 @@ Piling up qualifiers instead of picking one.
 Bad: It's possible that this might potentially cause...
 Good: This could cause...
 
+## Readability
+
+These read the shape of a sentence, so there is no term to match. Both are warnings.
+
+### unglossed-term
+
+Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion all pass. 82 names a reader already has, such as JSON and GitHub, are exempt. A project adds its own vocabulary through `known` in `.plain-english.yml`.
+
+Instead: Say what it does, then name it.
+
+### long-sentence
+
+Fires past 35 words. Set generously: a long sentence carrying one idea is fine, and the usual fault at that length is three ideas in one.
+
+Instead: Split this. One idea per sentence.
+
 ## What is never scanned
 
-Fenced and indented code, inline code spans, YAML frontmatter, blockquotes, URLs, link targets and email addresses are blanked before matching. A banned term inside any of those is not a finding.
+The document is parsed, and only prose text is matched. Everything below is blanked first, so a banned term inside any of it is not a finding.
+
+- Fenced and indented code, and inline code spans
+- Inline `<code>`, `<pre>`, `<kbd>`, `<samp>`, `<var>` and `<tt>` pairs
+- Raw HTML blocks, and HTML comments
+- YAML and TOML frontmatter
+- Tables, whose cells hold identifiers far more often than prose
+- Blockquotes, which are someone else's words
+- Link destinations, link reference definitions, autolinks and bare URLs
+
+Link text is prose and is checked. Footnote definitions are prose and are checked.
 
 ## Suppressing a finding
 

@@ -1,7 +1,7 @@
 {
   "name": "plain-english",
   "version": "0.2.0",
-  "description": "Catch AI writing tells before they land. A linter for banned words and AI-tell sentence shapes, with adapters for Claude Code hooks, pre-commit, and CI.",
+  "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with Claude Code, pre-commit and CI adapters.",
   "keywords": [
     "linter",
     "lint",
@@ -14,6 +14,8 @@
     "claude-code",
     "pre-commit",
     "style-guide",
+    "readability",
+    "technical-writing",
     "typescript"
   ],
   "license": "MIT",

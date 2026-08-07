@@ -16,7 +16,7 @@
  * Fail-open throughout. An internal error must never block a commit.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve, sep } from "node:path";
 import { lintText, type Finding } from "../lint.ts";
@@ -216,10 +216,39 @@ export function decide(
   const errors = findings.filter((f) => f.severity === "error");
   if (!errors.length) return { allow: true, decision: "allow", findings };
 
+  // The last-resort hatch the refusal message offers. It was advertised for
+  // three releases without anything reading it, so `touch` did nothing and the
+  // only way past a false positive was to edit config or pull the hook.
+  if (hasAck(channel, projectDir || process.cwd())) {
+    return { allow: true, decision: "allow", findings };
+  }
+
   // Strict mode refuses outright. Otherwise the finding is surfaced to the
   // human, who can wave it through without editing config or removing a hook.
   const decision: HookDecision = ruleSet.failOn === "never" ? "ask" : "deny";
   return { allow: false, decision, reason: formatReason(errors, channel), findings };
+}
+
+/** How long a `touch`ed ack file waives findings for. */
+export const ACK_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * True when the human has waived this channel recently.
+ *
+ * It expires on purpose. A permanent file is one somebody creates during a
+ * deadline and never removes, which turns the whole check off silently and
+ * without a record. Ten minutes is long enough to land the write in front of
+ * you and short enough that it cannot become the configuration.
+ *
+ * A missing or unreadable file waives nothing.
+ */
+export function hasAck(channel: Channel, projectDir: string, now = Date.now()): boolean {
+  try {
+    const path = resolve(projectDir, ".claude", ACK_FILE[channel]);
+    return now - statSync(path).mtimeMs < ACK_WINDOW_MS;
+  } catch {
+    return false;
+  }
 }
 
 const CHANNEL_LABEL: Record<Channel, string> = {
@@ -256,6 +285,7 @@ export function formatReason(errors: Finding[], channel: Channel): string {
     "  3. lower the rule to `severity: warn` in .plain-english.yml",
     "",
     `Last resort, and the human's call, not yours: touch .claude/${ACK_FILE[channel]}`,
+    `  It waives this channel for ${ACK_WINDOW_MS / 60000} minutes, then expires on its own.`,
   ].join("\n");
 }
 

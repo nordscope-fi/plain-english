@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { compile, loadDefault } from "../src/rules.ts";
 
 /**
  * End-to-end exit codes, run through the built CLI.
@@ -23,6 +24,15 @@ function run(args: string[], config?: string): number {
   } catch (e) {
     return (e as { status?: number }).status ?? -1;
   }
+}
+
+/** Same run, but the text. NO_COLOR keeps the escape codes out of assertions. */
+function stdout(args: string[]): string {
+  return execFileSync(process.execPath, [CLI, ...args], {
+    cwd: dir,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" },
+  });
 }
 
 beforeAll(() => {
@@ -98,5 +108,49 @@ describe("other commands", () => {
   });
   it("an unknown command exits 2", () => {
     expect(run(["frobnicate"])).toBe(2);
+  });
+});
+
+/**
+ * `explain` reached `set.rules` only, so the nine sentence shapes and the two
+ * readability rules were unreachable from the CLI while the README said they
+ * were listed. Every id in the ruleset must resolve.
+ */
+describe("explain reaches every collection", () => {
+  it("lists all three groups", () => {
+    const out = stdout(["explain"]);
+    expect(out).toContain("Words and punctuation");
+    expect(out).toContain("Readability");
+    expect(out).toContain("Sentence shapes");
+  });
+
+  it("names every id in the ruleset", () => {
+    const out = stdout(["explain"]);
+    const set = compile(loadDefault());
+    const ids = [
+      ...set.rules.map((r) => r.id),
+      ...set.readability.map((r) => r.id),
+      ...set.structures.map((s) => s.id),
+    ];
+    expect(ids.length).toBe(41);
+    for (const id of ids) expect(out).toContain(id);
+  });
+
+  it("explains a readability rule", () => {
+    expect(run(["explain", "unglossed-term"])).toBe(0);
+    expect(stdout(["explain", "unglossed-term"])).toContain("kind:");
+  });
+
+  it("explains a sentence shape", () => {
+    expect(run(["explain", "binary-contrast"])).toBe(0);
+    expect(stdout(["explain", "binary-contrast"])).toContain("sentence shape");
+  });
+
+  it("still explains a word rule", () => {
+    expect(stdout(["explain", "leverage"])).toContain("match:");
+  });
+
+  it("an unknown id still exits 2", () => {
+    expect(run(["explain", "no-such-rule"])).toBe(2);
   });
 });

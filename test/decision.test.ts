@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { decide, toHookOutput } from "../src/adapters/claude-hook.ts";
+import { ACK_WINDOW_MS, decide, hasAck, toHookOutput } from "../src/adapters/claude-hook.ts";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
 import { initClaudeCode } from "../src/init.ts";
 import { readFileSync } from "node:fs";
@@ -97,6 +97,71 @@ describe("init emits permission-rule scoping", () => {
     initClaudeCode({ root: dir });
     const cfg = readFileSync(resolve(dir, ".plain-english.yml"), "utf8");
     expect(cfg).toContain("failOn: never");
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+/**
+ * The refusal message offered `touch .claude/.docs-plain-english-ack` as the
+ * last-resort hatch for three releases while nothing read the file, so the
+ * advice was inert and the only real escape was editing config.
+ */
+describe("the ack file waives a finding", () => {
+  const ack = (dir: string) => resolve(dir, ".claude", ".docs-plain-english-ack");
+
+  it("a fresh ack allows the write", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-"));
+    mkdirSync(resolve(dir, ".claude"), { recursive: true });
+    writeFileSync(ack(dir), "");
+    const d = decide(docsWrite(dir, `a ${EM} b`), "docs", {
+      projectDir: dir,
+      ruleSet: advisory,
+    });
+    expect(d.allow).toBe(true);
+    expect(d.decision).toBe("allow");
+    // The findings are still reported; only the refusal is waived.
+    expect(d.findings.length).toBeGreaterThan(0);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("an expired ack does not", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-old-"));
+    mkdirSync(resolve(dir, ".claude"), { recursive: true });
+    writeFileSync(ack(dir), "");
+    const stale = new Date(Date.now() - ACK_WINDOW_MS - 1000);
+    utimesSync(ack(dir), stale, stale);
+    const d = decide(docsWrite(dir, `a ${EM} b`), "docs", {
+      projectDir: dir,
+      ruleSet: advisory,
+    });
+    expect(d.allow).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("waives only the channel it names", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-chan-"));
+    mkdirSync(resolve(dir, ".claude"), { recursive: true });
+    writeFileSync(ack(dir), "");
+    expect(hasAck("docs", dir)).toBe(true);
+    expect(hasAck("github", dir)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("a missing ack waives nothing", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-none-"));
+    expect(hasAck("docs", dir)).toBe(false);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("strict mode is waivable too", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-strict-"));
+    mkdirSync(resolve(dir, ".claude"), { recursive: true });
+    writeFileSync(ack(dir), "");
+    const d = decide(docsWrite(dir, `a ${EM} b`), "docs", {
+      projectDir: dir,
+      ruleSet: strict,
+    });
+    expect(d.allow).toBe(true);
     rmSync(dir, { recursive: true, force: true });
   });
 });

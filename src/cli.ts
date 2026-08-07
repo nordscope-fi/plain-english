@@ -196,27 +196,81 @@ function cmdRender(args: Args): number {
   return 0;
 }
 
+/**
+ * `explain` covers all three collections.
+ *
+ * It used to iterate `set.rules` alone, which left the nine sentence shapes and
+ * the two readability rules unreachable from the CLI even though the README
+ * said otherwise. Anything with an id is explainable here.
+ */
 function cmdExplain(args: Args): number {
   const set: RuleSet = resolveRuleSet(process.cwd());
   const id = args.positionals[0];
   if (!id) {
+    process.stdout.write(`${bold("Words and punctuation")}\n`);
     for (const r of set.rules) {
-      process.stdout.write(`${r.severity.padEnd(5)} ${r.id}\n`);
+      process.stdout.write(`  ${r.severity.padEnd(5)} ${r.id}\n`);
+    }
+    if (set.readability.length) {
+      process.stdout.write(`\n${bold("Readability")}\n`);
+      for (const r of set.readability) {
+        process.stdout.write(`  ${r.severity.padEnd(5)} ${r.id}\n`);
+      }
+    }
+    if (set.structures.length) {
+      // Structures carry no severity: the semantic layer reports them or it
+      // does not. Padding them into the severity column would invent one.
+      process.stdout.write(`\n${bold("Sentence shapes")}${dim(" (semantic layer)")}\n`);
+      for (const s of set.structures) {
+        process.stdout.write(`  ${s.id.padEnd(22)} ${dim(s.name)}\n`);
+      }
     }
     return 0;
   }
+
   const rule = set.rules.find((r) => r.id === id);
-  if (!rule) {
-    process.stderr.write(`plain-english: no rule '${id}'\n`);
-    return 2;
+  if (rule) {
+    process.stdout.write(`${bold(rule.id)}  (${rule.severity})\n\n`);
+    process.stdout.write(`  match:   ${rule.match}\n`);
+    if (rule.unless?.length) {
+      process.stdout.write(`  unless:  ${rule.unless.join("\n           ")}\n`);
+    }
+    if (rule.message) process.stdout.write(`  instead: ${rule.message}\n`);
+    if (rule.link) process.stdout.write(`  more:    ${rule.link}\n`);
+    return 0;
   }
-  process.stdout.write(`${bold(rule.id)}  (${rule.severity})\n\n`);
-  process.stdout.write(`  match:   ${rule.match}\n`);
-  if (rule.unless?.length) {
-    process.stdout.write(`  unless:  ${rule.unless.join("\n           ")}\n`);
+
+  const read = set.readability.find((r) => r.id === id);
+  if (read) {
+    process.stdout.write(`${bold(read.id)}  (${read.severity})\n\n`);
+    process.stdout.write(`  kind:    ${read.kind}\n`);
+    if (read.maxWords !== undefined) {
+      process.stdout.write(`  over:    ${read.maxWords} words\n`);
+    }
+    if (read.known?.length) {
+      // The default list runs to roughly ninety entries, so print the size and
+      // point at the file rather than filling the terminal.
+      process.stdout.write(
+        `  known:   ${read.known.length} names the rule already accepts (see rules/default.yml)\n`,
+      );
+    }
+    if (read.message) process.stdout.write(`  instead: ${read.message}\n`);
+    if (read.link) process.stdout.write(`  more:    ${read.link}\n`);
+    return 0;
   }
-  if (rule.message) process.stdout.write(`  instead: ${rule.message}\n`);
-  return 0;
+
+  const structure = set.structures.find((s) => s.id === id);
+  if (structure) {
+    process.stdout.write(`${bold(structure.id)}  ${dim("(sentence shape)")}\n\n`);
+    process.stdout.write(`  name:    ${structure.name}\n`);
+    process.stdout.write(`  what:    ${structure.description.replace(/\s+/g, " ").trim()}\n`);
+    if (structure.bad) process.stdout.write(`  bad:     ${structure.bad}\n`);
+    if (structure.good) process.stdout.write(`  good:    ${structure.good}\n`);
+    return 0;
+  }
+
+  process.stderr.write(`plain-english: no rule '${id}'\n`);
+  return 2;
 }
 
 async function cmdHook(args: Args): Promise<number> {
@@ -238,7 +292,7 @@ async function cmdHook(args: Args): Promise<number> {
 const USAGE = `plain-english - catch AI writing tells before they land
 
 USAGE
-  plain-english lint [PATH...]        lint files or directories (default: stdin)
+  plain-english lint [PATH...]       lint files or directories (default: stdin)
   plain-english render               regenerate docs/ and prompt templates
   plain-english explain [RULE]       show a rule, or list them all
   plain-english doctor               environment dump for bug reports
@@ -254,8 +308,8 @@ RENDER OPTIONS
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS
-  --claude-code                      merge hooks into .claude/settings.json
   --dry-run                          print what would change
+  --root PATH                        repo root (default: cwd)
 
   --version                          print the version and exit
 
@@ -359,6 +413,11 @@ async function main(): Promise<number> {
       case "hook":
         return await cmdHook(args);
       case "init":
+        // `--claude-code` is still accepted and still does nothing: init has
+        // always written the hooks unconditionally. Unknown flags are ignored
+        // by parseArgs, so the command published in earlier READMEs keeps
+        // working. It is out of USAGE because listing it implied a second mode
+        // that never existed.
         return initClaudeCode({
           root: resolve(String(args.flags["root"] ?? process.cwd())),
           dryRun: Boolean(args.flags["dry-run"]),

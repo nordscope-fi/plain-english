@@ -260,8 +260,15 @@ function parseSet(text: string, where: string): RawSet {
   return raw;
 }
 
-/** Keys a ruleset or project config may carry. Mirrors rules/schema.json. */
-const KNOWN_TOP_LEVEL = new Set([
+/**
+ * Keys a ruleset or project config may carry. Mirrors rules/schema.json.
+ *
+ * Exported so a test can hold the two sides together. The schema drifted for
+ * three releases without `failOn` or `readability`, and since it is
+ * `additionalProperties: false` it would have rejected this repo's own config
+ * had anything been validating against it.
+ */
+export const KNOWN_TOP_LEVEL = new Set([
   "version",
   "extends",
   "meta",
