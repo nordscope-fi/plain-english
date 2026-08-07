@@ -13,6 +13,17 @@ test/corpus/*.yml -text
 # Shell scripts must keep LF or they fail to execute.
 *.sh text eol=lf
 
+# Source is always diffable, whatever bytes end up in it.
+#
+# `src/safe-regex.ts` held a raw NUL inside a string literal, written as the
+# byte rather than as the `\0` escape. Git classifies a file containing NUL as
+# binary, so the regex screen, the one place where a mistake is a denial of
+# service, had unreviewable diffs from the day it was written. Nobody noticed
+# because a `Bin 0 -> 5694 bytes` line in a diffstat reads like a new asset.
+*.ts text diff
+*.js text diff
+*.json text diff
+
 # Binary
 *.png binary
 *.jpg binary

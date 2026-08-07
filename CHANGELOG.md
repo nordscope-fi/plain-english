@@ -4,6 +4,20 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Security
+
+- `findUnsafe` sees through a character class when deciding whether the alternatives of a quantified group overlap. `^(?:[ab]|ab)+$` passed the screen and hangs the linter: `skeleton` blanked `[ab]` down to `[]`, so the check compared a `[` against an `a` and concluded the alternatives were disjoint. Measured at 207ms against a 49-character document, and each additional pair of characters doubles it. Every pattern in the shipped ruleset still passes.
+- The engine calls `matchAllWithDeadline`. It had been exported, tested and described in comments as the runtime backstop since 0.1.0 while `lintText` called `rule.re.exec` directly, so no document-wide bound existed. `lintText` now takes `budgetMs`, defaulting to two seconds and shared across all rules, and returns `timedOut` naming any rule it abandoned. The Claude Code hook uses a 500ms budget and reports an incomplete scan rather than an empty one.
+- Recorded what the deadline cannot do, in place of the claim that it was the backstop. A JavaScript regex match is atomic, so a check between matches bounds a pattern returning many matches and cannot interrupt one match that backtracks exponentially. Refusing that pattern at load is the only defence.
+
+### Fixed
+
+- `src/safe-regex.ts` contained a raw NUL byte in a string literal, so git classified the file as binary and a security-critical screen has had unreviewable diffs since it was written. Replaced with the `\0` escape, which is the same value.
+- The release workflow runs the CI matrix before publishing. Its verify job was a single `ubuntu-latest`, node 22 run while CI covers five combinations, so the publish gate was weaker than the gate on an ordinary pull request. `v0.2.0` released green while its CI run was red on Windows.
+- `lintText` tolerates a ruleset assembled without `readability`. It is the package's public entry point, and a pre-0.2.0 ruleset from a consumer threw instead of linting.
+
+## [0.3.0] - 2026-08-07
+
 ### Added
 
 - `explain` reaches every rule in the ruleset. It listed the 30 word and punctuation rules only, so the nine sentence shapes and the two readability rules had no way to be inspected from the command line while the README said they were listed. `explain unglossed-term` and `explain binary-contrast` now work, and the listing is grouped by kind.
@@ -84,7 +98,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0
 [0.1.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.1

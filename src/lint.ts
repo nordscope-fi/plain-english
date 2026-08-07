@@ -7,6 +7,7 @@
  */
 
 import { maskNonProse } from "./mask.ts";
+import { matchAllWithDeadline } from "./safe-regex.ts";
 import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
 import { sentences, jargonTerms } from "./sentences.ts";
 import { compile, resolveRuleSet, type RuleSet, type Severity } from "./rules.ts";
@@ -29,12 +30,34 @@ export interface LintResult {
   findings: Finding[];
   errorCount: number;
   warnCount: number;
+  /**
+   * Rules abandoned because the document exhausted the match budget.
+   *
+   * Empty on every ordinary run. A non-empty list means those rules did not
+   * report, so the result is a floor and not a verdict. Callers surface it
+   * rather than dropping it: a rule that stops working without saying so is
+   * the failure mode the unknown-key error exists to prevent.
+   */
+  timedOut: string[];
 }
 
 export interface LintOptions {
   /** Suppress a rule for the next line with an inline comment. */
   allowInlineSuppression?: boolean;
+  /**
+   * Total milliseconds all rules may spend matching one document.
+   *
+   * Shared across rules rather than granted per rule: thirty rules with a
+   * one-second budget each is a thirty-second worst case, and the editor hook
+   * is killed at thirty. Screening at load (`findUnsafe`) rejects the patterns
+   * that are catastrophic by construction. This bounds what gets past it,
+   * including a safe pattern meeting a pathological document.
+   */
+  budgetMs?: number;
 }
+
+/** Default document-wide match budget. */
+export const DEFAULT_BUDGET_MS = 2000;
 
 /** `<!-- plain-english-disable-next-line rule-id, other-rule -->` */
 const SUPPRESS_NEXT =
@@ -145,8 +168,10 @@ export function lintText(
   ruleSet: RuleSet,
   options: LintOptions = {},
 ): LintResult {
-  const { allowInlineSuppression = true } = options;
+  const { allowInlineSuppression = true, budgetMs = DEFAULT_BUDGET_MS } = options;
   const findings: Finding[] = [];
+  const timedOut: string[] = [];
+  const deadline = Date.now() + budgetMs;
 
   // Two views of the same text.
   //
@@ -173,7 +198,7 @@ export function lintText(
   const maskedLines = normalised.split("\n");
 
   if (allowInlineSuppression && SUPPRESS_FILE.test(directiveView)) {
-    return { findings, errorCount: 0, warnCount: 0 };
+    return { findings, errorCount: 0, warnCount: 0, timedOut };
   }
 
   const suppressed = allowInlineSuppression
@@ -189,13 +214,12 @@ export function lintText(
     // A density rule reports nothing until the rate crosses its threshold, so
     // the whole document has to be counted before any finding is emitted.
     if (rule.perThousandWords !== undefined) {
-      rule.re.lastIndex = 0;
-      const hits: RegExpExecArray[] = [];
-      let d: RegExpExecArray | null;
-      while ((d = rule.re.exec(masked)) !== null) {
-        if (d[0].length === 0) rule.re.lastIndex++;
-        else hits.push(d);
+      const all = matchAllWithDeadline(rule.re, masked, deadline - Date.now());
+      if (all === null) {
+        timedOut.push(rule.id);
+        continue;
       }
+      const hits = all.filter((d) => d[0].length > 0);
       if (!hits.length || wordCount === 0) continue;
       const rate = (hits.length / wordCount) * 1000;
       if (rate <= rule.perThousandWords) continue;
@@ -220,13 +244,13 @@ export function lintText(
       continue;
     }
 
-    rule.re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = rule.re.exec(masked)) !== null) {
-      if (m[0].length === 0) {
-        rule.re.lastIndex++;
-        continue;
-      }
+    const matches = matchAllWithDeadline(rule.re, masked, deadline - Date.now());
+    if (matches === null) {
+      timedOut.push(rule.id);
+      continue;
+    }
+    for (const m of matches) {
+      if (m[0].length === 0) continue;
       const sourceStart = toSource(m.index);
       const sourceEnd = toSource(m.index + m[0].length - 1) + 1;
       const { line, column } = locate(starts, sourceStart);
@@ -269,6 +293,7 @@ export function lintText(
     findings,
     errorCount: findings.filter((f) => f.severity === "error").length,
     warnCount: findings.filter((f) => f.severity === "warn").length,
+    timedOut,
   };
 }
 
@@ -305,7 +330,10 @@ function readabilityFindings(
   sourceLines: string[],
   suppressed: Map<number, Set<string> | "all">,
 ): Finding[] {
-  const active = ruleSet.readability.filter((r) => r.severity !== "off");
+  // `lintText` is this package's public entry point, so a ruleset assembled by
+  // a consumer rather than by `compile` reaches here. Missing readability is a
+  // ruleset from before 0.2.0, not a reason to throw.
+  const active = (ruleSet.readability ?? []).filter((r) => r.severity !== "off");
   if (!active.length) return [];
 
   const out: Finding[] = [];

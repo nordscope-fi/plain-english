@@ -23,6 +23,11 @@ name: Release
 #      a required reviewer so a publish needs an explicit approval.
 #
 # After that, releasing is: bump the version, tag, push the tag.
+#
+# Two gates run before the publish job, and both must pass: `matrix-test`
+# mirrors the CI matrix across operating systems and Node versions, and
+# `verify` runs the single-platform checks (private refs, self-lint, generated
+# file drift, packaging, tag matches package.json).
 
 on:
   push:
@@ -38,6 +43,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The same matrix CI runs. Without it the publish gate was weaker than the
+  # gate on an ordinary pull request: v0.2.0 released green while its CI run
+  # was red on Windows, because verify only ever ran ubuntu-latest and never
+  # saw the failing job. A release must not be easier to pass than a PR.
+  matrix-test:
+    name: Test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['20', '22', '24']
+        include:
+          - os: windows-latest
+            node: '22'
+          - os: macos-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
   verify:
     name: Verify before publishing
     runs-on: ubuntu-latest
@@ -80,7 +115,7 @@ jobs:
 
   publish:
     name: Publish to npm
-    needs: verify
+    needs: [matrix-test, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # A fork pushing a tag must never be able to publish.
