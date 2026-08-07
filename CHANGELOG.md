@@ -2,7 +2,7 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-08-07
 
 ### Security
 
@@ -98,7 +98,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0
 [0.1.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.2
