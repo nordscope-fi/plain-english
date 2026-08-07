@@ -47,9 +47,15 @@ npm version patch      # or minor, or major
 git push --follow-tags
 ```
 
+`npm version` dates the changelog for you. The `version` lifecycle script runs `scripts/date-changelog.mjs`, which retitles `## [Unreleased]` to the new version, adds its link definition, repoints the Unreleased compare link and leaves a fresh empty heading for next time. The result is staged into the release commit.
+
+It refuses to run when `## [Unreleased]` is missing or empty, which fails the whole `npm version` command before anything is tagged. That is deliberate: a release with no changelog entry is either an entry somebody forgot or a bump nobody needed. `ALLOW_EMPTY_CHANGELOG=1` overrides it for a genuinely invisible change.
+
+This used to be a manual step on the checklist below. It was missed on two consecutive releases, both times by someone who had just read the checklist, so it moved into the script.
+
 `npm version` creates an **annotated** tag, which matters: `git push --follow-tags` pushes annotated tags and silently ignores lightweight ones. Tagging by hand with `git tag v0.1.1` produces a lightweight tag, the push reports "Everything up-to-date", and nothing triggers. Use `git tag -a` if you tag manually.
 
-The tag triggers `release.yml`, which verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint`, `arethetypeswrong`, and a check that the tag matches `package.json`. Then it waits for your approval on the `npm` environment and publishes.
+The tag triggers `release.yml`, which verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint`, `arethetypeswrong`, and a check that the tag matches `package.json`. It also runs the full CI matrix across Linux, Windows and macOS on Node 20, 22 and 24, because a publish gate weaker than the pull-request gate let `v0.2.0` ship with a red Windows job. Then it waits for your approval on the `npm` environment and publishes.
 
 ## Version numbering
 
@@ -63,6 +69,6 @@ Semver against the CLI and the rules together. A rule change that produces new f
 
 ## Checklist before tagging
 
-- `CHANGELOG.md` has an entry, and `## [Unreleased]` has been retitled to the version and dated.
+- `CHANGELOG.md` has an entry under `## [Unreleased]`. Dating it is automatic, and `npm version` fails if the section is empty.
 - `npm run render` produced no diff.
 - New or changed rules have corpus cases.
