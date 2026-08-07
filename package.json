@@ -58,6 +58,7 @@
     "lint:self": "node dist/cli.js lint docs README.md",
     "check:refs": "bash scripts/check-no-private-refs.sh",
     "check:refs:history": "bash scripts/check-no-private-refs.sh --history",
+    "version": "node scripts/date-changelog.mjs",
     "pretest": "npm run check:refs",
     "test": "vitest run",
     "test:watch": "vitest",
