@@ -18,7 +18,7 @@ Running both means the cheap layer carries the load it can carry, and the expens
 
 A fix applied afterwards cannot un-push a commit, un-save an issue, or un-show a doc that a reader already opened. The check has to sit in front of the write.
 
-The corollary is that a false positive is expensive. Somebody is stuck, mid-task, arguing with a gate. That is why the severity split and the four escape scopes exist.
+The corollary is that a false positive is expensive. Somebody is stuck, mid-task, arguing with a gate. That is why the severity split and the graduated escape scopes exist.
 
 ## Severity, and why some words only warn
 
@@ -35,7 +35,7 @@ All four were blocked. Thirteen such strings were collected and every one now si
 
 ## Masking
 
-Nothing outside prose is scanned. Code fences, indented code, inline code spans, YAML frontmatter, blockquotes, URLs, link targets, email addresses and HTML comments are replaced with spaces of equal length. Offsets stay aligned, so a finding still reports the right line and column.
+Nothing outside prose is scanned. The document is parsed, and everything that is not prose text is replaced with spaces of equal length. Offsets stay aligned, so a finding still reports the right line and column. The exact list lives in the generated guide, [`docs/writing-style.md`](writing-style.md#what-is-never-scanned), so that it cannot drift from the code the way a hand-copied list does.
 
 Blockquotes are excluded because a quote is someone else's words. Blocking a customer email that says `leverage` helps nobody.
 
@@ -76,7 +76,9 @@ Here, `rules/default.yml` is the only hand-written source. The docs and the prom
 
 A ten-minute acknowledgement file that disables an entire guard is a blunt instrument. It is also the only tool the previous version had, so it got used for cases that deserved a one-line suppression.
 
-Four scopes now exist, narrowest first: one rule on one line, a whole file, a path glob in config, and a severity downgrade in config. The deny message lists them in that order and names the specific rule id to suppress, so the cheapest correct fix is the one presented first.
+Five scopes now exist, narrowest first: one rule on one line, one rule across a range, a whole file, a path glob in config, and a severity downgrade in config. The refusal message lists them in that order and names the specific rule id to suppress, so the cheapest correct fix is the one presented first.
+
+The acknowledgement file survives as the sixth and last, still ten minutes and still expiring on its own. It stays because the five above all need a decision about what the right permanent fix is, and somebody mid-task does not always have one. What it should never be is the first thing reached for, which is why the message puts it last and marks it as the human's call.
 
 ## What to watch for when adapting this
 

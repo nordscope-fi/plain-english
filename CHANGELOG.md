@@ -2,6 +2,25 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `explain` reaches every rule in the ruleset. It listed the 30 word and punctuation rules only, so the nine sentence shapes and the two readability rules had no way to be inspected from the command line while the README said they were listed. `explain unglossed-term` and `explain binary-contrast` now work, and the listing is grouped by kind.
+- A Readability section in the generated `docs/writing-style.md`. Both readability rules ship `link: ...writing-style.md#readability`, an anchor that did not exist, so every readability finding printed a dead link.
+- The acknowledgement file the refusal message advertises is now read. `touch .claude/.docs-plain-english-ack` waives that channel for ten minutes and then expires. It had been named in the message for three releases with nothing checking for it, so the advice was inert and the only real escape from a false positive was editing config.
+
+### Changed
+
+- The README is rewritten. It described the tool as it stood before 0.1.0: it did not mention the readability rules or the output style, it pinned `v0.1.0` in the pre-commit and Action snippets (a tag that was never pushed), it said `explain` listed the sentence shapes, and it said every channel blocks the write when the default has been advisory since 0.1.0. It now separates rule severity, the printed label and `failOn`, which are three vocabularies for two ideas and the main reason the old text was hard to follow.
+- `--claude-code` is out of the usage text. `init` has always written the hooks unconditionally and never read the flag, so listing it implied a second mode that never existed. The flag is still accepted, so the command published in earlier READMEs keeps working.
+- The "what is never scanned" list in the generated guide is accurate and complete. It appeared in three places with three different contents; the two hand-written copies now link to the generated one.
+
+### Fixed
+
+- `rules/schema.json` accepts the configuration the loader accepts. It was missing `failOn`, `readability`, `perThousandWords` and `link` while declaring `additionalProperties: false`, so an editor validating against it would have rejected this repo's own config. A test now holds the schema and the loader together.
+- `docs/adopting.md` no longer says a project config is all `init` writes, no longer pins the missing `v0.1.0` tag, and no longer claims chat enforcement rests on a `CLAUDE.md` note alone.
+
 ## [0.2.0] - 2026-08-07
 
 ### Added
@@ -65,7 +84,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0
 [0.1.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.1
-[0.1.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.0
-[0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0
+[0.1.0]: https://www.npmjs.com/package/plain-english/v/0.1.0

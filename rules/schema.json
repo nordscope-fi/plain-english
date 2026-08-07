@@ -29,8 +29,45 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "failOn": {
+      "description": "Severity threshold at which the exit code turns non-zero and the editor hook refuses a write. The default is advisory.",
+      "enum": ["error", "warn", "never"],
+      "default": "never"
+    },
     "punctuation": { "$ref": "#/$defs/ruleList" },
     "rules": { "$ref": "#/$defs/ruleList" },
+    "readability": {
+      "description": "Rules measured over sentence structure rather than matched at a point.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "severity": {
+            "enum": ["error", "warn", "off"],
+            "default": "warn"
+          },
+          "kind": {
+            "description": "Required on a new rule. Omit only when the entry overrides an inherited one.",
+            "enum": ["unglossed-term", "long-sentence"]
+          },
+          "maxWords": {
+            "description": "long-sentence only: the word count above which the rule fires.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "known": {
+            "description": "unglossed-term only: names a reader already has. A project's entries add to the defaults rather than replacing them. Distinct from `allow`, which suppresses every rule on a matching line.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "message": { "type": "string" },
+          "link": { "$ref": "#/$defs/link" }
+        }
+      }
+    },
     "structures": {
       "description": "Sentence shapes no regex can reach. Consumed by the semantic layer and the docs generator.",
       "type": "array",
@@ -78,9 +115,20 @@
           "message": {
             "description": "The rewrite hint shown with the finding.",
             "type": "string"
-          }
+          },
+          "perThousandWords": {
+            "description": "Makes this a rate rule: reported once per file, and only when the measured rate exceeds this threshold.",
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "link": { "$ref": "#/$defs/link" }
         }
       }
+    },
+    "link": {
+      "description": "Where the finding sends the reader for the reasoning behind the rule.",
+      "type": "string",
+      "format": "uri"
     }
   }
 }

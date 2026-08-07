@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { findUnsafe, isSafe, matchAllWithDeadline } from "../src/safe-regex.ts";
-import { compile, loadDefault, RuleError, type RuleSet } from "../src/rules.ts";
+import { compile, KNOWN_TOP_LEVEL, loadDefault, RuleError, type RuleSet } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { parse } from "yaml";
 
 /** Build a minimal ruleset around one pattern. */
 function setWith(match: string, extra: Partial<RuleSet> = {}): RuleSet {
@@ -135,5 +138,32 @@ describe("unknown config keys are rejected", () => {
     const path = resolve(dir, "c.yml");
     writeFileSync(path, "version: 1\nextends: default\nallowlist: [typo]\n");
     expect(() => loadConfig(path)).toThrow(/unknown key 'allowlist'.*Did you mean 'allow'/s);
+  });
+});
+
+/**
+ * `rules/schema.json` is not wired into the load path, so nothing caught it
+ * drifting: it lost `failOn`, `readability`, `perThousandWords` and `link`
+ * across three releases while claiming `additionalProperties: false`. An
+ * editor pointed at it would have rejected this repo's own config.
+ */
+describe("the published schema mirrors the loader", () => {
+  const schema = JSON.parse(
+    readFileSync(resolve(import.meta.dirname, "..", "rules", "schema.json"), "utf8"),
+  ) as { properties: Record<string, unknown>; additionalProperties: boolean };
+
+  it("accepts exactly the keys the loader accepts", () => {
+    expect(new Set(Object.keys(schema.properties))).toEqual(KNOWN_TOP_LEVEL);
+  });
+
+  it("is still closed, which is what makes the mirror matter", () => {
+    expect(schema.additionalProperties).toBe(false);
+  });
+
+  it("covers every top-level key the shipped ruleset uses", () => {
+    const raw = parse(
+      readFileSync(resolve(import.meta.dirname, "..", "rules", "default.yml"), "utf8"),
+    ) as Record<string, unknown>;
+    for (const key of Object.keys(raw)) expect(schema.properties).toHaveProperty(key);
   });
 });
