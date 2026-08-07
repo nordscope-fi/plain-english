@@ -35,7 +35,7 @@ All four were blocked. Thirteen such strings were collected and every one now si
 
 ## Masking
 
-Nothing outside prose is scanned. Code fences, indented code, inline code spans, YAML frontmatter, blockquotes, URLs, link targets, email addresses and HTML comments are replaced with spaces of equal length, so offsets stay aligned and a finding still reports the right line and column.
+Nothing outside prose is scanned. Code fences, indented code, inline code spans, YAML frontmatter, blockquotes, URLs, link targets, email addresses and HTML comments are replaced with spaces of equal length. Offsets stay aligned, so a finding still reports the right line and column.
 
 Blockquotes are excluded because a quote is someone else's words. Blocking a customer email that says `leverage` helps nobody.
 

@@ -14,8 +14,26 @@ function densityRuleSet(): RuleSet {
   return compile(set);
 }
 
+/**
+ * `n` words of filler, broken into sentences of ten.
+ *
+ * One unbroken run of a thousand words is a single sentence, which the
+ * readability rules correctly report as too long. That made these density
+ * assertions fail for a reason that had nothing to do with density.
+ */
 function words(n: number): string {
-  return Array.from({ length: n }, (_, i) => `word${i}`).join(" ");
+  const all = Array.from({ length: n }, (_, i) => `word${i}`);
+  const out: string[] = [];
+  for (let i = 0; i < all.length; i += 10) {
+    const chunk = all.slice(i, i + 10);
+    // Capitalise the first word. A full stop followed by a lowercase word
+    // reads as an abbreviation to the sentence parser, which is the same
+    // heuristic that stops it splitting "e.g. Vale" in two, so lowercase
+    // filler produced one sentence of a thousand words.
+    chunk[0] = `W${chunk[0]!.slice(1)}`;
+    out.push(chunk.join(" ") + ".");
+  }
+  return out.join(" ");
 }
 
 describe("density rules fire on rate, not presence", () => {

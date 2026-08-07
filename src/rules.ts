@@ -32,6 +32,27 @@ export interface Rule {
   unlessRe?: RegExp[];
 }
 
+export type ReadabilityKind = "unglossed-term" | "long-sentence";
+
+/** A rule measured over sentence structure rather than matched at a point. */
+export interface ReadabilityRule {
+  id: string;
+  severity: Severity;
+  kind: ReadabilityKind;
+  /** long-sentence only: words above which the rule fires. */
+  maxWords?: number;
+  /**
+   * unglossed-term only: names a reader already knows.
+   *
+   * Separate from the shared `allow` list on purpose. `allow` suppresses every
+   * rule on a matching line, so putting "GitHub" there would also silence an
+   * em dash on any line that mentions GitHub.
+   */
+  known?: string[];
+  message?: string;
+  link?: string;
+}
+
 export interface Structure {
   id: string;
   name: string;
@@ -59,6 +80,7 @@ export interface RuleSet {
    */
   failOn: FailOn;
   rules: Rule[];
+  readability: ReadabilityRule[];
   structures: Structure[];
   allow: string[];
   exclude: string[];
@@ -82,6 +104,7 @@ interface RawSet {
   meta?: { title?: unknown; intro?: unknown };
   punctuation?: unknown;
   rules?: unknown;
+  readability?: unknown;
   structures?: unknown;
   allow?: unknown;
   exclude?: unknown;
@@ -150,6 +173,54 @@ function readRules(v: unknown, where: string): Rule[] {
   });
 }
 
+function readReadability(v: unknown): ReadabilityRule[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("readability must be a list");
+  const KINDS = ["unglossed-term", "long-sentence"];
+  return v.map((raw, i) => {
+    const r = raw as Record<string, unknown>;
+    if (typeof r["id"] !== "string") {
+      throw new RuleError(`readability[${i}].id must be a string`);
+    }
+    const kind = r["kind"];
+    if (typeof kind !== "string" || !KINDS.includes(kind)) {
+      throw new RuleError(
+        `readability[${i}] (${r["id"]}): kind must be one of ${KINDS.join(", ")}`,
+      );
+    }
+    const severity = (r["severity"] ?? "warn") as Severity;
+    if (!["error", "warn", "off"].includes(severity)) {
+      throw new RuleError(
+        `readability[${i}] (${r["id"]}): severity must be error, warn or off`,
+      );
+    }
+    const out: ReadabilityRule = { id: r["id"], severity, kind: kind as ReadabilityKind };
+    if (r["maxWords"] !== undefined) {
+      const n = Number(r["maxWords"]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): maxWords must be a positive integer`,
+        );
+      }
+      out.maxWords = n;
+    }
+    if (kind === "long-sentence" && out.maxWords === undefined) {
+      throw new RuleError(`readability[${i}] (${r["id"]}): long-sentence needs maxWords`);
+    }
+    if (Array.isArray(r["known"])) {
+      out.known = (r["known"] as unknown[]).map((k, j) => {
+        if (typeof k !== "string") {
+          throw new RuleError(`readability[${i}] (${r["id"]}).known[${j}] must be a string`);
+        }
+        return k;
+      });
+    }
+    if (typeof r["message"] === "string") out.message = r["message"];
+    if (typeof r["link"] === "string") out.link = r["link"];
+    return out;
+  });
+}
+
 function readStructures(v: unknown): Structure[] {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) throw new RuleError("structures must be a list");
@@ -199,6 +270,7 @@ const KNOWN_TOP_LEVEL = new Set([
   "failOn",
   "punctuation",
   "rules",
+  "readability",
   "structures",
 ]);
 
@@ -262,6 +334,7 @@ function toRuleSet(raw: RawSet): RuleSet {
     // Punctuation and word rules share a namespace once loaded. They are split
     // in the file only so the generated docs can group them.
     rules: [...readRules(raw.punctuation, "punctuation"), ...readRules(raw.rules, "rules")],
+    readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
     allow: asStringArray(raw.allow, "allow"),
     exclude: asStringArray(raw.exclude, "exclude"),
@@ -302,11 +375,28 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
   const structures = new Map(base.structures.map((s) => [s.id, s]));
   for (const s of overlay.structures) structures.set(s.id, s);
 
+  const readability = new Map(base.readability.map((r) => [r.id, { ...r }]));
+  for (const r of overlay.readability) {
+    const existing = readability.get(r.id);
+    if (existing) {
+      existing.severity = r.severity;
+      if (r.maxWords !== undefined) existing.maxWords = r.maxWords;
+      // A project's `known` list adds to the defaults instead of replacing
+      // them, so nobody has to restate "GitHub" to add their own terms.
+      if (r.known?.length) existing.known = [...(existing.known ?? []), ...r.known];
+      if (r.message) existing.message = r.message;
+      if (r.link) existing.link = r.link;
+    } else {
+      readability.set(r.id, { ...r });
+    }
+  }
+
   return {
     version: 1,
     failOn: overlay.failOn ?? base.failOn,
     meta: overlay.meta.title ? overlay.meta : base.meta,
     rules: [...byId.values()],
+    readability: [...readability.values()],
     structures: [...structures.values()],
     allow: [...base.allow, ...overlay.allow],
     exclude: [...base.exclude, ...overlay.exclude],

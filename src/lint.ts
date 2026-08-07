@@ -8,6 +8,7 @@
 
 import { maskNonProse } from "./mask.ts";
 import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
+import { sentences, jargonTerms } from "./sentences.ts";
 import { compile, resolveRuleSet, type RuleSet, type Severity } from "./rules.ts";
 
 export interface Finding {
@@ -260,6 +261,8 @@ export function lintText(
     }
   }
 
+  findings.push(...readabilityFindings(text, ruleSet, starts, sourceLines, suppressed));
+
   findings.sort((a, b) => a.line - b.line || a.column - b.column || a.ruleId.localeCompare(b.ruleId));
 
   return {
@@ -267,6 +270,107 @@ export function lintText(
     errorCount: findings.filter((f) => f.severity === "error").length,
     warnCount: findings.filter((f) => f.severity === "warn").length,
   };
+}
+
+/**
+ * True when a term is introduced together with its explanation.
+ *
+ * "The identity check is called OIDC" has already done the work the rule asks
+ * for, so flagging it would tell the author to do what they just did.
+ */
+function isGlossed(text: string, start: number, end: number): boolean {
+  // A wide window, so "OIDC stands for OpenID Connect" glosses OpenID too:
+  // the expansion of an acronym is its definition, not fresh jargon.
+  const before = text.slice(Math.max(0, start - 60), start);
+  const after = text.slice(end, end + 40);
+  return (
+    /\b(called|named|known as|termed|dubbed|abbreviated|short for|stands for|an acronym for)\s+[("'`]?$/i.test(before) ||
+    /^[)"'`]?\s*(stands for|means|is short for)\b/i.test(after) ||
+    /^[)"'`]?\s*,\s*(which|meaning)\b/i.test(after) ||
+    /^\s*\(/.test(after)
+  );
+}
+
+/**
+ * Rules measured over sentence structure rather than matched at a point.
+ *
+ * These run on the raw source, not the masked copy. The nlcst layer already
+ * drops code, tables, link destinations and blockquotes, and it needs real
+ * markdown to do that, so masking first would hide the structure it reads.
+ */
+function readabilityFindings(
+  text: string,
+  ruleSet: RuleSet,
+  starts: number[],
+  sourceLines: string[],
+  suppressed: Map<number, Set<string> | "all">,
+): Finding[] {
+  const active = ruleSet.readability.filter((r) => r.severity !== "off");
+  if (!active.length) return [];
+
+  const out: Finding[] = [];
+  const add = (
+    rule: { id: string; severity: Severity; message?: string; link?: string },
+    start: number,
+    end: number,
+    message?: string,
+  ) => {
+    const { line, column } = locate(starts, start);
+    const sup = suppressed.get(line);
+    if (sup === "all" || (sup instanceof Set && sup.has(rule.id))) return;
+    const finding: Finding = {
+      ruleId: rule.id,
+      severity: rule.severity as Exclude<Severity, "off">,
+      match: text.slice(start, end),
+      line,
+      column,
+      lineText: sourceLines[line - 1] ?? "",
+    };
+    const msg = message ?? rule.message;
+    if (msg) finding.message = msg;
+    if (rule.link) finding.link = rule.link;
+    out.push(finding);
+  };
+
+  for (const rule of active) {
+    if (rule.kind === "long-sentence") {
+      const max = rule.maxWords ?? 35;
+      for (const sentence of sentences(text)) {
+        if (sentence.words <= max) continue;
+        add(
+          rule,
+          sentence.start,
+          sentence.end,
+          `${sentence.words} words, over ${max}.` + (rule.message ? ` ${rule.message}` : ""),
+        );
+      }
+      continue;
+    }
+
+    if (rule.kind === "unglossed-term") {
+      // A term counts as explained once it has appeared before, so only the
+      // FIRST use is ever reported. Repeating an acronym is not the problem;
+      // introducing one without saying what it does is.
+      const seen = new Set<string>();
+      const known = new Set((rule.known ?? []).map((k) => k.toLowerCase()));
+      for (const term of jargonTerms(text)) {
+        const key = term.text.toLowerCase();
+        if (known.has(key)) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        // A project's own vocabulary is declared through `allow`.
+        if (ruleSet.allowRe?.some((re) => re.test(term.text))) continue;
+        // The whole point of the rule is "explain it, then name it", so a term
+        // that arrives already attached to its explanation has complied. This
+        // catches the naming half of that sentence: "...is called OIDC",
+        // "known as SLSA", "OIDC stands for...", "SLSA, which means...".
+        if (isGlossed(text, term.start, term.end)) continue;
+        add(rule, term.start, term.end, `"${term.text}" is not explained.` + (rule.message ? ` ${rule.message}` : ""));
+      }
+    }
+  }
+
+  return out;
 }
 
 /** Convenience: resolve the ruleset for `cwd` and lint. */

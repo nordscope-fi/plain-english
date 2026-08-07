@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { humanise, renderWritingStyle, renderPrompts } from "../src/render.ts";
+import { humanise, renderWritingStyle, renderPrompts, renderOutputStyle, renderAll } from "../src/render.ts";
 import { compile, loadDefault } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
@@ -99,5 +99,54 @@ describe("generated artifacts", () => {
     for (const p of Object.values(prompts)) {
       expect(p).not.toMatch(/\/(Users|home)\//);
     }
+  });
+});
+
+describe("output style", () => {
+  const set = compile(loadDefault());
+
+  it("carries keep-coding-instructions, which is not optional", () => {
+    // The default is false, which drops Claude Code's built-in
+    // software-engineering instructions and changes far more than tone.
+    expect(renderOutputStyle(set)).toContain("keep-coding-instructions: true");
+  });
+
+  it("has valid frontmatter with a name and description", () => {
+    const style = renderOutputStyle(set);
+    const lines = style.split("\n");
+    expect(lines[0]).toBe("---");
+    const close = lines.indexOf("---", 1);
+    expect(close).toBeGreaterThan(1);
+    const front = lines.slice(1, close).join("\n");
+    expect(front).toMatch(/^name: .+$/m);
+    expect(front).toMatch(/^description: .+$/m);
+  });
+
+  it("takes the sentence threshold from the ruleset, not a hardcoded number", () => {
+    const max = set.readability.find((r) => r.kind === "long-sentence")?.maxWords;
+    expect(max).toBeDefined();
+    expect(renderOutputStyle(set)).toContain(String(max));
+
+    const tweaked = { ...set, readability: set.readability.map((r) =>
+      r.kind === "long-sentence" ? { ...r, maxWords: 99 } : r) };
+    expect(renderOutputStyle(tweaked)).toContain("99");
+  });
+
+  it("does not restate the banned word list", () => {
+    // The deterministic linter owns terms. Duplicating them here is the drift
+    // problem this repo exists to remove.
+    const style = renderOutputStyle(set);
+    for (const term of ["delve", "seamless", "paradigm shift", "synergy"]) {
+      expect(style.toLowerCase()).not.toContain(term);
+    }
+  });
+
+  it("is emitted by renderAll so the CI drift check covers it", () => {
+    const paths = renderAll(set, "/tmp/root").map((t) => t.path);
+    expect(paths.some((p) => p.endsWith("output-styles/plain-english.md"))).toBe(true);
+  });
+
+  it("lints clean under our own rules", () => {
+    expect(lintText(renderOutputStyle(set), set).errorCount).toBe(0);
   });
 });

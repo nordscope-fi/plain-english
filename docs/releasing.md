@@ -2,7 +2,7 @@
 
 ## Why the first release is different
 
-npm revoked all classic tokens on 2025-12-09, so there is no `NPM_TOKEN` to store. Publishing uses OIDC trusted publishing, where npm verifies the GitHub workflow identity directly and attaches provenance on its own.
+npm revoked all classic tokens on 2025-12-09, so there is no `NPM_TOKEN` to store. Instead, npm verifies the GitHub workflow's identity directly and attaches a signed record of where the package was built. The identity check is called OIDC trusted publishing, and the signed record is called provenance.
 
 Trusted publishing has an ordering constraint that catches people out: **a trusted publisher cannot be configured for a package name that does not exist on npm yet.** The first release therefore has to go out by hand, and every release after that runs from CI.
 

@@ -1,0 +1,17 @@
+# This repository's own config.
+#
+# Without this file the linter walks up past the repo root and picks up
+# whatever the developer has in their home directory, so results differ between
+# a laptop and CI. Pinning it here makes `npm run lint:self` deterministic.
+
+version: 1
+extends: default
+
+# Warnings are reported and the run still exits 0. The rules are advisory by
+# design and this repo does not exempt itself from that.
+failOn: never
+
+exclude:
+  - "docs/writing-style.md"     # quotes every banned term as reference material
+  - "docs/limitations.md"       # same, plus it discusses the terms directly
+  - "CHANGELOG.md"

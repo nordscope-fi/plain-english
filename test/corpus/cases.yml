@@ -638,3 +638,107 @@ cases:
       ```
 
       We leverage the cache downstream.
+
+  # ==========================================================================
+  # Readability. These measure prose shape rather than matching a term.
+  #
+  # The example that motivated them is 26 words with five unexplained terms.
+  # It is not a long sentence. What makes it hard is that nothing in it was
+  # ever explained, so unglossed-term is the rule that does the work.
+  # ==========================================================================
+
+  - name: "unexplained acronyms fire, and the sentence length does not"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The OIDC trusted publisher attaches SLSA provenance to the tarball at publish time, which the registry verifies against the workflow identity asserted by the id-token claim."
+
+  - name: "the glossed rewrite of the same idea is clean"
+    expect: pass
+    text: "GitHub signs a receipt proving where the code came from. npm checks that receipt. That proof is called provenance."
+
+  - name: "well-known names are not jargon"
+    expect: pass
+    text: "We use TypeScript with PostgreSQL and deploy through GitHub, storing JSON over HTTPS."
+
+  - name: "a repeated acronym is reported once, on first use"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The RLS policy is checked. RLS applies here. RLS again. And RLS once more."
+
+  - name: "a camel-cased internal name is jargon"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The PreToolUse handler receives the payload and decides."
+
+  - name: "an acronym inside inline code is not scanned"
+    expect: pass
+    text: "Set `OIDC_TOKEN` in the environment before running it."
+
+  - name: "an acronym inside a fenced block is not scanned"
+    expect: pass
+    text: |
+      ```bash
+      export OIDC_AUDIENCE=npm
+      curl --header "SLSA: v1"
+      ```
+
+  - name: "an acronym in a quote is somebody else's problem"
+    expect: pass
+    text: "> The OIDC publisher attaches SLSA provenance automatically."
+
+  - name: "a 47-word sentence fires"
+    expect: pass
+    warns: [long-sentence]
+    text: "When the workflow runs on a hosted machine it asks for an identity token, which the registry then exchanges for a short lived publishing credential after checking that the repository and the workflow filename match what was registered earlier, and only then does the upload actually proceed."
+
+  - name: "a 30-word sentence does not fire"
+    expect: pass
+    text: "When the workflow runs on a hosted machine it asks for a token, which the registry exchanges for a credential after checking the repository matches what was registered."
+
+  - name: "sentence length is counted per sentence, not per paragraph"
+    expect: pass
+    text: |
+      The build failed. The cache was stale. We cleared it and ran the job again.
+      Then the tests passed and the release went out without any further trouble.
+
+  - name: "an abbreviation does not end a sentence"
+    expect: pass
+    text: "Use a linter, e.g. Vale or textlint, before you commit anything to the repository."
+
+  - name: "a version number does not end a sentence"
+    expect: pass
+    text: "We shipped v0.1.3 today and it works."
+
+  - name: "readability findings can be suppressed by rule id"
+    expect: pass
+    text: |
+      <!-- plain-english-disable-next-line unglossed-term -->
+      The OIDC publisher handles this.
+
+  # A term that arrives with its explanation has already done what the rule
+  # asks for. Flagging it would tell the author to do what they just did.
+
+  - name: "is called X counts as a gloss"
+    expect: pass
+    text: "The identity check is called OIDC, and it needs no password."
+
+  - name: "known as X counts as a gloss"
+    expect: pass
+    text: "A signed record of where a package was built, known as SLSA provenance."
+
+  - name: "X stands for counts as a gloss"
+    expect: pass
+    text: "OIDC stands for OpenID Connect and handles the identity check."
+
+  - name: "X, which means counts as a gloss"
+    expect: pass
+    text: "The runner asks for a token via OIDC, which means no password is stored."
+
+  - name: "a parenthetical expansion counts as a gloss"
+    expect: pass
+    text: "The build attaches SLSA (a signed record of where the code came from)."
+
+  - name: "naming without explaining still fires"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The OIDC publisher handles the upload for us."

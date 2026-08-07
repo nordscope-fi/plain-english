@@ -2,6 +2,21 @@
 
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-07
+
+### Added
+
+- Readability rules, a new rule kind measured over sentence structure rather than matched at a point. `unglossed-term` reports an acronym or camel-cased name on first use when nothing has explained it. `long-sentence` reports past 35 words. Both are warnings.
+- A term introduced together with its explanation is not reported. "The identity check is called OIDC", "known as SLSA", "OIDC stands for OpenID Connect" and a parenthetical expansion all count as glosses.
+- A `known` list of names a reader already has, so the rule does not fire on GitHub, TypeScript, JSON or MIT. A project's own `known` entries add to the defaults instead of replacing them, and are separate from `allow`, which suppresses every rule on a matching line.
+- `integrations/claude-code/output-styles/plain-english.md`, generated from the same ruleset and covered by the drift check. This is the first artifact that reaches chat replies.
+- `.plain-english.yml` at the repo root, so linting this repo no longer depends on whatever config sits in a developer's home directory.
+
+### Changed
+
+- Sentence segmentation comes from `retext-english` through `mdast-util-to-nlcst`, so a sentence never splits on `e.g.` or a version number, and code, tables, link destinations and blockquotes never reach the readability layer.
+- `docs/limitations.md` and the README no longer claim that nothing can reach chat output. The `MessageDisplay` hook can, and the entry now records what it does, what it cannot do, and that its documented input schema disagrees with the shipped binary.
+
 ## [0.1.2] - 2026-08-06
 
 Supersedes 0.1.1, which was tagged but never published.
@@ -53,3 +68,4 @@ Supersedes 0.1.1, which was tagged but never published.
 [0.1.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.2
 [0.1.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.1
 [0.1.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.1.0
+[0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0

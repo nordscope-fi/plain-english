@@ -235,6 +235,135 @@ rules:
       - "\\bload[- ]bearing\\s+(wall|walls|beam|column|member|structure|capacity|frame)\\b"
     message: "Say what depends on it."
 
+# Readability. These measure the shape of the prose rather than matching a term.
+#
+# The complaint these answer is "I get lost", which turned out not to be about
+# length. A worked example, 26 words and five unexplained terms:
+#
+#   "The OIDC trusted publisher attaches SLSA provenance to the tarball at
+#    publish time, which the registry verifies against the workflow identity
+#    asserted by the id-token claim."
+#
+# That is an ordinary-length technical sentence. What makes it hard is that
+# nothing in it was ever explained. So `unglossed-term` is the rule that earns
+# its place here, and `long-sentence` is set generously enough to leave dense
+# but explained writing alone.
+readability:
+  - id: unglossed-term
+    severity: warn
+    # An acronym of three or more letters, or a camel-cased name. Reported on
+    # first use only: repeating an acronym is not the problem, introducing one
+    # without saying what it does is.
+    #
+    # Suppressed by any `allow` entry, which is how a project declares its own
+    # vocabulary, and by the `known` list below.
+    kind: unglossed-term
+    message: "Say what it does, then name it."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+    # Names a reader already knows. Without these the rule fires on "GitHub",
+    # which is a camel-cased word and not jargon by any useful definition.
+    #
+    # This list is deliberately short and covers only names common enough that
+    # explaining them would insult the reader. Anything domain-specific belongs
+    # in a project's own `allow`, not here.
+    known:
+      # Platforms and companies
+      - GitHub
+      - GitLab
+      - YouTube
+      - LinkedIn
+      - PayPal
+      - DeepMind
+      - OpenAI
+      - PostgreSQL
+      - MongoDB
+      - MySQL
+      - SQLite
+      - DynamoDB
+      - JetBrains
+      - WordPress
+      - SharePoint
+      - PowerPoint
+      - HubSpot
+      - MailChimp
+      - QuickBooks
+      # Languages, runtimes and formats
+      - JavaScript
+      - TypeScript
+      - CoffeeScript
+      - PostScript
+      - JSON
+      - YAML
+      - TOML
+      - HTML
+      - CSS
+      - SQL
+      - XML
+      - CSV
+      - PDF
+      - PNG
+      - JPEG
+      - SVG
+      - URL
+      - URI
+      - API
+      - CLI
+      - GUI
+      - IDE
+      - OS
+      - macOS
+      - iOS
+      - iPhone
+      - iPad
+      - NodeJS
+      - jQuery
+      - GraphQL
+      - WebSocket
+      - WebAssembly
+      - OAuth
+      - HTTP
+      - HTTPS
+      - FTP
+      - SSH
+      - TLS
+      - SSL
+      - DNS
+      - IP
+      - CPU
+      - GPU
+      - RAM
+      - USB
+      - PDF
+      # Repository and document conventions. These name a file or a licence,
+      # not a concept, so there is nothing to explain.
+      - README
+      - CHANGELOG
+      - LICENSE
+      - CONTRIBUTING
+      - TODO
+      - MIT
+      - GPL
+      - BSD
+      # Everyday abbreviations
+      - FAQ
+      - PDF
+      - CEO
+      - CTO
+      - VAT
+      - EU
+      - UK
+      - USA
+      - PhD
+
+  - id: long-sentence
+    severity: warn
+    kind: long-sentence
+    # 25 would police ordinary technical writing. 35 catches genuinely tangled
+    # sentences and leaves depth alone.
+    maxWords: 35
+    message: "Split this. One idea per sentence."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+
 # Sentence shapes a regex cannot reach. These are checked by the semantic layer
 # only. `render` copies them into the generated prompt text and into the docs.
 structures:

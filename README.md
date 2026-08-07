@@ -64,7 +64,7 @@ Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the 
 | Commit messages | pre-commit hook, or Claude Code hook | Claude Code prompt hook |
 | PR and issue bodies | GitHub Action, or Claude Code hook | Claude Code prompt hook |
 | Issue tracker (Linear-shaped MCP calls) | Claude Code hook | Claude Code prompt hook |
-| A chat reply | none | none |
+| A chat reply | none | output style (prompt-level, not a gate) |
 
 Chat replies are not checked. Every other channel blocks the write until it passes, since a commit or PR cannot be un-sent.
 

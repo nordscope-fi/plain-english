@@ -74,7 +74,13 @@ These rules describe how models wrote in 2024 and 2025. Vendors actively suppres
 
 ## What no hook can reach
 
-A chat reply has no tool call between being written and being read. Nothing can sit in that path. Enforcement there depends on the model following its instructions, and this project makes no claim to cover it.
+A chat reply is not a tool call, so none of the linting hooks see it. What reaches chat instead is the output style at `integrations/claude-code/output-styles/plain-english.md`, generated from the same ruleset. Three things are worth knowing about it.
+
+It is a prompt, not a gate. Claude Code appends it to the end of the system prompt and reminds the model of it each turn, which makes it the strongest lever available here, and it is still an instruction that can be ignored. Nothing measures compliance.
+
+It does not apply to subagents. A subagent runs its own system prompt, so any research or exploration agent keeps writing the old way.
+
+One hook does reach chat text, and this document previously claimed none did. `MessageDisplay` fires while a reply renders and can replace what appears on screen through `displayContent`. Two limits make it unsuitable for this ruleset today. It is display-only, so the transcript and the model's own view keep the original text. And it fires per batch of completed lines with a ten second budget, so it can substitute a word and cannot restructure a reply. Its input schema is also currently contested: the docs describe `message_text` and `is_final_chunk`, neither of which appears in the shipped 2.1.224 binary, which uses `delta` and `final`. Anything built on it needs a stdin log first.
 
 ## The semantic layer has a false-positive floor
 
