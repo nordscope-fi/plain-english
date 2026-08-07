@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with Claude Code, pre-commit and CI adapters.",
   "keywords": [
     "linter",
