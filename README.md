@@ -1,6 +1,8 @@
 # plain-english
 
-Catch AI writing tells before they land in a commit, a doc, or an issue somebody else reads.
+Catch AI writing tells before they land in a commit, a doc, or an issue somebody else
+reads. Hooks into Claude Code, Copilot, Codex and Cursor; runs anywhere else as a
+command.
 
 ## Two problems, one tool
 
@@ -125,35 +127,61 @@ Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the 
 
 | Channel | Deterministic | Semantic |
 |---|---|---|
-| Markdown files | `plain-english lint` | Claude Code prompt hook |
-| Commit messages | pre-commit hook, or Claude Code hook | Claude Code prompt hook |
-| PR and issue bodies | GitHub Action, or Claude Code hook | Claude Code prompt hook |
-| Issue tracker (Linear-shaped tool calls) | Claude Code hook | Claude Code prompt hook |
-| A chat reply | output style (a prompt, not a gate) | none |
+| Markdown files | `plain-english lint`, or a hook in your agent | agent prompt hook |
+| Commit messages | pre-commit hook, or an agent hook | agent prompt hook |
+| PR and issue bodies | GitHub Action, or an agent hook | agent prompt hook |
+| Issue tracker (Linear-shaped tool calls) | agent hook | agent prompt hook |
+| Editor diagnostics | `--format unix` or `--format sarif` | none |
+| A chat reply | `AGENTS.md`, or a Claude Code output style | none |
 
-Under the default `failOn: never`, the Claude Code hooks surface a finding and let you
-decide. Under `failOn: error` they refuse the write outright.
+Under the default `failOn: never`, an agent hook surfaces a finding and lets you decide.
+Under `failOn: error` it refuses the write outright. The semantic layer rides on a prompt
+hook, which today only Claude Code provides.
 
-### Claude Code
+### Coding agents
 
 ```bash
-npx plain-english init --dry-run    # see what would change
-npx plain-english init
+npx plain-english init --agent claude-code   # default
+npx plain-english init --agent copilot
+npx plain-english init --agent codex
+npx plain-english init --agent cursor
+npx plain-english init --agent all
 ```
 
-That writes three shim hooks, merges the hook blocks into your existing
-`.claude/settings.json` without disturbing anything already there, and drops a starter
-config if you have none. Run it twice and nothing changes the second time.
+Each writes that agent's hook config, merging into whatever is already there without
+disturbing it, plus a generated `AGENTS.md` section and a starter `.plain-english.yml`.
+Run it twice and nothing changes the second time. Add `--dry-run` to see first.
 
-The hooks cover `Write`, `Edit`, `MultiEdit`, `NotebookEdit`, `Bash` (commit and `gh`
-invocations, including message files passed with `-F` or `--body-file`), and Linear-shaped
-`save_issue` / `save_comment` calls. Only the inserted side of an edit is judged, so you
-can still edit a file that already contains a banned term.
+The hooks cover file writes, `Bash` (commit and `gh` invocations, including message files
+passed with `-F` or `--body-file`), and Linear-shaped `save_issue` / `save_comment` calls.
+Only the inserted side of an edit is judged, so you can still edit a file that already
+contains a banned term.
 
-If a finding is wrong and you need past it once, `touch .claude/.docs-plain-english-ack`
-waives that channel for ten minutes, then expires on its own.
+Claude Code's hook contract became the shape everyone copied. That is why four agents
+cost four translation tables and not four linters.
 
-### The output style
+[`docs/agents.md`](docs/agents.md) has the per-agent detail. Two caveats are worth
+knowing before you rely on a hook: Copilot's cloud agent turns an `ask` into a `deny`,
+and Codex will not run a hook until you approve it with `/hooks`.
+
+If a finding is wrong and you need past it once, `touch .plain-english-ack-docs` waives
+that channel for ten minutes, then expires on its own.
+
+### Agents with no adapter
+
+Not every agent has a hook this package speaks, and some have none at all. Three things
+work regardless:
+
+- **`AGENTS.md`**, written by `init`. Roughly twenty agents read it. It shapes behaviour
+  and enforces nothing.
+- **A post-edit lint command.** Most agents can be told to run a command after editing and
+  act on the output. [`docs/post-edit-lint.md`](docs/post-edit-lint.md) has the config for
+  aider, Claude Code, Cursor and Codex.
+- **Editor diagnostics.** Several agents read their editor's Problems list. Findings
+  reach it as `path:line:col` text, or as SARIF (Static Analysis Results Interchange
+  Format). [`docs/editors.md`](docs/editors.md) covers both.
+
+### The Claude Code output style
 
 Hooks sit on tool calls. A chat reply is not a tool call, so nothing can gate one. What
 reaches chat instead is an output style, generated from the same ruleset:
@@ -164,16 +192,20 @@ cp node_modules/plain-english/integrations/claude-code/output-styles/plain-engli
    .claude/output-styles/
 ```
 
-Then pick it with `/output-style` in Claude Code. It is a prompt, so nothing measures
+Then run `/config` and pick it under **Output style**. (The standalone `/output-style`
+command was removed in Claude Code v2.1.91.) It is a prompt, so nothing measures
 compliance, and it does not reach subagents, which run their own system prompt.
 [`docs/limitations.md`](docs/limitations.md) covers both.
+
+Elsewhere the portable equivalent is the `AGENTS.md` section, which `init` writes for
+every agent.
 
 ### pre-commit
 
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.2.0
+    rev: v0.4.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -182,12 +214,14 @@ repos:
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.2.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.4.0
   with:
     paths: docs README.md    # default: .
     fail-on: warn            # default: error
     check-pr-body: "true"    # default: false
     version: latest          # pin to a release to freeze the ruleset
+    sarif-file: pe.sarif     # default: none. Upload it yourself; the step
+                             # needs security-events: write.
 ```
 
 The action defaults to `fail-on: error`, unlike the command line, which defaults to
@@ -246,10 +280,12 @@ plain-english render               regenerate docs/ and prompt templates
 plain-english explain [RULE]       show a rule, or list them all
 plain-english doctor               environment dump for bug reports
 plain-english init                 wire this repo up
-plain-english hook <CHANNEL>       PreToolUse adapter (docs|github|issue)
+plain-english hook <CHANNEL>       pre-tool-call adapter (docs|github|issue)
 
 LINT OPTIONS
-  --format text|json|github          output shape (default: text)
+  --format text|json|unix|github|sarif
+                                     output shape (default: text).
+                                     unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
 
 RENDER OPTIONS
@@ -257,19 +293,29 @@ RENDER OPTIONS
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS
+  --agent ID                         claude-code (default), copilot, codex,
+                                     cursor, or all
   --dry-run                          print what would change
   --root PATH                        repo root (default: cwd)
+
+HOOK OPTIONS
+  --agent ID                         which agent's protocol to speak.
+                                     Detected from the payload when omitted.
+
+  --version                          print the version and exit
 ```
 
 Exit codes: 0 clean or advisory, 1 a finding at or above `failOn`, 2 a bad path or a
-config error. `--format github` emits CI annotations. Attach `doctor` output to a bug
+config error. `--format github` emits CI annotations, `--format unix` feeds an editor
+and `--format sarif` feeds GitHub code scanning. Attach `doctor` output to a bug
 report.
 
 ## One hand-written source
 
-`rules/default.yml` is edited by hand. `plain-english render` generates five files from it:
+`rules/default.yml` is edited by hand. `plain-english render` generates six files from it:
 
 - `docs/writing-style.md`
+- `integrations/agents-md/plain-english.md`
 - `integrations/claude-code/output-styles/plain-english.md`
 - `integrations/claude-code/prompts/{docs,github,issue}.txt`
 

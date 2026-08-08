@@ -2,21 +2,25 @@ import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { ACK_WINDOW_MS, decide, hasAck, toHookOutput } from "../src/adapters/claude-hook.ts";
+import { ACK_WINDOW_MS, ackPath, decide, hasAck } from "../src/adapters/hook.ts";
+import { claudeCode } from "../src/agents/claude-code.ts";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
-import { initClaudeCode } from "../src/init.ts";
+import { init } from "../src/init.ts";
 import { readFileSync } from "node:fs";
 
 const EM = "—";
 const advisory: RuleSet = compile({ ...loadDefault(), failOn: "never" });
 const strict: RuleSet = compile({ ...loadDefault(), failOn: "error" });
 
+/** A Claude Code payload, parsed the way the CLI parses one. */
 function docsWrite(dir: string, content: string) {
-  return {
+  return claudeCode.parse({
     tool_name: "Write",
     tool_input: { file_path: resolve(dir, "x.md"), content },
-  };
+  });
 }
+
+const emit = (d: ReturnType<typeof decide>) => claudeCode.emit(d).stdout;
 
 describe("advisory is the default", () => {
   it("the built-in ruleset does not block", () => {
@@ -36,9 +40,7 @@ describe("advisory is the default", () => {
 
   it("emits permissionDecision ask in the hook payload", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-dec-"));
-    const out = toHookOutput(
-      decide(docsWrite(dir, `a ${EM} b`), "docs", { projectDir: dir, ruleSet: advisory }),
-    );
+    const out = emit(decide(docsWrite(dir, `a ${EM} b`), "docs", { projectDir: dir, ruleSet: advisory }));
     const parsed = JSON.parse(out);
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("ask");
     expect(parsed.hookSpecificOutput.hookEventName).toBe("PreToolUse");
@@ -55,7 +57,7 @@ describe("strict mode is opt-in", () => {
       ruleSet: strict,
     });
     expect(d.decision).toBe("deny");
-    expect(JSON.parse(toHookOutput(d)).hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(JSON.parse(emit(d)).hookSpecificOutput.permissionDecision).toBe("deny");
     rmSync(dir, { recursive: true, force: true });
   });
 });
@@ -68,7 +70,7 @@ describe("clean text stays out of the way", () => {
       ruleSet: advisory,
     });
     expect(d.decision).toBe("allow");
-    expect(toHookOutput(d)).toBe("");
+    expect(emit(d)).toBe("");
     rmSync(dir, { recursive: true, force: true });
   });
 });
@@ -76,7 +78,7 @@ describe("clean text stays out of the way", () => {
 describe("init emits permission-rule scoping", () => {
   it("scopes the docs hook to markdown with an if rule", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-init-if-"));
-    initClaudeCode({ root: dir });
+    init({ root: dir });
     const settings = JSON.parse(readFileSync(resolve(dir, ".claude/settings.json"), "utf8"));
     const docs = settings.hooks.PreToolUse.find((b: { matcher: string }) =>
       b.matcher.includes("Write"),
@@ -94,7 +96,7 @@ describe("init emits permission-rule scoping", () => {
 
   it("writes a starter config that names the default", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-init-cfg-"));
-    initClaudeCode({ root: dir });
+    init({ root: dir });
     const cfg = readFileSync(resolve(dir, ".plain-english.yml"), "utf8");
     expect(cfg).toContain("failOn: never");
     rmSync(dir, { recursive: true, force: true });
@@ -102,16 +104,21 @@ describe("init emits permission-rule scoping", () => {
 });
 
 /**
- * The refusal message offered `touch .claude/.docs-plain-english-ack` as the
- * last-resort hatch for three releases while nothing read the file, so the
- * advice was inert and the only real escape was editing config.
+ * The refusal message offered an ack file as the last-resort hatch for three
+ * releases while nothing read it, so the advice was inert and the only real
+ * escape was editing config.
+ *
+ * It moved out of `.claude/` in 0.4.0, because the message tells a human to
+ * `touch` it and `touch` will not create a missing parent directory. The old
+ * location is still honoured: somebody who learned the old path should not
+ * find it stopped working because the tool grew support for another agent.
  */
 describe("the ack file waives a finding", () => {
-  const ack = (dir: string) => resolve(dir, ".claude", ".docs-plain-english-ack");
+  const ack = (dir: string) => ackPath("docs", dir);
+  const legacyAck = (dir: string) => resolve(dir, ".claude", ".docs-plain-english-ack");
 
   it("a fresh ack allows the write", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-"));
-    mkdirSync(resolve(dir, ".claude"), { recursive: true });
     writeFileSync(ack(dir), "");
     const d = decide(docsWrite(dir, `a ${EM} b`), "docs", {
       projectDir: dir,
@@ -124,9 +131,22 @@ describe("the ack file waives a finding", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it("needs no directory to exist, because the message says to touch it", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-flat-"));
+    expect(resolve(ack(dir), "..")).toBe(resolve(dir));
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("still honours the pre-0.4.0 location", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-legacy-"));
+    mkdirSync(resolve(dir, ".claude"), { recursive: true });
+    writeFileSync(legacyAck(dir), "");
+    expect(hasAck("docs", dir)).toBe(true);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it("an expired ack does not", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-old-"));
-    mkdirSync(resolve(dir, ".claude"), { recursive: true });
     writeFileSync(ack(dir), "");
     const stale = new Date(Date.now() - ACK_WINDOW_MS - 1000);
     utimesSync(ack(dir), stale, stale);
@@ -140,7 +160,6 @@ describe("the ack file waives a finding", () => {
 
   it("waives only the channel it names", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-chan-"));
-    mkdirSync(resolve(dir, ".claude"), { recursive: true });
     writeFileSync(ack(dir), "");
     expect(hasAck("docs", dir)).toBe(true);
     expect(hasAck("github", dir)).toBe(false);
@@ -155,7 +174,6 @@ describe("the ack file waives a finding", () => {
 
   it("strict mode is waivable too", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-ack-strict-"));
-    mkdirSync(resolve(dir, ".claude"), { recursive: true });
     writeFileSync(ack(dir), "");
     const d = decide(docsWrite(dir, `a ${EM} b`), "docs", {
       projectDir: dir,

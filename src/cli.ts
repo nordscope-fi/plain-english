@@ -13,8 +13,10 @@ import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { renderAll, writeTargets } from "./render.ts";
-import { decide, toHookOutput, type Channel } from "./adapters/claude-hook.ts";
-import { initClaudeCode } from "./init.ts";
+import { decide, isChannel, CHANNELS, type Channel } from "./adapters/hook.ts";
+import { init, allAgents } from "./init.ts";
+import { byId, agentIds, resolveProfile } from "./agents/registry.ts";
+import { toSarif } from "./format/sarif.ts";
 import { matchesAny } from "./glob.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -136,7 +138,19 @@ async function cmdLint(args: Args): Promise<number> {
   const errors = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "error").length, 0);
   const warns = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "warn").length, 0);
 
-  if (format === "json") {
+  if (format === "sarif") {
+    process.stdout.write(
+      JSON.stringify(
+        toSarif(
+          all.filter((f) => f.findings.length),
+          ruleSet,
+          { root, version: packageVersion() },
+        ),
+        null,
+        2,
+      ) + "\n",
+    );
+  } else if (format === "json") {
     process.stdout.write(
       JSON.stringify(
         {
@@ -150,6 +164,20 @@ async function cmdLint(args: Args): Promise<number> {
         2,
       ) + "\n",
     );
+  } else if (format === "unix") {
+    // `path:line:col: level: message` is the shape every editor already knows
+    // how to parse, from vim's errorformat through ALE and nvim-lint to
+    // efm-langserver. The default `text` format groups findings under a
+    // filename heading, which reads better and parses worse.
+    for (const { file, findings } of all) {
+      for (const f of findings) {
+        const level = f.severity === "error" ? "error" : "warning";
+        process.stdout.write(
+          `${relative(root, file) || file}:${f.line}:${f.column}: ${level}: ` +
+            `${f.match} (${f.ruleId})${f.message ? " " + f.message : ""}\n`,
+        );
+      }
+    }
   } else if (format === "github") {
     // GitHub Actions annotations.
     for (const { file, findings } of all) {
@@ -295,17 +323,40 @@ function cmdExplain(args: Args): number {
 }
 
 async function cmdHook(args: Args): Promise<number> {
-  // Fail-open is the whole contract here. A crash must never block a write.
   try {
-    const channel = (args.positionals[0] ?? args.flags["channel"] ?? "docs") as Channel;
+    const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
+    if (!isChannel(name)) {
+      process.stderr.write(
+        `plain-english: unknown channel '${name}'. Known channels: ${CHANNELS.join(", ")}\n`,
+      );
+      return 0;
+    }
+    const channel: Channel = name;
+
     const raw = await readStdin();
     if (!raw.trim()) return 0;
     const payload = JSON.parse(raw) as Record<string, unknown>;
-    const decision = decide(payload, channel);
-    const out = toHookOutput(decision);
-    if (out) process.stdout.write(out);
-    return 0;
+
+    const agentFlag = args.flags["agent"] === undefined ? undefined : String(args.flags["agent"]);
+    let profile;
+    try {
+      profile = resolveProfile(agentFlag, payload);
+    } catch (e) {
+      // A typo in a shim's --agent is worth saying out loud, and worth saying
+      // once per call rather than never. It is not worth refusing a write over,
+      // so detection carries on without the flag.
+      process.stderr.write(`plain-english: ${e instanceof Error ? e.message : String(e)}\n`);
+      profile = resolveProfile(undefined, payload);
+    }
+
+    const out = profile.emit(decide(profile.parse(payload), channel));
+    if (out.stdout) process.stdout.write(out.stdout);
+    return out.exitCode;
   } catch {
+    // Fail-open, and this is the contract the whole design rests on: a linter
+    // must never be the reason a write cannot happen. Copilot is the one agent
+    // that reads a non-zero exit here as a refusal, so 0 is also the only safe
+    // answer, not merely the polite one.
     return 0;
   }
 }
@@ -318,10 +369,12 @@ USAGE
   plain-english explain [RULE]       show a rule, or list them all
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
-  plain-english hook <CHANNEL>       PreToolUse adapter (docs|github|issue)
+  plain-english hook <CHANNEL>       pre-tool-call adapter (docs|github|issue)
 
 LINT OPTIONS
-  --format text|json|github          output shape (default: text)
+  --format text|json|unix|github|sarif
+                                     output shape (default: text).
+                                     unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
 
 RENDER OPTIONS
@@ -329,8 +382,14 @@ RENDER OPTIONS
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS
+  --agent ID                         claude-code (default), copilot, codex,
+                                     cursor, or all
   --dry-run                          print what would change
   --root PATH                        repo root (default: cwd)
+
+HOOK OPTIONS
+  --agent ID                         which agent's protocol to speak.
+                                     Detected from the payload when omitted.
 
   --version                          print the version and exit
 
@@ -433,16 +492,33 @@ async function main(): Promise<number> {
         return cmdDoctor();
       case "hook":
         return await cmdHook(args);
-      case "init":
-        // `--claude-code` is still accepted and still does nothing: init has
-        // always written the hooks unconditionally. Unknown flags are ignored
-        // by parseArgs, so the command published in earlier READMEs keeps
-        // working. It is out of USAGE because listing it implied a second mode
-        // that never existed.
-        return initClaudeCode({
+      case "init": {
+        // `--claude-code` is still accepted and still does nothing: init wrote
+        // the Claude Code hooks unconditionally long before there was a second
+        // agent to choose between. Unknown flags are ignored by parseArgs, so
+        // the command published in earlier READMEs keeps working, and it now
+        // means the same thing as the `--agent claude-code` default.
+        const requested = args.flags["agent"] === undefined ? undefined : String(args.flags["agent"]);
+        let agents;
+        if (requested === "all") {
+          agents = allAgents();
+        } else if (requested !== undefined) {
+          const found = byId(requested);
+          if (!found) {
+            process.stderr.write(
+              `plain-english: unknown agent '${requested}'.\n` +
+                `  Known agents: ${agentIds().join(", ")}, all\n`,
+            );
+            return 2;
+          }
+          agents = [found];
+        }
+        return init({
           root: resolve(String(args.flags["root"] ?? process.cwd())),
           dryRun: Boolean(args.flags["dry-run"]),
+          ...(agents ? { agents } : {}),
         });
+      }
       default:
         process.stderr.write(`plain-english: unknown command '${args.command}'\n\n${USAGE}`);
         return 2;

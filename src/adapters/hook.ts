@@ -1,8 +1,10 @@
 /**
- * Claude Code PreToolUse adapter.
+ * Deciding whether a pending tool call may write what it is about to write.
  *
- * Reads a hook payload on stdin, works out which text the call would put in
- * front of a reader, and returns an allow/deny decision.
+ * Nothing in this file knows which agent asked. A profile in `src/agents/`
+ * translates that agent's payload into a `NormalisedEvent` on the way in, and
+ * translates the `Decision` below into that agent's wire format on the way out.
+ * What is left in between is the part worth sharing, and it is most of it.
  *
  * The extraction rules here encode escapes that reached real readers:
  *
@@ -22,23 +24,28 @@ import { isAbsolute, resolve, sep } from "node:path";
 import { lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
 import { matchesAny } from "../glob.ts";
+import { asRecord, pick, pickArray } from "../agents/fields.ts";
+import type { NormalisedEvent } from "../agents/profile.ts";
 
 export type Channel = "docs" | "github" | "issue";
 
-export interface HookPayload {
-  tool_name?: string;
-  tool_input?: Record<string, unknown>;
-  cwd?: string;
+export const CHANNELS: readonly Channel[] = ["docs", "github", "issue"];
+
+export function isChannel(v: string): v is Channel {
+  return (CHANNELS as readonly string[]).includes(v);
 }
 
+/** A payload as it arrived, before a profile has made sense of it. */
+export type RawPayload = Record<string, unknown>;
+
 /**
- * What the hook asks Claude Code to do.
+ * What the hook asks the agent to do.
  *
  *   allow  nothing to report
  *   ask    surface to the human and let them decide
  *   deny   refuse the write outright
  *
- * `deny` overrides --dangerously-skip-permissions, so a denied write has no
+ * `deny` overrides an agent's skip-permissions mode, so a denied write has no
  * user-side escape hatch short of removing the hook. That is a lot of power
  * for a subjective style rule, so it is reserved for the opt-in strict mode.
  */
@@ -62,9 +69,9 @@ export interface Decision {
 /**
  * Match budget for one hook payload.
  *
- * Claude Code kills the hook at thirty seconds. Well under that on purpose: a
- * write stalled for several seconds is a worse outcome than a banned term
- * reaching a document that a human is about to read anyway.
+ * Agents kill a hook somewhere between ten and thirty seconds. Well under all
+ * of them on purpose: a write stalled for several seconds is a worse outcome
+ * than a banned term reaching a document that a human is about to read anyway.
  */
 export const HOOK_BUDGET_MS = 500;
 
@@ -80,9 +87,7 @@ const FILE_FLAG =
 const INLINE_FLAG =
   /(?:^|\s)(?:-m|--message|-t|--title|-b|--body|-n|--notes|--subject)[=\s]+("((?:[^"\\]|\\.)*)"|'([^']*)'|([^\s"']+))/g;
 
-function str(v: unknown): string {
-  return typeof v === "string" ? v : "";
-}
+const MARKDOWN = /\.(md|markdown|mdx)$/i;
 
 function expandHome(p: string): string {
   if (p === "~") return homedir();
@@ -135,23 +140,38 @@ export function extractFromBash(cmd: string): string[] {
   return parts.filter((p) => p.trim() !== "");
 }
 
-/** The text a Write/Edit/MultiEdit/NotebookEdit call would put into a file. */
-export function extractFromFileWrite(
-  tool: string,
-  input: Record<string, unknown>,
-): string[] {
-  switch (tool) {
-    case "Write":
-      return [str(input["content"])];
-    case "Edit":
+/** One file's worth of about-to-be-written text. */
+export interface FileText {
+  path: string;
+  text: string;
+}
+
+/**
+ * The files a write-shaped call would change, and the text going into each.
+ *
+ * Keeping them paired is what lets a patch touching both a README and a source
+ * file have only the README judged.
+ */
+export function extractFromFileWrite(event: NormalisedEvent): FileText[] {
+  const input = event.input;
+  const path = pick(input, "filePath");
+
+  switch (event.tool) {
+    case "write":
+      return [{ path, text: pick(input, "content") }];
+    case "edit":
       // Only the inserted side.
-      return [str(input["new_string"])];
-    case "MultiEdit": {
-      const edits = Array.isArray(input["edits"]) ? input["edits"] : [];
-      return edits.map((e) => str((e as Record<string, unknown>)["new_string"]));
-    }
-    case "NotebookEdit":
-      return [str(input["new_source"])];
+      return [{ path, text: pick(input, "newString") }];
+    case "multi-edit":
+      return pickArray(input, "edits").map((e) => ({
+        path,
+        text: pick(asRecord(e), "newString"),
+      }));
+    case "patch":
+      return pickArray(input, "files").map((f) => {
+        const entry = asRecord(f);
+        return { path: pick(entry, "path"), text: pick(entry, "text") };
+      });
     default:
       return [];
   }
@@ -159,12 +179,11 @@ export function extractFromFileWrite(
 
 /** The text a Linear-style issue call would show a reader. */
 export function extractFromIssue(input: Record<string, unknown>): string[] {
-  const parts = [str(input["title"]), str(input["description"]), str(input["body"])];
-  const patch = Array.isArray(input["patch"]) ? input["patch"] : [];
-  for (const p of patch) {
-    const entry = p as Record<string, unknown>;
-    // new_string / text only. old_string is text being replaced.
-    parts.push(str(entry["new_string"]), str(entry["text"]));
+  const parts = [pick(input, "title"), pick(input, "description"), pick(input, "body")];
+  for (const p of pickArray(input, "patch")) {
+    const entry = asRecord(p);
+    // newString / text only. The removed side is text on its way out.
+    parts.push(pick(entry, "newString"), pick(entry, "text"));
   }
   return parts.filter((p) => p.trim() !== "");
 }
@@ -177,60 +196,72 @@ function isUnderProject(file: string, projectDir: string): boolean {
 }
 
 /**
- * Decide on a payload.
+ * Where the repository is.
  *
- * `projectDir` scopes the docs channel. Without it every markdown file the
- * session touches anywhere on disk would be judged, including other repos.
+ * `CLAUDE_PROJECT_DIR` is the only one of these an agent sets today, so the
+ * payload's own `cwd` is the portable answer and the fallback is the process's.
+ * Without any of them every markdown file the session touches anywhere on disk
+ * would be judged, including other repositories.
+ */
+export function projectDirFor(event: NormalisedEvent, explicit?: string): string {
+  return explicit || process.env["CLAUDE_PROJECT_DIR"] || event.cwd || process.cwd();
+}
+
+/**
+ * Decide on one normalised tool call.
+ *
+ * The channel says which kind of text is arriving, and is fixed by whichever
+ * hook entry invoked us rather than inferred from the payload.
  */
 export function decide(
-  payload: HookPayload,
+  event: NormalisedEvent,
   channel: Channel,
   opts: { projectDir?: string; ruleSet?: RuleSet } = {},
 ): Decision {
-  const tool = str(payload.tool_name);
-  const input = (payload.tool_input ?? {}) as Record<string, unknown>;
-  const projectDir = opts.projectDir ?? process.env["CLAUDE_PROJECT_DIR"] ?? "";
+  const projectDir = projectDirFor(event, opts.projectDir);
+  const allow = (): Decision => ({ allow: true, decision: "allow", findings: [] });
 
+  let files: FileText[] = [];
   let texts: string[] = [];
-  let filePath = "";
 
   if (channel === "docs") {
-    filePath = str(input["file_path"]) || str(input["notebook_path"]);
-    if (!filePath) return { allow: true, decision: "allow", findings: [] };
-    if (!/\.(md|markdown|mdx)$/i.test(filePath)) return { allow: true, decision: "allow", findings: [] };
-    if (isAbsolute(filePath) && !isUnderProject(filePath, projectDir)) {
-      return { allow: true, decision: "allow", findings: [] };
-    }
-    texts = extractFromFileWrite(tool, input);
+    files = extractFromFileWrite(event).filter(
+      (f) =>
+        f.path !== "" &&
+        MARKDOWN.test(f.path) &&
+        (!isAbsolute(f.path) || isUnderProject(f.path, projectDir)),
+    );
+    if (!files.length) return allow();
   } else if (channel === "github") {
-    if (tool !== "Bash") return { allow: true, decision: "allow", findings: [] };
-    texts = extractFromBash(str(input["command"]));
+    if (event.tool !== "bash") return allow();
+    texts = extractFromBash(pick(event.input, "command"));
   } else {
-    texts = extractFromIssue(input);
+    texts = extractFromIssue(event.input);
   }
 
-  texts = texts.filter((t) => t.trim() !== "");
-  if (!texts.length) return { allow: true, decision: "allow", findings: [] };
-
-  const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir || process.cwd());
+  const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir);
 
   // A file the project has excluded is never judged, whichever channel it
   // arrives through.
-  if (filePath) {
-    const rel = projectDir
-      ? resolve(filePath).slice(resolve(projectDir).length + 1)
-      : filePath;
-    if (matchesAny(rel, ruleSet.exclude)) {
-      return { allow: true, decision: "allow", findings: [] };
-    }
+  if (files.length) {
+    const base = resolve(projectDir);
+    files = files.filter((f) => {
+      const abs = resolve(base, f.path);
+      const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
+      return !matchesAny(rel, ruleSet.exclude);
+    });
+    texts = files.map((f) => f.text);
   }
+
+  texts = texts.filter((t) => t.trim() !== "");
+  if (!texts.length) return allow();
 
   const findings: Finding[] = [];
   const stalled = new Set<string>();
   for (const text of texts) {
-    // A hook payload is one edit, so the budget is tighter than the CLI's:
-    // Claude Code kills the hook at 30 seconds, and a write held up for even a
-    // few is worse than a term slipping through. Fail-open on exhaustion.
+    // A hook payload is one edit, so the budget is tighter than the CLI's: an
+    // agent kills the hook well before a minute, and a write held up for even a
+    // few seconds is worse than a term slipping through. Fail-open on exhaustion.
     const res = lintText(text, ruleSet, { budgetMs: HOOK_BUDGET_MS });
     findings.push(...res.findings);
     for (const id of res.timedOut) stalled.add(id);
@@ -249,7 +280,7 @@ export function decide(
   // The last-resort hatch the refusal message offers. It was advertised for
   // three releases without anything reading it, so `touch` did nothing and the
   // only way past a false positive was to edit config or pull the hook.
-  if (hasAck(channel, projectDir || process.cwd())) {
+  if (hasAck(channel, projectDir)) {
     return { allow: true, decision: "allow", findings };
   }
 
@@ -263,34 +294,52 @@ export function decide(
 export const ACK_WINDOW_MS = 10 * 60 * 1000;
 
 /**
+ * Where the hatch lives now.
+ *
+ * At the repository root, not inside a directory, because the message tells a
+ * human to `touch` it and `touch` will not create a missing parent. The old
+ * path worked only because Claude Code had already made `.claude/`; an agent
+ * that keeps no directory would have made the advice impossible to follow.
+ */
+export function ackPath(channel: Channel, projectDir: string): string {
+  return resolve(projectDir, `.plain-english-ack-${channel}`);
+}
+
+/**
+ * The pre-0.4.0 location, still honoured.
+ *
+ * Somebody who learned the old path from a refusal message should not find it
+ * has stopped working because the tool grew support for another agent.
+ */
+function legacyAckPath(channel: Channel, projectDir: string): string {
+  return resolve(projectDir, ".claude", `.${channel}-plain-english-ack`);
+}
+
+/**
  * True when the human has waived this channel recently.
  *
  * It expires on purpose. A permanent file is one somebody creates during a
- * deadline and never removes, which turns the whole check off silently and
- * without a record. Ten minutes is long enough to land the write in front of
- * you and short enough that it cannot become the configuration.
+ * deadline and never removes, which turns the whole check off without a record.
+ * Ten minutes is long enough to land the write in front of you and short enough
+ * that it cannot become the configuration.
  *
  * A missing or unreadable file waives nothing.
  */
 export function hasAck(channel: Channel, projectDir: string, now = Date.now()): boolean {
-  try {
-    const path = resolve(projectDir, ".claude", ACK_FILE[channel]);
-    return now - statSync(path).mtimeMs < ACK_WINDOW_MS;
-  } catch {
-    return false;
+  for (const path of [ackPath(channel, projectDir), legacyAckPath(channel, projectDir)]) {
+    try {
+      if (now - statSync(path).mtimeMs < ACK_WINDOW_MS) return true;
+    } catch {
+      /* absent or unreadable waives nothing */
+    }
   }
+  return false;
 }
 
 const CHANNEL_LABEL: Record<Channel, string> = {
   docs: "This file",
   github: "This commit message, PR or issue body",
   issue: "This issue title or body",
-};
-
-const ACK_FILE: Record<Channel, string> = {
-  docs: ".docs-plain-english-ack",
-  github: ".github-plain-english-ack",
-  issue: ".issue-plain-english-ack",
 };
 
 export function formatReason(errors: Finding[], channel: Channel): string {
@@ -314,25 +363,7 @@ export function formatReason(errors: Finding[], channel: Channel): string {
     "  2. add the path to `exclude` in .plain-english.yml",
     "  3. lower the rule to `severity: warn` in .plain-english.yml",
     "",
-    `Last resort, and the human's call, not yours: touch .claude/${ACK_FILE[channel]}`,
+    `Last resort, and the human's call, not yours: touch .plain-english-ack-${channel}`,
     `  It waives this channel for ${ACK_WINDOW_MS / 60000} minutes, then expires on its own.`,
   ].join("\n");
-}
-
-/**
- * The PreToolUse JSON Claude Code expects on stdout.
- *
- * `permissionDecision` accepts allow, ask, deny and defer. Emitting nothing
- * leaves the normal permission flow in charge, which is what an allow means
- * here.
- */
-export function toHookOutput(decision: Decision): string {
-  if (decision.allow) return "";
-  return JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: decision.decision,
-      permissionDecisionReason: decision.reason,
-    },
-  });
 }

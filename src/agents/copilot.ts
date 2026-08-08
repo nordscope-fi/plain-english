@@ -1,0 +1,127 @@
+/**
+ * GitHub Copilot, both the CLI and the cloud coding agent.
+ *
+ * Installed in Claude-compatibility mode on purpose. Copilot accepts either a
+ * camelCase `preToolUse` event with its own tool names, or a PascalCase
+ * `PreToolUse` event where "tool names map to Claude equivalents" and matchers
+ * use Claude's syntax. The compatibility path is the better documented of the
+ * two, and it makes the payload identical to Claude Code's, so there is one
+ * parser rather than two.
+ *
+ * The reply is still Copilot's own: `permissionDecision` sits at the top level
+ * rather than inside `hookSpecificOutput`.
+ *
+ * Docs: https://docs.github.com/en/copilot/reference/hooks-reference
+ */
+
+import type { Decision } from "../adapters/hook.ts";
+import type { AgentProfile, NormalisedEvent, PlanContext } from "./profile.ts";
+import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
+
+const MATCHERS = {
+  docs: "Write|Edit|MultiEdit",
+  github: "Bash",
+  issue: "mcp__linear__save_issue|mcp__linear__save_comment",
+} as const;
+
+function command(channel: string): string {
+  return `npx --no-install plain-english hook ${channel} --agent copilot`;
+}
+
+export const copilot: AgentProfile = {
+  id: "copilot",
+  label: "GitHub Copilot",
+  docs: "https://docs.github.com/en/copilot/reference/hooks-reference",
+
+  detect(raw) {
+    // The camelCase envelope is Copilot's alone. The PascalCase one is shared
+    // with three other agents and proves nothing, so it is not tested here.
+    return typeof raw["toolName"] === "string" || typeof raw["toolArgs"] === "object";
+  },
+
+  parse(raw): NormalisedEvent {
+    // Compatibility mode first, since that is what `init` writes. The camelCase
+    // fallback carries a hand-written config.
+    const input = asRecord(raw["tool_input"] ?? raw["toolArgs"]);
+    const cwd = pick(raw, "cwd") || undefined;
+    const name = pick(raw, "tool_name", "toolName");
+    const filePath = pick(input, "file_path", "filePath", "path");
+
+    switch (name.toLowerCase()) {
+      case "write":
+      case "create":
+        return { tool: "write", cwd, input: { filePath, content: pick(input, "content", "text") } };
+      case "edit":
+      case "str_replace":
+        return {
+          tool: "edit",
+          cwd,
+          input: { filePath, newString: pick(input, "new_string", "newString", "new_str") },
+        };
+      case "multiedit":
+        return {
+          tool: "multi-edit",
+          cwd,
+          input: {
+            filePath,
+            edits: pickArray(input, "edits").map((e) => ({
+              newString: pick(asRecord(e), "new_string", "newString"),
+            })),
+          },
+        };
+      case "bash":
+      case "shell":
+        return { tool: "bash", cwd, input: { command: pick(input, "command", "cmd") } };
+      default:
+        return { tool: "other", cwd, input: issueFields(input) };
+    }
+  },
+
+  emit(decision: Decision) {
+    // Always exit 0, and this is the one profile where it is not merely tidy.
+    //
+    // `preToolUse` is the single event Copilot fails CLOSED on: an unexpected
+    // non-zero exit is read as a refusal, not as "carry on". Every other agent
+    // does the opposite. So a crash in this linter would stop the user working,
+    // which is the outcome the whole fail-open design exists to prevent.
+    if (decision.allow) return { stdout: "", exitCode: 0 };
+    return {
+      stdout: JSON.stringify({
+        permissionDecision: decision.decision,
+        permissionDecisionReason: decision.reason,
+      }),
+      exitCode: 0,
+    };
+  },
+
+  plan(_ctx: PlanContext) {
+    return {
+      config: [
+        {
+          // A standalone file, so nothing has to be merged. The cloud agent
+          // reads this path and only from the default branch.
+          path: ".github/hooks/plain-english.json",
+          at: ["hooks", "PreToolUse"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: Object.entries(MATCHERS).map(([channel, matcher]) => ({
+            type: "command",
+            matcher,
+            bash: command(channel),
+            powershell: command(channel),
+            timeoutSec: 30,
+          })),
+        },
+      ],
+      shims: [],
+      notes: [
+        "The cloud coding agent reads .github/hooks/ from the default branch only, " +
+          "so this takes effect there once it is merged.",
+        "The cloud agent treats `ask` as `deny`. Under `failOn: never` a finding is " +
+          "advisory in the CLI and blocking in the cloud.",
+        "Copilot has no prompt-hook equivalent here, so the semantic layer does not run. " +
+          "The deterministic rules do.",
+      ],
+    };
+  },
+};

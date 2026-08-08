@@ -28,11 +28,15 @@ The fourth is the cheapest. Every industry has fifty acronyms its readers know c
 ## 3. Write a project config
 
 ```bash
-npx plain-english init --dry-run
-npx plain-english init
+npx plain-english init --agent claude-code --dry-run
+npx plain-english init --agent claude-code
 ```
 
-`init` wires up the whole repo in one step: three hook shims under `.claude/hooks/`, the merged `.claude/settings.json`, and a starter `.plain-english.yml` if you have none. The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to change that.
+Swap the id for `copilot`, `codex` or `cursor`, or pass `all`. `claude-code` is the default if you leave the flag off.
+
+`init` wires up the whole repo in one step: that agent's hook config merged into whatever is already there, a generated `AGENTS.md` section, and a starter `.plain-english.yml` if you have none. Claude Code additionally gets three shims under `.claude/hooks/`. The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to change that.
+
+[`docs/agents.md`](agents.md) has the per-agent detail. Two caveats are worth reading before you rely on a hook: Copilot's cloud agent turns an `ask` into a `deny`, and Codex will not run a hook until you approve it with `/hooks`.
 
 Fill in the vocabulary your readers already use daily:
 
@@ -79,32 +83,33 @@ Step 3 already installed them. This step is the one line of config that changes 
 
 Under the default `failOn: never` a hook surfaces a finding and lets the human decide. Under `failOn: error` it refuses the write. The same three hooks are advisory or blocking depending on that setting, so tighten it once CI has been quiet for a week.
 
-Always dry-run first against a repo with an existing `.claude/settings.json`. The merge preserves unrelated hooks under the same matcher, and the dry run tells you how many it found.
+Always dry-run first against a repo that already has a hooks file. The merge preserves unrelated hooks, and the dry run tells you how many it found.
 
-For git, without Claude Code:
+For git, whatever your agent:
 
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.2.0
+    rev: v0.4.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
 ```
 
-## 6. Point your agent instructions at the generated guide
+## 6. Check the AGENTS.md section init wrote
 
-Add a short section to `CLAUDE.md`, `AGENTS.md`, or whatever your tooling reads:
+`init` splices a generated section into `AGENTS.md` between markers, creating the file if you had none. Roughly twenty agents read that file, so it is the one instructions artifact that is worth maintaining. Re-running `init` replaces what is between the markers and leaves the rest of your file alone.
+
+If your tooling reads `CLAUDE.md` instead, point it at the same place rather than restating the rules:
 
 ```markdown
 ## Writing style
 
-No em dashes. No AI-tell words or sentence shapes.
-Explain a term before naming it.
+See the Writing style section in AGENTS.md.
 Full ruleset: docs/writing-style.md
 ```
 
-Keep it short. The generated guide holds the detail, and a summary that drifts from it is worse than a pointer.
+A summary that drifts from the generated guide is worse than a pointer.
 
 ## 7. Install the output style, and know what it cannot do
 
@@ -116,7 +121,11 @@ cp node_modules/plain-english/integrations/claude-code/output-styles/plain-engli
    .claude/output-styles/
 ```
 
-Then pick it with `/output-style`. Two limits are worth stating up front. It is a prompt, so nothing measures compliance. And it does not reach subagents, which run their own system prompt, so any research or exploration agent keeps writing the old way. `docs/limitations.md` covers both.
+Then run `/config` and pick it under **Output style**. The standalone `/output-style` command was deprecated in Claude Code v2.1.73 and removed in v2.1.91.
+
+This one is Claude Code only. Elsewhere the portable equivalent is the `AGENTS.md` section from step 6, which is loaded once per session rather than restated each turn, and is weaker for it.
+
+Two limits are worth stating up front. It is a prompt, so nothing measures compliance. And it does not reach subagents, which run their own system prompt, so any research or exploration agent keeps writing the old way. `docs/limitations.md` covers both.
 
 Everything else runs before the write lands.
 
@@ -130,6 +139,8 @@ Everything else runs before the write lands.
 
 **Someone is running the whole-file directive routinely.** Treat that as a calibration signal, not a discipline problem.
 
-**A hook is refusing a write you need to land now.** `touch .claude/.docs-plain-english-ack` waives that channel for ten minutes, then expires on its own. The channels are `docs`, `github` and `issue`. Reach for it when the finding is wrong and you are mid-task; fix the config afterwards, since a hatch nobody follows up on is a rule nobody trusts.
+**A hook is refusing a write you need to land now.** `touch .plain-english-ack-docs` waives that channel for ten minutes, then expires on its own. The channels are `docs`, `github` and `issue`. (Before 0.4.0 this lived at `.claude/.docs-plain-english-ack`, which is still honoured. It moved to the repository root because the message tells you to `touch` it and `touch` will not create a missing directory.) Reach for it when the finding is wrong and you are mid-task; fix the config afterwards, since a hatch nobody follows up on is a rule nobody trusts.
+
+**Your agent has no hook here.** Two fallbacks, in `docs/post-edit-lint.md` and `docs/editors.md`: tell it to run `plain-english lint` after it edits, or feed findings into your editor's Problems list, which several agents read.
 
 **`unglossed-term` fires on a name everybody on the team knows.** That is the rule doing its job for a reader outside the team, and `known` is the answer. If you find yourself adding more than a dozen entries, the doc may genuinely need a glossary.

@@ -1,10 +1,17 @@
-// Verification probe: run the built hook adapter against real PreToolUse
-// payloads and check the decision. Lives in a file because the payloads
-// contain command strings that a shell-level guard reads as real invocations.
+// Verification probe: run the BUILT hook adapter against real pre-tool-call
+// payloads and check the decision.
+//
+// It imports from dist/ rather than src/, which is the whole reason it exists
+// alongside the vitest suite: it catches a build that compiled but does not
+// run, and a profile that is exported from source but missing from the package.
+//
+// It lives in a file because the payloads contain command strings that a
+// shell-level guard reads as real invocations.
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { decide, toHookOutput } from "../dist/adapters/claude-hook.js";
+import { decide } from "../dist/adapters/hook.js";
+import { PROFILES, byId } from "../dist/agents/registry.js";
 import { compile, loadDefault } from "../dist/rules.js";
 
 const T = mkdtempSync(resolve(tmpdir(), "pe-probe-"));
@@ -12,8 +19,14 @@ const ruleSet = compile(loadDefault());
 const EM = "—";
 let failures = 0;
 
-function probe(name, payload, channel, want, wantRule) {
-  const d = decide(payload, channel, { projectDir: T, ruleSet });
+function check(ok, label) {
+  if (!ok) failures++;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${label}`);
+}
+
+function probe(name, payload, channel, want, wantRule, agent = "claude-code") {
+  const profile = byId(agent);
+  const d = decide(profile.parse(payload), channel, { projectDir: T, ruleSet });
   const got = d.allow ? "allow" : "deny";
   const ruleOk = !wantRule || d.findings.some((f) => f.ruleId === wantRule);
   const ok = got === want && ruleOk;
@@ -33,6 +46,8 @@ writeFileSync(resolve(T, "body.md"), `## Summary\n\nFixes the window ${EM} wrong
 const commitCmd = ["git", "commit", "-F", `${T}/msg.txt`].join(" ");
 const prCmd = ["gh", "pr", "create", "--title", "'fix'", "--body-file", `${T}/body.md`].join(" ");
 const readCmd = ["gh", "pr", "view", "42", "--json", "body"].join(" ");
+
+console.log("-- extraction --");
 
 probe("em dash in a markdown write", {
   tool_name: "Write",
@@ -80,28 +95,71 @@ probe("patch old_string is not judged", {
   tool_input: { patch: [{ old_string: `Furthermore ${EM} we utilize this.`, new_string: "It retries once." }] },
 }, "issue", "allow");
 
+console.log("\n-- per agent --");
+
+// Every profile has to see the same text in the same payload. Three of the four
+// read the snake_case envelope Claude Code established; Cursor uses it too with
+// different tool names.
+for (const profile of PROFILES) {
+  probe(`${profile.id}: reads a markdown Write`, {
+    tool_name: "Write",
+    tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
+  }, "docs", "deny", "em-dash", profile.id);
+}
+
+probe("codex: reads added lines out of an apply_patch", {
+  tool_name: "apply_patch",
+  tool_input: { input: `*** Begin Patch\n*** Add File: x.md\n+a ${EM} b\n*** End Patch` },
+}, "docs", "deny", "em-dash", "codex");
+
+probe("codex: a patch touching only source is not prose", {
+  tool_name: "apply_patch",
+  tool_input: { input: "*** Begin Patch\n*** Add File: x.ts\n+const leverage = 1;\n*** End Patch" },
+}, "docs", "allow", undefined, "codex");
+
+console.log("\n-- wire formats --");
+
+// The four places the protocols genuinely differ. A vendor changing one of
+// these should show up here as well as in the unit tests.
+const denyEvent = (id) =>
+  byId(id).parse({
+    tool_name: "Write",
+    tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
+  });
+const wire = (id) =>
+  JSON.parse(byId(id).emit(decide(denyEvent(id), "docs", { projectDir: T, ruleSet })).stdout);
+
+check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
+  "claude-code nests permissionDecision under hookSpecificOutput");
+check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
+  "copilot puts permissionDecision at the top level");
+check(wire("codex").hookSpecificOutput?.permissionDecision === "ask",
+  "codex matches claude-code");
+check(wire("cursor").permission === "ask" && !!wire("cursor").agent_message,
+  "cursor uses permission plus agent_message");
+
+console.log("\n-- refusal message --");
+
 const denied = probe("deny message quotes the text and offers narrow fixes first", {
   tool_name: "Write",
   tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
 }, "docs", "deny", "em-dash");
 
 const reason = denied.reason ?? "";
-const checks = [
-  [reason.includes(EM), "quotes the offending character"],
-  [reason.includes("plain-english-disable-next-line"), "offers the one-line suppression"],
-  [reason.indexOf("disable-next-line") < reason.indexOf("ack"), "narrow fix listed before the ack file"],
-  [reason.includes("the human's call"), "marks the ack file as not the agent's call"],
-];
-for (const [ok, label] of checks) {
-  if (!ok) failures++;
-  console.log(`${ok ? "PASS" : "FAIL"}  ${label}`);
-}
+check(reason.includes(EM), "quotes the offending character");
+check(reason.includes("plain-english-disable-next-line"), "offers the one-line suppression");
+check(reason.indexOf("disable-next-line") < reason.indexOf("ack"), "narrow fix listed before the ack file");
+check(reason.includes("the human's call"), "marks the ack file as not the agent's call");
 
-// Fail-open: a malformed payload must never block a write.
-const empty = toHookOutput(decide({}, "docs", { projectDir: T, ruleSet }));
-const failOpen = empty === "";
-if (!failOpen) failures++;
-console.log(`${failOpen ? "PASS" : "FAIL"}  empty payload allows (fail-open)`);
+console.log("\n-- fail-open --");
+
+// A malformed payload must never block a write, in any protocol. Copilot is the
+// one agent that reads a non-zero exit on this event as a refusal, so its exit
+// code matters as much as its output.
+for (const profile of PROFILES) {
+  const out = profile.emit(decide(profile.parse({}), "docs", { projectDir: T, ruleSet }));
+  check(out.stdout === "" && out.exitCode === 0, `${profile.id}: empty payload allows, exit 0`);
+}
 
 rmSync(T, { recursive: true, force: true });
 console.log(failures === 0 ? "\nAll adapter probes passed." : `\n${failures} probe(s) FAILED.`);
