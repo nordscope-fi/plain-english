@@ -128,16 +128,16 @@ touches a README and a source file has only the README judged.
 Cursor's documentation contradicts itself about which hook can block a file
 write. One page says only `beforeReadFile` can; another documents `preToolUse`
 as generic over all tool types with a `Write` matcher. This package takes the
-`preToolUse` route, which forum reports and Cursor staff both support for the
-Shell tool. **Whether it fires for a Write in the current CLI is the one thing
-no source settles, so write a markdown file containing a banned term and confirm
-before you rely on it.**
+`preToolUse` route, and a live session on 2026.08.04-aaa8809 confirms it fires
+for a `Write`. The argument names are `file_path` and `content`, captured from
+that same session.
 
 `ask` is settled, and separately: Cursor accepts it and does not enforce it for
 `preToolUse`, so the advisory tier uses `additional_context` instead.
 
-The argument names inside a Cursor `Write` are not published, so the adapter accepts
-several spellings. If it reads nothing, it allows the write.
+The adapter still accepts several spellings for each argument. The captured
+names go first, and the rest cost nothing: a wrong guess falls through, while a
+missing one means reading nothing and allowing the write.
 
 ## Verification status
 
@@ -153,7 +153,22 @@ different things get three different names:
 | Claude Code | observed | observed | observed |
 | GitHub Copilot | docs | docs | not yet |
 | OpenAI Codex CLI | source | docs | not yet |
-| Cursor | docs | docs | not yet |
+| Cursor | observed | observed | observed |
+
+Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
+`preToolUse` does fire for a `Write` in the CLI, which no source settled either
+way, and the payloads are in `test/corpus/regressions.yml` so a change breaks a
+test rather than going unnoticed. What that session established:
+
+- The `Write` arguments are `file_path` and `content`. The adapter had been
+  guessing among four spellings because nobody had published them.
+- The shell tool is `Shell`, with `command`, `cwd` and `timeout`.
+- **There is no `cwd` on the envelope.** Cursor sends `workspace_roots`, an
+  array. Reading the wrong one put the project scope wherever the hook process
+  happened to start, which was right by accident and wrong in general.
+- `Read` and `Grep` fire `preToolUse` too, and are correctly ignored.
+- The envelope also carries `user_email`, which is why a capture redacts
+  identity whatever else it keeps.
 
 Codex reads **source** because `codex-rs/core/src/tools/handlers/apply_patch.rs`
 emits `tool_input: json!({ "command": command })` and

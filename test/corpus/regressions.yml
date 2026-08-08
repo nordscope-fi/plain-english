@@ -294,3 +294,63 @@ cases:
         file_path: "{{TMP}}/x.md"
         content: "We leverage this."
 
+  - name: "a real Cursor preToolUse Write, captured from the CLI"
+    channel: docs
+    agent: cursor
+    expect: deny
+    rule: leverage
+    why: >-
+      Captured from cursor-agent 2026.08.04-aaa8809 with PLAIN_ENGLISH_RECORD
+      set, because nobody had published the argument names inside a Cursor
+      Write and the adapter was guessing at four spellings. They are file_path
+      and content. The envelope is kept whole on purpose: Cursor sends no cwd,
+      it sends workspace_roots, and reading the wrong one puts the project
+      scope wherever the hook process happened to start.
+    payload:
+      conversation_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      generation_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      model: default
+      tool_name: Write
+      tool_input:
+        file_path: "{{TMP}}/notes.md"
+        content: "We leverage this approach to showcase a seamless workflow."
+      tool_use_id: "call-b8ac8da8-0"
+      session_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      hook_event_name: preToolUse
+      cursor_version: "2026.08.04-aaa8809"
+      workspace_roots:
+        - "{{TMP}}"
+
+  - name: "a real Cursor Shell call, captured from the CLI"
+    channel: github
+    agent: cursor
+    expect: deny
+    rule: furthermore
+    why: >-
+      Cursor names the shell tool Shell, not Bash, and its arguments are
+      command, cwd and timeout. Both confirmed from the same session.
+    payload:
+      tool_name: Shell
+      hook_event_name: preToolUse
+      tool_input:
+        command: 'git commit -m "Furthermore, fix the cache"'
+        cwd: "{{TMP}}"
+        timeout: 30
+      workspace_roots:
+        - "{{TMP}}"
+
+  - name: "Cursor Read and Grep calls are not prose channels"
+    channel: docs
+    agent: cursor
+    expect: allow
+    why: "Both fire preToolUse in the CLI. Neither writes anything."
+    payload:
+      tool_name: Grep
+      hook_event_name: preToolUse
+      tool_input:
+        pattern: leverage
+        glob: "*.md"
+        output_mode: content
+      workspace_roots:
+        - "{{TMP}}"
+

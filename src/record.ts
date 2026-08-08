@@ -102,7 +102,10 @@ function scrubText(s: string, projectDir: string): string {
  */
 function redact(v: unknown, opts: RecordOptions, key?: string): unknown {
   if (typeof v === "string") {
-    const scrubbed = scrubText(v, opts.projectDir);
+    // Identity goes whatever `verbatim` says. It is never the thing being
+    // debugged, and a capture is meant to be safe to attach to an issue.
+    if (key && IDENTITY_KEYS.has(key)) return "<redacted>";
+    const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
     if (opts.verbatim || !key || !CONTENT_KEYS.has(key)) return scrubbed;
     return `<${scrubbed.length} chars, sha256:${createHash("sha256")
       .update(scrubbed)
@@ -120,8 +123,19 @@ function redact(v: unknown, opts: RecordOptions, key?: string): unknown {
   return v;
 }
 
-/** A home directory that survived redaction. Refusing beats leaking. */
-const LEAK = /\/Users\/|\/home\/|[A-Za-z]:\\Users\\/;
+/**
+ * Identifiers that are neither prose nor structure.
+ *
+ * Cursor puts `user_email` in every payload, which a capture from a real
+ * session would otherwise carry into a public issue. Found by capturing one.
+ */
+const IDENTITY_KEYS = new Set(["user_email", "userEmail", "email", "user", "author"]);
+
+/** An address anywhere else in the payload, such as inside a commit message. */
+const EMAIL = /[^\s<>"@]+@[^\s<>"@]+\.[A-Za-z]{2,}/g;
+
+/** Something that survived redaction and should not leave the machine. */
+const LEAK = /\/Users\/|\/home\/|[A-Za-z]:\\Users\\|[^\s<>"@]+@[^\s<>"@]+\.[A-Za-z]{2,}/;
 
 export function buildCapture(
   raw: Record<string, unknown>,

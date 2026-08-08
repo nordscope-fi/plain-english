@@ -41,7 +41,11 @@ export const cursor: AgentProfile = {
 
   parse(raw): NormalisedEvent {
     const input = asRecord(raw["tool_input"]);
-    const cwd = pick(raw, "cwd") || undefined;
+    // Cursor sends no `cwd`. It sends `workspace_roots`, confirmed against a
+    // live 2026.08.04 CLI, so without this the project scope falls back to
+    // wherever the hook process happened to start.
+    const root = pickArray(raw, "workspace_roots")[0];
+    const cwd = pick(raw, "cwd") || (typeof root === "string" ? root : "") || undefined;
     const filePath = pick(input, "file_path", "path", "target_file", "filePath");
 
     switch (pick(raw, "tool_name")) {
