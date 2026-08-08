@@ -151,9 +151,9 @@ different things get three different names:
 | Agent | Wire format | Config path | Fires on a real write |
 |---|---|---|---|
 | Claude Code | observed | observed | observed |
-| GitHub Copilot | docs | docs | not yet |
-| OpenAI Codex CLI | source | docs | not yet |
 | Cursor | observed | observed | observed |
+| OpenAI Codex CLI | source | docs | not yet |
+| GitHub Copilot | observed | **observed wrong, see below** | **no, see below** |
 
 Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
 `preToolUse` does fire for a `Write` in the CLI, which no source settled either
@@ -188,6 +188,51 @@ shaped an earlier version of this adapter turned out to be false:
   `apply_patch`. That described `openai/codex#16732`, fixed by PR #18391 in
   April, months before the version the claim named. A shell-redirection parser
   was nearly written on the strength of it.
+
+### What a live Copilot session showed
+
+Verified against `GitHub Copilot CLI 1.0.78` on 2026-08-09, on a Copilot Free
+plan, which does cover the CLI. Two useful confirmations and two problems.
+
+Both payload formats are exactly as documented, and both fire at once if you
+register both:
+
+| Event name | Tool names | Arguments field | Type |
+|---|---|---|---|
+| `PreToolUse` | `Bash`, `Read`, `Glob` | `tool_input` | object |
+| `preToolUse` | `bash`, `view`, `glob` | `toolArgs` | JSON **string** |
+
+`asArgs` handles both, which is what it was written for.
+
+**`.github/hooks/*.json` is not read by the CLI.** Copilot's own configuration
+help says repo-level hooks live there, and an identical `sessionStart` hook
+fired from `~/.copilot/hooks/` and did not fire from `.github/hooks/`. Inline
+`hooks` in `.github/copilot/settings.json`, the other documented repo-level
+route, did not fire either. So `init --agent copilot` writes a file the local
+CLI ignores. It is still the right place for the **cloud** coding agent, which
+the documentation says reads it from the default branch and which was not
+tested here.
+
+Until that changes, install for the CLI by hand:
+
+```bash
+mkdir -p ~/.copilot/hooks
+cp .github/hooks/plain-english.json ~/.copilot/hooks/
+```
+
+**Copilot writes files through the shell.** Asked to edit a markdown file, it
+did not use a write tool. It ran:
+
+```
+printf '%s\n' "We leverage this approach to showcase a seamless workflow." > notes.md && echo 'WROTE'
+```
+
+That arrives as `tool_name: "Bash"`, so the `Write|Edit|MultiEdit` matcher never
+sees it, and the github channel reads only `git commit` and `gh` message text.
+**A file Copilot writes this way is not currently checked.** Catching it needs
+shell-redirection parsing, which is deliberately not in the package yet.
+Telling a real redirect from one inside a quoted string needs more than a
+regex, and a false positive there refuses a write under `failOn: error`.
 
 ## Recording a payload
 

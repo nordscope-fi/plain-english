@@ -127,8 +127,14 @@ export const copilot: AgentProfile = {
       ],
       shims: [],
       notes: [
-        "The cloud coding agent reads .github/hooks/ from the default branch only, " +
+        "The CLI does not read .github/hooks/ as of 1.0.78, though its own config " +
+          "help says it does. Verified: an identical hook fires from ~/.copilot/hooks/ " +
+          "and not from here. For the CLI, also run: " +
+          "mkdir -p ~/.copilot/hooks && cp .github/hooks/plain-english.json ~/.copilot/hooks/",
+        "The cloud coding agent does read .github/hooks/, from the default branch only, " +
           "so this takes effect there once it is merged.",
+        "Copilot often writes files through the shell rather than a write tool, and a " +
+          "shell redirect is not checked yet. See docs/agents.md.",
         "The cloud agent treats `ask` as `deny`. Under `failOn: never` a finding is " +
           "advisory in the CLI and blocking in the cloud.",
         "Copilot has no prompt-hook equivalent here, so the semantic layer does not run. " +
