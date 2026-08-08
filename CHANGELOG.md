@@ -4,6 +4,25 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+
+- Codex reads the patch. `apply_patch` carries its text in `tool_input.command`, confirmed in `codex-rs/core/src/tools/handlers/apply_patch.rs`, and the adapter looked for `input`, `patch`, `patch_text` and `content`. Those were guesses made when the schema was unpublished, so it read an empty string and allowed every Codex file write. `command` goes first now; the guesses stay, because a wrong one costs nothing and a missing one costs everything.
+- Codex file edits run at the shell are judged. `shell.rs` calls `intercept_apply_patch`, so a model writing `apply_patch <<PATCH` gets a real file write through a call reporting `tool_name: "Bash"`. That landed on the github channel, which reads commit and `gh` message text and found none. A heredoc opening `*** Begin Patch` is now parsed into files and put through the same markdown, project-scope and `exclude` filters a plain write gets. No shell-redirection parser: an earlier draft was going to write one on the strength of a claim that turned out to describe a bug fixed months earlier.
+- Copilot's camelCase payload is read. It sends `toolArgs` as an escaped JSON string, which its own tutorial states and `copilot-cli#3349` exists because of, and `asRecord` turned a string into `{}`. Its PascalCase mode sends `tool_input` already parsed, so both shapes are live at once. Choosing between them with `??` was also wrong: it falls through on null and undefined only, so a payload carrying an empty `tool_input` beside a populated `toolArgs` stopped at the empty object.
+- A unified diff is parsed as one. `parseApplyPatch` keyed on `*** Add File:` alone, so a real `--- a/x` / `+++ b/x` diff produced nothing. The two formats now get separate parsers, because one loop obeying both rules has to treat `+++` as a header in one and as content in the other.
+- `failOn: warn` no longer behaves exactly like `failOn: error` in a hook. Only error-severity findings reached the decision, so a project asking for warnings to matter got nothing from any agent while `lint` honoured the same setting.
+- `init` can install two hook events into one file. It re-read the document from disk per entry, so the second write started from the same bytes as the first and overwrote it. Nothing shipped in that shape, but the advisory tier below needs it.
+- Renaming a matcher no longer leaves a stale hook behind. `mergeNested` stripped our entries only from groups it was about to write, so a changed matcher string left the old group carrying our old command and the hook fired twice on every matching call. Idempotence within a version hid it.
+
+### Added
+
+- An advisory tier that exists on all four agents. Codex parses `permissionDecision: "ask"` and then allows, which its reference says outright, and Cursor says the same of `preToolUse`. So under the default `failOn: never` both looked installed and reported nothing. The finding is now fed back to the model as text: `additionalContext` on a `PostToolUse` hook for Codex, `additional_context` alongside an allow on `preToolUse` for Cursor, which Cursor staff confirmed in July 2026 and which avoids their `postToolUse` equivalent, broken since March. Claude Code and Copilot are unchanged, because a hook that fires before the text exists is better than one that fires after. A `touch`ed ack file silences the advisory as well as the refusal.
+- `hook --event pre|post`, and `init --agent codex` writes both. The pre hook still emits the `ask` Codex discards, deliberately: upgrading without re-running `init` leaves a config with pre entries only, and going quiet there would switch Codex off with no error.
+- `PLAIN_ENGLISH_RECORD=<dir>` captures what an agent actually sent. Three of the four adapters were written from vendor documentation and it was wrong twice, so a real payload settles what reading harder cannot. Captures are safe to attach to an issue: paths become `{{TMP}}` and `~`, prose becomes a length and a hash, and a capture still holding a home directory after that is not written. It runs after the decision has been written, in its own try/catch, because a debugging aid must not be able to swallow the verdict.
+- A drift canary. A write-shaped call that yields no path and no text is what a renamed field looks like from inside, and it now says so on stderr instead of passing as a clean file. A committed fixture cannot catch this: the recording still names the old field and the replay still passes.
+- `doctor` reports agents. Which config files exist, which carry our entry, and whether `npx --no-install plain-english` resolves from the project root. A global install with no local one makes every hook do nothing while the config still reads correctly, and `docs/agents.md` has been telling people to attach `doctor` to hook bug reports.
+- `docs/agents.md` marks each claim with what backs it: observed against a running agent, read from vendor source, or taken from vendor prose. It also lists the vendor bugs that look like this package being broken.
+
 ## [0.4.1] - 2026-08-08
 ### Security
 

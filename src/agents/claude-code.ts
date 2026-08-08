@@ -11,7 +11,7 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
-import type { AgentProfile, NormalisedEvent, PlanContext } from "./profile.ts";
+import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
 
 const CHANNELS = [
@@ -86,7 +86,13 @@ export const claudeCode: AgentProfile = {
     }
   },
 
-  emit(decision: Decision) {
+  supportsAsk: true,
+
+  emit(decision: Decision, event: HookEvent) {
+    // Nothing on the post event. An agent that can surface `ask` to a human
+    // before the write has already had its say, and repeating it afterwards
+    // would report the same finding twice.
+    if (event === "post") return { stdout: "", exitCode: 0 };
     // Writing nothing leaves the normal permission flow in charge, which is
     // what an allow means here.
     if (decision.allow) return { stdout: "", exitCode: 0 };

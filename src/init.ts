@@ -109,42 +109,64 @@ export function mergeFlat(existing: unknown[], entries: unknown[]): unknown[] {
  * Matching is exact on `matcher`. A group we share with somebody else keeps
  * their hooks: a project that already gates `Bash` for its own reasons must not
  * lose that gate by installing this one.
+ *
+ * Our entries are first stripped from *every* group, not only from the ones we
+ * are about to write. Otherwise changing a matcher string orphans the old group
+ * forever: the new matcher finds no match, a fresh group is appended, and the
+ * old one keeps a stale copy of our command, so the hook fires twice on every
+ * matching call. Idempotence within a version hid this, because it only shows
+ * up across a version that renamed a matcher. `mergeFlat` never had the problem,
+ * since it filters by marker across the whole list.
  */
 export function mergeNested(
   existing: HookGroup[],
   entries: HookGroup[],
-): { groups: HookGroup[]; added: string[]; replaced: string[] } {
-  const groups = [...existing];
+): { groups: HookGroup[]; added: string[]; replaced: string[]; orphaned: string[] } {
+  const wanted = new Set(entries.map((e) => e.matcher));
   const added: string[] = [];
   const replaced: string[] = [];
+  const orphaned: string[] = [];
+
+  const hadOurs = new Set<string>();
+  const groups: HookGroup[] = [];
+  for (const g of existing) {
+    const keep = (g.hooks ?? []).filter((h) => !isOurs(h));
+    const wasOurs = (g.hooks ?? []).length !== keep.length;
+    if (wasOurs) {
+      hadOurs.add(g.matcher);
+      if (!wanted.has(g.matcher)) orphaned.push(g.matcher);
+    }
+    // A group that held nothing but our old entries goes with them.
+    if (!keep.length && wasOurs) continue;
+    groups.push({ ...g, hooks: keep });
+  }
 
   for (const block of entries) {
     const at = groups.findIndex((b) => b.matcher === block.matcher);
     if (at === -1) {
       groups.push(block);
-      added.push(block.matcher);
+      (hadOurs.has(block.matcher) ? replaced : added).push(block.matcher);
       continue;
     }
-    const keep = (groups[at]!.hooks ?? []).filter((h) => !isOurs(h));
-    const had = (groups[at]!.hooks ?? []).length !== keep.length;
-    groups[at] = { matcher: block.matcher, hooks: [...keep, ...block.hooks] };
-    (had ? replaced : added).push(block.matcher);
+    groups[at] = { ...groups[at]!, hooks: [...(groups[at]!.hooks ?? []), ...block.hooks] };
+    (hadOurs.has(block.matcher) ? replaced : added).push(block.matcher);
   }
 
-  return { groups, added, replaced };
+  return { groups, added, replaced, orphaned };
 }
 
 /** Apply one profile's config file to whatever is on disk. */
 function applyConfig(
   doc: Json,
   file: ConfigFile,
-): { doc: Json; added: string[]; replaced: string[]; preserved: number } {
+): { doc: Json; added: string[]; replaced: string[]; orphaned: string[]; preserved: number } {
   const current = readAt(doc, file.at);
   const existing = Array.isArray(current) ? current : [];
 
   let next: unknown[];
   let added: string[] = [];
   let replaced: string[] = [];
+  let orphaned: string[] = [];
   let preserved = 0;
 
   if (file.shape === "nested") {
@@ -154,6 +176,7 @@ function applyConfig(
     next = merged.groups;
     added = merged.added;
     replaced = merged.replaced;
+    orphaned = merged.orphaned;
   } else {
     preserved = existing.filter((e) => !isOurs(e)).length;
     const had = existing.some(isOurs);
@@ -163,7 +186,7 @@ function applyConfig(
 
   // Defaults never overwrite. A project that pinned `version: 2` keeps it.
   const withDefaults: Json = { ...(file.defaults ?? {}), ...doc };
-  return { doc: writeAt(withDefaults, file.at, next), added, replaced, preserved };
+  return { doc: writeAt(withDefaults, file.at, next), added, replaced, orphaned, preserved };
 }
 
 /**
@@ -212,31 +235,42 @@ export function init(opts: InitOptions): number {
   const notes: string[] = [];
   const writes: { path: string; body: string; mode?: number }[] = [];
 
+  // Keyed by resolved path, because one agent can put two hook events in one
+  // file. Re-reading from disk per entry meant the second write started from
+  // the same document as the first and overwrote it, so installing a pre and a
+  // post hook together left only whichever came last.
+  const docs = new Map<string, Json>();
+
   for (const agent of agents) {
     const plan = agent.plan({ prompts, model });
 
     for (const file of plan.config) {
       const path = resolve(root, file.path);
-      let doc: Json = {};
-      if (existsSync(path)) {
-        try {
-          doc = JSON.parse(readFileSync(path, "utf8")) as Json;
-        } catch (e) {
-          process.stderr.write(
-            `plain-english: ${relative(root, path)} is not valid JSON, refusing to touch it\n` +
-              `  ${e instanceof Error ? e.message : String(e)}\n`,
-          );
-          return 2;
+      const existed = existsSync(path);
+      if (!docs.has(path)) {
+        let doc: Json = {};
+        if (existed) {
+          try {
+            doc = JSON.parse(readFileSync(path, "utf8")) as Json;
+          } catch (e) {
+            process.stderr.write(
+              `plain-english: ${relative(root, path)} is not valid JSON, refusing to touch it\n` +
+                `  ${e instanceof Error ? e.message : String(e)}\n`,
+            );
+            return 2;
+          }
         }
+        docs.set(path, doc);
       }
-      const result = applyConfig(doc, file);
+      const result = applyConfig(docs.get(path)!, file);
+      docs.set(path, result.doc);
       planned.push(
-        `${existsSync(path) ? "update" : "create"} ${relative(root, path)}` +
+        `${existed ? "update" : "create"} ${relative(root, path)} ${file.at.join(".")}` +
           ` (added: ${result.added.join(", ") || "none"};` +
           ` replaced: ${result.replaced.join(", ") || "none"};` +
+          (result.orphaned.length ? ` removed stale: ${result.orphaned.join(", ")};` : "") +
           ` preserved ${result.preserved} unrelated hook${result.preserved === 1 ? "" : "s"})`,
       );
-      writes.push({ path, body: JSON.stringify(result.doc, null, 2) + "\n" });
     }
 
     for (const s of plan.shims) {
@@ -246,6 +280,10 @@ export function init(opts: InitOptions): number {
     }
 
     for (const n of plan.notes) notes.push(`${agent.label}: ${n}`);
+  }
+
+  for (const [path, doc] of docs) {
+    writes.push({ path, body: JSON.stringify(doc, null, 2) + "\n" });
   }
 
   const existingAgentsMd = existsSync(agentsMdPath)

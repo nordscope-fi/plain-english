@@ -21,7 +21,7 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
-import type { AgentProfile, NormalisedEvent, PlanContext } from "./profile.ts";
+import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
 
 const CHANNELS = [
@@ -76,8 +76,30 @@ export const cursor: AgentProfile = {
     }
   },
 
-  emit(decision: Decision) {
+  // "`ask` is accepted by the schema but not enforced for preToolUse today",
+  // per Cursor's own hooks documentation. It degrades to allow.
+  supportsAsk: false,
+
+  emit(decision: Decision, event: HookEvent) {
+    // Cursor needs no second hook. `additional_context` is supported on
+    // `preToolUse` itself, confirmed by Cursor staff in July 2026, and its
+    // `postToolUse` equivalent has been a known-broken ticket since March.
+    if (event === "post") return { stdout: "", exitCode: 0 };
     if (decision.allow) return { stdout: "", exitCode: 0 };
+
+    if (decision.decision === "ask") {
+      // Allow the write and tell the model, because refusing here would make
+      // `failOn: never` blocking on this one agent, and saying `ask` would
+      // make it silent.
+      return {
+        stdout: JSON.stringify({
+          permission: "allow",
+          additional_context: decision.advisory,
+        }),
+        exitCode: 0,
+      };
+    }
+
     return {
       stdout: JSON.stringify({
         permission: decision.decision,

@@ -24,7 +24,7 @@ import { isAbsolute, resolve, sep } from "node:path";
 import { lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
 import { matchesAny } from "../glob.ts";
-import { asRecord, pick, pickArray } from "../agents/fields.ts";
+import { asRecord, parseApplyPatch, pick, pickArray } from "../agents/fields.ts";
 import type { NormalisedEvent } from "../agents/profile.ts";
 
 export type Channel = "docs" | "github" | "issue";
@@ -64,6 +64,21 @@ export interface Decision {
    * caller can tell "nothing found" apart from "did not finish looking".
    */
   timedOut?: string[];
+  /**
+   * What to tell the model, whether or not the write is being refused.
+   *
+   * Two agents parse `ask` and then allow anyway: Codex says so in its own
+   * reference, and Cursor says `ask` "is accepted by the schema but not
+   * enforced for preToolUse today". On those, an advisory finding has to reach
+   * the model as text or it reaches nobody, and the hook looks installed while
+   * doing nothing.
+   *
+   * Set here rather than built by a profile, because the wording needs the
+   * channel and the ack, and a profile has neither. Absent when a `touch`ed ack
+   * file has waived this channel, so the hatch silences the advice as well as
+   * the refusal.
+   */
+  advisory?: string;
 }
 
 /**
@@ -74,6 +89,17 @@ export interface Decision {
  * than a banned term reaching a document that a human is about to read anyway.
  */
 export const HOOK_BUDGET_MS = 500;
+
+/**
+ * Match budget for the post event.
+ *
+ * Nothing is being held up there: the tool already ran, and all this can do is
+ * tell the model something. The 500ms above buys a fast answer at the cost of
+ * an occasional incomplete scan, which is the right trade only while somebody
+ * is waiting. The ceiling is the agent's own hook timeout, around thirty
+ * seconds everywhere.
+ */
+export const POST_BUDGET_MS = 5_000;
 
 /** Commands that introduce text a human will read. Everything else is ignored. */
 const WRITE_COMMAND =
@@ -191,6 +217,45 @@ export interface FileText {
 }
 
 /**
+ * Files written by an `apply_patch` envelope inside a shell command.
+ *
+ * Codex normally edits through its own `apply_patch` tool, which arrives as its
+ * own event. But `shell.rs` calls `intercept_apply_patch`, so a model that
+ * writes `apply_patch <<'PATCH' … PATCH` at the shell gets the same effect
+ * through a call that reports `tool_name: "Bash"`. Without this the patch body
+ * reaches the github channel, which reads commit and `gh` message text and
+ * finds none, and the file is written unjudged.
+ *
+ * Deliberately not a shell-redirection parser. `> x.md` and `tee x.md` would
+ * need a grammar to tell a real redirect from one inside a quoted string, and
+ * an earlier draft of this work was about to write that regex against a claim
+ * that turned out to be false. A heredoc opening with `*** Begin Patch` is
+ * unambiguous.
+ */
+export function extractPatchesFromBash(cmd: string): FileText[] {
+  if (cmd.length > MAX_COMMAND_BYTES) return [];
+  if (!cmd.includes("*** Begin Patch")) return [];
+  return heredocBodies(cmd)
+    .filter((body) => body.trimStart().startsWith("*** Begin Patch"))
+    .flatMap((body) => parseApplyPatch(body));
+}
+
+/**
+ * Files this hook is allowed to judge: markdown, inside the project.
+ *
+ * Shared by every channel that produces files, so a patch arriving through a
+ * shell command gets the same scoping a plain Write does.
+ */
+function judgeable(files: FileText[], projectDir: string): FileText[] {
+  return files.filter(
+    (f) =>
+      f.path !== "" &&
+      MARKDOWN.test(f.path) &&
+      (!isAbsolute(f.path) || isUnderProject(f.path, projectDir)),
+  );
+}
+
+/**
  * The files a write-shaped call would change, and the text going into each.
  *
  * Keeping them paired is what lets a patch touching both a README and a source
@@ -257,28 +322,65 @@ export function projectDirFor(event: NormalisedEvent, explicit?: string): string
  * The channel says which kind of text is arriving, and is fixed by whichever
  * hook entry invoked us rather than inferred from the payload.
  */
+const CHANNEL_LABEL: Record<Channel, string> = {
+  docs: "This file",
+  github: "This commit message, PR or issue body",
+  issue: "This issue title or body",
+};
+
+const WRITE_SHAPED = new Set(["write", "edit", "multi-edit", "patch"]);
+
+/**
+ * Say something when a write-shaped call yields nothing at all.
+ *
+ * This is what a vendor renaming a field looks like from in here, and it is
+ * the one drift signal available for free on every user's machine. A frozen
+ * fixture cannot catch it: the recording still says `tool_input`, the replay
+ * still passes, and the hook silently allows everything in the field that
+ * moved. A real write always carries a path, so no path and no text together
+ * mean the payload was not understood rather than that the file was empty.
+ *
+ * stderr, not a refusal. Being confused is not grounds for blocking a write.
+ */
+function noteIfUnreadable(event: NormalisedEvent, files: FileText[]): void {
+  if (!WRITE_SHAPED.has(event.tool)) return;
+  if (files.some((f) => f.path !== "" || f.text !== "")) return;
+  // Only the tool kind, because by here the payload has been normalised and
+  // the field names that would name the problem are gone. Capturing the raw
+  // payload is the recorder's job, so the message asks for that rather than
+  // guessing.
+  process.stderr.write(
+    `plain-english: read nothing from a ${event.tool} call, so this write was not ` +
+      `checked. The payload may have changed shape. Re-run with ` +
+      `PLAIN_ENGLISH_RECORD=<dir> and open an issue with what it captures.\n`,
+  );
+}
+
 export function decide(
   event: NormalisedEvent,
   channel: Channel,
-  opts: { projectDir?: string; ruleSet?: RuleSet } = {},
+  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number } = {},
 ): Decision {
   const projectDir = projectDirFor(event, opts.projectDir);
   const allow = (): Decision => ({ allow: true, decision: "allow", findings: [] });
 
   let files: FileText[] = [];
   let texts: string[] = [];
+  let label = CHANNEL_LABEL[channel];
 
   if (channel === "docs") {
-    files = extractFromFileWrite(event).filter(
-      (f) =>
-        f.path !== "" &&
-        MARKDOWN.test(f.path) &&
-        (!isAbsolute(f.path) || isUnderProject(f.path, projectDir)),
-    );
+    const raw = extractFromFileWrite(event);
+    noteIfUnreadable(event, raw);
+    files = judgeable(raw, projectDir);
     if (!files.length) return allow();
   } else if (channel === "github") {
     if (event.tool !== "bash") return allow();
-    texts = extractFromBash(pick(event.input, "command"));
+    const cmd = pick(event.input, "command");
+    texts = extractFromBash(cmd);
+    // A shell command can carry both a commit message and a patch. Judge each.
+    files = judgeable(extractPatchesFromBash(cmd), projectDir);
+    // Naming it a commit message would be wrong when what was caught is a file.
+    if (files.length && !texts.length) label = CHANNEL_LABEL["docs"];
   } else {
     texts = extractFromIssue(event.input);
   }
@@ -294,7 +396,7 @@ export function decide(
       const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
       return !matchesAny(rel, ruleSet.exclude);
     });
-    texts = files.map((f) => f.text);
+    texts = [...texts, ...files.map((f) => f.text)];
   }
 
   texts = texts.filter((t) => t.trim() !== "");
@@ -306,32 +408,43 @@ export function decide(
     // A hook payload is one edit, so the budget is tighter than the CLI's: an
     // agent kills the hook well before a minute, and a write held up for even a
     // few seconds is worse than a term slipping through. Fail-open on exhaustion.
-    const res = lintText(text, ruleSet, { budgetMs: HOOK_BUDGET_MS });
+    const res = lintText(text, ruleSet, { budgetMs: opts.budgetMs ?? HOOK_BUDGET_MS });
     findings.push(...res.findings);
     for (const id of res.timedOut) stalled.add(id);
   }
 
-  const errors = findings.filter((f) => f.severity === "error");
+  // `failOn: warn` used to be read as `error` here, because only error-severity
+  // findings ever reached the decision. `cmdLint` honoured it and the hook did
+  // not, so a project that asked for warnings to matter got nothing from any
+  // agent.
+  const errors =
+    ruleSet.failOn === "warn" ? findings : findings.filter((f) => f.severity === "error");
+  const timedOut = stalled.size ? { timedOut: [...stalled].sort() } : {};
+
   if (!errors.length) {
     // Allowing is the only safe answer, but say so rather than reporting a
     // clean scan. Otherwise a pathological document is the way past the guard.
-    if (stalled.size) {
-      return { allow: true, decision: "allow", findings, timedOut: [...stalled].sort() };
-    }
-    return { allow: true, decision: "allow", findings };
+    return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
   // The last-resort hatch the refusal message offers. It was advertised for
   // three releases without anything reading it, so `touch` did nothing and the
   // only way past a false positive was to edit config or pull the hook.
+  //
+  // No `advisory` either. Waiving a channel has to silence the advice as well
+  // as the refusal, or an agent that can only be told things would keep being
+  // told this one for the next ten minutes.
   if (hasAck(channel, projectDir)) {
-    return { allow: true, decision: "allow", findings };
+    return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
   // Strict mode refuses outright. Otherwise the finding is surfaced to the
   // human, who can wave it through without editing config or removing a hook.
   const decision: HookDecision = ruleSet.failOn === "never" ? "ask" : "deny";
-  return { allow: false, decision, reason: formatReason(errors, channel), findings };
+  const reason = formatReason(errors, channel, label);
+  // Carried on both paths. A profile whose agent honours `ask` uses `reason`;
+  // one whose agent does not uses `advisory` to say the same thing as text.
+  return { allow: false, decision, reason, advisory: reason, findings, ...timedOut };
 }
 
 /** How long a `touch`ed ack file waives findings for. */
@@ -380,13 +493,7 @@ export function hasAck(channel: Channel, projectDir: string, now = Date.now()): 
   return false;
 }
 
-const CHANNEL_LABEL: Record<Channel, string> = {
-  docs: "This file",
-  github: "This commit message, PR or issue body",
-  issue: "This issue title or body",
-};
-
-export function formatReason(errors: Finding[], channel: Channel): string {
+export function formatReason(errors: Finding[], channel: Channel, label?: string): string {
   const shown = errors.slice(0, 5);
   const lines = shown.map((f) => {
     const hint = f.message ? ` ${f.message}` : "";
@@ -395,7 +502,7 @@ export function formatReason(errors: Finding[], channel: Channel): string {
   const more = errors.length > shown.length ? `\n  ...and ${errors.length - shown.length} more` : "";
 
   return [
-    `${CHANNEL_LABEL[channel]} contains writing that reads as machine-generated:`,
+    `${label ?? CHANNEL_LABEL[channel]} contains writing that reads as machine-generated:`,
     "",
     lines.join("\n") + more,
     "",

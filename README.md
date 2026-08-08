@@ -164,8 +164,17 @@ cost four translation tables and not four linters.
 knowing before you rely on a hook: Copilot's cloud agent turns an `ask` into a `deny`,
 and Codex will not run a hook until you approve it with `/hooks`.
 
+Under the default `failOn: never` the finding is advisory. Claude Code and Copilot surface
+it and let you decide; Codex and Cursor parse and discard that request, so on those the
+finding is fed back to the model as text instead.
+[`docs/agents.md`](docs/agents.md) has the table.
+
 If a finding is wrong and you need past it once, `touch .plain-english-ack-docs` waives
-that channel for ten minutes, then expires on its own.
+that channel for ten minutes, then expires on its own. It silences the advisory too.
+
+If a hook is not firing, or is firing and reading nothing, set
+`PLAIN_ENGLISH_RECORD=./captures` and run the agent again. Each call writes one redacted
+JSON file describing what arrived, which is what an adapter bug report needs.
 
 ### Agents with no adapter
 
@@ -301,8 +310,14 @@ INIT OPTIONS
 HOOK OPTIONS
   --agent ID                         which agent's protocol to speak.
                                      Detected from the payload when omitted.
+  --event pre|post                   pre refuses before the write, post tells
+                                     the model after it (default: pre)
 
   --version                          print the version and exit
+
+Set PLAIN_ENGLISH_RECORD=<dir> to write each hook payload there, redacted, for
+reporting an adapter bug. Add --record-verbatim only for a payload you wrote
+yourself.
 ```
 
 Exit codes: 0 clean or advisory, 1 a finding at or above `failOn`, 2 a bad path or a

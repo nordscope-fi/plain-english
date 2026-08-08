@@ -206,3 +206,88 @@ cases:
       toolArgs:
         path: "{{TMP}}/x.md"
         new_string: "The build failed — the cache was stale."
+
+  - name: "codex apply_patch carries the patch under tool_input.command"
+    channel: docs
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      The adapter looked for input, patch, patch_text and content, guesses made
+      when the schema was unpublished. codex-rs emits tool_input.command, so it
+      read an empty string and allowed every Codex file write.
+    payload:
+      tool_name: apply_patch
+      tool_input:
+        command: |
+          *** Begin Patch
+          *** Add File: {{TMP}}/notes.md
+          +We leverage this.
+          *** End Patch
+
+  - name: "apply_patch run at the shell arrives as a Bash call"
+    channel: github
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      shell.rs calls intercept_apply_patch, so a model writing
+      `apply_patch <<PATCH` gets a real file write through a call that reports
+      tool_name Bash. That lands on the github channel, which reads commit and
+      gh message text and finds none, so the file was written unjudged.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: |
+          apply_patch <<'PATCH'
+          *** Begin Patch
+          *** Add File: {{TMP}}/notes.md
+          +We leverage this.
+          *** End Patch
+          PATCH
+
+  - name: "a shell apply_patch touching only source is not prose"
+    channel: github
+    agent: codex
+    expect: allow
+    why: "The same per-file split a native apply_patch gets."
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: |
+          apply_patch <<'PATCH'
+          *** Begin Patch
+          *** Add File: {{TMP}}/x.ts
+          +const leverage = 1;
+          *** End Patch
+          PATCH
+
+  - name: "copilot sends toolArgs as an escaped JSON string"
+    channel: docs
+    agent: copilot
+    expect: deny
+    rule: leverage
+    why: >-
+      Copilot's camelCase mode sends toolArgs as a JSON string, not an object,
+      and its own tutorial says so. asRecord turned the string into {} and the
+      hook allowed everything. copilot-cli#3349 exists because a hook that
+      forgets this is a policy that silently passes.
+    payload:
+      toolName: create
+      toolArgs: '{"path":"{{TMP}}/x.md","content":"We leverage this."}'
+
+  - name: "copilot with an empty tool_input beside a populated toolArgs"
+    channel: docs
+    agent: copilot
+    expect: deny
+    rule: leverage
+    why: >-
+      What a vendor mid-rename looks like. `??` falls through on null and
+      undefined only, so it stopped at the empty object and read nothing.
+    payload:
+      tool_name: Write
+      tool_input: {}
+      toolArgs:
+        file_path: "{{TMP}}/x.md"
+        content: "We leverage this."
+

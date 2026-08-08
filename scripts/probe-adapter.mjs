@@ -126,17 +126,37 @@ const denyEvent = (id) =>
     tool_name: "Write",
     tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
   });
-const wire = (id) =>
-  JSON.parse(byId(id).emit(decide(denyEvent(id), "docs", { projectDir: T, ruleSet })).stdout);
+const emit = (id, event) =>
+  byId(id).emit(decide(denyEvent(id), "docs", { projectDir: T, ruleSet }), event).stdout;
+const wire = (id, event = "pre") => {
+  const out = emit(id, event);
+  return out ? JSON.parse(out) : {};
+};
 
 check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
   "claude-code nests permissionDecision under hookSpecificOutput");
 check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
   "copilot puts permissionDecision at the top level");
 check(wire("codex").hookSpecificOutput?.permissionDecision === "ask",
-  "codex matches claude-code");
-check(wire("cursor").permission === "ask" && !!wire("cursor").agent_message,
-  "cursor uses permission plus agent_message");
+  "codex matches claude-code on the pre event");
+
+// Cursor and Codex both parse `ask` and then allow, so the advisory tier has
+// to reach the model as text or it reaches nobody.
+check(wire("cursor").permission === "allow" && !!wire("cursor").additional_context,
+  "cursor allows and attaches additional_context");
+const post = wire("codex", "post");
+check(post.hookSpecificOutput?.hookEventName === "PostToolUse" &&
+      !!post.hookSpecificOutput?.additionalContext,
+  "codex feeds the finding back as additionalContext on the post event");
+// Codex rejects the entire hook output on an unrecognised key, so a stray
+// permissionDecision under a PostToolUse event throws the finding away.
+check(JSON.stringify(Object.keys(post)) === '["hookSpecificOutput"]' &&
+      JSON.stringify(Object.keys(post.hookSpecificOutput).sort()) ===
+        '["additionalContext","hookEventName"]',
+  "codex post output carries no key Codex would reject");
+check(emit("claude-code", "post") === "" && emit("copilot", "post") === "" &&
+      emit("cursor", "post") === "",
+  "no post output from agents that can already ask");
 
 console.log("\n-- refusal message --");
 
@@ -157,8 +177,11 @@ console.log("\n-- fail-open --");
 // one agent that reads a non-zero exit on this event as a refusal, so its exit
 // code matters as much as its output.
 for (const profile of PROFILES) {
-  const out = profile.emit(decide(profile.parse({}), "docs", { projectDir: T, ruleSet }));
-  check(out.stdout === "" && out.exitCode === 0, `${profile.id}: empty payload allows, exit 0`);
+  for (const event of ["pre", "post"]) {
+    const out = profile.emit(decide(profile.parse({}), "docs", { projectDir: T, ruleSet }), event);
+    check(out.stdout === "" && out.exitCode === 0,
+      `${profile.id}: empty payload allows on ${event}, exit 0`);
+  }
 }
 
 rmSync(T, { recursive: true, force: true });

@@ -17,7 +17,7 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
-import type { AgentProfile, NormalisedEvent, PlanContext } from "./profile.ts";
+import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
 
 const CHANNELS = [
@@ -45,7 +45,12 @@ export const codex: AgentProfile = {
         // The patch text has been seen under several keys and the schema is not
         // published. Any of them, or nothing, in which case there is no text to
         // judge and the call is allowed.
-        const patch = pick(input, "input", "patch", "patch_text", "content");
+        // `command` first, and it is the one that is actually right:
+        // codex-rs/core/src/tools/handlers/apply_patch.rs emits
+        // `tool_input: json!({ "command": command })`. The others were guesses
+        // made when the schema was unpublished, and they are kept only because
+        // a wrong guess costs nothing while a missing one allows every write.
+        const patch = pick(input, "command", "input", "patch", "patch_text", "content");
         return { tool: "patch", cwd, input: { files: parseApplyPatch(patch) } };
       }
       case "Write":
@@ -71,7 +76,34 @@ export const codex: AgentProfile = {
     }
   },
 
-  emit(decision: Decision) {
+  // "permissionDecision: 'ask' ... parsed but not supported yet", per Codex's
+  // own hooks reference. Emitting it is not an error, it simply allows.
+  supportsAsk: false,
+
+  emit(decision: Decision, event: HookEvent) {
+    if (event === "post") {
+      // The advisory channel. Codex discards `ask`, so under the default
+      // `failOn: never` this is the only way a finding reaches anyone, and it
+      // reaches the model rather than a human. `deny` maps here too: a
+      // deny-shaped decision arrives on the post event whenever the pre hook
+      // did not fire, and `permissionDecision` under a PostToolUse event is an
+      // unrecognised shape that Codex rejects wholesale.
+      if (!decision.advisory) return { stdout: "", exitCode: 0 };
+      return {
+        stdout: JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PostToolUse",
+            additionalContext: decision.advisory,
+          },
+        }),
+        exitCode: 0,
+      };
+    }
+
+    // Still emitted although Codex discards it. Someone who upgrades this
+    // package without re-running `init` has a config with pre entries only; if
+    // this went silent, the upgrade would switch Codex off with no error. An
+    // ignored decision is exactly as effective as before and fails safe.
     if (decision.allow) return { stdout: "", exitCode: 0 };
     return {
       stdout: JSON.stringify({
@@ -98,6 +130,25 @@ export const codex: AgentProfile = {
               {
                 type: "command",
                 command: `npx --no-install plain-english hook ${c.channel} --agent codex`,
+                timeout: 30,
+              },
+            ],
+          })),
+        },
+        {
+          // The advisory channel, because Codex discards `ask`. Under
+          // `failOn: error` the pre hook refuses and this never speaks; under
+          // the default it is the only thing that does.
+          path: ".codex/hooks.json",
+          at: ["hooks", "PostToolUse"],
+          shape: "nested" as const,
+          entries: CHANNELS.map((c) => ({
+            matcher: c.matcher,
+            hooks: [
+              {
+                type: "command",
+                command:
+                  `npx --no-install plain-english hook ${c.channel} --agent codex --event post`,
                 timeout: 30,
               },
             ],

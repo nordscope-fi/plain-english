@@ -13,10 +13,20 @@ import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { renderAll, writeTargets } from "./render.ts";
-import { decide, isChannel, CHANNELS, type Channel } from "./adapters/hook.ts";
+import {
+  decide,
+  isChannel,
+  projectDirFor,
+  CHANNELS,
+  HOOK_BUDGET_MS,
+  POST_BUDGET_MS,
+  type Channel,
+} from "./adapters/hook.ts";
+import type { HookEvent } from "./agents/profile.ts";
 import { init, allAgents } from "./init.ts";
-import { byId, agentIds, resolveProfile } from "./agents/registry.ts";
+import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
+import { record } from "./record.ts";
 import { matchesAny } from "./glob.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -349,8 +359,40 @@ async function cmdHook(args: Args): Promise<number> {
       profile = resolveProfile(undefined, payload);
     }
 
-    const out = profile.emit(decide(profile.parse(payload), channel));
+    // `post` runs after the tool did, so it can only tell the model something.
+    // Only agents that discard `ask` install one, and only `init` writes the
+    // flag; an unrecognised value is read as `pre`, which is the safe reading.
+    const event: HookEvent = args.flags["event"] === "post" ? "post" : "pre";
+
+    // The post event is not holding up a write, so the tight budget buys
+    // nothing there but an incomplete scan.
+    const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
+    const parsed = profile.parse(payload);
+    const decision = decide(parsed, channel, { budgetMs });
+    const out = profile.emit(decision, event);
     if (out.stdout) process.stdout.write(out.stdout);
+
+    // After the decision is out, and in its own try/catch. Three of the four
+    // adapters were written from vendor documentation that was wrong twice, so
+    // a real payload is worth having; a debugging aid that could swallow the
+    // verdict is not.
+    const dir = process.env["PLAIN_ENGLISH_RECORD"];
+    if (dir) {
+      try {
+        record(payload, parsed, decision, out.stdout, {
+          dir: resolve(dir),
+          agent: profile.id,
+          channel,
+          event,
+          projectDir: projectDirFor(parsed),
+          version: packageVersion(),
+          verbatim: args.flags["record-verbatim"] === true,
+        });
+      } catch {
+        /* a capture is never worth a degraded decision */
+      }
+    }
+
     return out.exitCode;
   } catch {
     // Fail-open, and this is the contract the whole design rests on: a linter
@@ -390,8 +432,14 @@ INIT OPTIONS
 HOOK OPTIONS
   --agent ID                         which agent's protocol to speak.
                                      Detected from the payload when omitted.
+  --event pre|post                   pre refuses before the write, post tells
+                                     the model after it (default: pre)
 
   --version                          print the version and exit
+
+Set PLAIN_ENGLISH_RECORD=<dir> to write each hook payload there, redacted, for
+reporting an adapter bug. Add --record-verbatim only for a payload you wrote
+yourself.
 
 Config: .plain-english.yml at the repo root, "extends: default".
 Docs:   docs/writing-style.md
@@ -453,10 +501,55 @@ function cmdDoctor(): number {
       `config        ${configPath}`,
       `rules         ${ruleSummary}`,
       `structures    ${resolveRuleSetSafe(root)}`,
+      `resolves      ${resolvesLocally(root)}`,
+      "",
+      "agents",
+      ...agentReport(root),
       "",
     ].join("\n"),
   );
   return 0;
+}
+
+/**
+ * Which agent configs exist here, and whether they are ours.
+ *
+ * `docs/agents.md` tells people to attach `doctor` to a hook bug report, and
+ * until now it said nothing about agents at all. The common failure it should
+ * catch is a config that looks perfect while nothing runs.
+ */
+function agentReport(root: string): string[] {
+  const lines: string[] = [];
+  for (const profile of PROFILES) {
+    const seen: string[] = [];
+    for (const file of profile.plan({ prompts: {}, model: "" }).config) {
+      const path = resolve(root, file.path);
+      if (!existsSync(path)) continue;
+      let ours = false;
+      try {
+        ours = readFileSync(path, "utf8").includes("--agent " + profile.id);
+      } catch {
+        /* unreadable counts as not ours */
+      }
+      seen.push(`${file.path} ${file.at.join(".")}${ours ? "" : " (no plain-english entry)"}`);
+    }
+    lines.push(`  ${profile.id.padEnd(12)} ${seen.length ? seen.join("; ") : "not installed"}`);
+  }
+  return lines;
+}
+
+/**
+ * Whether the command every installed hook runs would find anything.
+ *
+ * Each hook is `npx --no-install plain-english …`, which resolves from the
+ * project's own `node_modules`. A global install with no local one makes every
+ * one of them a silent no-op while the config still reads correctly, and that
+ * is indistinguishable from a linter that found nothing to say.
+ */
+function resolvesLocally(root: string): string {
+  const local = resolve(root, "node_modules", "plain-english", "package.json");
+  if (existsSync(local)) return "npx --no-install finds a local install";
+  return "NO local install; `npx --no-install plain-english` will do nothing in hooks";
 }
 
 function resolveRuleSetSafe(root: string): string {

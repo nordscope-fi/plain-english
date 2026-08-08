@@ -17,17 +17,49 @@ every run is idempotent.
 
 ## What each agent gets
 
-| Agent | Config written | Can refuse a write | Semantic layer |
-|---|---|---|---|
-| Claude Code | `.claude/settings.json` + three shims in `.claude/hooks/` | yes | yes, prompt hooks |
-| GitHub Copilot | `.github/hooks/plain-english.json` | yes | no |
-| OpenAI Codex CLI | `.codex/hooks.json` | yes, after you approve it | no |
-| Cursor | `.cursor/hooks.json` | see the note below | no |
+| Agent | Config written | Can refuse a write | Honours `ask` | Semantic layer |
+|---|---|---|---|---|
+| Claude Code | `.claude/settings.json` + three shims in `.claude/hooks/` | yes | yes | yes, prompt hooks |
+| GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
+| OpenAI Codex CLI | `.codex/hooks.json` | yes, after you approve it | no | no |
+| Cursor | `.cursor/hooks.json` | yes | no | no |
 
 The semantic layer is the model-judged pass over the nine sentence shapes a regex cannot
 reach. It rides on Claude Code's `prompt` hook type. Copilot documents an equivalent that
 this package does not yet use; Codex and Cursor have none. The deterministic rules, which
 are the ones that can fail a build, run everywhere.
+
+## What the advisory default means on each agent
+
+`failOn: never` is the default, and it means "tell me, do not stop me". Two of
+the four have no way to express that on a pre-tool-call hook. Codex's reference
+says `permissionDecision: "ask"` is "parsed but not supported yet". Cursor's
+says `ask` "is accepted by the schema but not enforced for preToolUse today".
+Both parse it and then allow, so an adapter that emits `ask` and stops there
+looks installed and reports nothing.
+
+So the advisory finding is fed back to the model as text instead:
+
+| Agent | `failOn: never` | `failOn: error` |
+|---|---|---|
+| Claude Code | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
+| GitHub Copilot | `PreToolUse` → `ask` | `PreToolUse` → `deny` |
+| OpenAI Codex CLI | `PostToolUse` → `additionalContext` | `PreToolUse` → `deny` |
+| Cursor | `preToolUse` → `allow` plus `additional_context` | `preToolUse` → `deny` |
+
+Cursor needs no second hook: `additional_context` works on `preToolUse` itself,
+which Cursor staff confirmed in July 2026. Its `postToolUse` equivalent has been
+a known-broken ticket since March, which is why the advisory does not go there.
+
+Codex does need one, so `init --agent codex` writes both events into
+`.codex/hooks.json`. The pre hook still emits the `ask` Codex discards, on
+purpose: somebody who upgrades this package without re-running `init` has a
+config with pre entries only. Saying nothing there would switch Codex off with
+no error at all.
+
+A `touch`ed acknowledgement file silences the advisory as well as the refusal.
+An agent that can only be told things would otherwise keep being told this one
+for the whole ten minutes.
 
 ## Why this took four adapters and not four linters
 
@@ -93,33 +125,103 @@ touches a README and a source file has only the README judged.
 
 ### Cursor
 
-Cursor's documentation contradicts itself here. One page states there is no
-`beforeFileEdit` hook and that only `beforeReadFile` can block file access; another
-documents `preToolUse` as generic over all tool types with a `Write` matcher. This package
-takes the `preToolUse` route. **Write a markdown file containing a banned term and confirm
-the hook fires before you rely on it.**
+Cursor's documentation contradicts itself about which hook can block a file
+write. One page says only `beforeReadFile` can; another documents `preToolUse`
+as generic over all tool types with a `Write` matcher. This package takes the
+`preToolUse` route, which forum reports and Cursor staff both support for the
+Shell tool. **Whether it fires for a Write in the current CLI is the one thing
+no source settles, so write a markdown file containing a banned term and confirm
+before you rely on it.**
+
+`ask` is settled, and separately: Cursor accepts it and does not enforce it for
+`preToolUse`, so the advisory tier uses `additional_context` instead.
 
 The argument names inside a Cursor `Write` are not published, so the adapter accepts
 several spellings. If it reads nothing, it allows the write.
 
 ## Verification status
 
-Honesty matters more than coverage here, so this table says what was actually observed
-against a running agent as opposed to taken from a vendor's documentation.
+Honesty matters more than coverage, so each claim carries what backs it. Three
+different things get three different names:
+
+- **observed**: seen against a running agent
+- **source**: read from the vendor's own code or published JSON schema
+- **docs**: taken from a vendor's prose, which has been wrong twice here
 
 | Agent | Wire format | Config path | Fires on a real write |
 |---|---|---|---|
-| Claude Code | verified | verified | verified |
-| GitHub Copilot | from docs | from docs | not yet verified |
-| OpenAI Codex CLI | from docs | from docs | not yet verified |
-| Cursor | from docs | from docs | not yet verified |
+| Claude Code | observed | observed | observed |
+| GitHub Copilot | docs | docs | not yet |
+| OpenAI Codex CLI | source | docs | not yet |
+| Cursor | docs | docs | not yet |
 
-Two known documentation gaps, both recorded in the source:
+Codex reads **source** because `codex-rs/core/src/tools/handlers/apply_patch.rs`
+emits `tool_input: json!({ "command": command })` and
+`codex-rs/core/src/tools/hook_names.rs` says "the serialized name remains
+`apply_patch`". That settles the two things a single session would have, more
+firmly than a session would.
 
-- `openai/codex#18491` reports that `PreToolUse` may dispatch for shell calls only on some
-  builds, and that `updatedInput` is rejected at runtime. This package never sends
-  `updatedInput`, so only the first matters. Check `/hooks` output against your version.
-- Cursor's own docs disagree about pre-write blocking, as above.
+Reading documentation harder is not a substitute for a capture. Two claims that
+shaped an earlier version of this adapter turned out to be false:
+
+- Copilot's compatibility mode, the one whose event names are capitalised like
+  `PreToolUse`, was assumed to rename `toolArgs` to `tool_args`,
+  following its own camelCase-to-snake_case rule. It does not; it sends
+  `tool_input`, already parsed. The camelCase mode really does send a JSON
+  *string*, which is `copilot-cli#3349`.
+- Codex was reported to route file edits through `Bash` rather than
+  `apply_patch`. That described `openai/codex#16732`, fixed by PR #18391 in
+  April, months before the version the claim named. A shell-redirection parser
+  was nearly written on the strength of it.
+
+## Recording a payload
+
+If a hook is not firing, or is firing and reading nothing, capture what actually
+arrived:
+
+```bash
+PLAIN_ENGLISH_RECORD=./captures <your agent, doing whatever fails>
+```
+
+Each invocation writes one JSON file holding the payload's structure, the
+canonical event parsed out of it, the decision, and the keys of the reply.
+
+It is safe to attach to an issue. Paths are rewritten to `{{TMP}}` and `~`, and
+prose is reduced to a length and a hash. A capture that still holds a home
+directory after all that is not written at all.
+
+`--record-verbatim` keeps the prose, and is for a payload you wrote yourself.
+
+`plain-english doctor` reports which agent configs exist, which carry our entry,
+and whether `npx --no-install plain-english` resolves from the project root. A
+global install with no local one makes every hook do nothing, while the config
+still reads correctly.
+
+The linter also says something on its own when a write-shaped call yields no
+path and no text, which is what a renamed field looks like from inside. That
+goes to stderr and never refuses a write.
+
+## Vendor bugs worth knowing about
+
+None of these is fixable here, and all of them look like "the hook is broken".
+
+**Copilot.** Plugin-supplied `preToolUse` hooks never execute (`#2540`, `#3659`),
+which is why `init` writes `.github/hooks/` and never a plugin. Hooks do not fire
+for subagents (`#2392`) or background agents (`#3013`), and can be skipped under
+parallel tool calls (`#2893`). `updatedInput` is ignored (`#2013`); this package
+never sends it.
+
+**Codex.** `PreToolUse` covers shell, `apply_patch` and MCP (Model Context
+Protocol) tool calls. `read_file`, `grep`, `list_dir` and several others emit no
+hook events at all (`#20204`).
+Codex rejects the entire hook output on an unrecognised key, so a reply carrying
+`updatedInput`, `continue`, `stopReason` or `suppressOutput` loses the finding
+rather than having the field ignored.
+
+**Cursor.** `updated_input` is silently dropped for the Write tool, so a hook can
+refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.
+`postToolUse` with `additional_context` has been broken since March (T-C20310),
+which is why the advisory tier uses `preToolUse` instead.
 
 If you run one of these and it behaves differently, that is a bug report worth filing.
 Attach `plain-english doctor` output and the agent's version.

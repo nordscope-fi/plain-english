@@ -15,8 +15,8 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
-import type { AgentProfile, NormalisedEvent, PlanContext } from "./profile.ts";
-import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
+import { asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
 
 const MATCHERS = {
   docs: "Write|Edit|MultiEdit",
@@ -36,23 +36,31 @@ export const copilot: AgentProfile = {
   detect(raw) {
     // The camelCase envelope is Copilot's alone. The PascalCase one is shared
     // with three other agents and proves nothing, so it is not tested here.
-    return typeof raw["toolName"] === "string" || typeof raw["toolArgs"] === "object";
+    // `typeof null` is "object", hence the truthiness guard.
+    return typeof raw["toolName"] === "string" || !!raw["toolArgs"];
   },
 
   parse(raw): NormalisedEvent {
     // Compatibility mode first, since that is what `init` writes. The camelCase
-    // fallback carries a hand-written config.
-    const input = asRecord(raw["tool_input"] ?? raw["toolArgs"]);
+    // fallback carries a hand-written config, and there it arrives as an
+    // escaped JSON string rather than an object; `asArgs` handles both and
+    // takes the first candidate that actually carries something.
+    const input = asArgs(raw["tool_input"], raw["toolArgs"]);
     const cwd = pick(raw, "cwd") || undefined;
     const name = pick(raw, "tool_name", "toolName");
     const filePath = pick(input, "file_path", "filePath", "path");
 
+    // PascalCase mode reports Claude's names (`Bash`, `Read`, `Write`, `Edit`);
+    // native mode reports Copilot's own (`bash`, `view`, `create`, `edit`,
+    // `str_replace_editor`, `apply_patch`). Lowercasing collapses the two.
     switch (name.toLowerCase()) {
       case "write":
       case "create":
         return { tool: "write", cwd, input: { filePath, content: pick(input, "content", "text") } };
       case "edit":
       case "str_replace":
+      case "str_replace_editor":
+      case "apply_patch":
         return {
           tool: "edit",
           cwd,
@@ -71,13 +79,17 @@ export const copilot: AgentProfile = {
         };
       case "bash":
       case "shell":
+      case "powershell":
         return { tool: "bash", cwd, input: { command: pick(input, "command", "cmd") } };
       default:
         return { tool: "other", cwd, input: issueFields(input) };
     }
   },
 
-  emit(decision: Decision) {
+  supportsAsk: true,
+
+  emit(decision: Decision, event: HookEvent) {
+    if (event === "post") return { stdout: "", exitCode: 0 };
     // Always exit 0, and this is the one profile where it is not merely tidy.
     //
     // `preToolUse` is the single event Copilot fails CLOSED on: an unexpected
