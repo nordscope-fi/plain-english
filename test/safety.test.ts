@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findUnsafe, isSafe, matchAllWithDeadline } from "../src/safe-regex.ts";
+import { COMMAND_PATTERNS, MAX_COMMAND_BYTES, extractFromBash } from "../src/adapters/hook.ts";
 import { compile, KNOWN_TOP_LEVEL, loadDefault, RuleError, type RuleSet } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import { readFileSync } from "node:fs";
@@ -267,5 +268,84 @@ describe("overlapping alternations are seen through character classes", () => {
       for (const u of r.unless ?? []) expect(findUnsafe(u), `${r.id} unless`).toBeNull();
     }
     for (const a of set.allow ?? []) expect(findUnsafe(a), "allow").toBeNull();
+  });
+});
+
+/**
+ * The extraction patterns get the same screen as a config pattern.
+ *
+ * `heredocBodies` had `\s*` in front of its back-reference, overlapping the
+ * lazy `[\s\S]*?` before it. An unterminated heredoc whose body was blank
+ * lines backtracked quadratically: 3.1s at 50KB, 12.5s at 100KB, 49.7s at
+ * 200KB, 200s at 400KB. It ran inside a blocking pre-tool-call hook, reachable
+ * from any `git commit` or `gh` command an agent writes.
+ *
+ * Nothing had ever looked at it. `findUnsafe` screens patterns that arrive
+ * from a project's configuration, and `HOOK_BUDGET_MS` is handed to `lintText`
+ * and covers no part of extraction. A regex is not safer for having been
+ * written in TypeScript rather than in YAML, so these are screened too.
+ */
+describe("the adapter's own patterns are screened", () => {
+  /**
+   * `INLINE_FLAG` is the one exception, and it is the screen being cautious
+   * rather than the pattern being unsafe.
+   *
+   * It contains `(?:[^"\\]|\\.)*`, the standard unrolled loop for a quoted
+   * string. The two alternatives are disjoint: the class excludes backslash
+   * and the escape requires one, so the engine fails fast. `firstSet` cannot
+   * compute the first-set of a negated class, returns null, and `intersects`
+   * reads null as "might overlap". Erring that way is right for a screen that
+   * runs on somebody's config, so the pattern is measured instead. Widening
+   * the screen to understand negated classes belongs in its own change.
+   */
+  const CONSERVATIVE = new Set(["INLINE_FLAG"]);
+
+  it("passes findUnsafe, the same check a config pattern gets", () => {
+    for (const [name, re] of Object.entries(COMMAND_PATTERNS)) {
+      if (CONSERVATIVE.has(name)) continue;
+      expect(findUnsafe(re.source), `${name} is unsafe`).toBeNull();
+    }
+  });
+
+  it("matches the conservatively-rejected pattern in linear time", () => {
+    // An unterminated quoted value, which is the input that would expose a
+    // genuinely overlapping alternation here.
+    for (const kb of [10, 160]) {
+      const cmd = 'git commit -m "' + "a\\".repeat(kb * 256);
+      const re = new RegExp(COMMAND_PATTERNS["INLINE_FLAG"]!.source, "g");
+      const started = performance.now();
+      re.exec(cmd);
+      const ms = performance.now() - started;
+      expect(ms, `${kb}KB took ${ms.toFixed(0)}ms`).toBeLessThan(500);
+    }
+  });
+
+  it("extracts a heredoc in bounded time, however malformed", () => {
+    // The shape that hung: a heredoc opened and never closed.
+    for (const kb of [50, 200]) {
+      const cmd = "git commit -F - <<EOF\n" + " \n".repeat(kb * 512);
+      const started = performance.now();
+      extractFromBash(cmd);
+      const ms = performance.now() - started;
+      // Two orders of magnitude of headroom over the fixed timings, so a slow
+      // machine does not make this flaky, and 3,121ms still fails.
+      expect(ms, `${kb}KB took ${ms.toFixed(0)}ms`).toBeLessThan(500);
+    }
+  });
+
+  it("stops reading a command that is not a commit message", () => {
+    const huge = "git commit -m \"" + "a".repeat(MAX_COMMAND_BYTES) + "\"";
+    expect(extractFromBash(huge)).toEqual([]);
+  });
+
+  it("still reads the heredocs that matter", () => {
+    expect(extractFromBash("git commit -F - <<EOF\nWe leverage this.\nEOF\n")).toEqual([
+      "We leverage this.",
+    ]);
+    // `<<-` allows a tab-indented terminator, which is the only indentation
+    // the narrowed pattern still accepts.
+    expect(extractFromBash("git commit -F - <<-EOF\nWe leverage this.\n\tEOF\n")).toEqual([
+      "We leverage this.",
+    ]);
   });
 });

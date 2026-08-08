@@ -4,7 +4,15 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Security
+
+- The hook no longer hangs on a malformed heredoc. `heredocBodies` had `\s*` in front of its back-reference, overlapping the lazy `[\s\S]*?` before it, so an unterminated heredoc whose body was blank lines backtracked quadratically. Measured at 3.1s for 50KB of it, 12.5s for 100KB, 49.7s for 200KB and 200s for 400KB. This ran inside a pre-tool-call hook that holds up the agent's write, reachable from any `git commit` or `gh` command, which is text an agent produces constantly. Narrowing to `[ \t]*` takes 200KB to 1.4ms and loses nothing: a heredoc terminator may be indented with tabs, and only under `<<-`.
+- Extraction stops at 256KB of command text. One payload is one tool call, and past that it is not a commit message.
+- The adapter's own patterns now get the same `findUnsafe` screen a project's config gets, plus a timing test on the shapes that would expose backtracking. Nothing had ever looked at them. The load-time screen runs on patterns from configuration, and the match deadline is handed to `lintText` and covers no part of extraction, so a regex written in TypeScript was checked by less than one written in YAML. `INLINE_FLAG` is measured rather than screened: it holds the standard unrolled loop for a quoted string, whose two alternatives are disjoint, and `findUnsafe` cannot compute the first-set of a negated class so it errs towards rejecting.
+- `SECURITY.md` no longer claims every pattern is screened and every match carries a deadline. That was true of configuration and never of the extraction path.
+
 ## [0.4.0] - 2026-08-08
+
 ### Added
 
 - Hooks for GitHub Copilot, OpenAI Codex CLI and Cursor, alongside Claude Code. `init --agent <id>` writes that agent's config, `--agent all` writes every one, and the default stays Claude Code so the published command keeps working. Each agent gets a translation table in `src/agents/`: payload in, wire format out, nothing about deciding. That was affordable because Claude Code's hook contract became the shape the others copied. Copilot ships an explicit compatibility mode for it, Codex reuses the same reply vocabulary, and Cursor uses the same event with different field names.
