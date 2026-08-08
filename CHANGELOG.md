@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-09
 ### Fixed
 
 - Codex reads the patch. `apply_patch` carries its text in `tool_input.command`, confirmed in `codex-rs/core/src/tools/handlers/apply_patch.rs`, and the adapter looked for `input`, `patch`, `patch_text` and `content`. Those were guesses made when the schema was unpublished, so it read an empty string and allowed every Codex file write. `command` goes first now; the guesses stay, because a wrong one costs nothing and a missing one costs everything.
@@ -155,7 +156,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.0
 [0.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.1
