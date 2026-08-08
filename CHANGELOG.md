@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-08
 ### Added
 
 - Hooks for GitHub Copilot, OpenAI Codex CLI and Cursor, alongside Claude Code. `init --agent <id>` writes that agent's config, `--agent all` writes every one, and the default stays Claude Code so the published command keeps working. Each agent gets a translation table in `src/agents/`: payload in, wire format out, nothing about deciding. That was affordable because Claude Code's hook contract became the shape the others copied. Copilot ships an explicit compatibility mode for it, Codex reuses the same reply vocabulary, and Cursor uses the same event with different field names.
@@ -123,7 +124,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.0
 [0.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.2.0
