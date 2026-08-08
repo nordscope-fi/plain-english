@@ -94,6 +94,17 @@ export interface PlanContext {
   model: string;
 }
 
+/**
+ * Which point in the tool call this invocation is speaking for.
+ *
+ *   pre   before the tool runs; can still refuse
+ *   post  after it ran; can only tell the model something
+ *
+ * Only agents that discard `ask` need the post event. It is how an advisory
+ * finding reaches a model that has no way to surface one to a human.
+ */
+export type HookEvent = "pre" | "post";
+
 export interface AgentProfile {
   /** Stable id, used by `--agent` and in the shim command. */
   id: string;
@@ -112,12 +123,22 @@ export interface AgentProfile {
   detect(raw: Record<string, unknown>): boolean;
   parse(raw: Record<string, unknown>): NormalisedEvent;
   /**
+   * Whether a pre-tool-call `ask` actually reaches a human on this agent.
+   *
+   * False for Codex, whose reference says `ask` is "parsed but not supported
+   * yet", and for Cursor, whose docs say it "is accepted by the schema but not
+   * enforced for preToolUse today". On those the advisory tier has to be text
+   * fed back to the model instead, or the hook looks installed and reports
+   * nothing at all under the default configuration.
+   */
+  supportsAsk: boolean;
+  /**
    * The bytes to write and the code to exit with.
    *
    * Exit codes are part of the protocol and they do not agree: Copilot reads
    * an unexpected non-zero as a refusal while everyone else reads it as
    * "carry on". The safe answer everywhere is 0 with an explicit decision.
    */
-  emit(decision: Decision): { stdout: string; exitCode: number };
+  emit(decision: Decision, event: HookEvent): { stdout: string; exitCode: number };
   plan(ctx: PlanContext): InstallPlan;
 }

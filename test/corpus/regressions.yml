@@ -206,3 +206,151 @@ cases:
       toolArgs:
         path: "{{TMP}}/x.md"
         new_string: "The build failed — the cache was stale."
+
+  - name: "codex apply_patch carries the patch under tool_input.command"
+    channel: docs
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      The adapter looked for input, patch, patch_text and content, guesses made
+      when the schema was unpublished. codex-rs emits tool_input.command, so it
+      read an empty string and allowed every Codex file write.
+    payload:
+      tool_name: apply_patch
+      tool_input:
+        command: |
+          *** Begin Patch
+          *** Add File: {{TMP}}/notes.md
+          +We leverage this.
+          *** End Patch
+
+  - name: "apply_patch run at the shell arrives as a Bash call"
+    channel: github
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      shell.rs calls intercept_apply_patch, so a model writing
+      `apply_patch <<PATCH` gets a real file write through a call that reports
+      tool_name Bash. That lands on the github channel, which reads commit and
+      gh message text and finds none, so the file was written unjudged.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: |
+          apply_patch <<'PATCH'
+          *** Begin Patch
+          *** Add File: {{TMP}}/notes.md
+          +We leverage this.
+          *** End Patch
+          PATCH
+
+  - name: "a shell apply_patch touching only source is not prose"
+    channel: github
+    agent: codex
+    expect: allow
+    why: "The same per-file split a native apply_patch gets."
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: |
+          apply_patch <<'PATCH'
+          *** Begin Patch
+          *** Add File: {{TMP}}/x.ts
+          +const leverage = 1;
+          *** End Patch
+          PATCH
+
+  - name: "copilot sends toolArgs as an escaped JSON string"
+    channel: docs
+    agent: copilot
+    expect: deny
+    rule: leverage
+    why: >-
+      Copilot's camelCase mode sends toolArgs as a JSON string, not an object,
+      and its own tutorial says so. asRecord turned the string into {} and the
+      hook allowed everything. copilot-cli#3349 exists because a hook that
+      forgets this is a policy that silently passes.
+    payload:
+      toolName: create
+      # A relative path on purpose. Substituting {{TMP}} inside a JSON string
+      # would build `C:\Users\...` on Windows, which is an invalid escape, and
+      # the parse would fail rather than the assertion.
+      toolArgs: '{"path":"notes.md","content":"We leverage this."}'
+
+  - name: "copilot with an empty tool_input beside a populated toolArgs"
+    channel: docs
+    agent: copilot
+    expect: deny
+    rule: leverage
+    why: >-
+      What a vendor mid-rename looks like. `??` falls through on null and
+      undefined only, so it stopped at the empty object and read nothing.
+    payload:
+      tool_name: Write
+      tool_input: {}
+      toolArgs:
+        file_path: "{{TMP}}/x.md"
+        content: "We leverage this."
+
+  - name: "a real Cursor preToolUse Write, captured from the CLI"
+    channel: docs
+    agent: cursor
+    expect: deny
+    rule: leverage
+    why: >-
+      Captured from cursor-agent 2026.08.04-aaa8809 with PLAIN_ENGLISH_RECORD
+      set, because nobody had published the argument names inside a Cursor
+      Write and the adapter was guessing at four spellings. They are file_path
+      and content. The envelope is kept whole on purpose: Cursor sends no cwd,
+      it sends workspace_roots, and reading the wrong one puts the project
+      scope wherever the hook process happened to start.
+    payload:
+      conversation_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      generation_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      model: default
+      tool_name: Write
+      tool_input:
+        file_path: "{{TMP}}/notes.md"
+        content: "We leverage this approach to showcase a seamless workflow."
+      tool_use_id: "call-b8ac8da8-0"
+      session_id: "86bba682-45e5-43d0-af50-eb9b085a306d"
+      hook_event_name: preToolUse
+      cursor_version: "2026.08.04-aaa8809"
+      workspace_roots:
+        - "{{TMP}}"
+
+  - name: "a real Cursor Shell call, captured from the CLI"
+    channel: github
+    agent: cursor
+    expect: deny
+    rule: furthermore
+    why: >-
+      Cursor names the shell tool Shell, not Bash, and its arguments are
+      command, cwd and timeout. Both confirmed from the same session.
+    payload:
+      tool_name: Shell
+      hook_event_name: preToolUse
+      tool_input:
+        command: 'git commit -m "Furthermore, fix the cache"'
+        cwd: "{{TMP}}"
+        timeout: 30
+      workspace_roots:
+        - "{{TMP}}"
+
+  - name: "Cursor Read and Grep calls are not prose channels"
+    channel: docs
+    agent: cursor
+    expect: allow
+    why: "Both fire preToolUse in the CLI. Neither writes anything."
+    payload:
+      tool_name: Grep
+      hook_event_name: preToolUse
+      tool_input:
+        pattern: leverage
+        glob: "*.md"
+        output_mode: content
+      workspace_roots:
+        - "{{TMP}}"
+

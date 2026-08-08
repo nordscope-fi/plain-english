@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { allAgents, init, mergeNested, spliceAgentsMd } from "../src/init.ts";
 import { byId } from "../src/agents/registry.ts";
+import type { AgentProfile } from "../src/agents/profile.ts";
 import { AGENTS_MD_START, AGENTS_MD_END, renderAgentsFragment } from "../src/render.ts";
 import { compile, loadDefault } from "../src/rules.ts";
 
@@ -336,5 +337,86 @@ describe("mergeNested", () => {
     expect(groups[0]!.hooks).toHaveLength(2);
     expect(groups[0]!.hooks[0]!["command"]).toBe("./ticket-gate.sh");
     expect(groups[0]!.hooks[1]!["command"]).toContain("--agent claude-code");
+  });
+});
+
+/**
+ * Two bugs found by tracing rather than by test, both of which only show up
+ * across a version rather than within one, which is why idempotence missed them.
+ */
+describe("merging across versions", () => {
+  it("keeps both events when one agent writes two into one file", () => {
+    // init re-read the document from disk for each config entry, so the second
+    // write started from the same bytes as the first and overwrote it. An agent
+    // installing a pre and a post hook kept only whichever came last, and the
+    // one lost was the one that can actually refuse.
+    const twoEvents: AgentProfile = {
+      ...byId("codex")!,
+      id: "codex",
+      plan: () => ({
+        config: [
+          {
+            path: ".codex/hooks.json",
+            at: ["hooks", "PreToolUse"],
+            shape: "nested" as const,
+            entries: [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english pre" }] }],
+          },
+          {
+            path: ".codex/hooks.json",
+            at: ["hooks", "PostToolUse"],
+            shape: "nested" as const,
+            entries: [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english post" }] }],
+          },
+        ],
+        shims: [],
+        notes: [],
+      }),
+    };
+
+    expect(init({ root, agents: [twoEvents] })).toBe(0);
+    const doc = JSON.parse(readFileSync(resolve(root, ".codex/hooks.json"), "utf8"));
+    expect(doc.hooks.PreToolUse, "the pre hook was overwritten").toBeDefined();
+    expect(doc.hooks.PostToolUse, "the post hook is missing").toBeDefined();
+    expect(doc.hooks.PreToolUse[0].hooks[0].command).toContain("pre");
+    expect(doc.hooks.PostToolUse[0].hooks[0].command).toContain("post");
+  });
+
+  it("removes our old group when a matcher is renamed", () => {
+    // mergeNested matched groups by exact matcher and only stripped our entries
+    // from a group that matched, so renaming a matcher left the old group
+    // carrying our old command and the hook fired twice on every call.
+    const before = [
+      { matcher: "apply_patch|Write", hooks: [{ type: "command", command: "plain-english hook docs" }] },
+    ];
+    const { groups, orphaned } = mergeNested(before, [
+      {
+        matcher: "apply_patch|Write|Edit",
+        hooks: [{ type: "command", command: "plain-english hook docs" }],
+      },
+    ]);
+    expect(orphaned).toEqual(["apply_patch|Write"]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.matcher).toBe("apply_patch|Write|Edit");
+  });
+
+  it("leaves a renamed matcher's foreign hooks alone", () => {
+    const before = [
+      {
+        matcher: "Bash",
+        hooks: [
+          { type: "command", command: "./ticket-gate.sh" },
+          { type: "command", command: "plain-english hook github" },
+        ],
+      },
+    ];
+    const { groups, orphaned } = mergeNested(before, [
+      { matcher: "Shell", hooks: [{ type: "command", command: "plain-english hook github" }] },
+    ]);
+    expect(orphaned).toEqual(["Bash"]);
+    // The group survives because somebody else still uses it; only ours went.
+    expect(groups.find((g) => g.matcher === "Bash")!.hooks).toEqual([
+      { type: "command", command: "./ticket-gate.sh" },
+    ]);
+    expect(groups.find((g) => g.matcher === "Shell")).toBeDefined();
   });
 });

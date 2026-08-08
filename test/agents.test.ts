@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { decide, type Decision } from "../src/adapters/hook.ts";
+import { ackPath, decide, type Decision } from "../src/adapters/hook.ts";
 import { PROFILES, agentIds, byId, resolveProfile } from "../src/agents/registry.ts";
 import { parseApplyPatch } from "../src/agents/fields.ts";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
@@ -50,7 +50,7 @@ describe("every profile reads a file write", () => {
           ruleSet: advisory,
         });
         expect(d.allow).toBe(true);
-        expect(profile.emit(d).stdout).toBe("");
+        expect(profile.emit(d, "pre").stdout).toBe("");
       });
     });
 
@@ -63,9 +63,9 @@ describe("every profile reads a file write", () => {
             projectDir: dir,
             ruleSet: advisory,
           });
-          expect(profile.emit(d).exitCode, `${profile.id} on ${JSON.stringify(content)}`).toBe(0);
+          expect(profile.emit(d, "pre").exitCode, `${profile.id} on ${JSON.stringify(content)}`).toBe(0);
         }
-        expect(profile.emit(profile.parse({}) as unknown as Decision).exitCode).toBe(0);
+        expect(profile.emit(profile.parse({}) as unknown as Decision, "pre").exitCode).toBe(0);
       });
     });
   }
@@ -83,7 +83,7 @@ describe("each profile speaks its own wire format", () => {
     JSON.parse(byId(id)!.emit(decide(byId(id)!.parse(write(dir)), "docs", {
       projectDir: dir,
       ruleSet: advisory,
-    })).stdout);
+    }), "pre").stdout);
 
   it("claude-code nests the decision under hookSpecificOutput", () => {
     inTmp((dir) => {
@@ -109,13 +109,121 @@ describe("each profile speaks its own wire format", () => {
     });
   });
 
-  it("cursor uses `permission` and addresses human and model separately", () => {
+  it("cursor allows and tells the model, because it discards `ask`", () => {
+    // "`ask` is accepted by the schema but not enforced for preToolUse today",
+    // per Cursor's own docs. Emitting it would allow the write and report
+    // nothing. `additional_context` on preToolUse is staff-confirmed, so the
+    // advisory tier goes there rather than to the broken postToolUse one.
     inTmp((dir) => {
       const out = refusal(dir, "cursor");
-      expect(out.permission).toBe("ask");
+      expect(out.permission).toBe("allow");
+      expect(out.additional_context).toContain("leverage");
+      expect(out.permissionDecision).toBeUndefined();
+    });
+  });
+
+  it("cursor refuses outright under strict mode", () => {
+    inTmp((dir) => {
+      const cursor = byId("cursor")!;
+      const d = decide(cursor.parse(write(dir)), "docs", {
+        projectDir: dir,
+        ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+      });
+      const out = JSON.parse(cursor.emit(d, "pre").stdout);
+      expect(out.permission).toBe("deny");
       expect(out.user_message).toContain("leverage");
       expect(out.agent_message).toContain("leverage");
-      expect(out.permissionDecision).toBeUndefined();
+    });
+  });
+});
+
+/**
+ * Codex and Cursor both parse `ask` and then allow anyway, so under the default
+ * `failOn: never` the pre hook alone reports nothing to anybody. That is the
+ * shipped-and-does-nothing failure this tier exists to remove.
+ */
+describe("the advisory tier reaches agents that discard `ask`", () => {
+  it("declares which agents honour ask", () => {
+    expect(byId("claude-code")!.supportsAsk).toBe(true);
+    expect(byId("copilot")!.supportsAsk).toBe(true);
+    expect(byId("codex")!.supportsAsk).toBe(false);
+    expect(byId("cursor")!.supportsAsk).toBe(false);
+  });
+
+  it("codex feeds the finding back as additionalContext on the post event", () => {
+    inTmp((dir) => {
+      const codex = byId("codex")!;
+      const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      const out = JSON.parse(codex.emit(d, "post").stdout);
+      expect(out.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+      expect(out.hookSpecificOutput.additionalContext).toContain("leverage");
+    });
+  });
+
+  it("codex sends nothing Codex would reject", () => {
+    // Codex refuses the whole hook output on an unrecognised key, so a stray
+    // `permissionDecision` under a PostToolUse event throws the finding away
+    // rather than being ignored.
+    inTmp((dir) => {
+      const codex = byId("codex")!;
+      const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      const out = JSON.parse(codex.emit(d, "post").stdout);
+      expect(Object.keys(out)).toEqual(["hookSpecificOutput"]);
+      expect(Object.keys(out.hookSpecificOutput).sort()).toEqual([
+        "additionalContext",
+        "hookEventName",
+      ]);
+    });
+  });
+
+  it("codex still speaks on the pre event, so a stale config is no worse", () => {
+    // Someone who upgrades without re-running init has pre entries only. If
+    // this went silent the upgrade would switch Codex off with no error.
+    inTmp((dir) => {
+      const codex = byId("codex")!;
+      const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(codex.emit(d, "pre").stdout).not.toBe("");
+    });
+  });
+
+  it("installs a post hook for codex and none for the agents that can ask", () => {
+    const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
+    const events = (id: string) =>
+      byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
+    expect(events("codex")).toContain("hooks.PostToolUse");
+    expect(events("cursor")).toEqual(["hooks.preToolUse"]);
+    expect(events("claude-code")).toEqual(["hooks.PreToolUse"]);
+    expect(events("copilot")).toEqual(["hooks.PreToolUse"]);
+  });
+
+  it("says nothing on either event when a `touch`ed ack has waived the channel", () => {
+    // The hatch has to silence the advice as well as the refusal, or an agent
+    // that can only be told things keeps being told this one for ten minutes.
+    inTmp((dir) => {
+      writeFileSync(ackPath("docs", dir), "");
+      const codex = byId("codex")!;
+      const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(d.allow).toBe(true);
+      expect(d.advisory).toBeUndefined();
+      expect(codex.emit(d, "post").stdout).toBe("");
+      expect(codex.emit(d, "pre").stdout).toBe("");
+    });
+  });
+
+  it("honours failOn: warn, which used to mean the same as error", () => {
+    // Only error-severity findings reached the decision, so a project asking
+    // for warnings to matter got nothing from any agent while `cmdLint`
+    // honoured the same setting.
+    inTmp((dir) => {
+      const warnOnly = "The OIDC check runs first.";
+      const strictWarn = compile({ ...loadDefault(), failOn: "warn" });
+      const claude = byId("claude-code")!;
+      const d = decide(claude.parse(write(dir, warnOnly)), "docs", {
+        projectDir: dir,
+        ruleSet: strictWarn,
+      });
+      expect(d.allow, "a warning did not reach the decision").toBe(false);
+      expect(d.findings.map((f) => f.ruleId)).toContain("unglossed-term");
     });
   });
 });
