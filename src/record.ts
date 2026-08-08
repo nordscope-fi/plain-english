@@ -83,6 +83,13 @@ function scrubText(s: string, projectDir: string): string {
   // Both separators, because a payload from Windows carries backslashes.
   out = out.split(projectDir.split(sep).join("/")).join("{{TMP}}");
   if (home) out = out.split(home).join("~");
+  // A capture is meant to be committed and replayed anywhere, so the part we
+  // rewrote leaves with forward slashes whatever platform recorded it.
+  // Only the placeholder's own tail: a backslash elsewhere in the payload may
+  // be a real escape in somebody's prose.
+  out = out.replace(/\{\{TMP\}\}((?:\\[^\\"]*)+)/g, (_m, tail: string) =>
+    "{{TMP}}" + tail.split("\\").join("/"),
+  );
   return out;
 }
 

@@ -274,7 +274,10 @@ cases:
       forgets this is a policy that silently passes.
     payload:
       toolName: create
-      toolArgs: '{"path":"{{TMP}}/x.md","content":"We leverage this."}'
+      # A relative path on purpose. Substituting {{TMP}} inside a JSON string
+      # would build `C:\Users\...` on Windows, which is an invalid escape, and
+      # the parse would fail rather than the assertion.
+      toolArgs: '{"path":"notes.md","content":"We leverage this."}'
 
   - name: "copilot with an empty tool_input beside a populated toolArgs"
     channel: docs

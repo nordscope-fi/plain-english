@@ -89,6 +89,30 @@ describe("paths never survive a capture", () => {
     });
   });
 
+  it("writes a portable path whichever platform recorded it", () => {
+    // A capture is meant to be committed and replayed anywhere, so a fixture
+    // recorded on Windows must not arrive carrying `{{TMP}}\x.md`. Simulated
+    // rather than skipped, so the check runs on every platform.
+    const winRoot = "C:\\work\\repo";
+    const raw = {
+      tool_name: "Write",
+      tool_input: { file_path: `${winRoot}\\docs\\x.md`, content: "hi" },
+    };
+    const parsed = cursor.parse(raw);
+    const d = decide(parsed, "docs", { projectDir: winRoot, ruleSet });
+    const json = JSON.parse(
+      buildCapture(raw, parsed, d, "", {
+        dir: ".",
+        agent: "cursor",
+        channel: "docs",
+        event: "pre",
+        projectDir: winRoot,
+        version: "9.9.9",
+      })!,
+    );
+    expect(json.raw.tool_input.file_path).toBe("{{TMP}}/docs/x.md");
+  });
+
   it("refuses to write a capture that still holds a home path", () => {
     // The check that matters. A partial scrub which wrote anyway would put
     // somebody's home directory into a committed fixture.
