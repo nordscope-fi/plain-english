@@ -229,8 +229,9 @@ printf '%s\n' "We leverage this approach to showcase a seamless workflow." > not
 
 That arrives as `tool_name: "Bash"`, so the `Write|Edit|MultiEdit` matcher never
 sees it, and the github channel reads only `git commit` and `gh` message text.
-**A file Copilot writes this way is not currently checked.** Catching it needs
-shell-redirection parsing, which is deliberately not in the package yet.
+**A file Copilot writes this way is not currently checked**, tracked as
+[issue #7](https://github.com/nordscope-fi/plain-english/issues/7). Catching it
+needs shell-redirection parsing, which is deliberately not in the package yet.
 Telling a real redirect from one inside a quoted string needs more than a
 regex, and a false positive there refuses a write under `failOn: error`.
 
