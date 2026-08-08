@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-08
 ### Security
 
 - The hook no longer hangs on a malformed heredoc. `heredocBodies` had `\s*` in front of its back-reference, overlapping the lazy `[\s\S]*?` before it, so an unterminated heredoc whose body was blank lines backtracked quadratically. Measured at 3.1s for 50KB of it, 12.5s for 100KB, 49.7s for 200KB and 200s for 400KB. This ran inside a pre-tool-call hook that holds up the agent's write, reachable from any `git commit` or `gh` command, which is text an agent produces constantly. Narrowing to `[ \t]*` takes 200KB to 1.4ms and loses nothing: a heredoc terminator may be indented with tabs, and only under `<<-`.
@@ -132,7 +133,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.0
 [0.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.1
 [0.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.3.0
