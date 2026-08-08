@@ -89,16 +89,49 @@ const INLINE_FLAG =
 
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
 
+/**
+ * Heredoc terminators, which is how multi-line commit messages usually arrive.
+ *
+ * The whitespace before the back-reference is `[ \t]*` and must stay that way.
+ * It was `\s*`, which overlaps the lazy `[\s\S]*?` in front of it, and an
+ * unterminated heredoc whose body is blank lines then backtracks quadratically:
+ * measured at 3.1s for 50KB, 12.5s for 100KB, 49.7s for 200KB and 200s for
+ * 400KB. Nothing bounded it. `HOOK_BUDGET_MS` is passed to `lintText` and
+ * covers no part of extraction, and `findUnsafe` screens patterns that arrive
+ * from configuration, not the ones written here. So a malformed heredoc in a
+ * commit message hung the hook, and the hook holds up the agent's write.
+ *
+ * Nothing is lost by narrowing it: a heredoc terminator may be indented with
+ * tabs, and only under `<<-`.
+ */
+const HEREDOC = /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1\r?\n([\s\S]*?)\r?\n[ \t]*\2\b/g;
+
+/**
+ * Every pattern this module matches against agent-supplied text.
+ *
+ * Exported so a test can put them through `findUnsafe`, the same screen a
+ * pattern from a project's config gets. Nothing screened these until a hand-
+ * written one in `heredocBodies` turned out to backtrack quadratically, and a
+ * regex is no safer for having been written here rather than in a YAML file.
+ */
+export const COMMAND_PATTERNS: Record<string, RegExp> = {
+  WRITE_COMMAND,
+  FILE_FLAG,
+  INLINE_FLAG,
+  HEREDOC,
+  MARKDOWN,
+};
+
 function expandHome(p: string): string {
   if (p === "~") return homedir();
   if (p.startsWith("~/")) return resolve(homedir(), p.slice(2));
   return p;
 }
 
-/** Heredoc bodies, which is how multi-line commit messages usually arrive. */
+/** The text inside each heredoc in a command. */
 function heredocBodies(cmd: string): string[] {
   const out: string[] = [];
-  const re = /<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1\r?\n([\s\S]*?)\r?\n\s*\2\b/g;
+  const re = new RegExp(HEREDOC.source, HEREDOC.flags);
   let m: RegExpExecArray | null;
   while ((m = re.exec(cmd)) !== null) {
     if (m[3]) out.push(m[3]);
@@ -107,10 +140,21 @@ function heredocBodies(cmd: string): string[] {
 }
 
 /**
+ * Longest command string worth reading.
+ *
+ * A payload is one tool call. Past this it is not a commit message, and the
+ * cost of being wrong is a linear scan of something enormous while the agent
+ * waits. The second line of defence behind the regex fix above, because the
+ * next hand-written pattern here gets no screen either.
+ */
+export const MAX_COMMAND_BYTES = 256 * 1024;
+
+/**
  * The text a Bash command would publish. Returns an empty array for read-only
  * commands so `gh pr view` never gets judged on somebody else's prose.
  */
 export function extractFromBash(cmd: string): string[] {
+  if (cmd.length > MAX_COMMAND_BYTES) return [];
   if (!WRITE_COMMAND.test(cmd)) return [];
   const parts: string[] = [];
 
