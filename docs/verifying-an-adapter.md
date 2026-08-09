@@ -151,6 +151,25 @@ It answers "did it read my file" directly, which is the question a trace answers
 only by inference. Look for the equivalent before spending model turns: Copilot
 has `--log-level debug`, Cursor has `--output-format stream-json`.
 
+### Replay a keyboard-only approval
+
+Codex will not run a hook until a human approves it, which blocks any scripted
+run that wants to test the approved state. Approving one by hand once shows
+where the answer is kept, and `hooks/list` supplies both halves of it:
+
+```toml
+[hooks.state."<sourcePath>:<event>:<group>:<index>"]   # the `key` field
+trusted_hash = "sha256:…"                              # the `currentHash` field
+```
+
+Write that and the next run starts trusted. Two guesses at this shape failed
+before a real approval was watched. The general lesson is there: when a gate
+opens only by hand, open it by hand once and record what changed.
+
+Handle a persisted approval carefully. It is a security control, so seed it only
+in a throwaway configuration directory for a hook you wrote yourself, never in
+somebody's real one.
+
 ### Claude Code
 
 `init` writes it, and it is the reference implementation for the other three,
