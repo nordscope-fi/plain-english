@@ -1,8 +1,16 @@
 # plain-english
 
+[![npm](https://img.shields.io/npm/v/plain-english.svg)](https://www.npmjs.com/package/plain-english)
+[![CI](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml/badge.svg)](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml)
+[![licence](https://img.shields.io/npm/l/plain-english.svg)](LICENSE)
+
 Catch AI writing tells before they land in a commit, a doc, or an issue somebody else
-reads. Hooks into Claude Code, Copilot, Codex and Cursor; runs anywhere else as a
-command.
+reads. It reads finished text and reports the giveaways, the way a spell checker reports
+misspellings. A tool shaped like that is called a linter.
+
+It also plugs into your coding agent, so the check runs before the write happens. Agents
+call that plug-in point a hook, and Claude Code, Copilot, Codex and Cursor all have one.
+Everywhere else, it runs as a plain command.
 
 ## Two problems, one tool
 
@@ -41,7 +49,7 @@ npm install -D plain-english
 npx plain-english lint .
 ```
 
-No config needed to start. `.plain-english.yml` is optional.
+Needs Node 20 or newer. No config needed to start: `.plain-english.yml` is optional.
 
 ## What a finding actually does
 
@@ -85,8 +93,8 @@ produce nothing at all.
 <!-- plain-english-disable-file -->                 the whole file
 ```
 
-Plus an `exclude` glob and a severity downgrade in config. Every one of these came from a
-false positive in the version this replaces.
+Plus an `exclude` list of file patterns and a severity downgrade in config. Every one of
+these came from a false positive in the version this replaces.
 
 ## The rules
 
@@ -134,6 +142,9 @@ Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the 
 | Editor diagnostics | `--format unix` or `--format sarif` | none |
 | A chat reply | `AGENTS.md`, or a Claude Code output style | none |
 
+The findings file in that table, the one editors and GitHub code scanning both read, is
+called SARIF (Static Analysis Results Interchange Format).
+
 Under the default `failOn: never`, an agent hook surfaces a finding and lets you decide.
 Under `failOn: error` it refuses the write outright. The semantic layer rides on a prompt
 hook, which today only Claude Code provides.
@@ -160,14 +171,26 @@ contains a banned term.
 Claude Code's hook contract became the shape everyone copied. That is why four agents
 cost four translation tables and not four linters.
 
-[`docs/agents.md`](docs/agents.md) has the per-agent detail. Two caveats are worth
-knowing before you rely on a hook: Copilot's cloud agent turns an `ask` into a `deny`,
-and Codex will not run a hook until you approve it with `/hooks`.
+[`docs/agents.md`](docs/agents.md) has the per-agent detail. Three caveats are worth
+knowing before you rely on a hook:
 
-Under the default `failOn: never` the finding is advisory. Claude Code and Copilot surface
-it and let you decide; Codex and Cursor parse and discard that request, so on those the
-finding is fed back to the model as text instead.
-[`docs/agents.md`](docs/agents.md) has the table.
+- **Copilot's command-line tool does not read the repository hook file**, so
+  `init --agent copilot` on its own leaves it with nothing installed. Run
+  `init --agent copilot --user` as well, which writes to `~/.copilot/hooks/`. Seen on CLI
+  1.0.78 and filed as
+  [github/copilot-cli#1730](https://github.com/github/copilot-cli/issues/1730). The
+  repository file stays: it is the right one for Copilot's cloud agent.
+- **Copilot's cloud agent turns an `ask` into a `deny`**, so the advisory default blocks
+  there.
+- **Codex needs two approvals before any hook runs**, one for the folder and one for the
+  hook itself. Starting an interactive session offers both.
+  [`plain-english doctor`](docs/agents.md#openai-codex-cli) says which one is missing.
+
+Under the default `failOn: never` the finding is advisory. Claude Code and Copilot can say
+that on the wire and let you decide. Codex and Cursor have no way to express it, so on
+those two the finding is fed back to the model as text.
+[`docs/agents.md`](docs/agents.md#what-the-advisory-default-means-on-each-agent) has the
+table.
 
 If a finding is wrong and you need past it once, `touch .plain-english-ack-docs` waives
 that channel for ten minutes, then expires on its own. It silences the advisory too.
@@ -187,8 +210,8 @@ work regardless:
   act on the output. [`docs/post-edit-lint.md`](docs/post-edit-lint.md) has the config for
   aider, Claude Code, Cursor and Codex.
 - **Editor diagnostics.** Several agents read their editor's Problems list. Findings
-  reach it as `path:line:col` text, or as SARIF (Static Analysis Results Interchange
-  Format). [`docs/editors.md`](docs/editors.md) covers both.
+  reach it as `path:line:col` text, or as SARIF.
+  [`docs/editors.md`](docs/editors.md) covers both.
 
 ### The Claude Code output style
 
@@ -211,10 +234,13 @@ every agent.
 
 ### pre-commit
 
+[pre-commit](https://pre-commit.com) is a separate tool that runs checks over staged files
+before a commit is made. If your repo already uses it, add:
+
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.4.0
+    rev: v0.7.2
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -223,7 +249,7 @@ repos:
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.4.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.7.2
   with:
     paths: docs README.md    # default: .
     fail-on: warn            # default: error
@@ -323,9 +349,11 @@ yourself.
 ```
 
 Exit codes: 0 clean or advisory, 1 a finding at or above `failOn`, 2 a bad path or a
-config error. `--format github` emits CI annotations, `--format unix` feeds an editor
-and `--format sarif` feeds GitHub code scanning. Attach `doctor` output to a bug
-report.
+config error.
+
+`--format github` emits annotations your build shows inline on a pull request.
+`--format unix` feeds an editor, and `--format sarif` feeds GitHub code scanning. Attach
+`doctor` output to a bug report.
 
 ## One hand-written source
 
@@ -336,9 +364,9 @@ report.
 - `integrations/claude-code/output-styles/plain-english.md`
 - `integrations/claude-code/prompts/{docs,github,issue}.txt`
 
-CI fails if any of them drift, which keeps the docs, the regexes, the prompt text and the
-output style saying the same thing. Never edit a generated file; edit the ruleset and
-re-render.
+The build fails if any of them drift, which keeps the docs, the regexes, the prompt text
+and the output style saying the same thing. Never edit a generated file; edit the ruleset
+and re-render.
 
 Adding a rule means adding a corpus case that blocks and a case that exercises its
 exceptions. `npm test` refuses to pass if a rule has neither.

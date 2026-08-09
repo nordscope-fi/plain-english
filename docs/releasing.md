@@ -55,7 +55,19 @@ This used to be a manual step on the checklist below. It was missed on two conse
 
 `npm version` creates an **annotated** tag, which matters: `git push --follow-tags` pushes annotated tags and silently ignores lightweight ones. Tagging by hand with `git tag v0.1.1` produces a lightweight tag, the push reports "Everything up-to-date", and nothing triggers. Use `git tag -a` if you tag manually.
 
+`npm version` also moves the version pins in the copy-paste examples. `rev:` in a pre-commit block and `@vX.Y.Z` on the GitHub Action both name a tag. A stale one hands a new reader the ruleset from three releases ago, and five of them had gone stale that way. The script rewrites every pin in `README.md` and `docs/*.md` and stages those files into the same commit. A test asserts each pin matches `package.json`. A version mentioned in prose is left alone.
+
 The tag triggers `release.yml`, which verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint`, `arethetypeswrong`, and a check that the tag matches `package.json`. It also runs the full CI matrix across Linux, Windows and macOS on Node 20, 22 and 24, because a publish gate weaker than the pull-request gate let `v0.2.0` ship with a red Windows job. Then it waits for your approval on the `npm` environment and publishes.
+
+## The GitHub Release
+
+The last step of the publish job creates it, titled with the tag. Its body is that version's changelog section, pulled out by `scripts/changelog-section.mjs`. Read what a release note will say before tagging:
+
+```bash
+node scripts/changelog-section.mjs v0.7.3
+```
+
+It runs after `npm publish` on purpose, so a failure creating the release cannot cost a publish that already went out. Releases before v0.7.0 have no notes: this step did not exist, and backfilling ten thin entries was not worth it.
 
 ## Version numbering
 

@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 /**
- * Turn `## [Unreleased]` into a dated release section.
+ * Prepare the documentation for a release: date the changelog, and move the
+ * version pins in the copy-paste examples.
  *
  * Wired to the `version` lifecycle script, so `npm version` does it. That hook
  * runs after package.json is bumped and before the release commit is made, and
  * anything this script `git add`s lands in that commit.
  *
- * It exists because the manual step was missed on two consecutive releases,
- * both times by someone who had just read the checklist that names it.
- * docs/releasing.md then described a repository state that did not exist.
+ * The changelog half exists because the manual step was missed on two
+ * consecutive releases, both times by someone who had just read the checklist
+ * that names it. docs/releasing.md then described a repository state that did
+ * not exist.
  *
  * Refusing is the point. A release with nothing under Unreleased is either a
  * changelog somebody forgot to write or a version bump nobody needed, and both
  * are worth stopping for. `ALLOW_EMPTY_CHANGELOG=1` overrides.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,6 +81,62 @@ export function dateChangelog(text, version, date, { allowEmpty = false } = {}) 
   return out;
 }
 
+/**
+ * The body of one release's section, heading stripped.
+ *
+ * Stops at the next release heading or at the link-definition block, whichever
+ * comes first. Without the second stop the oldest release would carry every
+ * `[0.x.y]: https://…` line in the file into its release note.
+ */
+export function sectionBody(text, version) {
+  const heading = new RegExp(`^## \\[${version.replace(/\./g, "\\.")}\\].*$`, "m");
+  const match = text.match(heading);
+  if (!match) throw new Error(`CHANGELOG has no section for ${version}`);
+  const after = text.slice(text.search(heading) + match[0].length);
+  const stops = [after.search(/^## \[/m), after.search(/^\[[^\]]+\]:\s*http/m)].filter(
+    (i) => i !== -1,
+  );
+  return after.slice(0, stops.length ? Math.min(...stops) : after.length).trim();
+}
+
+/**
+ * The two ways a document pins a version of this package.
+ *
+ * `rev:` is pre-commit's, `@v` is the GitHub Action's, and both name a git tag.
+ * A reader who copies one gets the ruleset as it was at that tag, so a pin left
+ * behind hands new users an old linter. Five of them had gone three releases
+ * stale before anyone noticed, which is what moved them in here.
+ */
+const PIN_PATTERNS = [
+  /^([ \t]*rev:[ \t]*)v\d+\.\d+\.\d+[ \t]*$/gm,
+  /(nordscope-fi\/plain-english\/integrations\/github-action@)v\d+\.\d+\.\d+/g,
+];
+
+/** Every file a pin is allowed to live in. A new doc is covered by being a doc. */
+export function pinnedFiles(root) {
+  const docs = readdirSync(resolve(root, "docs"))
+    .filter((f) => f.endsWith(".md"))
+    .sort()
+    .map((f) => resolve(root, "docs", f));
+  return [resolve(root, "README.md"), ...docs];
+}
+
+/** Point every pin in `text` at `version`. */
+export function retargetPins(text, version) {
+  let out = text;
+  for (const pattern of PIN_PATTERNS) out = out.replace(pattern, `$1v${version}`);
+  return out;
+}
+
+/** Every version a pin in `text` currently names, in order. */
+export function readPins(text) {
+  const found = [];
+  for (const pattern of PIN_PATTERNS) {
+    for (const m of text.matchAll(pattern)) found.push(m[0].slice(m[1].length).trim());
+  }
+  return found;
+}
+
 // Only act when run directly, so the tests can import the pure functions.
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   const text = readFileSync(changelogPath, "utf8");
@@ -95,4 +153,17 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   // Staged here so it becomes part of the commit `npm version` is about to make.
   execFileSync("git", ["add", changelogPath], { cwd: root });
   process.stdout.write(`CHANGELOG: [Unreleased] is now [${pkg.version}] - ${today()}\n`);
+
+  const moved = [];
+  for (const path of pinnedFiles(root)) {
+    const before = readFileSync(path, "utf8");
+    const after = retargetPins(before, pkg.version);
+    if (after === before) continue;
+    writeFileSync(path, after, "utf8");
+    execFileSync("git", ["add", path], { cwd: root });
+    moved.push(path.slice(root.length + 1));
+  }
+  if (moved.length) {
+    process.stdout.write(`pins: now v${pkg.version} in ${moved.join(", ")}\n`);
+  }
 }

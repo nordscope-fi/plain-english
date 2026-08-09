@@ -3,6 +3,24 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+
+- One Codex fact was stated in five files and corrected in one. Three releases in a day moved the advice from "approve the hooks with `/hooks`" to "two separate approvals, one for the folder and one for the hooks, and an interactive session offers both", and only `docs/agents.md` was updated each time. README, `adopting.md`, `limitations.md` and `post-edit-lint.md` kept the old sentence, so the repository contradicted itself in public. They now carry one line and a link, and `agents.md` is the only place the detail lives.
+- The README said Codex and Cursor "parse and discard" an advisory. True of Cursor. Codex reports the hook run as Failed, which is why 0.7.0 moved the advisory to `additionalContext` in the first place.
+- `docs/agents.md` opened two consecutive sentences with the same eleven words, and their second halves disagreed about which channel sees a shell write. One was left over from before 0.6.0.
+- Five copy-paste examples pinned `v0.4.0` or `v0.2.0`. Both `rev:` and `@vX.Y.Z` name a git tag, so anyone who copied one got the ruleset from three releases ago.
+- `[0.7.0]` in this file had two `### Fixed` headings, with the `init --user` work filed under the second of them instead of `### Added`.
+
+### Added
+
+- A tag now produces a GitHub Release. Thirteen tags had shipped and the Releases page was empty for every one of them, while this file held a written entry for each. `scripts/changelog-section.mjs` pulls one version's section out, and the last step of the publish job posts it as the release body. It runs after `npm publish`, so a failure there cannot cost a publish that already succeeded. v0.7.0, v0.7.1 and v0.7.2 were backfilled by hand; the ten before them stay bare.
+- `npm version` moves the version pins as well as dating the changelog, in the same commit and by the same script. A test asserts every pin in `README.md` and `docs/*.md` matches `package.json`, which only keeps passing because the script updates them. A version mentioned in prose is left where it is.
+- `lint:self` covers `CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md`. It had only ever read `docs/` and the README, and pointing it at the rest found a 49-word sentence in the security policy.
+
+### Changed
+
+- The README explains a term before naming it, which is the rule this package enforces on everyone else. It described itself as something that "hooks into Claude Code" in its second sentence and never said what a hook is, used SARIF sixty lines before glossing it, and left `linter`, `glob` and `pre-commit` to the reader. Its own `unglossed-term` rule cannot catch any of those, since it fires on acronyms and camel-cased names alone.
+- The README says Node 20 or newer is required, carries version, build and licence badges, and names the Copilot trap on the front page: `init --agent copilot` alone leaves the command-line tool with no hook, because it does not read the repository file. That was in `agents.md` and nowhere a new user would look.
 
 ## [0.7.2] - 2026-08-09
 ### Fixed
@@ -27,15 +45,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - The Codex install notes cover those two gates, and a third: `codex exec` runs no hooks at all without `--dangerously-bypass-hook-trust`, even when the project and the hooks are both trusted (openai/codex#32491). The stale note telling people to set `[features] hooks = true` is gone, since hooks have been on by default for some versions.
 - Three captured Codex payloads in the regression corpus, including the shell command it reached for after two refused patches: `perl -0pi -e '$_ = "…"' notes.md`. The scanner does not read an in-place rewrite through an interpreter and is not going to start guessing, so that write goes unjudged. It is written down in `docs/agents.md` rather than papered over.
 
-### Fixed
-
-- Verified rather than fixed, but worth recording: `PreToolUse` does fire for `apply_patch`, with `tool_name: "apply_patch"` and the envelope under `tool_input.command`, and `timeout` is the config key although Codex reports the value back as `timeoutSec`. A widely-linked third-party reference says the event intercepts the shell tool alone. It names no version, shows no run, and is wrong on 0.147.0.
-
 - `init --agent copilot --user` writes `~/.copilot/hooks/plain-english.json`, which is the location Copilot's CLI actually reads. Its own `copilot help config` documents `.github/hooks/*.json` for repository hooks, and 1.0.78 does not load it: a controlled run with the same `sessionStart` hook in all three documented locations fires only the user-level one. Reported as github/copilot-cli#1730, where the newest comment had concluded the fault was the `sessionStart` event rather than the location; the same run shows `preToolUse` behaving identically.
 - `--user` is the only thing that makes `init` write outside the project, and it is opt-in for that reason. Everything else `init` writes is committed, reviewed and removed with the checkout, and a file in somebody's home directory is none of those. A test asserts a default `init` for every agent leaves the home directory alone, and the dry run prints a user-scoped path in full rather than as a run of `../`.
 
 ### Fixed
 
+- Verified rather than fixed, but worth recording: `PreToolUse` does fire for `apply_patch`, with `tool_name: "apply_patch"` and the envelope under `tool_input.command`, and `timeout` is the config key although Codex reports the value back as `timeoutSec`. A widely-linked third-party reference says the event intercepts the shell tool alone. It names no version, shows no run, and is wrong on 0.147.0.
 - The Copilot install note no longer says a shell redirect goes unchecked. That has been false since 0.6.0.
 
 ## [0.6.0] - 2026-08-09

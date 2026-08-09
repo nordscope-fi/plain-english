@@ -123,7 +123,8 @@ jobs:
     # Gate on a GitHub environment so a human approves each publish.
     environment: npm
     permissions:
-      contents: read
+      # write, not read, because the last step creates the GitHub Release.
+      contents: write
       # This is what trusted publishing runs on. Without it npm cannot verify
       # the workflow identity and the publish is rejected.
       id-token: write
@@ -151,3 +152,17 @@ jobs:
       - run: npm run build
       # No --provenance flag: trusted publishing attaches provenance itself.
       - run: npm publish
+      # Thirteen tags shipped before this step existed, and the Releases page
+      # was empty for all of them while CHANGELOG.md held an entry for each.
+      # Last, so a failure here cannot cost a publish that already succeeded.
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/changelog-section.mjs "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag
