@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-09
 ### Fixed
 
 - The Codex install note on `codex exec` is now a measurement rather than a caution. 0.7.1 said the trusted case was untested here, because hook trust looked reachable only through a keyboard. It is reachable: one approval by hand showed where Codex keeps the answer, `[hooks.state."<key>"] trusted_hash = "sha256:…"`, and both halves come out of `hooks/list`. With trust persisted and no bypass flag, `codex exec` on 0.147.0 dispatched both `PreToolUse` and `UserPromptSubmit`, so openai/codex#32491 does not reproduce there. The note now says to trust the hooks once before any scripted run, which an interactive session offers at startup.
@@ -196,7 +197,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.2
 [0.7.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.1
 [0.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.6.0
