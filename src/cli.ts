@@ -536,6 +536,12 @@ function agentReport(root: string): string[] {
       seen.push(`${file.path} ${file.at.join(".")}${ours ? "" : " (no plain-english entry)"}`);
     }
     lines.push(`  ${profile.id.padEnd(12)} ${seen.length ? seen.join("; ") : "not installed"}`);
+    // Whatever this machine would do to a hook that is installed correctly.
+    // Codex is the one profile with an answer: its repository file is read only
+    // in a trusted folder, and until then nothing runs and nothing is said.
+    for (const problem of profile.diagnose?.(root) ?? []) {
+      lines.push(`  ${" ".repeat(12)} ! ${problem}`);
+    }
   }
   return lines;
 }

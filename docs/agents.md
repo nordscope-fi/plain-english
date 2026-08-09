@@ -21,7 +21,7 @@ every run is idempotent.
 |---|---|---|---|---|
 | Claude Code | `.claude/settings.json` + three shims in `.claude/hooks/` | yes | yes | yes, prompt hooks |
 | GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
-| OpenAI Codex CLI | `.codex/hooks.json` | yes, after you approve it | no | no |
+| OpenAI Codex CLI | `.codex/hooks.json` | yes, in a trusted folder you have approved | no | no |
 | Cursor | `.cursor/hooks.json` | yes | no | no |
 
 The semantic layer is the model-judged pass over the nine sentence shapes a regex cannot
@@ -32,11 +32,12 @@ are the ones that can fail a build, run everywhere.
 ## What the advisory default means on each agent
 
 `failOn: never` is the default, and it means "tell me, do not stop me". Two of
-the four have no way to express that on a pre-tool-call hook. Codex's reference
-says `permissionDecision: "ask"` is "parsed but not supported yet". Cursor's
-says `ask` "is accepted by the schema but not enforced for preToolUse today".
-Both parse it and then allow, so an adapter that emits `ask` and stops there
-looks installed and reports nothing.
+the four have no way to express that on a pre-tool-call hook. Cursor's docs say
+`ask` "is accepted by the schema but not enforced for preToolUse today", so it
+accepts the value and allows the write. Codex is worse: 0.147.0 reports the hook
+run as **Failed** and the reason reaches neither the model nor the user. Either
+way, an adapter that emits `ask` and stops there looks installed and reports
+nothing.
 
 So the advisory finding is fed back to the model as text instead:
 
@@ -44,18 +45,19 @@ So the advisory finding is fed back to the model as text instead:
 |---|---|---|
 | Claude Code | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
 | GitHub Copilot | `PreToolUse` → `ask` | `PreToolUse` → `deny` |
-| OpenAI Codex CLI | `PostToolUse` → `additionalContext` | `PreToolUse` → `deny` |
+| OpenAI Codex CLI | `PreToolUse` → `additionalContext` | `PreToolUse` → `deny` |
 | Cursor | `preToolUse` → `allow` plus `additional_context` | `preToolUse` → `deny` |
 
-Cursor needs no second hook: `additional_context` works on `preToolUse` itself,
-which Cursor staff confirmed in July 2026. Its `postToolUse` equivalent has been
-a known-broken ticket since March, which is why the advisory does not go there.
+Neither needs a second hook. Cursor's `additional_context` works on `preToolUse`
+itself, which Cursor staff confirmed in July 2026, and its `postToolUse`
+equivalent has been a known-broken ticket since March. Codex accepts
+`additionalContext` on the pre event too, verified against 0.147.0: the text
+arrives as a developer message before the write, and the run reports Completed.
 
-Codex does need one, so `init --agent codex` writes both events into
-`.codex/hooks.json`. The pre hook still emits the `ask` Codex discards, on
-purpose: somebody who upgrades this package without re-running `init` has a
-config with pre entries only. Saying nothing there would switch Codex off with
-no error at all.
+Until 0.7.0 the Codex advisory rode on a second `PostToolUse` hook, because the
+pre event was believed unable to speak. Re-running `init` deletes that entry.
+Upgrading without re-running it is harmless too: the post event now says nothing
+at all, so the finding is reported once rather than twice.
 
 A `touch`ed acknowledgement file silences the advisory as well as the refusal.
 An agent that can only be told things would otherwise keep being told this one
@@ -112,12 +114,34 @@ on that path, which matters more here than anywhere else.
 
 ### OpenAI Codex CLI
 
-Codex will not run a hook you have not approved. After installing, start a session and run
-`/hooks` to review and trust the entries. Approval is asked for again whenever the command
-string changes, which includes pinning a new version of this package.
+Two separate approvals stand between an installed hook and a running one. Miss either and
+Codex runs the hook zero times, prints no warning and writes no log line.
 
-Hooks also have to be enabled: `[features] hooks = true` in `config.toml` if your build
-has them switched off.
+**Folder trust decides whether the file is read at all.** Codex loads
+`<repo>/.codex/hooks.json` only when `~/.codex/config.toml` marks the project trusted.
+Until then it finds no hooks, reports no warning and logs no error. Start a session in the
+repository and answer yes, or write the entry yourself:
+
+```toml
+[projects."/absolute/path/to/repo"]
+trust_level = "trusted"
+```
+
+`plain-english doctor` says so when the entry is missing, because the state is otherwise
+indistinguishable from a linter with nothing to say.
+
+**Hook trust decides whether it runs.** Start a session and use `/hooks` to review and
+trust the entries. Trust is recorded against the command string, so it is asked again
+whenever a new version of this package is pinned.
+
+`codex exec` is a third trap. It runs no hooks at all without
+`--dangerously-bypass-hook-trust`, even with the project trusted and the hooks trusted
+([openai/codex#32491](https://github.com/openai/codex/issues/32491), seen on 0.147.0).
+Interactive sessions are unaffected.
+
+Inside a git worktree, Codex reads the **main** working tree's `.codex/hooks.json` and
+ignores the worktree's own copy. Install in the main checkout;
+`doctor` reports this too.
 
 Codex writes files with `apply_patch` rather than a `Write` tool, so the adapter reads the
 inserted lines out of the patch envelope. Added lines are kept per file, so a patch that
@@ -152,7 +176,7 @@ different things get three different names:
 |---|---|---|---|
 | Claude Code | observed | observed | observed |
 | Cursor | observed | observed | observed |
-| OpenAI Codex CLI | source | docs | not yet |
+| OpenAI Codex CLI | observed | observed, **with two gates, see below** | observed |
 | GitHub Copilot | observed | **observed wrong, see below** | observed |
 
 Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
@@ -170,12 +194,6 @@ test rather than going unnoticed. What that session established:
 - The envelope also carries `user_email`, which is why a capture redacts
   identity whatever else it keeps.
 
-Codex reads **source** because `codex-rs/core/src/tools/handlers/apply_patch.rs`
-emits `tool_input: json!({ "command": command })` and
-`codex-rs/core/src/tools/hook_names.rs` says "the serialized name remains
-`apply_patch`". That settles the two things a single session would have, more
-firmly than a session would.
-
 Reading documentation harder is not a substitute for a capture. Two claims that
 shaped an earlier version of this adapter turned out to be false:
 
@@ -188,6 +206,61 @@ shaped an earlier version of this adapter turned out to be false:
   `apply_patch`. That described `openai/codex#16732`, fixed by PR #18391 in
   April, months before the version the claim named. A shell-redirection parser
   was nearly written on the strength of it.
+
+### What a live Codex session showed
+
+Verified against `codex-cli 0.147.0` on 2026-08-09, on OpenAI's paid consumer
+plan, which covers the CLI.
+Six of the eight findings came from Codex's own `hooks/list` call, which costs
+no model tokens and is described in
+[`verifying-an-adapter.md`](verifying-an-adapter.md).
+
+**`PreToolUse` fires for `apply_patch`,** with `tool_name: "apply_patch"` and
+the envelope under `tool_input.command`. A widely-linked third-party reference
+says the event "intercepts the `shell` (Bash) tool only, by design". It names no
+version and shows no run. It is wrong here.
+
+**`ask` fails the hook.** The reply is reported as `PreToolUse Failed` and the
+reason reaches nobody. Current OpenAI documentation no longer lists `ask` as a
+decision at all, and the binary carries the string
+`PreToolUse hook returned unsupported permissionDecision:ask`. `allow` is
+rejected the same way. Only `deny` is acted on, and its reason must be non-empty.
+
+**`additionalContext` on the pre event works**, which is why the advisory tier
+moved there.
+
+**`deny` is enforced.** Two `apply_patch` calls were refused and reported
+`Blocked`, which contradicts
+[openai/codex#27833](https://github.com/openai/codex/issues/27833) for this
+version. Two things spoil it. The denial message appends the raw patch after the
+hook's own reason, so a hook cannot promise its reason is all the user sees
+([#32573](https://github.com/openai/codex/issues/32573)). And Codex works around
+the refusal: after two blocked patches it wrote the file anyway with
+
+```
+perl -0pi -e '$_ = "We leverage this approach.\n"' notes.md
+```
+
+That is an in-place rewrite through an interpreter, not a redirect, and the
+shell scanner refuses to read one. Guessing the content out of a Perl expression
+would mean inventing a write, and under `failOn: error` an invented write
+refuses somebody's edit. So on Codex a refusal can be routed around within the
+same turn, and this package does not pretend otherwise.
+
+**Two gates, neither of which announces itself.** Folder trust and hook trust,
+described above, plus `codex exec` ignoring hooks without
+`--dangerously-bypass-hook-trust`.
+
+**Worktrees resolve to the wrong file.** With hooks installed in a linked
+worktree and not in the main checkout, `hooks/list` reports nothing at all.
+With both, it reports the main checkout's file as the source.
+[openai/codex#27133](https://github.com/openai/codex/issues/27133) calls this
+"silently ignored in a worktree"; the more exact statement is that the path
+resolves to the main working tree.
+
+**`timeout` is the config key**, in seconds, although Codex reports the value
+back as `timeoutSec`. A `timeoutSec` in the file is ignored and the hook gets
+the 600 second default. `SessionEnd` is clamped to three seconds with a warning.
 
 ### What a live Copilot session showed
 
@@ -298,6 +371,11 @@ hook events at all (`#20204`).
 Codex rejects the entire hook output on an unrecognised key, so a reply carrying
 `updatedInput`, `continue`, `stopReason` or `suppressOutput` loses the finding
 rather than having the field ignored.
+`codex exec` runs no hooks without `--dangerously-bypass-hook-trust` (`#32491`).
+Project hooks are skipped with no prompt and no warning until the folder is
+trusted (`#35306`), and inside a git worktree the path resolves to the main
+working tree (`#27133`). A denial message has the raw command or patch appended
+after the hook's reason (`#32573`). All four were seen on 0.147.0.
 
 **Cursor.** `updated_input` is silently dropped for the Write tool, so a hook can
 refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.

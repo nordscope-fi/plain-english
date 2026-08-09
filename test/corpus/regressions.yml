@@ -397,3 +397,75 @@ cases:
       tool_input:
         command: 'echo "We leverage this > README.md" >> {{TMP}}/log.txt'
 
+  - name: "a real Codex apply_patch, captured from the CLI"
+    channel: docs
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      Captured from codex-cli 0.147.0 on 2026-08-09, which settles a
+      third-party claim that PreToolUse intercepts the shell tool alone: it
+      fires for apply_patch, with tool_name apply_patch and the envelope under
+      tool_input.command. The path inside the patch is relative, so the project
+      scope comes from cwd, and the envelope is kept whole because that is how
+      Cursor's missing cwd was found.
+    payload:
+      session_id: "019fe7c6-5990-76b3-8d2d-1794400c7d1d"
+      turn_id: "019fe7c6-59e8-7791-8b23-860f94dd60f9"
+      transcript_path: "~/.codex/sessions/2026/08/09/rollout.jsonl"
+      cwd: "{{TMP}}"
+      hook_event_name: PreToolUse
+      model: gpt-5.6-sol
+      permission_mode: default
+      tool_name: apply_patch
+      tool_use_id: "exec-fe89a69e-0e10-4b22-b2ac-0b397b2a9a52"
+      tool_input:
+        command: |
+          *** Begin Patch
+          *** Add File: notes.md
+          +We leverage this approach.
+          *** End Patch
+
+  - name: "the update form of a Codex patch, from the same session"
+    channel: docs
+    agent: codex
+    expect: deny
+    rule: leverage
+    why: >-
+      Its second attempt used *** Update File with a hunk rather than
+      *** Add File. Same session, and the only fixture here that exercises the
+      removed-line side of the parser.
+    payload:
+      cwd: "{{TMP}}"
+      hook_event_name: PreToolUse
+      tool_name: apply_patch
+      tool_input:
+        command: |
+          *** Begin Patch
+          *** Update File: notes.md
+          @@
+          -# Notes
+          -
+          -This file exists so there is something to edit.
+          +We leverage this approach.
+          *** End Patch
+
+  - name: "Codex reaches for the shell when a patch is refused"
+    channel: github
+    agent: codex
+    expect: allow
+    why: >-
+      What it actually ran after two apply_patch calls were denied, on
+      2026-08-09. An in-place rewrite through an interpreter is not a redirect,
+      and the scanner refuses to guess at one: reading content out of a perl
+      expression means inventing a write, which under failOn error refuses
+      somebody's edit. So this is allowed on purpose, and the limit is written
+      down in docs/agents.md rather than papered over.
+    payload:
+      cwd: "{{TMP}}"
+      hook_event_name: PreToolUse
+      tool_name: Bash
+      tool_input:
+        command: |
+          perl -0pi -e '$_ = "We leverage this approach.\n"' notes.md
+
