@@ -134,10 +134,12 @@ indistinguishable from a linter with nothing to say.
 trust the entries. Trust is recorded against the command string, so it is asked again
 whenever a new version of this package is pinned.
 
-`codex exec` is a third trap. It runs no hooks at all without
-`--dangerously-bypass-hook-trust`, even with the project trusted and the hooks trusted
-([openai/codex#32491](https://github.com/openai/codex/issues/32491), seen on 0.147.0).
-Interactive sessions are unaffected.
+`codex exec` is a third trap. An untrusted hook is skipped there with nothing printed at
+all, where an interactive session at least offers `/hooks`. So trust the hooks in a
+session first, or pass `--dangerously-bypass-hook-trust`. Whether trusting them is enough
+is not settled: [openai/codex#32491](https://github.com/openai/codex/issues/32491) reports
+that `codex exec` skips project hooks it has already recorded as trusted. Hook trust
+cannot be persisted outside the interactive flow, so that case is untested here.
 
 Inside a git worktree, Codex reads the **main** working tree's `.codex/hooks.json` and
 ignores the worktree's own copy. Install in the main checkout;
@@ -248,8 +250,8 @@ refuses somebody's edit. So on Codex a refusal can be routed around within the
 same turn, and this package does not pretend otherwise.
 
 **Two gates, neither of which announces itself.** Folder trust and hook trust,
-described above, plus `codex exec` ignoring hooks without
-`--dangerously-bypass-hook-trust`.
+described above. In `codex exec` an untrusted hook is skipped with nothing
+printed, which is the documented behaviour arriving in the least visible way.
 
 **Worktrees resolve to the wrong file.** With hooks installed in a linked
 worktree and not in the main checkout, `hooks/list` reports nothing at all.
@@ -371,11 +373,12 @@ hook events at all (`#20204`).
 Codex rejects the entire hook output on an unrecognised key, so a reply carrying
 `updatedInput`, `continue`, `stopReason` or `suppressOutput` loses the finding
 rather than having the field ignored.
-`codex exec` runs no hooks without `--dangerously-bypass-hook-trust` (`#32491`).
+`codex exec` is reported to skip even trusted project hooks (`#32491`). That one
+is untested here: hook trust cannot be persisted outside the interactive flow.
 Project hooks are skipped with no prompt and no warning until the folder is
 trusted (`#35306`), and inside a git worktree the path resolves to the main
 working tree (`#27133`). A denial message has the raw command or patch appended
-after the hook's reason (`#32573`). All four were seen on 0.147.0.
+after the hook's reason (`#32573`). Those three were seen on 0.147.0.
 
 **Cursor.** `updated_input` is silently dropped for the Write tool, so a hook can
 refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.
