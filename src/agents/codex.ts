@@ -7,14 +7,19 @@
  * separate tools; it has `apply_patch`, carrying a patch envelope, so the
  * inserted text has to be read out of that rather than off a field.
  *
- * Two things about this profile are documented by OpenAI but not confirmed
- * against a running binary, and both are recorded in docs/agents.md:
- * openai/codex#18491 reports that `PreToolUse` may dispatch for shell calls
- * only on some versions, and that `updatedInput` is rejected at runtime. This
- * profile never sends `updatedInput`, so only the first matters.
+ * Verified against codex-cli 0.147.0 on 2026-08-09. `PreToolUse` does fire for
+ * `apply_patch`, with the patch under `tool_input.command`, which settles a
+ * third-party claim that it intercepts the shell tool alone. What the same
+ * session showed about the reply is why this profile no longer sends `ask`:
+ * Codex marks the hook run Failed and the reason reaches nobody. See
+ * docs/agents.md.
  *
  * Docs: https://learn.chatgpt.com/docs/hooks
  */
+
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 
 import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
@@ -25,6 +30,46 @@ const CHANNELS = [
   { channel: "github", matcher: "Bash" },
   { channel: "issue", matcher: "mcp__linear__save_issue|mcp__linear__save_comment" },
 ] as const;
+
+/**
+ * Whether `~/.codex/config.toml` marks this directory as a trusted project.
+ *
+ * A line scan rather than a TOML parser, on purpose. The question is one key in
+ * one section, a parser would be a dependency, and a strict one would throw on
+ * syntax it does not know in a file this package does not own. Missing a trust
+ * entry prints a hint nobody needed; failing to read the file must not stop
+ * `doctor` from printing the rest.
+ */
+function trustedProject(configPath: string, root: string): boolean {
+  let text: string;
+  try {
+    text = readFileSync(configPath, "utf8");
+  } catch {
+    return false;
+  }
+  let inOurs = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.startsWith("[")) {
+      const named = /^\[projects\.(?:"([^"]*)"|'([^']*)')\]$/.exec(line);
+      inOurs = !!named && resolve(named[1] ?? named[2] ?? "") === resolve(root);
+      continue;
+    }
+    if (!inOurs) continue;
+    const trust = /^trust_level\s*=\s*["']([^"']*)["']/.exec(line);
+    if (trust) return trust[1] === "trusted";
+  }
+  return false;
+}
+
+/** A linked worktree has a `.git` file pointing elsewhere, not a directory. */
+function isLinkedWorktree(root: string): boolean {
+  try {
+    return statSync(resolve(root, ".git")).isFile();
+  } catch {
+    return false;
+  }
+}
 
 export const codex: AgentProfile = {
   id: "codex",
@@ -42,14 +87,12 @@ export const codex: AgentProfile = {
 
     switch (pick(raw, "tool_name")) {
       case "apply_patch": {
-        // The patch text has been seen under several keys and the schema is not
-        // published. Any of them, or nothing, in which case there is no text to
-        // judge and the call is allowed.
-        // `command` first, and it is the one that is actually right:
-        // codex-rs/core/src/tools/handlers/apply_patch.rs emits
-        // `tool_input: json!({ "command": command })`. The others were guesses
-        // made when the schema was unpublished, and they are kept only because
-        // a wrong guess costs nothing while a missing one allows every write.
+        // `command` is right, and now observed rather than deduced: a live
+        // 0.147.0 session sends `tool_input: {"command": "*** Begin Patch …"}`,
+        // matching codex-rs/core/src/tools/handlers/apply_patch.rs. The others
+        // were guesses made when the schema was unpublished, and they stay
+        // because a wrong guess costs nothing while a missing one allows every
+        // write.
         const patch = pick(input, "command", "input", "patch", "patch_text", "content");
         return { tool: "patch", cwd, input: { files: parseApplyPatch(patch) } };
       }
@@ -76,23 +119,42 @@ export const codex: AgentProfile = {
     }
   },
 
-  // "permissionDecision: 'ask' ... parsed but not supported yet", per Codex's
-  // own hooks reference. Emitting it is not an error, it simply allows.
+  // `ask` is worse than unsupported here. 0.147.0 carries the error string
+  // "PreToolUse hook returned unsupported permissionDecision:ask", and a live
+  // session shows what that means: the run is reported as "PreToolUse Failed"
+  // and the reason reaches neither the model nor the user. So an advisory has
+  // to travel as text, which on this agent the pre event can carry.
   supportsAsk: false,
 
   emit(decision: Decision, event: HookEvent) {
-    if (event === "post") {
-      // The advisory channel. Codex discards `ask`, so under the default
-      // `failOn: never` this is the only way a finding reaches anyone, and it
-      // reaches the model rather than a human. `deny` maps here too: a
-      // deny-shaped decision arrives on the post event whenever the pre hook
-      // did not fire, and `permissionDecision` under a PostToolUse event is an
-      // unrecognised shape that Codex rejects wholesale.
-      if (!decision.advisory) return { stdout: "", exitCode: 0 };
+    // Nothing is said after the fact. The pre event carries the advisory now,
+    // and a stale config from before that change still has a PostToolUse entry
+    // pointing here; staying quiet keeps it from repeating the same finding.
+    if (event === "post") return { stdout: "", exitCode: 0 };
+
+    // The one decision Codex acts on. Observed to block `apply_patch`, and the
+    // schema requires the reason to be non-empty, which `decide` guarantees.
+    if (decision.decision === "deny") {
       return {
         stdout: JSON.stringify({
           hookSpecificOutput: {
-            hookEventName: "PostToolUse",
+            hookEventName: "PreToolUse",
+            permissionDecision: "deny",
+            permissionDecisionReason: decision.reason,
+          },
+        }),
+        exitCode: 0,
+      };
+    }
+
+    // The advisory channel, and it runs before the write rather than after.
+    // Confirmed on 0.147.0: `additionalContext` from a PreToolUse hook arrives
+    // as a developer message and the run is reported Completed.
+    if (decision.advisory) {
+      return {
+        stdout: JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: "PreToolUse",
             additionalContext: decision.advisory,
           },
         }),
@@ -100,21 +162,37 @@ export const codex: AgentProfile = {
       };
     }
 
-    // Still emitted although Codex discards it. Someone who upgrades this
-    // package without re-running `init` has a config with pre entries only; if
-    // this went silent, the upgrade would switch Codex off with no error. An
-    // ignored decision is exactly as effective as before and fails safe.
-    if (decision.allow) return { stdout: "", exitCode: 0 };
-    return {
-      stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: "PreToolUse",
-          permissionDecision: decision.decision,
-          permissionDecisionReason: decision.reason,
-        },
-      }),
-      exitCode: 0,
-    };
+    return { stdout: "", exitCode: 0 };
+  },
+
+  /**
+   * The two ways an installed Codex hook does nothing on this machine.
+   *
+   * Both were measured against 0.147.0, both are silent, and both look exactly
+   * like a linter with nothing to say. Quiet when the hooks are not installed
+   * here, because then there is nothing to be wrong about.
+   */
+  diagnose(root: string): string[] {
+    if (!existsSync(resolve(root, ".codex", "hooks.json"))) return [];
+
+    const home = process.env["CODEX_HOME"] || resolve(homedir(), ".codex");
+    const config = resolve(home, "config.toml");
+    const out: string[] = [];
+
+    if (!trustedProject(config, root)) {
+      out.push(
+        `this project is not trusted in ${config}, so Codex reads no hooks from ` +
+          `.codex/hooks.json. Start a session here and answer yes, or add ` +
+          `[projects."${root}"] trust_level = "trusted"`,
+      );
+    }
+    if (isLinkedWorktree(root)) {
+      out.push(
+        "this is a linked git worktree, and Codex reads the main working tree's " +
+          ".codex/hooks.json rather than this one (openai/codex#27133)",
+      );
+    }
+    return out;
   },
 
   plan(_ctx: PlanContext) {
@@ -124,6 +202,9 @@ export const codex: AgentProfile = {
           path: ".codex/hooks.json",
           at: ["hooks", "PreToolUse"],
           shape: "nested" as const,
+          // `timeout`, in seconds, and not `timeoutSec`, although that is the
+          // name Codex reports it back under. A configured `timeoutSec` is
+          // ignored and the hook silently gets the 600 second default.
           entries: CHANNELS.map((c) => ({
             matcher: c.matcher,
             hooks: [
@@ -135,34 +216,24 @@ export const codex: AgentProfile = {
             ],
           })),
         },
-        {
-          // The advisory channel, because Codex discards `ask`. Under
-          // `failOn: error` the pre hook refuses and this never speaks; under
-          // the default it is the only thing that does.
-          path: ".codex/hooks.json",
-          at: ["hooks", "PostToolUse"],
-          shape: "nested" as const,
-          entries: CHANNELS.map((c) => ({
-            matcher: c.matcher,
-            hooks: [
-              {
-                type: "command",
-                command:
-                  `npx --no-install plain-english hook ${c.channel} --agent codex --event post`,
-                timeout: 30,
-              },
-            ],
-          })),
-        },
       ],
+      // Where the advisory used to live, before 0.7.0 moved it onto the pre
+      // event. Left alone it survives every re-install and spawns a process
+      // per tool call to say nothing.
+      retire: [{ path: ".codex/hooks.json", at: ["hooks", "PostToolUse"] }],
       shims: [],
       notes: [
-        "Codex will not run a hook you have not approved. Start a session and run /hooks " +
-          "to review and trust these entries.",
-        "Approval is asked for again whenever the command string changes, which includes " +
-          "pinning a new version of this package.",
-        "Hooks must be enabled: `[features] hooks = true` in config.toml if your build " +
-          "has them switched off.",
+        "Codex reads .codex/hooks.json only in a folder you have trusted. Start a session " +
+          "here and answer yes, or add [projects.\"<absolute path>\"] trust_level = " +
+          '"trusted" to ~/.codex/config.toml. Untrusted, it finds no hooks and says nothing.',
+        "Then trust the hooks themselves: start a session and run /hooks. Trust is recorded " +
+          "against the command string, so it is asked again whenever this package's version " +
+          "is pinned anew.",
+        "`codex exec` runs no hooks at all without --dangerously-bypass-hook-trust, even " +
+          "when the project is trusted and the hooks are (openai/codex#32491, seen on " +
+          "0.147.0). Interactive sessions are unaffected.",
+        "In a git worktree, Codex reads the main working tree's .codex/hooks.json and not " +
+          "the worktree's own copy (openai/codex#27133). Install in the main checkout.",
       ],
     };
   },

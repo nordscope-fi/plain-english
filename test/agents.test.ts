@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { ackPath, decide, type Decision } from "../src/adapters/hook.ts";
@@ -103,9 +103,29 @@ describe("each profile speaks its own wire format", () => {
     });
   });
 
-  it("codex matches claude-code, because it copied the contract", () => {
+  it("codex tells the model instead of asking, because `ask` fails the run", () => {
+    // codex-cli 0.147.0 reports a hook that returns `ask` as "PreToolUse
+    // Failed" and delivers the reason to nobody. `additionalContext` on the
+    // same event arrives as a developer message and the run reports Completed.
     inTmp((dir) => {
-      expect(refusal(dir, "codex").hookSpecificOutput.permissionDecision).toBe("ask");
+      const out = refusal(dir, "codex");
+      expect(out.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+      expect(out.hookSpecificOutput.additionalContext).toContain("leverage");
+      expect(out.hookSpecificOutput.permissionDecision).toBeUndefined();
+    });
+  });
+
+  it("codex refuses with the one decision it acts on", () => {
+    inTmp((dir) => {
+      const codex = byId("codex")!;
+      const d = decide(codex.parse(write(dir)), "docs", {
+        projectDir: dir,
+        ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+      });
+      const out = JSON.parse(codex.emit(d, "pre").stdout);
+      expect(out.hookSpecificOutput.permissionDecision).toBe("deny");
+      // The schema rejects a deny whose reason is empty.
+      expect(out.hookSpecificOutput.permissionDecisionReason).toContain("leverage");
     });
   });
 
@@ -138,8 +158,9 @@ describe("each profile speaks its own wire format", () => {
 });
 
 /**
- * Codex and Cursor both parse `ask` and then allow anyway, so under the default
- * `failOn: never` the pre hook alone reports nothing to anybody. That is the
+ * Neither Codex nor Cursor surfaces `ask` to a human. Cursor accepts it and
+ * allows; Codex fails the hook run outright. Either way the pre hook alone
+ * reports nothing to anybody under the default `failOn: never`, which is the
  * shipped-and-does-nothing failure this tier exists to remove.
  */
 describe("the advisory tier reaches agents that discard `ask`", () => {
@@ -150,24 +171,13 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     expect(byId("cursor")!.supportsAsk).toBe(false);
   });
 
-  it("codex feeds the finding back as additionalContext on the post event", () => {
-    inTmp((dir) => {
-      const codex = byId("codex")!;
-      const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
-      const out = JSON.parse(codex.emit(d, "post").stdout);
-      expect(out.hookSpecificOutput.hookEventName).toBe("PostToolUse");
-      expect(out.hookSpecificOutput.additionalContext).toContain("leverage");
-    });
-  });
-
   it("codex sends nothing Codex would reject", () => {
-    // Codex refuses the whole hook output on an unrecognised key, so a stray
-    // `permissionDecision` under a PostToolUse event throws the finding away
-    // rather than being ignored.
+    // Both hook output schemas set additionalProperties: false, so a stray key
+    // throws the whole reply away rather than being ignored.
     inTmp((dir) => {
       const codex = byId("codex")!;
       const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
-      const out = JSON.parse(codex.emit(d, "post").stdout);
+      const out = JSON.parse(codex.emit(d, "pre").stdout);
       expect(Object.keys(out)).toEqual(["hookSpecificOutput"]);
       expect(Object.keys(out.hookSpecificOutput).sort()).toEqual([
         "additionalContext",
@@ -176,24 +186,39 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     });
   });
 
-  it("codex still speaks on the pre event, so a stale config is no worse", () => {
-    // Someone who upgrades without re-running init has pre entries only. If
-    // this went silent the upgrade would switch Codex off with no error.
+  it("codex says nothing on the post event, so a stale config does not repeat itself", () => {
+    // Before the advisory moved to the pre event, `init` wrote a second hook
+    // pointing here. Somebody who upgrades the package without re-running it
+    // still has that entry, and both speaking would report one finding twice.
     inTmp((dir) => {
       const codex = byId("codex")!;
       const d = decide(codex.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
-      expect(codex.emit(d, "pre").stdout).not.toBe("");
+      expect(codex.emit(d, "post").stdout).toBe("");
     });
   });
 
-  it("installs a post hook for codex and none for the agents that can ask", () => {
+  it("installs one hook event per agent now that the pre event can speak", () => {
     const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
     const events = (id: string) =>
       byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
-    expect(events("codex")).toContain("hooks.PostToolUse");
+    expect(events("codex")).toEqual(["hooks.PreToolUse"]);
     expect(events("cursor")).toEqual(["hooks.preToolUse"]);
     expect(events("claude-code")).toEqual(["hooks.PreToolUse"]);
     expect(events("copilot")).toEqual(["hooks.PreToolUse"]);
+  });
+
+  it("codex asks for the timeout under the key Codex actually reads", () => {
+    // It reports the value back as `timeoutSec`, but a `timeoutSec` in the
+    // config is ignored and the hook silently gets the 600 second default.
+    // Measured through Codex's own hooks/list on 0.147.0.
+    const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
+    const entries = byId("codex")!.plan(ctx).config[0]!.entries as {
+      hooks: Record<string, unknown>[];
+    }[];
+    for (const group of entries) {
+      expect(Object.keys(group.hooks[0]!)).toContain("timeout");
+      expect(Object.keys(group.hooks[0]!)).not.toContain("timeoutSec");
+    }
   });
 
   it("says nothing on either event when a `touch`ed ack has waived the channel", () => {
@@ -224,6 +249,89 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
       });
       expect(d.allow, "a warning did not reach the decision").toBe(false);
       expect(d.findings.map((f) => f.ruleId)).toContain("unglossed-term");
+    });
+  });
+});
+
+/**
+ * A hook Codex will never run looks exactly like a linter with nothing to say,
+ * which is the failure this project keeps meeting. Both causes below were
+ * measured against codex-cli 0.147.0 through its own `hooks/list`.
+ */
+describe("doctor can name the two ways a Codex hook does nothing", () => {
+  const withHome = <T,>(home: string | undefined, fn: () => T): T => {
+    const before = process.env["CODEX_HOME"];
+    if (home === undefined) delete process.env["CODEX_HOME"];
+    else process.env["CODEX_HOME"] = home;
+    try {
+      return fn();
+    } finally {
+      if (before === undefined) delete process.env["CODEX_HOME"];
+      else process.env["CODEX_HOME"] = before;
+    }
+  };
+
+  const install = (dir: string) => {
+    mkdirSync(resolve(dir, ".codex"), { recursive: true });
+    writeFileSync(resolve(dir, ".codex", "hooks.json"), "{}");
+  };
+
+  it("says nothing when the hooks are not installed here", () => {
+    inTmp((dir) => {
+      expect(byId("codex")!.diagnose?.(dir) ?? []).toEqual([]);
+    });
+  });
+
+  it("reports an untrusted project, because Codex reads no hooks in one", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "codex-home");
+      mkdirSync(home, { recursive: true });
+      const out = withHome(home, () => byId("codex")!.diagnose!(dir));
+      expect(out.join(" ")).toContain("not trusted");
+      expect(out.join(" ")).toContain("trust_level");
+    });
+  });
+
+  it("is quiet once the project is trusted", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "codex-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(
+        resolve(home, "config.toml"),
+        `[projects."${dir}"]\ntrust_level = "trusted"\n`,
+      );
+      expect(withHome(home, () => byId("codex")!.diagnose!(dir))).toEqual([]);
+    });
+  });
+
+  it("does not read another project's trust entry as this one's", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "codex-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(
+        resolve(home, "config.toml"),
+        `[projects."${dir}-other"]\ntrust_level = "trusted"\n`,
+      );
+      expect(withHome(home, () => byId("codex")!.diagnose!(dir)).join(" ")).toContain(
+        "not trusted",
+      );
+    });
+  });
+
+  it("reports a linked worktree, whose own hooks file Codex ignores", () => {
+    // A linked worktree has a `.git` file rather than a directory, and Codex
+    // resolves the hook path to the main working tree: with the main file
+    // removed, `hooks/list` finds nothing at all from inside the worktree.
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "codex-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(resolve(home, "config.toml"), `[projects."${dir}"]\ntrust_level = "trusted"\n`);
+      writeFileSync(resolve(dir, ".git"), "gitdir: /elsewhere/.git/worktrees/probe\n");
+      expect(withHome(home, () => byId("codex")!.diagnose!(dir)).join(" ")).toContain("worktree");
     });
   });
 });

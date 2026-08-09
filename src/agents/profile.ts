@@ -86,9 +86,24 @@ export interface ConfigFile {
   defaults?: Record<string, unknown>;
 }
 
+/** A place in a config file, without saying what goes there. */
+export type ConfigLocation = Pick<ConfigFile, "path" | "at" | "scope">;
+
 /** Everything `init` needs to wire one agent up. */
 export interface InstallPlan {
   config: ConfigFile[];
+  /**
+   * Places a previous version of this package wrote to and no longer does.
+   *
+   * `init` strips our entries from each and drops the key when nothing of
+   * anyone else's is left. Without it a retired hook event survives every
+   * re-install, because `init` only looks where the current plan tells it to.
+   *
+   * Codex needs it: its advisory moved from a second `PostToolUse` hook onto
+   * the pre event in 0.7.0, and the old entry would otherwise keep spawning a
+   * process per tool call to say nothing.
+   */
+  retire?: ConfigLocation[];
   /** Executable scripts, written 0755. Paths are relative to the root. */
   shims: { path: string; body: string }[];
   /**
@@ -144,13 +159,24 @@ export interface AgentProfile {
   /**
    * Whether a pre-tool-call `ask` actually reaches a human on this agent.
    *
-   * False for Codex, whose reference says `ask` is "parsed but not supported
-   * yet", and for Cursor, whose docs say it "is accepted by the schema but not
-   * enforced for preToolUse today". On those the advisory tier has to be text
-   * fed back to the model instead, or the hook looks installed and reports
-   * nothing at all under the default configuration.
+   * False for Codex, where a live session shows the run reported as Failed and
+   * the reason delivered to nobody, and for Cursor, whose docs say `ask` "is
+   * accepted by the schema but not enforced for preToolUse today". On those the
+   * advisory tier has to be text fed back to the model instead, or the hook
+   * looks installed and reports nothing at all under the default configuration.
    */
   supportsAsk: boolean;
+  /**
+   * Anything about this machine that would stop an installed hook from running.
+   *
+   * Optional, and only Codex has one: its repository hook file is read solely
+   * in a folder the user has trusted, and until then it finds no hooks and
+   * reports no error. That is this project's recurring failure, a configuration
+   * that reads correctly and never runs, so `doctor` should be able to name it.
+   *
+   * Returns one line per problem, empty when there is nothing to say.
+   */
+  diagnose?(root: string): string[];
   /**
    * The bytes to write and the code to exit with.
    *

@@ -156,6 +156,45 @@ export function mergeNested(
   return { groups, added, replaced, orphaned };
 }
 
+/**
+ * Take our entries out of somewhere we used to write and no longer do.
+ *
+ * Returns the document unchanged, and `removed: 0`, when there is nothing of
+ * ours there. A key emptied of everything goes with them; a key still holding
+ * somebody else's hook keeps that hook and stays.
+ */
+export function retireAt(doc: Json, at: string[]): { doc: Json; removed: number } {
+  const current = readAt(doc, at);
+  if (!Array.isArray(current)) return { doc, removed: 0 };
+
+  let removed = 0;
+  const kept: unknown[] = [];
+  for (const entry of current) {
+    // A nested group holds hooks; a flat list holds them directly.
+    const group = entry as HookGroup;
+    if (Array.isArray(group?.hooks)) {
+      const hooks = group.hooks.filter((h) => !isOurs(h));
+      removed += group.hooks.length - hooks.length;
+      if (hooks.length) kept.push({ ...group, hooks });
+      continue;
+    }
+    if (isOurs(entry)) removed += 1;
+    else kept.push(entry);
+  }
+  if (!removed) return { doc, removed: 0 };
+
+  if (kept.length) return { doc: writeAt(doc, at, kept), removed };
+
+  // Drop the key itself rather than leaving an empty array behind.
+  const parent = at.slice(0, -1);
+  const leaf = at[at.length - 1]!;
+  const holder = parent.length ? readAt(doc, parent) : doc;
+  if (!holder || typeof holder !== "object") return { doc, removed };
+  const next = { ...(holder as Json) };
+  delete next[leaf];
+  return { doc: parent.length ? writeAt(doc, parent, next) : next, removed };
+}
+
 /** Apply one profile's config file to whatever is on disk. */
 function applyConfig(
   doc: Json,
@@ -254,30 +293,55 @@ export function init(opts: InitOptions): number {
   // post hook together left only whichever came last.
   const docs = new Map<string, Json>();
 
+  // A user-scoped path is anchored to the home directory rather than the
+  // project. Only a profile asks for one, and only when `includeUser`.
+  const locate = (file: { path: string; scope?: "repo" | "user" }) =>
+    file.scope === "user" ? resolve(homedir(), file.path) : resolve(root, file.path);
+
+  /** The parsed document for a path, or null if it is not JSON we should touch. */
+  const load = (path: string): Json | null => {
+    if (docs.has(path)) return docs.get(path)!;
+    let doc: Json = {};
+    if (existsSync(path)) {
+      try {
+        doc = JSON.parse(readFileSync(path, "utf8")) as Json;
+      } catch (e) {
+        process.stderr.write(
+          `plain-english: ${relative(root, path)} is not valid JSON, refusing to touch it\n` +
+            `  ${e instanceof Error ? e.message : String(e)}\n`,
+        );
+        return null;
+      }
+    }
+    docs.set(path, doc);
+    return doc;
+  };
+
   for (const agent of agents) {
     const plan = agent.plan({ prompts, model, includeUser });
 
+    // Retirement first, so a location this version has stopped writing to is
+    // cleared before anything else in the same file is merged.
+    for (const gone of plan.retire ?? []) {
+      const path = locate(gone);
+      if (!existsSync(path)) continue;
+      const doc = load(path);
+      if (doc === null) return 2;
+      const { doc: next, removed } = retireAt(doc, gone.at);
+      if (!removed) continue;
+      docs.set(path, next);
+      const shown = gone.scope === "user" ? path : relative(root, path);
+      planned.push(
+        `update ${shown} ${gone.at.join(".")} (removed ${removed} retired hook` +
+          `${removed === 1 ? "" : "s"})`,
+      );
+    }
+
     for (const file of plan.config) {
-      // A user-scoped path is anchored to the home directory rather than the
-      // project. Only a profile asked for one, and only when `includeUser`.
-      const path =
-        file.scope === "user" ? resolve(homedir(), file.path) : resolve(root, file.path);
+      const path = locate(file);
       const existed = existsSync(path);
-      if (!docs.has(path)) {
-        let doc: Json = {};
-        if (existed) {
-          try {
-            doc = JSON.parse(readFileSync(path, "utf8")) as Json;
-          } catch (e) {
-            process.stderr.write(
-              `plain-english: ${relative(root, path)} is not valid JSON, refusing to touch it\n` +
-                `  ${e instanceof Error ? e.message : String(e)}\n`,
-            );
-            return 2;
-          }
-        }
-        docs.set(path, doc);
-      }
+      const doc = load(path);
+      if (doc === null) return 2;
       const result = applyConfig(docs.get(path)!, file);
       docs.set(path, result.doc);
       const shown = file.scope === "user" ? path : relative(root, path);

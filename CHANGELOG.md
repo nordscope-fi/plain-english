@@ -4,7 +4,20 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Changed
+
+- Codex is told about a finding on the `PreToolUse` event, not on a second `PostToolUse` hook, and `init --agent codex` writes one hook event instead of two. A live session on codex-cli 0.147.0 settled both halves of this. `permissionDecision: "ask"` does not merely go unhonoured as its old reference implied: the run is reported as `PreToolUse Failed` and the reason reaches neither the model nor the user. `additionalContext` on the same event does arrive, as a developer message, before the write rather than after it. Closes #10.
+- `init` can now retire a hook event, and Codex's `PostToolUse` entry is the first thing to go. `init` only visits the places the current plan names, so a location this package has stopped writing to used to survive every re-install: the retired hook kept spawning a process per tool call to say nothing. Somebody else's hook in the same place is left alone, and the key is dropped only once nothing is left in it. Upgrading without re-running `init` is harmless either way, because the post event now returns nothing.
+
 ### Added
+
+- `doctor` names the two ways a Codex hook can be installed correctly and never run. Its repository hook file is read only when `~/.codex/config.toml` marks the project `trust_level = "trusted"`, and until then Codex finds no hooks, prints no warning and logs no error. Inside a git worktree it reads the main working tree's file and ignores the worktree's own copy, which is openai/codex#27133 seen on 0.147.0. Both were measured through Codex's own `hooks/list` call, with five controls separating folder trust from the mere presence of a config file.
+- The Codex install notes cover those two gates, and a third: `codex exec` runs no hooks at all without `--dangerously-bypass-hook-trust`, even when the project and the hooks are both trusted (openai/codex#32491). The stale note telling people to set `[features] hooks = true` is gone, since hooks have been on by default for some versions.
+- Three captured Codex payloads in the regression corpus, including the shell command it reached for after two refused patches: `perl -0pi -e '$_ = "…"' notes.md`. The scanner does not read an in-place rewrite through an interpreter and is not going to start guessing, so that write goes unjudged. It is written down in `docs/agents.md` rather than papered over.
+
+### Fixed
+
+- Verified rather than fixed, but worth recording: `PreToolUse` does fire for `apply_patch`, with `tool_name: "apply_patch"` and the envelope under `tool_input.command`, and `timeout` is the config key although Codex reports the value back as `timeoutSec`. A widely-linked third-party reference says the event intercepts the shell tool alone. It names no version, shows no run, and is wrong on 0.147.0.
 
 - `init --agent copilot --user` writes `~/.copilot/hooks/plain-english.json`, which is the location Copilot's CLI actually reads. Its own `copilot help config` documents `.github/hooks/*.json` for repository hooks, and 1.0.78 does not load it: a controlled run with the same `sessionStart` hook in all three documented locations fires only the user-level one. Reported as github/copilot-cli#1730, where the newest comment had concluded the fault was the `sessionStart` event rather than the location; the same run shows `preToolUse` behaving identically.
 - `--user` is the only thing that makes `init` write outside the project, and it is opt-in for that reason. Everything else `init` writes is committed, reviewed and removed with the checkout, and a file in somebody's home directory is none of those. A test asserts a default `init` for every agent leaves the home directory alone, and the dry run prints a user-scoped path in full rather than as a run of `../`.

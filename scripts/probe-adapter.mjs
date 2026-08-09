@@ -137,26 +137,27 @@ check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
   "claude-code nests permissionDecision under hookSpecificOutput");
 check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
   "copilot puts permissionDecision at the top level");
-check(wire("codex").hookSpecificOutput?.permissionDecision === "ask",
-  "codex matches claude-code on the pre event");
+// Codex fails the hook run outright on `ask`, so its advisory travels as
+// additionalContext on the same pre event.
+const codexPre = wire("codex");
+check(codexPre.hookSpecificOutput?.hookEventName === "PreToolUse" &&
+      !!codexPre.hookSpecificOutput?.additionalContext &&
+      codexPre.hookSpecificOutput?.permissionDecision === undefined,
+  "codex tells the model on the pre event and never sends ask");
 
-// Cursor and Codex both parse `ask` and then allow, so the advisory tier has
-// to reach the model as text or it reaches nobody.
+// Cursor parses `ask` and then allows, so its advisory has to reach the model
+// as text or it reaches nobody.
 check(wire("cursor").permission === "allow" && !!wire("cursor").additional_context,
   "cursor allows and attaches additional_context");
-const post = wire("codex", "post");
-check(post.hookSpecificOutput?.hookEventName === "PostToolUse" &&
-      !!post.hookSpecificOutput?.additionalContext,
-  "codex feeds the finding back as additionalContext on the post event");
-// Codex rejects the entire hook output on an unrecognised key, so a stray
-// permissionDecision under a PostToolUse event throws the finding away.
-check(JSON.stringify(Object.keys(post)) === '["hookSpecificOutput"]' &&
-      JSON.stringify(Object.keys(post.hookSpecificOutput).sort()) ===
+
+// Both Codex hook output schemas set additionalProperties: false, so a stray
+// key throws the whole reply away rather than being ignored.
+check(JSON.stringify(Object.keys(codexPre)) === '["hookSpecificOutput"]' &&
+      JSON.stringify(Object.keys(codexPre.hookSpecificOutput).sort()) ===
         '["additionalContext","hookEventName"]',
-  "codex post output carries no key Codex would reject");
-check(emit("claude-code", "post") === "" && emit("copilot", "post") === "" &&
-      emit("cursor", "post") === "",
-  "no post output from agents that can already ask");
+  "codex pre output carries no key Codex would reject");
+check(PROFILES.every((p) => emit(p.id, "post") === ""),
+  "nothing is said after the write, on any agent");
 
 console.log("\n-- refusal message --");
 

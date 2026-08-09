@@ -4,14 +4,14 @@ An adapter that reads nothing allows everything, and looks exactly like an
 adapter that found nothing to say. That is the failure this page exists to
 prevent, and it has happened here more than once.
 
-Four agents were added in 0.4.0 from vendor documentation. By 0.6.0, four
+Four agents were added in 0.4.0 from vendor documentation. By 0.7.0, five
 separate defects had been found in them, and **only one was findable by
-reading**. This is what the other three took.
+reading**. This is what the other four took.
 
 ## Vendor prose is the weakest evidence available
 
-Two claims that shaped the original adapters turned out to be false, and both
-came from documentation rather than from carelessness.
+Three claims that shaped the original adapters turned out to be false, and none
+came from carelessness.
 
 **Copilot's compatibility mode does not rename `tool_input`.** It has two event
 names for the same hook: a camelCase one, and a capitalised one written
@@ -25,6 +25,12 @@ reference said it did as of 0.130.0. That described `openai/codex#16732`, fixed
 months before the version named. A shell-redirection parser was nearly written
 on the strength of it, which would have been the second hand-written parser in
 the hook path in a week.
+
+**Codex's `ask` is not merely ignored.** Its reference used to call the value
+"parsed but not supported yet", which reads as harmless. On 0.147.0 the hook run
+is reported Failed and the reason reaches nobody. Current documentation no
+longer lists `ask` at all, so a claim can also rot in place while the sentence
+that carried it disappears.
 
 So rank your evidence, and say which you have:
 
@@ -104,13 +110,46 @@ The Free plan covers the CLI. Two traps:
 
 ### OpenAI Codex CLI
 
-Never run here, for want of a subscription. `codex exec --full-auto` is the
-non-interactive form, and Codex will not run a hook until it is approved with
-`/hooks`, which is asked again whenever the command string changes.
+```bash
+npm install -g @openai/codex
+codex login                    # opens a browser
+CODEX_HOME=$TW codex exec --approve-for-me --skip-git-repo-check \
+  --dangerously-bypass-hook-trust "…" < /dev/null
+```
 
-Its Rust source settled the two questions that mattered more firmly than a
-session would have: `codex-rs/core/src/tools/hook_names.rs` for the tool name,
-`handlers/apply_patch.rs` for `tool_input.command`.
+Four traps, all of which make a correct configuration do nothing:
+
+- **Folder trust.** `<repo>/.codex/hooks.json` is read only when
+  `$CODEX_HOME/config.toml` marks the project `trust_level = "trusted"`.
+- **Hook trust**, separate, hashed against the command string, and skipped by
+  `--dangerously-bypass-hook-trust`.
+- **`codex exec` runs no hooks at all** without that flag, even when everything
+  is trusted.
+- **Worktrees** resolve to the main working tree's file.
+
+`CODEX_HOME` moves the whole user-level directory somewhere disposable, which is
+the same trick `COPILOT_HOME` allows. Authentication lives in there, so symlink
+`auth.json` into it rather than copying credentials around.
+
+Two more things to know. Close stdin with `< /dev/null` or `codex exec` waits on
+it forever. And `--sandbox` cannot be combined with `--approve-for-me`.
+
+### Ask the agent what it loaded
+
+Codex has the most useful verification tool found on any of the four, and it
+costs no model tokens. `codex app-server` speaks JSON-RPC (JSON Remote Procedure
+Call) over stdin. Its `hooks/list` call returns Codex's own view of the
+configuration: every hook it discovered, the file each came from, the scope it
+assigned, the trust state, the effective timeout, and any error it swallowed.
+
+```
+initialize → initialized → {"method":"hooks/list","params":{"cwds":["<repo>"]}}
+```
+
+Six of the eight Codex findings came from that call rather than from a session.
+It answers "did it read my file" directly, which is the question a trace answers
+only by inference. Look for the equivalent before spending model turns: Copilot
+has `--log-level debug`, Cursor has `--output-format stream-json`.
 
 ### Claude Code
 
@@ -159,14 +198,22 @@ about yet.
 Each step found something the one before it missed, so none of them is
 redundant.
 
-1. Read the vendor's prose. Cheapest, and wrong twice out of five claims.
-2. Read the vendor's source or schema. Settled Codex without a subscription.
-3. Have someone attack the plan. A critique pass found five blockers in a plan
+1. Read the vendor's prose. Cheapest, and wrong three times out of six claims.
+2. Read the vendor's source or schema. A shipped binary often embeds the schema.
+   Codex's carries the JSON Schema for every hook event, and the error strings
+   its runtime prints. That beats the source of a version you are not running.
+3. Read the vendor's issue tracker. Codex has open reports on trust prompts,
+   worktrees and `codex exec`. Each one leaves an installed hook running zero
+   times with nothing said, and none of them appears in any documentation.
+4. Have someone attack the plan. A critique pass found five blockers in a plan
    that had already been researched, plus a shipped hang in code nobody had
    changed.
-4. Run it on every platform. Windows found a capture that could not be replayed
+5. Run it on every platform. Windows found a capture that could not be replayed
    anywhere else.
-5. Run the real agent. It found four things nothing above could. A project
-   scope read from the wrong field. A repository hook location that does not
-   work. An agent that writes files through the shell. And a recorder leaking
-   an email address into a file designed to be safe to publish.
+6. Ask the agent what it loaded, if it will say. `hooks/list` answered six
+   questions about Codex for no model tokens.
+7. Run the real agent. It found six things nothing above could. A project scope
+   read from the wrong field. A repository hook location that does not work. Two
+   agents that write files through the shell. A reply value that fails the hook
+   rather than being ignored. And a recorder leaking an email address into a
+   file designed to be safe to publish.

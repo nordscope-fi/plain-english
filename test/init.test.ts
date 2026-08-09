@@ -381,6 +381,86 @@ describe("merging across versions", () => {
     expect(doc.hooks.PostToolUse[0].hooks[0].command).toContain("post");
   });
 
+  it("clears a hook event this version has stopped writing to", () => {
+    // Codex's advisory moved from a second PostToolUse hook onto the pre event
+    // in 0.7.0. `init` only visits the places the current plan names, so
+    // without a retirement list the old entry survives every re-install and
+    // spawns a process per tool call to say nothing.
+    writeFileSync(
+      resolve(root, ".codex-hooks.json"),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] },
+          ],
+          PostToolUse: [
+            {
+              matcher: "Bash",
+              hooks: [{ type: "command", command: "plain-english hook github --event post" }],
+            },
+          ],
+        },
+      }),
+    );
+    const retiring: AgentProfile = {
+      ...byId("codex")!,
+      plan: () => ({
+        config: [
+          {
+            path: ".codex-hooks.json",
+            at: ["hooks", "PreToolUse"],
+            shape: "nested" as const,
+            entries: [
+              { matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] },
+            ],
+          },
+        ],
+        retire: [{ path: ".codex-hooks.json", at: ["hooks", "PostToolUse"] }],
+        shims: [],
+        notes: [],
+      }),
+    };
+
+    expect(init({ root, agents: [retiring] })).toBe(0);
+    const doc = JSON.parse(readFileSync(resolve(root, ".codex-hooks.json"), "utf8"));
+    expect(doc.hooks.PreToolUse).toBeDefined();
+    expect(doc.hooks.PostToolUse, "the retired event is still there").toBeUndefined();
+  });
+
+  it("leaves somebody else's hook in a retired event alone", () => {
+    writeFileSync(
+      resolve(root, ".codex-hooks.json"),
+      JSON.stringify({
+        hooks: {
+          PostToolUse: [
+            {
+              matcher: "Bash",
+              hooks: [
+                { type: "command", command: "./their-audit.sh" },
+                { type: "command", command: "plain-english hook github --event post" },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const retiring: AgentProfile = {
+      ...byId("codex")!,
+      plan: () => ({
+        config: [],
+        retire: [{ path: ".codex-hooks.json", at: ["hooks", "PostToolUse"] }],
+        shims: [],
+        notes: [],
+      }),
+    };
+
+    expect(init({ root, agents: [retiring] })).toBe(0);
+    const doc = JSON.parse(readFileSync(resolve(root, ".codex-hooks.json"), "utf8"));
+    expect(doc.hooks.PostToolUse[0].hooks).toEqual([
+      { type: "command", command: "./their-audit.sh" },
+    ]);
+  });
+
   it("removes our old group when a matcher is renamed", () => {
     // mergeNested matched groups by exact matcher and only stripped our entries
     // from a group that matched, so renaming a matcher left the old group
