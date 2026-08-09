@@ -36,7 +36,7 @@ Swap the id for `copilot`, `codex` or `cursor`, or pass `all`. `claude-code` is 
 
 `init` wires up the whole repo in one step: that agent's hook config merged into whatever is already there, a generated `AGENTS.md` section, and a starter `.plain-english.yml` if you have none. Claude Code additionally gets three shims under `.claude/hooks/`. The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to change that.
 
-[`docs/agents.md`](agents.md) has the per-agent detail. Two caveats are worth reading before you rely on a hook: Copilot's cloud agent turns an `ask` into a `deny`, and Codex will not run a hook until you approve it with `/hooks`.
+[`docs/agents.md`](agents.md) has the per-agent detail. Three caveats are worth reading before you rely on a hook. Copilot's CLI does not read the repository file, so it needs `init --agent copilot --user` as well ([why](agents.md#what-a-live-copilot-session-showed)). Copilot's cloud agent turns an `ask` into a `deny`. And Codex needs two separate approvals before a hook runs ([which two](agents.md#openai-codex-cli)).
 
 Fill in the vocabulary your readers already use daily:
 
@@ -69,7 +69,7 @@ See `examples/revops.yml` for a filled-in example.
 ## 4. Turn it on in CI before turning it on locally
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.2.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.7.2
   with:
     paths: docs README.md
     fail-on: warn      # start loud, tighten later
@@ -90,7 +90,7 @@ For git, whatever your agent:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.4.0
+    rev: v0.7.2
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

@@ -90,7 +90,7 @@ The deterministic rules run identically everywhere. The rest does not.
 
 The semantic layer, which judges the nine sentence shapes a regex cannot, rides on a prompt hook. Claude Code has one. Copilot documents an equivalent this package does not yet use. Codex and Cursor have none, so on those two the sentence shapes are covered by the prompt in `AGENTS.md` and by nothing that runs.
 
-Two vendor behaviours are worth knowing before you rely on a refusal. Copilot's cloud coding agent treats `ask` as `deny`, so the advisory default is blocking there. Codex will not run a hook until the user approves it with `/hooks`, and asks again whenever the command string changes. `docs/agents.md` records both, along with which claims here were verified against a running agent and which were taken from a vendor's documentation.
+Two vendor behaviours are worth knowing before you rely on a refusal. Copilot's cloud coding agent treats `ask` as `deny`, so the advisory default is blocking there. And Codex needs two separate approvals before it runs a hook at all, one for the folder and one for the hook itself; [`agents.md`](agents.md#openai-codex-cli) says what each does and how to grant them. That file also records which claims here were verified against a running agent and which were taken from a vendor's documentation.
 
 ## The semantic layer has a false-positive floor
 

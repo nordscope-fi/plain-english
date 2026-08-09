@@ -93,7 +93,14 @@ the pre-hook does. Codex caps the text it feeds back at roughly 2,500 tokens by 
 (`additionalContextLimit`); a run with many findings spills the rest to a temporary file
 rather than truncating in place.
 
-Codex asks you to approve hooks with `/hooks` before it will run them.
+Note the file. This is `.codex/config.toml`, a second documented route with an open bug of
+its own ([openai/codex#17532](https://github.com/openai/codex/issues/17532)), and not the
+`.codex/hooks.json` that `init --agent codex` writes. Keeping them separate means a
+re-run of `init` cannot touch this block. If you would rather have one file, the same hook
+goes in `.codex/hooks.json` under a `PostToolUse` key, which `init` leaves alone.
+
+Codex needs two approvals before it runs any hook, one for the folder and one for the hook
+itself. [`agents.md`](agents.md#openai-codex-cli) says what each does.
 
 ## Git, for everything else
 
@@ -102,7 +109,7 @@ An agent that has none of the above still commits. `pre-commit` catches that:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.4.0
+    rev: v0.7.2
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

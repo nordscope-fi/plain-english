@@ -12,8 +12,8 @@ npx plain-english init --agent all
 npx plain-english init --agent cursor --dry-run   # see what would change
 ```
 
-Every run also writes an `AGENTS.md` section and a starter `.plain-english.yml`, and
-every run is idempotent.
+Every run also writes an `AGENTS.md` section and a starter `.plain-english.yml`. Run it
+twice and nothing changes the second time.
 
 ## What each agent gets
 
@@ -320,9 +320,9 @@ printf '%s\n' "We leverage this approach to showcase a seamless workflow." > not
 ```
 
 That arrives as `tool_name: "Bash"`, so the `Write|Edit|MultiEdit` matcher never
-sees it, and the github channel reads only `git commit` and `gh` message text.
-That arrives as `tool_name: "Bash"`, so it is the github channel that sees it,
-not the docs channel. Since 0.6.0 a shell write like this **is** checked. The
+sees it. It is the github channel that gets the call, not the docs channel, and
+before 0.6.0 that channel read only `git commit` and `gh` message text and found
+none here. Since 0.6.0 a shell write like this **is** checked. The
 command is scanned for a trailing redirect whose content the command itself
 carries. The resulting file then goes through the same markdown, project-scope
 and `exclude` filters a write through a tool call gets.

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 // @ts-expect-error plain .mjs helper, no types
-import { dateChangelog, today } from "../scripts/date-changelog.mjs";
+import { dateChangelog, pinnedFiles, readPins, retargetPins, today } from "../scripts/date-changelog.mjs";
 
 /**
  * `npm version` dates the changelog now.
@@ -94,6 +94,40 @@ describe("dating the changelog", () => {
   });
 });
 
+describe("moving the version pins", () => {
+  const DOC = [
+    "```yaml",
+    "repos:",
+    "  - repo: https://github.com/nordscope-fi/plain-english",
+    "    rev: v0.4.0",
+    "```",
+    "",
+    "- uses: nordscope-fi/plain-english/integrations/github-action@v0.2.0",
+    "",
+    "Released v0.4.0 on a Tuesday.",
+  ].join("\n");
+
+  it("moves both pin shapes to the new version", () => {
+    const out = retargetPins(DOC, "0.9.1") as string;
+    expect(out).toContain("    rev: v0.9.1");
+    expect(out).toContain("github-action@v0.9.1");
+  });
+
+  it("leaves a version that is prose alone", () => {
+    // Only a pin gets moved. A sentence about v0.4.0 is history and stays true.
+    expect(retargetPins(DOC, "0.9.1")).toContain("Released v0.4.0 on a Tuesday.");
+  });
+
+  it("reads back what it wrote", () => {
+    expect(readPins(retargetPins(DOC, "0.9.1"))).toEqual(["v0.9.1", "v0.9.1"]);
+  });
+
+  it("changes nothing on a second pass", () => {
+    const once = retargetPins(DOC, "0.9.1") as string;
+    expect(retargetPins(once, "0.9.1")).toBe(once);
+  });
+});
+
 describe("this repository's changelog", () => {
   const text = readFileSync(resolve(import.meta.dirname, "..", "CHANGELOG.md"), "utf8");
 
@@ -109,6 +143,25 @@ describe("this repository's changelog", () => {
         new RegExp(`^\\[${v.replace(/\./g, "\\.")}\\]:`, "m"),
       );
     }
+  });
+
+  it("names a version in every pin, matching the one in package.json", () => {
+    // A `rev:` or `@v` in a copy-paste example freezes the ruleset at that tag.
+    // Five of them sat three releases behind before anyone looked, so the
+    // release script moves them now and this is what keeps it honest. It stays
+    // green through a release because the pins and the bump land in one commit.
+    const pkg = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, "..", "package.json"), "utf8"),
+    ) as { version: string };
+    const root = resolve(import.meta.dirname, "..");
+    let total = 0;
+    for (const path of pinnedFiles(root) as string[]) {
+      for (const pin of readPins(readFileSync(path, "utf8")) as string[]) {
+        expect(pin, `${path.slice(root.length + 1)} pins ${pin}`).toBe(`v${pkg.version}`);
+        total += 1;
+      }
+    }
+    expect(total, "no pins found at all, so this test proves nothing").toBeGreaterThan(0);
   });
 
   it("documents the version that is about to ship", () => {
