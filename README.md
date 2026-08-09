@@ -366,6 +366,11 @@ Every bug that reaches a user becomes a permanent fixture in
 `test/corpus/regressions.yml`. A case in `test/corpus/cases.yml` is a complete bug report
 for a false positive.
 
+Adding a fifth agent, or checking an existing one against a live binary, is
+[`docs/verifying-an-adapter.md`](docs/verifying-an-adapter.md). It is worth
+reading first: four adapters were written from vendor documentation, and four
+defects were later found in them.
+
 ```bash
 npm ci
 npm run build                             # render and the exit-code tests need dist/

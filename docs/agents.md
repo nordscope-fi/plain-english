@@ -291,6 +291,9 @@ refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.
 `postToolUse` with `additional_context` has been broken since March (T-C20310),
 which is why the advisory tier uses `preToolUse` instead.
 
+[`verifying-an-adapter.md`](verifying-an-adapter.md) is how each of these was
+checked, and what to do when you add a fifth agent.
+
 If you run one of these and it behaves differently, that is a bug report worth filing.
 Attach `plain-english doctor` output and the agent's version.
 
