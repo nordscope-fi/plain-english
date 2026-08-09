@@ -3,6 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.7.3] - 2026-08-10
 ### Fixed
 
 - One Codex fact was stated in five files and corrected in one. Three releases in a day moved the advice from "approve the hooks with `/hooks`" to "two separate approvals, one for the folder and one for the hooks, and an interactive session offers both", and only `docs/agents.md` was updated each time. README, `adopting.md`, `limitations.md` and `post-edit-lint.md` kept the old sentence, so the repository contradicted itself in public. They now carry one line and a link, and `agents.md` is the only place the detail lives.
@@ -212,7 +214,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.3
 [0.7.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.2
 [0.7.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.1
 [0.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.0
