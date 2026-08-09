@@ -54,8 +54,19 @@ export interface NormalisedEvent {
 
 /** One JSON file this agent reads its hooks from. */
 export interface ConfigFile {
-  /** Path relative to the repository root. */
+  /** Path, relative to the repository root unless `scope` says otherwise. */
   path: string;
+  /**
+   * Where the path is anchored.
+   *
+   * `repo` is the default and the only one `init` writes without being asked.
+   * `user` resolves against the home directory, which is outside the project,
+   * so a profile that wants one only emits it when `ctx.includeUser` is set.
+   * Copilot needs this: its CLI does not read the repository location its own
+   * documentation gives, verified against 1.0.78 and reported upstream as
+   * github/copilot-cli#1730.
+   */
+  scope?: "repo" | "user";
   /** Where in the parsed document our array lives, e.g. ["hooks", "preToolUse"]. */
   at: string[];
   /**
@@ -92,6 +103,14 @@ export interface PlanContext {
   prompts: Record<string, string>;
   /** Model for prompt hooks. */
   model: string;
+  /**
+   * Whether the caller has asked for files outside the repository.
+   *
+   * Off unless `init --user` was passed. Writing to somebody's home directory
+   * is a different promise from writing to their project, and the flag is
+   * where that promise is made.
+   */
+  includeUser?: boolean;
 }
 
 /**

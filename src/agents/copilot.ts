@@ -106,7 +106,15 @@ export const copilot: AgentProfile = {
     };
   },
 
-  plan(_ctx: PlanContext) {
+  plan(ctx: PlanContext) {
+    const entries = Object.entries(MATCHERS).map(([channel, matcher]) => ({
+      type: "command",
+      matcher,
+      bash: command(channel),
+      powershell: command(channel),
+      timeoutSec: 30,
+    }));
+
     return {
       config: [
         {
@@ -116,25 +124,44 @@ export const copilot: AgentProfile = {
           at: ["hooks", "PreToolUse"],
           shape: "flat" as const,
           defaults: { version: 1 },
-          entries: Object.entries(MATCHERS).map(([channel, matcher]) => ({
-            type: "command",
-            matcher,
-            bash: command(channel),
-            powershell: command(channel),
-            timeoutSec: 30,
-          })),
+          entries,
         },
+        // The location the CLI actually reads. Its own `copilot help config`
+        // documents the repository file above, and 1.0.78 does not load it:
+        // an identical hook fires from here and not from there. Reported as
+        // github/copilot-cli#1730. Only written when `init --user` asks,
+        // because this is outside the project.
+        ...(ctx.includeUser
+          ? [
+              {
+                path: ".copilot/hooks/plain-english.json",
+                scope: "user" as const,
+                at: ["hooks", "PreToolUse"],
+                shape: "flat" as const,
+                defaults: { version: 1 },
+                entries,
+              },
+            ]
+          : []),
       ],
       shims: [],
       notes: [
-        "The CLI does not read .github/hooks/ as of 1.0.78, though its own config " +
-          "help says it does. Verified: an identical hook fires from ~/.copilot/hooks/ " +
-          "and not from here. For the CLI, also run: " +
-          "mkdir -p ~/.copilot/hooks && cp .github/hooks/plain-english.json ~/.copilot/hooks/",
+        ...(ctx.includeUser
+          ? [
+              "Wrote ~/.copilot/hooks/plain-english.json as well, which is what the CLI " +
+                "reads. The repository copy stays for the cloud agent.",
+            ]
+          : [
+              "The CLI does not read .github/hooks/ as of 1.0.78, though its own config " +
+                "help says it does. An identical hook fires from ~/.copilot/hooks/ and not " +
+                "from here (github/copilot-cli#1730). Re-run with --user to write both, or: " +
+                "mkdir -p ~/.copilot/hooks && cp .github/hooks/plain-english.json ~/.copilot/hooks/",
+            ]),
         "The cloud coding agent does read .github/hooks/, from the default branch only, " +
           "so this takes effect there once it is merged.",
-        "Copilot often writes files through the shell rather than a write tool, and a " +
-          "shell redirect is not checked yet. See docs/agents.md.",
+        "Copilot often writes files through the shell rather than a write tool. Since " +
+          "0.6.0 a redirect into a markdown file is read on the github channel, so those " +
+          "writes are checked too.",
         "The cloud agent treats `ask` as `deny`. Under `failOn: never` a finding is " +
           "advisory in the CLI and blocking in the cloud.",
         "Copilot has no prompt-hook equivalent here, so the semantic layer does not run. " +

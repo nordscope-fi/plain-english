@@ -304,6 +304,8 @@ RENDER OPTIONS
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
                                      cursor, or all
+  --user                             also write outside the repo, under ~.
+                                     Copilot's CLI needs this; nothing else does.
   --dry-run                          print what would change
   --root PATH                        repo root (default: cwd)
 
