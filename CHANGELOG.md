@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
 ### Changed
 
 - Codex is told about a finding on the `PreToolUse` event, not on a second `PostToolUse` hook, and `init --agent codex` writes one hook event instead of two. A live session on codex-cli 0.147.0 settled both halves of this. `permissionDecision: "ask"` does not merely go unhonoured as its old reference implied: the run is reported as `PreToolUse Failed` and the reason reaches neither the model nor the user. `additionalContext` on the same event does arrive, as a developer message, before the write rather than after it. Closes #10.
@@ -185,7 +186,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.6.0
 [0.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.4.1
