@@ -25,6 +25,7 @@ import { lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
 import { matchesAny } from "../glob.ts";
 import { asRecord, parseApplyPatch, pick, pickArray } from "../agents/fields.ts";
+import { shellFileWrites } from "../shell.ts";
 import type { NormalisedEvent } from "../agents/profile.ts";
 
 export type Channel = "docs" | "github" | "issue";
@@ -377,8 +378,16 @@ export function decide(
     if (event.tool !== "bash") return allow();
     const cmd = pick(event.input, "command");
     texts = extractFromBash(cmd);
-    // A shell command can carry both a commit message and a patch. Judge each.
-    files = judgeable(extractPatchesFromBash(cmd), projectDir);
+    // One shell command can carry a commit message, a patch and a redirect into
+    // a file. Judge each, and let the file pipeline scope the last two.
+    //
+    // The redirect matters because agents write prose that way. Copilot CLI,
+    // asked to edit a markdown file, ran `printf ... > notes.md` rather than
+    // using a write tool, so the docs channel never saw it.
+    files = judgeable(
+      [...extractPatchesFromBash(cmd), ...(cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd) : [])],
+      projectDir,
+    );
     // Naming it a commit message would be wrong when what was caught is a file.
     if (files.length && !texts.length) label = CHANNEL_LABEL["docs"];
   } else {

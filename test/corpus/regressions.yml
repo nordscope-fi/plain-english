@@ -354,3 +354,46 @@ cases:
       workspace_roots:
         - "{{TMP}}"
 
+  - name: "Copilot writes a markdown file through a shell redirect"
+    channel: github
+    agent: copilot
+    expect: deny
+    rule: leverage
+    why: >-
+      The command GitHub Copilot CLI 1.0.78 actually ran when asked to edit a
+      markdown file, captured on 2026-08-09. It uses no write tool, so the
+      Write|Edit|MultiEdit matcher never saw it and the file was written
+      unchecked. Issue #7.
+    payload:
+      tool_name: Bash
+      hook_event_name: PreToolUse
+      cwd: "{{TMP}}"
+      tool_input:
+        command: |
+          printf '%s\n' "We leverage this approach to showcase a seamless workflow." > {{TMP}}/notes.md && echo 'WROTE'
+        description: Overwrite notes.md with exact content and confirm
+        initial_wait: 30
+
+  - name: "a shell redirect into a source file is not prose"
+    channel: github
+    agent: copilot
+    expect: allow
+    why: "The same markdown gate a write through a tool call gets."
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: "printf 'const leverage = 1;' > {{TMP}}/x.ts"
+
+  - name: "a redirect inside a quoted string is not the target"
+    channel: github
+    agent: copilot
+    expect: allow
+    why: >-
+      The case that makes this a scanner rather than a regex. A pattern reading
+      the first `>` would target README.md and judge it; the real target is a
+      log file, which is not markdown.
+    payload:
+      tool_name: Bash
+      tool_input:
+        command: 'echo "We leverage this > README.md" >> {{TMP}}/log.txt'
+
