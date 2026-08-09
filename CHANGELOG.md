@@ -4,6 +4,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- A shell write into a markdown file is checked. Agents write prose that way: asked to edit a markdown file, GitHub Copilot CLI 1.0.78 ran `printf '%s\\n' "..." > notes.md && echo 'WROTE'` rather than using a write tool, so the `Write|Edit|MultiEdit` matcher never saw it and the file landed unjudged. The command is now scanned for a trailing redirect whose content the command itself carries, and the file goes through the same markdown, project-scope and `exclude` filters a write through a tool call gets. Closes #7.
+- The scanner is a character scanner, not a regular expression, for two reasons. Quoting cannot be done with a pattern: `echo "see > README.md" >> log.txt` redirects to a log file, and reading the first `>` targets the wrong one. And the last hand-written pattern in this path went quadratic and hung a blocking hook for 200 seconds, so a scanner that is linear by construction earns its place. There is a test asserting the linearity rather than assuming it.
+- It gives up rather than guesses, because the costs are not symmetric. Missing a write costs a finding; inventing one refuses somebody's edit under `failOn: error`. So no `sed -i`, `cp` or `mv`, no path or content the shell would expand, nothing when two plain redirects make the target ambiguous, and nothing from an unterminated quote. `tee file <<EOF` is read, since it writes through an argument rather than a redirect.
+
 ## [0.5.0] - 2026-08-09
 ### Fixed
 

@@ -153,7 +153,7 @@ different things get three different names:
 | Claude Code | observed | observed | observed |
 | Cursor | observed | observed | observed |
 | OpenAI Codex CLI | source | docs | not yet |
-| GitHub Copilot | observed | **observed wrong, see below** | **no, see below** |
+| GitHub Copilot | observed | **observed wrong, see below** | observed |
 
 Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
 `preToolUse` does fire for a `Write` in the CLI, which no source settled either
@@ -229,11 +229,18 @@ printf '%s\n' "We leverage this approach to showcase a seamless workflow." > not
 
 That arrives as `tool_name: "Bash"`, so the `Write|Edit|MultiEdit` matcher never
 sees it, and the github channel reads only `git commit` and `gh` message text.
-**A file Copilot writes this way is not currently checked**, tracked as
-[issue #7](https://github.com/nordscope-fi/plain-english/issues/7). Catching it
-needs shell-redirection parsing, which is deliberately not in the package yet.
-Telling a real redirect from one inside a quoted string needs more than a
-regex, and a false positive there refuses a write under `failOn: error`.
+That arrives as `tool_name: "Bash"`, so it is the github channel that sees it,
+not the docs channel. Since 0.6.0 a shell write like this **is** checked. The
+command is scanned for a trailing redirect whose content the command itself
+carries. The resulting file then goes through the same markdown, project-scope
+and `exclude` filters a write through a tool call gets.
+
+It is a scanner rather than a regex, because `echo "see > README.md" >> log.txt`
+redirects to a log file and any pattern reading the first `>` gets that wrong.
+Under `failOn: error` a false positive refuses a write that was never going to a
+file. So the parser gives up rather than guesses. No `sed -i`, no `cp` or `mv`,
+no path or content the shell would expand, and nothing when two plain redirects
+make the target ambiguous.
 
 ## Recording a payload
 
