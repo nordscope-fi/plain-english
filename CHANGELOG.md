@@ -4,6 +4,10 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+
+- 0.7.0 overstated what a live run had shown about `codex exec`. The install note and `docs/agents.md` said it runs no hooks "even when the project is trusted and the hooks are", citing openai/codex#32491. What was actually observed is narrower: an untrusted hook is skipped in `codex exec` with nothing printed, which is documented behaviour arriving in the least visible way. The trusted case that issue reports was never reached, because hook trust cannot be persisted outside the interactive `/hooks` flow, and two guesses at its config shape did not take. The note now says trust the hooks in a session or pass `--dangerously-bypass-hook-trust`, and marks the trusted case as untested here.
+
 ## [0.7.0] - 2026-08-09
 ### Changed
 

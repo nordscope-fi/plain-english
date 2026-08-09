@@ -229,9 +229,10 @@ export const codex: AgentProfile = {
         "Then trust the hooks themselves: start a session and run /hooks. Trust is recorded " +
           "against the command string, so it is asked again whenever this package's version " +
           "is pinned anew.",
-        "`codex exec` runs no hooks at all without --dangerously-bypass-hook-trust, even " +
-          "when the project is trusted and the hooks are (openai/codex#32491, seen on " +
-          "0.147.0). Interactive sessions are unaffected.",
+        "For `codex exec`, trust the hooks in an interactive session first, or pass " +
+          "--dangerously-bypass-hook-trust. On 0.147.0 an untrusted hook is skipped there " +
+          "with nothing printed at all, and openai/codex#32491 reports that a trusted one " +
+          "is skipped too.",
         "In a git worktree, Codex reads the main working tree's .codex/hooks.json and not " +
           "the worktree's own copy (openai/codex#27133). Install in the main checkout.",
       ],
