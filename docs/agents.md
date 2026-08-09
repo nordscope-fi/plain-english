@@ -130,16 +130,15 @@ trust_level = "trusted"
 `plain-english doctor` says so when the entry is missing, because the state is otherwise
 indistinguishable from a linter with nothing to say.
 
-**Hook trust decides whether it runs.** Start a session and use `/hooks` to review and
-trust the entries. Trust is recorded against the command string, so it is asked again
-whenever a new version of this package is pinned.
+**Hook trust decides whether it runs.** Starting an interactive session offers this
+straight away, with a "Trust all and continue" option, and `/hooks` does the same later.
+Trust is recorded against the command string, so it is asked again whenever a new version
+of this package is pinned.
 
-`codex exec` is a third trap. An untrusted hook is skipped there with nothing printed at
-all, where an interactive session at least offers `/hooks`. So trust the hooks in a
-session first, or pass `--dangerously-bypass-hook-trust`. Whether trusting them is enough
-is not settled: [openai/codex#32491](https://github.com/openai/codex/issues/32491) reports
-that `codex exec` skips project hooks it has already recorded as trusted. Hook trust
-cannot be persisted outside the interactive flow, so that case is untested here.
+Do that once before any `codex exec` run. Non-interactive mode has nobody to ask, so it
+skips an untrusted hook with nothing printed at all. Once trusted it runs them, verified
+on 0.147.0 for both `PreToolUse` and `UserPromptSubmit`. For a machine with no one at the
+keyboard, `--dangerously-bypass-hook-trust` skips the trust step instead.
 
 Inside a git worktree, Codex reads the **main** working tree's `.codex/hooks.json` and
 ignores the worktree's own copy. Install in the main checkout;
@@ -249,9 +248,14 @@ would mean inventing a write, and under `failOn: error` an invented write
 refuses somebody's edit. So on Codex a refusal can be routed around within the
 same turn, and this package does not pretend otherwise.
 
-**Two gates, neither of which announces itself.** Folder trust and hook trust,
-described above. In `codex exec` an untrusted hook is skipped with nothing
-printed, which is the documented behaviour arriving in the least visible way.
+**Two gates.** Folder trust says nothing at all when it stops a hook. Hook trust
+announces itself properly in an interactive session, and not at all in
+`codex exec`, which has nobody to ask.
+
+**A trusted hook does run in `codex exec`.**
+[openai/codex#32491](https://github.com/openai/codex/issues/32491) reports
+otherwise. On 0.147.0, with trust persisted and no bypass flag, both
+`PreToolUse` and `UserPromptSubmit` fired and both reported `Completed`.
 
 **Worktrees resolve to the wrong file.** With hooks installed in a linked
 worktree and not in the main checkout, `hooks/list` reports nothing at all.
@@ -373,12 +377,12 @@ hook events at all (`#20204`).
 Codex rejects the entire hook output on an unrecognised key, so a reply carrying
 `updatedInput`, `continue`, `stopReason` or `suppressOutput` loses the finding
 rather than having the field ignored.
-`codex exec` is reported to skip even trusted project hooks (`#32491`). That one
-is untested here: hook trust cannot be persisted outside the interactive flow.
-Project hooks are skipped with no prompt and no warning until the folder is
+Project hooks are skipped with no prompt and no warning until the **folder** is
 trusted (`#35306`), and inside a git worktree the path resolves to the main
 working tree (`#27133`). A denial message has the raw command or patch appended
-after the hook's reason (`#32573`). Those three were seen on 0.147.0.
+after the hook's reason (`#32573`). All three were seen on 0.147.0. Two others
+did not reproduce there: `deny` is enforced for `apply_patch` (`#27833`), and
+`codex exec` does dispatch hooks whose trust has been recorded (`#32491`).
 
 **Cursor.** `updated_input` is silently dropped for the Write tool, so a hook can
 refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.

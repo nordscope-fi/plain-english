@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+
+- The Codex install note on `codex exec` is now a measurement rather than a caution. 0.7.1 said the trusted case was untested here, because hook trust looked reachable only through a keyboard. It is reachable: one approval by hand showed where Codex keeps the answer, `[hooks.state."<key>"] trusted_hash = "sha256:…"`, and both halves come out of `hooks/list`. With trust persisted and no bypass flag, `codex exec` on 0.147.0 dispatched both `PreToolUse` and `UserPromptSubmit`, so openai/codex#32491 does not reproduce there. The note now says to trust the hooks once before any scripted run, which an interactive session offers at startup.
+- The same run corrected a claim in the other direction. `docs/agents.md` said hook trust is skipped with nothing shown; that is true of `codex exec`, which has nobody to ask, and false of an interactive session, which offers "Trust all and continue" at startup.
+
 ## [0.7.1] - 2026-08-09
 ### Fixed
 

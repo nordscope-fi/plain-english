@@ -226,13 +226,13 @@ export const codex: AgentProfile = {
         "Codex reads .codex/hooks.json only in a folder you have trusted. Start a session " +
           "here and answer yes, or add [projects.\"<absolute path>\"] trust_level = " +
           '"trusted" to ~/.codex/config.toml. Untrusted, it finds no hooks and says nothing.',
-        "Then trust the hooks themselves: start a session and run /hooks. Trust is recorded " +
-          "against the command string, so it is asked again whenever this package's version " +
-          "is pinned anew.",
-        "For `codex exec`, trust the hooks in an interactive session first, or pass " +
-          "--dangerously-bypass-hook-trust. On 0.147.0 an untrusted hook is skipped there " +
-          "with nothing printed at all, and openai/codex#32491 reports that a trusted one " +
-          "is skipped too.",
+        "Then trust the hooks themselves. Starting a session offers this at once: answer " +
+          "'Trust all and continue', or use /hooks. Trust is recorded against the command " +
+          "string, so it is asked again whenever this package's version is pinned anew.",
+        "Do that before any `codex exec` run. Non-interactive mode cannot offer the prompt " +
+          "and skips an untrusted hook with nothing printed. Once trusted it runs them, " +
+          "verified on 0.147.0. --dangerously-bypass-hook-trust skips the trust step " +
+          "entirely, for machines with no one to ask.",
         "In a git worktree, Codex reads the main working tree's .codex/hooks.json and not " +
           "the worktree's own copy (openai/codex#27133). Install in the main checkout.",
       ],
