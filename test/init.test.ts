@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { allAgents, init, mergeNested, spliceAgentsMd } from "../src/init.ts";
 import { byId } from "../src/agents/registry.ts";
@@ -418,5 +418,67 @@ describe("merging across versions", () => {
       { type: "command", command: "./ticket-gate.sh" },
     ]);
     expect(groups.find((g) => g.matcher === "Shell")).toBeDefined();
+  });
+});
+
+/**
+ * Copilot's CLI does not read `.github/hooks/`, although its own
+ * `copilot help config` says repo-level hooks live there. Confirmed against
+ * 1.0.78 with an identical hook firing from `~/.copilot/hooks/` and not from
+ * the repository, and reported as github/copilot-cli#1730.
+ *
+ * So `init` can write there, but only when asked. Everything else it writes
+ * lands in the project, where it is committed, reviewed and removed with the
+ * checkout. A file in somebody's home directory is none of those things.
+ */
+describe("init --user", () => {
+  const copilotPlan = (includeUser: boolean) =>
+    byId("copilot")!.plan({ prompts: {}, model: "m", includeUser });
+
+  it("writes nothing outside the repo by default", () => {
+    const scopes = copilotPlan(false).config.map((c) => c.scope ?? "repo");
+    expect(scopes).toEqual(["repo"]);
+  });
+
+  it("adds the location the CLI actually reads when asked", () => {
+    const config = copilotPlan(true).config;
+    expect(config.map((c) => c.scope ?? "repo")).toEqual(["repo", "user"]);
+    expect(config[1]!.path).toBe(".copilot/hooks/plain-english.json");
+    // Same entries in both, so the two copies cannot drift.
+    expect(JSON.stringify(config[1]!.entries)).toBe(JSON.stringify(config[0]!.entries));
+  });
+
+  it("no other agent asks for a file outside the repo, with or without the flag", () => {
+    for (const id of ["claude-code", "codex", "cursor"]) {
+      for (const includeUser of [false, true]) {
+        const scopes = byId(id)!
+          .plan({ prompts: {}, model: "m", includeUser })
+          .config.map((c) => c.scope ?? "repo");
+        expect(scopes.every((s) => s === "repo"), `${id} includeUser=${includeUser}`).toBe(true);
+      }
+    }
+  });
+
+  it("a plain init touches nothing under the home directory", () => {
+    // The guard on the whole feature: the default must stay inside the project.
+    init({ root, agents: allAgents() });
+    for (const w of ["copilot", "claude", "codex", "cursor"]) {
+      expect(existsSync(resolve(homedir(), `.${w}`, "hooks", "plain-english.json"))).toBe(false);
+    }
+  });
+
+  it("says where a user-scoped file went, as an absolute path", () => {
+    // `relative(root, ...)` would print a run of ../ that hides the location.
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((s: string) => (lines.push(s), true)) as typeof process.stdout.write;
+    try {
+      init({ root, agents: [byId("copilot")!], includeUser: true, dryRun: true });
+    } finally {
+      process.stdout.write = write;
+    }
+    const out = lines.join("");
+    expect(out).toContain(resolve(homedir(), ".copilot/hooks/plain-english.json"));
+    expect(out).not.toContain("../");
   });
 });

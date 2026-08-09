@@ -213,7 +213,20 @@ CLI ignores. It is still the right place for the **cloud** coding agent, which
 the documentation says reads it from the default branch and which was not
 tested here.
 
-Until that changes, install for the CLI by hand:
+Reported upstream as
+[github/copilot-cli#1730](https://github.com/github/copilot-cli/issues/1730),
+with a controlled run: one session, the same `sessionStart` hook in all three
+documented locations, and only the user-level one fires.
+
+Until it changes, ask `init` for the location the CLI reads:
+
+```bash
+npx plain-english init --agent copilot --user
+```
+
+`--user` is the only thing that makes `init` write outside the project, and it
+is opt-in for that reason. Without it you get the repository file, which is
+still correct for the cloud agent, plus the manual one-liner:
 
 ```bash
 mkdir -p ~/.copilot/hooks

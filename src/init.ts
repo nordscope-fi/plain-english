@@ -16,6 +16,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { compile, loadDefault } from "./rules.ts";
 import { renderAgentsFragment, renderPrompts, AGENTS_MD_START, AGENTS_MD_END } from "./render.ts";
@@ -220,12 +221,24 @@ export interface InitOptions {
   /** Profiles to wire up. Defaults to Claude Code, which is what init always did. */
   agents?: AgentProfile[];
   model?: string;
+  /**
+   * Also write files outside the repository, in the home directory.
+   *
+   * Off by default, and deliberately a separate decision. Everything else
+   * `init` writes lands in the project, where it is committed, reviewed and
+   * removed with the checkout. A user-level file is none of those things.
+   *
+   * Copilot needs it: its CLI does not read the repository location its own
+   * documentation gives (github/copilot-cli#1730).
+   */
+  includeUser?: boolean;
 }
 
 export function init(opts: InitOptions): number {
   const { root, dryRun = false } = opts;
   const model = opts.model ?? "claude-sonnet-5";
   const agents = opts.agents?.length ? opts.agents : [byId(DEFAULT_AGENT)!];
+  const includeUser = opts.includeUser ?? false;
   const set = compile(loadDefault());
   const prompts = renderPrompts(set);
   const configPath = resolve(root, ".plain-english.yml");
@@ -242,10 +255,13 @@ export function init(opts: InitOptions): number {
   const docs = new Map<string, Json>();
 
   for (const agent of agents) {
-    const plan = agent.plan({ prompts, model });
+    const plan = agent.plan({ prompts, model, includeUser });
 
     for (const file of plan.config) {
-      const path = resolve(root, file.path);
+      // A user-scoped path is anchored to the home directory rather than the
+      // project. Only a profile asked for one, and only when `includeUser`.
+      const path =
+        file.scope === "user" ? resolve(homedir(), file.path) : resolve(root, file.path);
       const existed = existsSync(path);
       if (!docs.has(path)) {
         let doc: Json = {};
@@ -264,8 +280,9 @@ export function init(opts: InitOptions): number {
       }
       const result = applyConfig(docs.get(path)!, file);
       docs.set(path, result.doc);
+      const shown = file.scope === "user" ? path : relative(root, path);
       planned.push(
-        `${existed ? "update" : "create"} ${relative(root, path)} ${file.at.join(".")}` +
+        `${existed ? "update" : "create"} ${shown} ${file.at.join(".")}` +
           ` (added: ${result.added.join(", ") || "none"};` +
           ` replaced: ${result.replaced.join(", ") || "none"};` +
           (result.orphaned.length ? ` removed stale: ${result.orphaned.join(", ")};` : "") +

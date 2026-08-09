@@ -4,6 +4,15 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- `init --agent copilot --user` writes `~/.copilot/hooks/plain-english.json`, which is the location Copilot's CLI actually reads. Its own `copilot help config` documents `.github/hooks/*.json` for repository hooks, and 1.0.78 does not load it: a controlled run with the same `sessionStart` hook in all three documented locations fires only the user-level one. Reported as github/copilot-cli#1730, where the newest comment had concluded the fault was the `sessionStart` event rather than the location; the same run shows `preToolUse` behaving identically.
+- `--user` is the only thing that makes `init` write outside the project, and it is opt-in for that reason. Everything else `init` writes is committed, reviewed and removed with the checkout, and a file in somebody's home directory is none of those. A test asserts a default `init` for every agent leaves the home directory alone, and the dry run prints a user-scoped path in full rather than as a run of `../`.
+
+### Fixed
+
+- The Copilot install note no longer says a shell redirect goes unchecked. That has been false since 0.6.0.
+
 ## [0.6.0] - 2026-08-09
 ### Added
 
