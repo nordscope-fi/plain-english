@@ -108,12 +108,21 @@ describe("it stays linear", () => {
     }
   });
 
-  it("scales linearly rather than quadratically", () => {
+  it("scales linearly and not quadratically", () => {
     const build = (n: number) => "cat > x.md <<EOF\n" + "some line of text\n".repeat(n);
+    // Best of five, not one. A scheduling pause or a collection can only make a
+    // run slower, so the fastest of several is the closest reading of what the
+    // work costs. One sample each put this at 3.3ms against 38.9ms on a shared
+    // Windows runner, a ratio of 11.8 for code that is linear.
     const time = (n: number) => {
-      const s = performance.now();
-      shellFileWrites(build(n));
-      return performance.now() - s;
+      const input = build(n);
+      let best = Infinity;
+      for (let i = 0; i < 5; i += 1) {
+        const s = performance.now();
+        shellFileWrites(input);
+        best = Math.min(best, performance.now() - s);
+      }
+      return best;
     };
     time(20_000); // warm
     const small = Math.max(time(20_000), 0.5);
