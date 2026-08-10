@@ -62,7 +62,7 @@ Files skipped entirely: `docs/writing-style.md`, `docs/limitations.md`, `CHANGEL
 
 ## Waivers in the tree
 
-No file waives a rule. 14 files were read.
+No file waives a rule.
 
 ## What nothing here can reach
 

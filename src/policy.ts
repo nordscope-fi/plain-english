@@ -41,12 +41,30 @@ export interface DetectedAgent {
   problems: string[];
 }
 
-/** Everything the document needs that is not in the ruleset. */
+/**
+ * Everything the document needs that is not in the ruleset.
+ *
+ * Deliberately not here: how many files were read. That number counts
+ * everything on disk, including files git ignores, so a scratch note in one
+ * person's working tree made the document differ from the same document
+ * generated in a fresh checkout, and `--check` failed in CI for a file CI could
+ * not see. Any figure this document prints has to be a property of the
+ * repository rather than of somebody's working directory.
+ */
 export interface PolicyScan {
-  /** How many markdown files were read. */
-  files: number;
   waivers: Waiver[];
   agents: DetectedAgent[];
+}
+
+/**
+ * A repository-relative path as this module keys them.
+ *
+ * Windows `relative` returns backslashes, so a caller comparing its own path
+ * against a scan result has to agree on one spelling. Exported because the CLI
+ * builds the skip list for the policy document itself.
+ */
+export function toPosix(path: string): string {
+  return path.split("\\").join("/");
 }
 
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
@@ -114,13 +132,11 @@ export interface ScanOptions {
 export function scanRepo(root: string, set: RuleSet, options: ScanOptions = {}): PolicyScan {
   const waivers: Waiver[] = [];
   const skip = new Set(options.skip ?? []);
-  let files = 0;
 
   for (const file of walk(resolve(root))) {
-    const rel = relative(root, file).split("\\").join("/");
+    const rel = toPosix(relative(root, file));
     if (skip.has(rel)) continue;
     if (set.exclude.length && matchesAny(rel, set.exclude)) continue;
-    files++;
 
     let text: string;
     try {
@@ -136,7 +152,7 @@ export function scanRepo(root: string, set: RuleSet, options: ScanOptions = {}):
   }
 
   waivers.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line);
-  return { files, waivers, agents: detectAgents(root) };
+  return { waivers, agents: detectAgents(root) };
 }
 
 /** What a finding actually causes, in the words of the setting that causes it. */
@@ -271,13 +287,14 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   const explained = scan.waivers.filter((w) => w.reason);
   const silent = scan.waivers.filter((w) => !w.reason);
   if (!scan.waivers.length) {
-    out.push(`No file waives a rule. ${scan.files} files were read.`, "");
+    out.push("No file waives a rule.", "");
   } else {
+    const spread = new Set(scan.waivers.map((w) => w.path)).size;
     const count = `${scan.waivers.length} ${plural(scan.waivers.length, "waiver")}`;
     const quiet = silent.length
       ? `, and ${silent.length} of them ${silent.length === 1 ? "says" : "say"} nothing about why`
       : ", and every one of them says why";
-    out.push(`${count} across ${scan.files} files${quiet}.`, "");
+    out.push(`${count} in ${spread} ${plural(spread, "file")}${quiet}.`, "");
     if (explained.length) {
       out.push("| Where | Scope | Rules | Reason |");
       out.push("|---|---|---|---|");

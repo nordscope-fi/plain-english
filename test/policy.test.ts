@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
-import { renderPolicy, scanRepo, type PolicyScan } from "../src/policy.ts";
+import { renderPolicy, scanRepo, toPosix, type PolicyScan } from "../src/policy.ts";
 
 /**
  * The policy document restates the config for people rather than for the
@@ -13,7 +13,7 @@ import { renderPolicy, scanRepo, type PolicyScan } from "../src/policy.ts";
  */
 
 function emptyScan(): PolicyScan {
-  return { files: 0, waivers: [], agents: [] };
+  return { waivers: [], agents: [] };
 }
 
 function defaults(): RuleSet {
@@ -77,7 +77,6 @@ describe("local deviations", () => {
 
 describe("waivers in the tree", () => {
   const scan: PolicyScan = {
-    files: 2,
     agents: [],
     waivers: [
       {
@@ -191,8 +190,18 @@ describe("scanning a repository", () => {
     expect(scan.waivers.map((w) => w.path)).not.toContain("docs/howto.md");
   });
 
-  it("counts the files it read", () => {
-    expect(scanRepo(fixture(), defaults()).files).toBe(3);
+  /**
+   * The document once printed how many files were read. That number counts
+   * everything on disk, git-ignored files included, so a scratch note in one
+   * person's working tree made the same repository generate two different
+   * documents, and `--check` failed in CI for a file CI could not see.
+   */
+  it("does not change when an untracked file appears beside it", () => {
+    const root = fixture();
+    const before = renderPolicy(defaults(), scanRepo(root, defaults()));
+    writeFileSync(resolve(root, "docs", "scratch.md"), "A note to myself.\n");
+
+    expect(renderPolicy(defaults(), scanRepo(root, defaults()))).toBe(before);
   });
 
   /**
@@ -287,5 +296,21 @@ describe("the policy command", () => {
 
     expect(run(root, ["policy", "--out", "POLICY.md"]).code).toBe(0);
     expect(existsSync(resolve(root, "POLICY.md"))).toBe(true);
+  });
+});
+
+/**
+ * Path spelling. `relative` returns backslashes on Windows, and the scan keys
+ * every waiver on forward slashes, so the skip list for the policy document
+ * matched nothing there and `--check` could never settle. The Linux run cannot
+ * see this, which is why it is asserted directly.
+ */
+describe("repository-relative paths agree on one spelling", () => {
+  it("folds a Windows path to the form the scan uses", () => {
+    expect(toPosix("docs\\ai-writing-policy.md")).toBe("docs/ai-writing-policy.md");
+  });
+
+  it("leaves a posix path alone", () => {
+    expect(toPosix("docs/ai-writing-policy.md")).toBe("docs/ai-writing-policy.md");
   });
 });

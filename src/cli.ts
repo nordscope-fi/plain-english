@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { renderAll, writeTargets } from "./render.ts";
-import { renderPolicy, scanRepo } from "./policy.ts";
+import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
   decide,
   isChannel,
@@ -273,8 +273,10 @@ function cmdPolicy(args: Args): number {
   const set = resolveRuleSet(root);
   const where = relative(root, out) || out;
   // The document waives every rule, so counting it would grow the report by one
-  // waiver on every run and `--check` would never settle.
-  const content = renderPolicy(set, scanRepo(root, set, { skip: [where] }));
+  // waiver on every run and `--check` would never settle. `scanRepo` keys on
+  // forward slashes, and `relative` gives backslashes on Windows, so the skip
+  // has to be normalised or it matches nothing there.
+  const content = renderPolicy(set, scanRepo(root, set, { skip: [toPosix(where)] }));
 
   if (args.flags["check"]) {
     if (!existsSync(out)) {
