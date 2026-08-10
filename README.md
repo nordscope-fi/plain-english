@@ -273,7 +273,7 @@ before a commit is made. If your repo already uses it, add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.7.3
+    rev: v0.8.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -282,7 +282,7 @@ repos:
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.7.3
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.8.0
   with:
     paths: docs README.md    # default: .
     fail-on: warn            # default: error

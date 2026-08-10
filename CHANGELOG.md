@@ -3,6 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.8.0] - 2026-08-10
 ### Added
 
 - Suppression directives take a reason after a colon, and `unexplained-suppression` warns on one that does not. `<!-- plain-english-disable leverage: finance sense -->`. A waiver used to record that somebody silenced a rule and nothing about why, so the next reader could not tell a considered exception from a rule somebody found annoying. The rule is the one rule an in-file directive cannot silence: `disable-file` covers the whole document, so a reasonless `disable-file` would be the single waiver nothing could report. It is turned off in config, or by an `allow` pattern on the line, and by nothing else.
@@ -224,7 +226,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.8.0
 [0.7.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.3
 [0.7.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.2
 [0.7.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.1
