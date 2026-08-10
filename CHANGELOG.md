@@ -3,6 +3,16 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+- Suppression directives take a reason after a colon, and `unexplained-suppression` warns on one that does not. `<!-- plain-english-disable leverage: finance sense -->`. A waiver used to record that somebody silenced a rule and nothing about why, so the next reader could not tell a considered exception from a rule somebody found annoying. The rule is the one rule an in-file directive cannot silence: `disable-file` covers the whole document, so a reasonless `disable-file` would be the single waiver nothing could report. It is turned off in config, or by an `allow` pattern on the line, and by nothing else.
+- `reason:` on a rule or readability override in `.plain-english.yml`. A config override silences a rule in every file, which is broader than any comment, and until now recorded even less about why. Nothing validates the text; `plain-english policy` prints it next to the change.
+- `plain-english policy` writes `docs/ai-writing-policy.md` from the merged config: what the project's `failOn` actually does, which agent hooks are on disk, the rules at the configured severities, what the project changed and why, and every waiver in the tree with its stated reason. Waivers with no reason get their own heading. The last section is what nothing in the setup reaches, which is the part a hand-written policy always omits. `--check` exits 1 when the document no longer matches the config and names the sections that moved. This repository generates its own and checks it in CI.
+
+### Fixed
+
+- A `readability` override in a project config demanded `kind`, so the example printed in the README was a hard error and a repository that added its own vocabulary could not lint at all. `rules` never had this problem: a missing `match` is an error only when the id is new to the base. `readability` now behaves the same way, and `rules/schema.json` had described it correctly since it was written.
+
 
 ## [0.7.3] - 2026-08-10
 ### Fixed

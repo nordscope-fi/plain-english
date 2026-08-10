@@ -129,6 +129,27 @@ Two limits are worth stating up front. It is a prompt, so nothing measures compl
 
 Everything else runs before the write lands.
 
+## 8. Generate the policy document, and put it in CI
+
+Once the config is tuned, write down what the team agreed to:
+
+```bash
+npx plain-english policy
+```
+
+That writes `docs/ai-writing-policy.md` from your merged config. What your `failOn` actually does, which agent hooks are on disk, the rules at your severities, everything you changed in step 3, and every waiver in the tree with its reason. It also states what none of it reaches, which is the part people assume is covered.
+
+Add `npx plain-english policy --check` beside your other checks. It exits 1 when the document no longer matches the config and names the sections that moved, so a rule somebody turned off in a hurry cannot stay out of the policy.
+
+Two things make the document worth reading rather than filing. The waivers with no stated reason get their own heading, so the count is visible and can be worked down. And the deviations section prints the `reason:` you wrote next to each rule you changed, so nobody has to guess later:
+
+```yaml
+rules:
+  - id: load-bearing
+    severity: off
+    reason: structural engineering, the term is literal here
+```
+
 ## Common problems
 
 **The whole repo lights up on the first run.** Expected. Work through step 2 before changing any rule severity, since most of it is usually two or three files that quote the list.

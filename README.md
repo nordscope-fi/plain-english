@@ -87,14 +87,22 @@ produce nothing at all.
 **You can escape a finding at five scopes**, narrowest first:
 
 ```markdown
-<!-- plain-english-disable-next-line leverage -->   one line, one rule
-<!-- plain-english-disable leverage -->             a range, until
+<!-- plain-english-disable-next-line leverage: finance sense -->   one line, one rule
+<!-- plain-english-disable leverage: finance sense -->             a range, until
 <!-- plain-english-enable -->
-<!-- plain-english-disable-file -->                 the whole file
+<!-- plain-english-disable-file: reference material -->            the whole file
 ```
 
 Plus an `exclude` list of file patterns and a severity downgrade in config. Every one of
 these came from a false positive in the version this replaces.
+
+The text after the colon is the reason. Leaving it out is itself a finding:
+`unexplained-suppression` warns on a waiver that does not say why. The next person to
+read it cannot tell a considered exception from a rule somebody found annoying.
+
+It is the one rule an in-file directive cannot silence. `disable-file` covers the whole
+document, so a reasonless `disable-file` would be the single waiver nothing could
+report. Turn it off in config if you do not want it.
 
 ## The rules
 
@@ -213,6 +221,31 @@ work regardless:
   reach it as `path:line:col` text, or as SARIF.
   [`docs/editors.md`](docs/editors.md) covers both.
 
+### The policy document
+
+A team adopting a linter usually writes a page saying what the rules are and what
+happens when one fires, then lets it drift from the config. `plain-english policy`
+generates that page instead:
+
+```bash
+npx plain-english policy              # writes docs/ai-writing-policy.md
+npx plain-english policy --check      # exits 1 when it no longer matches, and says
+                                      # which sections moved
+```
+
+It reads the merged config rather than the shipped ruleset, so it describes what your
+repository actually does. The effect of your `failOn`. Which agent hooks are on disk
+right now. The rules in force at your severities, what you changed and why, and every
+waiver in the tree with its stated reason.
+
+Waivers that give no reason get their own heading, which turns them into a number that
+should be going down.
+
+The last section is the one a hand-written policy always leaves out: what nothing in
+the setup can reach. Chat replies, subagents, and the sentence shapes on any agent
+with no prompt hook. [`docs/ai-writing-policy.md`](docs/ai-writing-policy.md) is this
+repository's own, generated the same way and checked in CI.
+
 ### The Claude Code output style
 
 Hooks sit on tool calls. A chat reply is not a tool call, so nothing can gate one. What
@@ -286,6 +319,7 @@ rules:                      # adjust without copying the file
     severity: warn
   - id: load-bearing
     severity: off
+    reason: structural engineering, the term is literal here
   - id: leverage
     unless:                 # add a domain exception
       - "\\bleverage\\s+ratio\\b"
@@ -296,6 +330,10 @@ readability:
       - RevOps
       - ARR
 ```
+
+`reason` is optional and nothing validates it. Turning a rule off in config silences it
+in every file, which is broader than any comment, so `plain-english policy` prints the
+reason next to the change.
 
 `allow` and `known` are separate on purpose. `allow` silences every rule on any line it
 matches, so putting a name there would also hide an em dash on the same line. `known`

@@ -59,14 +59,31 @@ export interface LintOptions {
 /** Default document-wide match budget. */
 export const DEFAULT_BUDGET_MS = 2000;
 
-/** `<!-- plain-english-disable-next-line rule-id, other-rule -->` */
-const SUPPRESS_NEXT =
-  /<!--\s*plain-english-disable-next-line(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
-/** `<!-- plain-english-disable-file -->` anywhere in the document. */
-const SUPPRESS_FILE = /<!--\s*plain-english-disable-file\s*-->/i;
-/** `<!-- plain-english-disable rule-a, rule-b -->` starts a suppressed range. */
-const SUPPRESS_RANGE_OFF = /<!--\s*plain-english-disable(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
-/** `<!-- plain-english-enable -->` ends it. */
+/**
+ * Every directive may end in `: why this was waived`.
+ *
+ * Without this group a colon made the whole comment fail to match, so a writer
+ * who explained a waiver silently lost the waiver. `[^>]` cannot run past the
+ * terminator, so the reason stops where the comment does.
+ */
+const REASON = "(?:\\s*:\\s*([^>]*?))?";
+
+/** `<!-- plain-english-disable-next-line rule-id, other-rule: why -->` */
+const SUPPRESS_NEXT = new RegExp(
+  `<!--\\s*plain-english-disable-next-line(?:\\s+([a-z0-9,\\s-]+?))?${REASON}\\s*-->`,
+  "i",
+);
+/** `<!-- plain-english-disable-file: why -->` anywhere in the document. */
+const SUPPRESS_FILE = new RegExp(
+  `<!--\\s*plain-english-disable-file${REASON}\\s*-->`,
+  "i",
+);
+/** `<!-- plain-english-disable rule-a, rule-b: why -->` starts a suppressed range. */
+const SUPPRESS_RANGE_OFF = new RegExp(
+  `<!--\\s*plain-english-disable(?:\\s+([a-z0-9,\\s-]+?))?${REASON}\\s*-->`,
+  "i",
+);
+/** `<!-- plain-english-enable -->` ends it. It opens nothing, so it takes no reason. */
 const SUPPRESS_RANGE_ON = /<!--\s*plain-english-enable(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
 
 function lineIndex(text: string): number[] {
@@ -197,8 +214,20 @@ export function lintText(
   const sourceLines = text.split("\n");
   const maskedLines = normalised.split("\n");
 
+  // Waivers are judged before anything is allowed to waive them. The early
+  // return below runs no rule at all, so a reasonless `disable-file` is
+  // reported here or nowhere.
+  if (allowInlineSuppression) {
+    findings.push(...unexplainedSuppressions(text, directiveView, ruleSet, sourceLines));
+  }
+
   if (allowInlineSuppression && SUPPRESS_FILE.test(directiveView)) {
-    return { findings, errorCount: 0, warnCount: 0, timedOut };
+    return {
+      findings,
+      errorCount: findings.filter((f) => f.severity === "error").length,
+      warnCount: findings.filter((f) => f.severity === "warn").length,
+      timedOut,
+    };
   }
 
   const suppressed = allowInlineSuppression
@@ -295,6 +324,122 @@ export function lintText(
     warnCount: findings.filter((f) => f.severity === "warn").length,
     timedOut,
   };
+}
+
+/** How much of the document one directive waives. */
+export type WaiverScope = "line" | "range" | "file";
+
+/** One suppression directive, as written. */
+export interface Directive {
+  scope: WaiverScope;
+  /** The rules it silences. Empty means every rule. */
+  ids: string[];
+  /** The text after the colon, absent when the author wrote none. */
+  reason?: string;
+  /** 1-based, in the source. */
+  line: number;
+  column: number;
+  /** The comment itself, quoted back. */
+  text: string;
+}
+
+/**
+ * The directive forms that open a waiver, with the group holding their reason.
+ *
+ * `plain-english-enable` is absent on purpose: it closes a range rather than
+ * opening one, so there is nothing for it to justify. Order matters, because
+ * the three patterns share a prefix and the most specific has to be tried
+ * first.
+ */
+const OPENERS: Array<{ re: RegExp; scope: WaiverScope; idGroup: number; reason: number }> = [
+  { re: SUPPRESS_NEXT, scope: "line", idGroup: 1, reason: 2 },
+  { re: SUPPRESS_FILE, scope: "file", idGroup: 0, reason: 1 },
+  { re: SUPPRESS_RANGE_OFF, scope: "range", idGroup: 1, reason: 2 },
+];
+
+/**
+ * Every waiver in a document, read the same way the engine reads them.
+ *
+ * The policy report and the rule that judges reasons both call this, so a
+ * waiver counted in one place cannot be missed in the other. Directives are
+ * read from the fence-masked view, so the syntax quoted inside a code block by
+ * any document explaining it is not itself a waiver.
+ *
+ * Pass `view` when the caller already has that mask. Building it parses the
+ * markdown, and `lintText` needs it for its own reasons a few lines earlier.
+ */
+export function directivesIn(text: string, view = maskNonProse(text)): Directive[] {
+  const out: Directive[] = [];
+
+  view.split("\n").forEach((line, i) => {
+    for (const opener of OPENERS) {
+      const m = opener.re.exec(line);
+      if (!m) continue;
+      const reason = (m[opener.reason] ?? "").trim();
+      const directive: Directive = {
+        scope: opener.scope,
+        ids: opener.idGroup
+          ? (m[opener.idGroup] ?? "")
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        line: i + 1,
+        column: m.index + 1,
+        text: m[0],
+      };
+      // An empty reason is no reason. `disable-file:` with nothing after it
+      // reads as an author who started to explain and did not finish.
+      if (reason) directive.reason = reason;
+      out.push(directive);
+      return;
+    }
+  });
+
+  return out;
+}
+
+/**
+ * Waivers that do not say why.
+ *
+ * This is the one rule that ignores the in-file suppression map, and it has to.
+ * `disable-file` silences every rule in the document, so a reasonless
+ * `disable-file` would be the single waiver nothing could ever report. The same
+ * shape once made the generated style guide disable itself and lose every
+ * finding without a word. Two things still silence it: `severity: off` in
+ * config, and an `allow` pattern matching the line.
+ */
+function unexplainedSuppressions(
+  text: string,
+  directiveView: string,
+  ruleSet: RuleSet,
+  sourceLines: string[],
+): Finding[] {
+  const rule = (ruleSet.readability ?? []).find(
+    (r) => r.kind === "unexplained-suppression",
+  );
+  if (!rule || rule.severity === "off") return [];
+  const severity = rule.severity;
+
+  const findings: Finding[] = [];
+  for (const d of directivesIn(text, directiveView)) {
+    if (d.reason) continue;
+    const sourceLine = sourceLines[d.line - 1] ?? "";
+    if (ruleSet.allowRe?.some((re) => re.test(sourceLine))) continue;
+
+    const finding: Finding = {
+      ruleId: rule.id,
+      severity,
+      match: d.text,
+      line: d.line,
+      column: d.column,
+      lineText: sourceLine,
+    };
+    if (rule.message) finding.message = rule.message;
+    if (rule.link) finding.link = rule.link;
+    findings.push(finding);
+  }
+  return findings;
 }
 
 /**

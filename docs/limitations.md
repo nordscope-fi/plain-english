@@ -1,4 +1,4 @@
-<!-- plain-english-disable-file -->
+<!-- plain-english-disable-file: quotes the register this tool flags, at length -->
 
 # Limitations
 

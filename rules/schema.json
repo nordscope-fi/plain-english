@@ -51,7 +51,7 @@
           },
           "kind": {
             "description": "Required on a new rule. Omit only when the entry overrides an inherited one.",
-            "enum": ["unglossed-term", "long-sentence"]
+            "enum": ["unglossed-term", "long-sentence", "unexplained-suppression"]
           },
           "maxWords": {
             "description": "long-sentence only: the word count above which the rule fires.",
@@ -64,7 +64,8 @@
             "items": { "type": "string" }
           },
           "message": { "type": "string" },
-          "link": { "$ref": "#/$defs/link" }
+          "link": { "$ref": "#/$defs/link" },
+          "reason": { "$ref": "#/$defs/reason" }
         }
       }
     },
@@ -121,7 +122,8 @@
             "type": "number",
             "exclusiveMinimum": 0
           },
-          "link": { "$ref": "#/$defs/link" }
+          "link": { "$ref": "#/$defs/link" },
+          "reason": { "$ref": "#/$defs/reason" }
         }
       }
     },
@@ -129,6 +131,11 @@
       "description": "Where the finding sends the reader for the reasoning behind the rule.",
       "type": "string",
       "format": "uri"
+    },
+    "reason": {
+      "description": "Why this project changed the rule. Set in a project config, never in the shipped ruleset. Printed next to the change in the generated policy document.",
+      "type": "string",
+      "minLength": 1
     }
   }
 }

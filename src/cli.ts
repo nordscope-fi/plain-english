@@ -7,12 +7,13 @@
  * CI, from a terminal, and from a Claude Code hook.
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { extname, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { renderAll, writeTargets } from "./render.ts";
+import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
   decide,
   isChannel,
@@ -256,6 +257,87 @@ function cmdRender(args: Args): number {
 }
 
 /**
+ * The policy document for the repository this runs in.
+ *
+ * Distinct from `render`, which regenerates this package's own artifacts from
+ * the shipped ruleset. `policy` describes a consumer's *effective* config,
+ * including what they changed and every waiver in their tree, so it reads the
+ * merged ruleset and the working directory rather than `rules/default.yml`.
+ *
+ * `--check` exists for the same reason `render --check` does: a policy that no
+ * longer matches the config is worse than none, because people trust it.
+ */
+function cmdPolicy(args: Args): number {
+  const root = resolve(String(args.flags["root"] ?? process.cwd()));
+  const out = resolve(root, String(args.flags["out"] ?? "docs/ai-writing-policy.md"));
+  const set = resolveRuleSet(root);
+  const where = relative(root, out) || out;
+  // The document waives every rule, so counting it would grow the report by one
+  // waiver on every run and `--check` would never settle. `scanRepo` keys on
+  // forward slashes, and `relative` gives backslashes on Windows, so the skip
+  // has to be normalised or it matches nothing there.
+  const content = renderPolicy(set, scanRepo(root, set, { skip: [toPosix(where)] }));
+
+  if (args.flags["check"]) {
+    if (!existsSync(out)) {
+      process.stderr.write(
+        `plain-english: ${where} does not exist. Run \`plain-english policy\`.\n`,
+      );
+      return 1;
+    }
+    const current = readFileSync(out, "utf8");
+    if (current !== content) {
+      process.stderr.write(
+        `plain-english: ${where} is stale. Run \`plain-english policy\`.\n` +
+          summariseDrift(current, content),
+      );
+      return 1;
+    }
+    process.stdout.write(`${where} is up to date\n`);
+    return 0;
+  }
+
+  mkdirSync(dirname(out), { recursive: true });
+  if (existsSync(out) && readFileSync(out, "utf8") === content) {
+    process.stdout.write("no changes\n");
+    return 0;
+  }
+  writeFileSync(out, content);
+  process.stdout.write(`wrote ${where}\n`);
+  return 0;
+}
+
+/**
+ * Which headed sections differ, so `--check` says what moved.
+ *
+ * A whole-file diff in a build log is unreadable and a bare "stale" tells the
+ * reader nothing about whether a rule changed or a waiver was added.
+ */
+function summariseDrift(current: string, fresh: string): string {
+  const sections = (text: string): Map<string, string> => {
+    const map = new Map<string, string>();
+    let heading = "(header)";
+    let body: string[] = [];
+    for (const line of text.split("\n")) {
+      if (line.startsWith("## ")) {
+        map.set(heading, body.join("\n"));
+        heading = line.slice(3);
+        body = [];
+      } else body.push(line);
+    }
+    map.set(heading, body.join("\n"));
+    return map;
+  };
+
+  const a = sections(current);
+  const b = sections(fresh);
+  const names = [...new Set([...a.keys(), ...b.keys()])];
+  const moved = names.filter((n) => a.get(n) !== b.get(n));
+  if (!moved.length) return "";
+  return moved.map((n) => `  changed: ${n}\n`).join("");
+}
+
+/**
  * `explain` covers all three collections.
  *
  * It used to iterate `set.rules` alone, which left the nine sentence shapes and
@@ -408,6 +490,7 @@ const USAGE = `plain-english - catch AI writing tells before they land
 USAGE
   plain-english lint [PATH...]       lint files or directories (default: stdin)
   plain-english render               regenerate docs/ and prompt templates
+  plain-english policy               write this repo's AI writing policy
   plain-english explain [RULE]       show a rule, or list them all
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
@@ -421,6 +504,13 @@ LINT OPTIONS
 
 RENDER OPTIONS
   --check                            exit 1 if generated files are stale
+  --root PATH                        repo root (default: cwd)
+
+POLICY OPTIONS
+  --out PATH                         where to write it
+                                     (default: docs/ai-writing-policy.md)
+  --check                            exit 1 if the policy is stale, naming
+                                     which sections moved
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS
@@ -587,6 +677,8 @@ async function main(): Promise<number> {
         return await cmdLint(args);
       case "render":
         return cmdRender(args);
+      case "policy":
+        return cmdPolicy(args);
       case "explain":
         return cmdExplain(args);
       case "doctor":

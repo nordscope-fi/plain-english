@@ -364,6 +364,20 @@ readability:
     message: "Split this. One idea per sentence."
     link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
 
+  # A waiver records that somebody silenced a rule, and nothing about why. The
+  # reader who meets it later cannot tell a considered exception from a rule
+  # somebody found annoying, so the waiver cannot be reviewed or removed.
+  #
+  # This one rule ignores in-file suppression. It has to: `disable-file`
+  # silences every rule in the document, so a reasonless `disable-file` would be
+  # the single waiver that could never be reported. It is turned off in config,
+  # or by an `allow` pattern matching the line, and by nothing else.
+  - id: unexplained-suppression
+    severity: warn
+    kind: unexplained-suppression
+    message: "Say why after a colon: `disable leverage: finance sense`."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#suppressions"
+
 # Sentence shapes a regex cannot reach. These are checked by the semantic layer
 # only. `render` copies them into the generated prompt text and into the docs.
 structures:
