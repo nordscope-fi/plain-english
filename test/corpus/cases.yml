@@ -532,34 +532,34 @@ cases:
   - name: "disable-next-line suppresses the named rule"
     expect: pass
     text: |
-      <!-- plain-english-disable-next-line leverage -->
+      <!-- plain-english-disable-next-line leverage: caching sense, not the verb -->
       We leverage the existing cache here on purpose.
 
   - name: "disable-next-line does not suppress a different rule"
     expect: block
     rule: furthermore
     text: |
-      <!-- plain-english-disable-next-line leverage -->
+      <!-- plain-english-disable-next-line leverage: caching sense -->
       Furthermore, we leverage the cache.
 
   - name: "disable-next-line with no rule id suppresses the whole line"
     expect: pass
     text: |
-      <!-- plain-english-disable-next-line -->
+      <!-- plain-english-disable-next-line: quoting a vendor release note -->
       Furthermore, we leverage a seamless paradigm shift.
 
   - name: "disable-next-line only reaches the next line"
     expect: block
     rule: leverage
     text: |
-      <!-- plain-english-disable-next-line leverage -->
+      <!-- plain-english-disable-next-line leverage: caching sense -->
       We leverage the cache here on purpose.
       We leverage it again here by mistake.
 
   - name: "a disable range suppresses until enable"
     expect: pass
     text: |
-      <!-- plain-english-disable -->
+      <!-- plain-english-disable: quoting a vendor release note verbatim -->
 
       Furthermore, we leverage a seamless paradigm shift.
 
@@ -569,7 +569,7 @@ cases:
     expect: block
     rule: furthermore
     text: |
-      <!-- plain-english-disable -->
+      <!-- plain-english-disable: caching sense -->
 
       We leverage this on purpose.
 
@@ -581,7 +581,7 @@ cases:
     expect: block
     rule: furthermore
     text: |
-      <!-- plain-english-disable leverage -->
+      <!-- plain-english-disable leverage: caching sense -->
 
       Furthermore, we leverage the cache.
 
@@ -590,7 +590,7 @@ cases:
   - name: "an unclosed disable range runs to the end of the document"
     expect: pass
     text: |
-      <!-- plain-english-disable -->
+      <!-- plain-english-disable: quoting a vendor release note verbatim -->
 
       Furthermore, we leverage a seamless paradigm shift.
 
@@ -611,7 +611,7 @@ cases:
   - name: "disable-file suppresses everything"
     expect: pass
     text: |
-      <!-- plain-english-disable-file -->
+      <!-- plain-english-disable-file: reference material, lists every banned term -->
 
       Furthermore, we leverage a seamless paradigm shift.
 
@@ -638,6 +638,34 @@ cases:
       ```
 
       We leverage the cache downstream.
+
+  # A waiver has to say why. The rule that asks for it is the one rule an
+  # in-file directive cannot silence, because `disable-file` would otherwise
+  # cover the reasonless `disable-file` reporting it.
+
+  - name: "a waiver with no reason warns"
+    expect: pass
+    warns: [unexplained-suppression]
+    text: |
+      <!-- plain-english-disable-next-line leverage -->
+      We leverage the cache here.
+
+  - name: "a reasonless disable-file is still reported"
+    expect: pass
+    warns: [unexplained-suppression]
+    text: |
+      <!-- plain-english-disable-file -->
+
+      Furthermore, we leverage a seamless paradigm shift.
+
+  - name: "enable closes a range and needs no reason"
+    expect: pass
+    text: |
+      <!-- plain-english-disable: quoting a vendor release note verbatim -->
+
+      Furthermore, we leverage a seamless paradigm shift.
+
+      <!-- plain-english-enable -->
 
   # ==========================================================================
   # Readability. These measure prose shape rather than matching a term.
@@ -712,7 +740,7 @@ cases:
   - name: "readability findings can be suppressed by rule id"
     expect: pass
     text: |
-      <!-- plain-english-disable-next-line unglossed-term -->
+      <!-- plain-english-disable-next-line unglossed-term: glossed two paragraphs up -->
       The OIDC publisher handles this.
 
   # A term that arrives with its explanation has already done what the rule

@@ -349,3 +349,53 @@ describe("the adapter's own patterns are screened", () => {
     ]);
   });
 });
+
+/**
+ * A project config is an overlay, not a second copy of the ruleset.
+ *
+ * `readability` demanded `kind` on every entry, including an override of a rule
+ * the base already defines. That made the example printed in the README a hard
+ * error, and a repo that added its own vocabulary could not lint at all. The
+ * `rules` list never had this problem: a missing `match` is an error only when
+ * the id is new.
+ */
+describe("a readability override does not restate the rule", () => {
+  async function load(body: string): Promise<import("../src/rules.ts").RuleSet> {
+    const { loadConfig } = await import("../src/rules.ts");
+    const { writeFileSync, mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { resolve: join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "pe-overlay-"));
+    const path = join(dir, ".plain-english.yml");
+    writeFileSync(path, body);
+    return loadConfig(path);
+  }
+
+  it("adds vocabulary without naming a kind", async () => {
+    const set = await load(
+      "version: 1\nextends: default\nreadability:\n  - id: unglossed-term\n    known:\n      - RevOps\n",
+    );
+    const rule = set.readability.find((r) => r.id === "unglossed-term");
+
+    expect(rule?.kind).toBe("unglossed-term");
+    expect(rule?.known).toContain("RevOps");
+    // Additive, so the shipped names survive.
+    expect(rule?.known).toContain("JSON");
+  });
+
+  it("turns a rule off without naming a kind or a maxWords", async () => {
+    const set = await load(
+      "version: 1\nextends: default\nreadability:\n  - id: long-sentence\n    severity: off\n",
+    );
+    const rule = set.readability.find((r) => r.id === "long-sentence");
+
+    expect(rule?.severity).toBe("off");
+    expect(rule?.maxWords).toBe(35);
+  });
+
+  it("still refuses a readability rule that is new and undefined", async () => {
+    await expect(
+      load("version: 1\nextends: default\nreadability:\n  - id: invented\n    severity: warn\n"),
+    ).rejects.toThrow(/'invented' is new to this config and needs a 'kind'/);
+  });
+});

@@ -80,6 +80,10 @@ jobs:
             echo "::error::rules/default.yml changed but generated files were not committed. Run 'npm run render'."
             exit 1
           fi
+        # The policy document is generated from the merged config rather than
+        # from the shipped ruleset, so it drifts on a config change that
+        # `render` does not see.
+      - run: npm run policy:check
 
   dogfood:
     name: Repo lints itself

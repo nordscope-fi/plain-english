@@ -62,6 +62,8 @@
     "build": "tsc -p tsconfig.json",
     "render": "node dist/cli.js render",
     "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md",
+    "policy": "node dist/cli.js policy",
+    "policy:check": "node dist/cli.js policy --check",
     "check:refs": "bash scripts/check-no-private-refs.sh",
     "check:refs:history": "bash scripts/check-no-private-refs.sh --history",
     "version": "node scripts/date-changelog.mjs",

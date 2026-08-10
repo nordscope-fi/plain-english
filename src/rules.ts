@@ -23,6 +23,15 @@ export interface Rule {
   /** URL explaining why the rule exists. Vale calls this `link`. */
   link?: string;
   /**
+   * Why this project changed the rule.
+   *
+   * Set in `.plain-english.yml`, never in the shipped ruleset. A config
+   * override silences a rule across every file, which is broader than any
+   * comment, so the generated policy prints this next to the change. Nothing
+   * validates the text.
+   */
+  reason?: string;
+  /**
    * When set, the rule fires only if matches exceed this rate per 1,000 words.
    * Presence alone is not a finding.
    */
@@ -32,13 +41,20 @@ export interface Rule {
   unlessRe?: RegExp[];
 }
 
-export type ReadabilityKind = "unglossed-term" | "long-sentence";
+export type ReadabilityKind =
+  | "unglossed-term"
+  | "long-sentence"
+  | "unexplained-suppression";
 
 /** A rule measured over sentence structure rather than matched at a point. */
 export interface ReadabilityRule {
   id: string;
   severity: Severity;
-  kind: ReadabilityKind;
+  /**
+   * Absent only in an unmerged overlay, where a project overrides a rule the
+   * base already defines. `merge` requires it of an id the base does not know.
+   */
+  kind?: ReadabilityKind;
   /** long-sentence only: words above which the rule fires. */
   maxWords?: number;
   /**
@@ -51,6 +67,8 @@ export interface ReadabilityRule {
   known?: string[];
   message?: string;
   link?: string;
+  /** Why this project changed the rule. See `Rule.reason`. */
+  reason?: string;
 }
 
 export interface Structure {
@@ -96,6 +114,7 @@ interface RawRule {
   message?: unknown;
   link?: unknown;
   perThousandWords?: unknown;
+  reason?: unknown;
 }
 
 interface RawSet {
@@ -160,6 +179,7 @@ function readRules(v: unknown, where: string): Rule[] {
     };
     if (typeof r.message === "string") rule.message = r.message;
     if (typeof r.link === "string") rule.link = r.link;
+    if (typeof r.reason === "string") rule.reason = r.reason;
     if (r.perThousandWords !== undefined) {
       const n = Number(r.perThousandWords);
       if (!Number.isFinite(n) || n < 0) {
@@ -176,14 +196,19 @@ function readRules(v: unknown, where: string): Rule[] {
 function readReadability(v: unknown): ReadabilityRule[] {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) throw new RuleError("readability must be a list");
-  const KINDS = ["unglossed-term", "long-sentence"];
+  const KINDS = ["unglossed-term", "long-sentence", "unexplained-suppression"];
   return v.map((raw, i) => {
     const r = raw as Record<string, unknown>;
     if (typeof r["id"] !== "string") {
       throw new RuleError(`readability[${i}].id must be a string`);
     }
+    // `kind` is required of a definition and optional in an overlay, exactly
+    // as `match` is on a word rule. Demanding it of every entry made the
+    // override printed in the README a hard error, so a project that added its
+    // own vocabulary could not lint at all. `merge` asks for it when the id is
+    // new to the base.
     const kind = r["kind"];
-    if (typeof kind !== "string" || !KINDS.includes(kind)) {
+    if (kind !== undefined && (typeof kind !== "string" || !KINDS.includes(kind))) {
       throw new RuleError(
         `readability[${i}] (${r["id"]}): kind must be one of ${KINDS.join(", ")}`,
       );
@@ -194,7 +219,8 @@ function readReadability(v: unknown): ReadabilityRule[] {
         `readability[${i}] (${r["id"]}): severity must be error, warn or off`,
       );
     }
-    const out: ReadabilityRule = { id: r["id"], severity, kind: kind as ReadabilityKind };
+    const out: ReadabilityRule = { id: r["id"], severity };
+    if (kind !== undefined) out.kind = kind as ReadabilityKind;
     if (r["maxWords"] !== undefined) {
       const n = Number(r["maxWords"]);
       if (!Number.isInteger(n) || n < 1) {
@@ -203,9 +229,6 @@ function readReadability(v: unknown): ReadabilityRule[] {
         );
       }
       out.maxWords = n;
-    }
-    if (kind === "long-sentence" && out.maxWords === undefined) {
-      throw new RuleError(`readability[${i}] (${r["id"]}): long-sentence needs maxWords`);
     }
     if (Array.isArray(r["known"])) {
       out.known = (r["known"] as unknown[]).map((k, j) => {
@@ -217,6 +240,7 @@ function readReadability(v: unknown): ReadabilityRule[] {
     }
     if (typeof r["message"] === "string") out.message = r["message"];
     if (typeof r["link"] === "string") out.link = r["link"];
+    if (typeof r["reason"] === "string") out.reason = r["reason"];
     return out;
   });
 }
@@ -372,6 +396,7 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.message) existing.message = r.message;
       if (r.link) existing.link = r.link;
       if (r.perThousandWords !== undefined) existing.perThousandWords = r.perThousandWords;
+      if (r.reason) existing.reason = r.reason;
     } else {
       if (!r.match) {
         throw new RuleError(`rule '${r.id}' is new to this config and needs a 'match'`);
@@ -393,7 +418,14 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.known?.length) existing.known = [...(existing.known ?? []), ...r.known];
       if (r.message) existing.message = r.message;
       if (r.link) existing.link = r.link;
+      if (r.reason) existing.reason = r.reason;
     } else {
+      if (!r.kind) {
+        throw new RuleError(`readability rule '${r.id}' is new to this config and needs a 'kind'`);
+      }
+      if (r.kind === "long-sentence" && r.maxWords === undefined) {
+        throw new RuleError(`readability rule '${r.id}': long-sentence needs maxWords`);
+      }
       readability.set(r.id, { ...r });
     }
   }
