@@ -45,6 +45,16 @@ Two severities:
 | quietly | `warn` | Say what happened and what it affected. |  |
 | mechanical[ly] | `warn` | Say what the process actually does. |  |
 | load-bearing | `block` | Say what depends on it. |  |
+| the fact that | `warn` | Cut it: 'despite the fact that' is 'though'. |  |
+| in order to | `warn` | Use 'to'. |  |
+| in terms of | `warn` | Name the relation, or use 'in' or 'for'. |  |
+| (is/are/was/were/be/been/being) able to, ha(s/ve/d) the ability to | `warn` | Use 'can'. |  |
+| a (number/variety) of | `warn` | Say how many, or cut the phrase. |  |
+| in (a/an) ... (manner/fashion) | `warn` | Use the adverb: 'in a hasty manner' is 'hastily'. |  |
+| [the question ]as to whether | `warn` | Use 'whether'. |  |
+| not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |  |
+| prior to | `warn` | Use 'before'. |  |
+| with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |  |
 
 ## Exceptions
 
@@ -60,6 +70,8 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **silently**: `\bfails?\s+silently\b`, `\bfailed\s+silently\b`, `\bsilently\s+(ignor|drop|discard|swallow|skip|truncat|overwrit|fail)`, `\bsilent\s+(mode|install|failure|corruption|film|letter|partner)\b`
 - **mechanical**: `\bmechanical\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\b`
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
+- **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
+- **not-un**: `\bnot un(less|til|der|dergoing|do|done)\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
 
 ## Sentence shapes
 

@@ -70,6 +70,10 @@ export function humanise(rule: Rule): string {
         return opts.length > 1 ? `(${opts.join("/")})` : inner;
       })
       .replace(/\[- \]/g, "-")
+      // A repeated character class stands in for "any word here". The reader
+      // needs the shape, not the class: "in a hasty manner" and "in a careless
+      // manner" are the same rule, and no list of adjectives would describe it.
+      .replace(/\[[^\]]+\]\+/g, "...")
       // An optional literal ("it'?s" catches both spellings) reads as the
       // straight form. Leaving the "?" in makes the table look like regex.
       .replace(/([^)\]?])\?/g, "$1")

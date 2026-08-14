@@ -770,3 +770,85 @@ cases:
     expect: pass
     warns: [unglossed-term]
     text: "The OIDC publisher handles the upload for us."
+
+  # ==========================================================================
+  # Padding. Fixed phrases that carry no information, from Strunk's rule 13.
+  #
+  # All warn. None of these is wrong, only long, and a rule that blocks on a
+  # phrase this ordinary would be the kind of gate people route around.
+  # ==========================================================================
+
+  - name: "the fact that warns"
+    expect: pass
+    warns: [the-fact-that]
+    text: "Despite the fact that the cache was warm, the page took two seconds."
+
+  - name: "in order to warns"
+    expect: pass
+    warns: [in-order-to]
+    text: "We added a retry in order to survive a flaky network."
+
+  - name: "in terms of warns"
+    expect: pass
+    warns: [in-terms-of]
+    text: "The plan is weak in terms of cost."
+
+  - name: "expressed in terms of passes"
+    expect: pass
+    text: "The threshold is expressed in terms of requests per second."
+
+  - name: "able to warns"
+    expect: pass
+    warns: [able-to]
+    text: "The runner is able to reach the registry."
+
+  - name: "has the ability to warns"
+    expect: pass
+    warns: [able-to]
+    text: "The plugin has the ability to rewrite the header."
+
+  - name: "a number of warns"
+    expect: pass
+    warns: [a-number-of]
+    text: "A number of tests broke after the upgrade."
+
+  - name: "in a manner warns"
+    expect: pass
+    warns: [in-a-manner]
+    text: "The job retried in a haphazard manner."
+
+  - name: "in a useful way passes"
+    expect: pass
+    text: "The trace orders the calls in a useful way."
+
+  - name: "as to whether warns"
+    expect: pass
+    warns: [as-to-whether]
+    text: "The team disagreed as to whether the fix was safe."
+
+  - name: "not un warns"
+    expect: pass
+    warns: [not-un]
+    text: "A stale lock file is not uncommon after a crash."
+
+  - name: "not undefined passes"
+    expect: pass
+    text: "Check that the value is not undefined before you read it."
+
+  - name: "not unique passes"
+    expect: pass
+    text: "The index warns when a key is not unique."
+
+  - name: "not unless passes"
+    expect: pass
+    text: "Do not retry, not unless the caller asked for it."
+
+  - name: "prior to warns"
+    expect: pass
+    warns: [prior-to]
+    text: "Run the migration prior to the deploy."
+
+  - name: "with respect to warns"
+    expect: pass
+    warns: [with-respect-to]
+    text: "The report says nothing with respect to cost."

@@ -132,7 +132,7 @@ describe("explain reaches every collection", () => {
       ...set.readability.map((r) => r.id),
       ...set.structures.map((s) => s.id),
     ];
-    expect(ids.length).toBe(42);
+    expect(ids.length).toBe(52);
     for (const id of ids) expect(out).toContain(id);
   });
 
