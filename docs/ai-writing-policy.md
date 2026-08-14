@@ -20,7 +20,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-29 word and punctuation rules, 22 of them blocking, plus 9 sentence shapes judged by a model and 3 readability rules.
+39 word and punctuation rules, 22 of them blocking, plus 9 sentence shapes judged by a model and 3 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
@@ -53,6 +53,16 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | quietly | `warn` | Say what happened and what it affected. |
 | mechanical[ly] | `warn` | Say what the process actually does. |
 | load-bearing | `block` | Say what depends on it. |
+| the fact that | `warn` | Cut it: 'despite the fact that' is 'though'. |
+| in order to | `warn` | Use 'to'. |
+| in terms of | `warn` | Name the relation, or use 'in' or 'for'. |
+| (is/are/was/were/be/been/being) able to, ha(s/ve/d) the ability to | `warn` | Use 'can'. |
+| a (number/variety) of | `warn` | Say how many, or cut the phrase. |
+| in (a/an) ... (manner/fashion) | `warn` | Use the adverb: 'in a hasty manner' is 'hastily'. |
+| [the question ]as to whether | `warn` | Use 'whether'. |
+| not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |
+| prior to | `warn` | Use 'before'. |
+| with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |
 
 ## What this repository changed
 

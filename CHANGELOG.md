@@ -3,6 +3,11 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+- Ten padding rules, all `warn`: `the fact that`, `in order to`, `in terms of`, `is able to` and `has the ability to`, `a number of`, `in a ... manner`, `as to whether`, `not un...`, `prior to`, `with respect to`. This is Strunk's rule 13, omit needless words. It is the part of a general style guide that fits a tool scoped to AI tells. The phrases are a closed set, so they can be checked exactly, and a model reaches for them far more often than a person does. Each one was measured against this project's own hand-edited docs before it was written, and each scored zero hits there. They warn instead of blocking because none of them is wrong, only long, and a gate that fires on a phrase this ordinary is one people learn to route around.
+- Two of Strunk's rules were tested and left out. Passive voice and the `there is` opener both fired on correct sentences here (`are covered by`, `is accepted by`, `There is no config needed`), and both need a reader to tell a weak use from a right one. Those stay with a general prose linter such as Vale, which the README already points at.
+- The generated rules table can now describe a rule that matches a word shape. A repeated character class renders as `...`, so `in a ... manner` reads as a rule instead of as a regex. The test guarding that table checked only for backslashes and the quantifier characters, which let `not un[a-z]{3,}` through on the first attempt; it now rejects brace quantifiers and class ranges too.
 
 ## [0.8.0] - 2026-08-10
 ### Added

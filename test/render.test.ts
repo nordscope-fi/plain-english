@@ -23,6 +23,14 @@ describe("humanise", () => {
     expect(humanise(rule("\\bcutting[- ]edge\\b"))).toBe("cutting-edge");
   });
 
+  it("renders a wildcard word as an ellipsis", () => {
+    // A rule that matches a shape rather than a phrase still has to arrive in
+    // the docs as something a reader can follow.
+    expect(humanise(rule("\\bin (a|an) [a-z]+ (manner|fashion)\\b"))).toBe(
+      "in (a/an) ... (manner/fashion)",
+    );
+  });
+
   it("splits top-level alternation but not nested alternation", () => {
     expect(humanise(rule("\\bas an AI\\b|\\bas a large language model\\b"))).toBe(
       "as an AI, as a large language model",
@@ -40,7 +48,10 @@ describe("humanise", () => {
     for (const r of set.rules) {
       if (r.severity === "off") continue;
       const text = humanise(r);
-      expect(text, `${r.id} -> ${text}`).not.toMatch(/[\\?+^$]|\\b/);
+      // The brace quantifier and the class range are here because they once
+      // reached the published table: `not un[a-z]{3,}` passed a check that
+      // looked only for backslashes and the quantifier characters.
+      expect(text, `${r.id} -> ${text}`).not.toMatch(/[\\?+^${}]|\\b|[a-z]-[a-z]\]/);
     }
   });
 

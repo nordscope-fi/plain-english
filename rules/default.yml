@@ -235,6 +235,82 @@ rules:
       - "\\bload[- ]bearing\\s+(wall|walls|beam|column|member|structure|capacity|frame)\\b"
     message: "Say what depends on it."
 
+  # ---------------------------------------------------------------- padding
+  # Fixed phrases that carry no information. This is Strunk's rule 13, omit
+  # needless words, and it is the one piece of a general style guide that fits
+  # here: the phrases are a closed set, so they can be checked exactly, and a
+  # model reaches for them far more often than a person does.
+  #
+  # All warn. None of them is wrong, only long, and a rule that blocks on a
+  # phrase this ordinary is the kind of gate people learn to route around.
+  #
+  # Two of Strunk's rules deliberately did not come across. Passive voice and
+  # the "there is" opener both need a reader to tell a weak use from a correct
+  # one, and both fired on this project's own hand-edited docs: "are covered
+  # by", "is accepted by", "There is no config needed". Those belong to a
+  # general prose linter such as Vale, which the README already points at.
+  - id: the-fact-that
+    severity: warn
+    match: "\\bthe fact that\\b"
+    message: "Cut it: 'despite the fact that' is 'though'."
+
+  - id: in-order-to
+    severity: warn
+    match: "\\bin order to\\b"
+    message: "Use 'to'."
+
+  - id: in-terms-of
+    severity: warn
+    match: "\\bin terms of\\b"
+    unless:
+      # The mathematical sense: one quantity written using another.
+      - "\\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\\s+in terms of\\b"
+    message: "Name the relation, or use 'in' or 'for'."
+
+  - id: able-to
+    severity: warn
+    match: "\\b(is|are|was|were|be|been|being)\\s+able to\\b|\\bha(s|ve|d)\\s+the ability to\\b"
+    message: "Use 'can'."
+
+  - id: a-number-of
+    severity: warn
+    match: "\\ba (number|variety) of\\b"
+    message: "Say how many, or cut the phrase."
+
+  - id: in-a-manner
+    severity: warn
+    # 'manner' and 'fashion' only. "in a useful way" is ordinary English, and
+    # firing on it would police writing that is already clear.
+    match: "\\bin (a|an) [a-z]+ (manner|fashion)\\b"
+    message: "Use the adverb: 'in a hasty manner' is 'hastily'."
+
+  - id: as-to-whether
+    severity: warn
+    match: "\\b(the question )?as to whether\\b"
+    message: "Use 'whether'."
+
+  - id: not-un
+    severity: warn
+    match: "\\bnot un[a-z]+\\b"
+    unless:
+      # Ordinary words that begin with 'un', where the negation is not a
+      # rhetorical softener.
+      - "\\bnot un(less|til|der|dergoing|do|done)\\b"
+      # Negations a technical document makes on purpose. "not undefined" and
+      # "not unique" are statements of fact, not litotes.
+      - "\\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\\b"
+    message: "Say what it is: 'not uncommon' is 'common'."
+
+  - id: prior-to
+    severity: warn
+    match: "\\bprior to\\b"
+    message: "Use 'before'."
+
+  - id: with-respect-to
+    severity: warn
+    match: "\\bwith (respect|regard|regards) to\\b"
+    message: "Use 'about', or name the relation."
+
 # Readability. These measure the shape of the prose rather than matching a term.
 #
 # The complaint these answer is "I get lost", which turned out not to be about
