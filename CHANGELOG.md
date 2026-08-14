@@ -3,6 +3,10 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+
+- `worth-noting` covers the rest of its family. It caught `it is worth noting` and `it is important to note`, and missed `it is important to understand`, `it's important to remember` and `it is worth mentioning`, which are the same stall with a different verb. The verb list is closed and every entry is a verb of noticing, so `It is important to test the migration before you run it` stays legal: that sentence says what to do, and the blocked ones say only that something is about to be said.
+
 ### Added
 
 - Ten padding rules, all `warn`: `the fact that`, `in order to`, `in terms of`, `is able to` and `has the ability to`, `a number of`, `in a ... manner`, `as to whether`, `not un...`, `prior to`, `with respect to`. This is Strunk's rule 13, omit needless words. It is the part of a general style guide that fits a tool scoped to AI tells. The phrases are a closed set, so they can be checked exactly, and a model reaches for them far more often than a person does. Each one was measured against this project's own hand-edited docs before it was written, and each scored zero hits there. They warn instead of blocking because none of them is wrong, only long, and a gate that fires on a phrase this ordinary is one people learn to route around.

@@ -75,7 +75,10 @@ rules:
 
   - id: worth-noting
     severity: error
-    match: "\\bit'?s worth noting\\b|\\bit is worth noting\\b|\\bit is important to note\\b"
+    # The tell is a verb of noticing, so the list is closed: note, understand,
+    # remember and their neighbours. "It is important to test the migration"
+    # makes a claim about what to do and stays legal.
+    match: "\\bit( is|'?s) worth (noting|mentioning)\\b|\\bit( is|'?s) important to (note|understand|remember|consider|mention|highlight|realise|realize|recognise|recognize|emphasise|emphasize|point out|keep in mind|bear in mind)\\b"
     message: "If it is worth noting, note it."
 
   - id: at-the-end-of-the-day

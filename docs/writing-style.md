@@ -21,7 +21,7 @@ Two severities:
 | furthermore | `block` | Start the sentence with its own point. |  |
 | moreover | `block` | Start the sentence with its own point. |  |
 | in conclusion | `block` | State the conclusion. Do not announce it. |  |
-| it's worth noting, it is worth noting, it is important to note | `block` | If it is worth noting, note it. |  |
+| it( is/'s) worth (noting/mentioning), it( is/'s) important to (note/understand/remember/consider/mention/highlight/realise/realize/recognise/recognize/emphasise/emphasize/point out/keep in mind/bear in mind) | `block` | If it is worth noting, note it. |  |
 | at the end of the day, | `block` | Cut the phrase and state the point. |  |
 | let's dive in | `block` | Start with the content. |  |
 | div(e/es/ing) into | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |  |

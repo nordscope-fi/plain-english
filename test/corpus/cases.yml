@@ -168,6 +168,27 @@ cases:
     rule: worth-noting
     text: "It is important to note that the cache was stale."
 
+  - name: "it is important to understand blocks"
+    expect: block
+    rule: worth-noting
+    text: "It is important to understand that the cache was stale."
+
+  - name: "it's important to remember blocks"
+    expect: block
+    rule: worth-noting
+    text: "It's important to remember that the cache was stale."
+
+  - name: "it is worth mentioning blocks"
+    expect: block
+    rule: worth-noting
+    text: "It is worth mentioning that the cache was stale."
+
+  # The tell is the verb of noticing, not the phrase 'important to'. A sentence
+  # that says something is important to DO is making a claim, not stalling.
+  - name: "important to do a real thing passes"
+    expect: pass
+    text: "It is important to test the migration before you run it."
+
   - name: "at the end of the day as a discourse marker blocks"
     expect: block
     rule: at-the-end-of-the-day
