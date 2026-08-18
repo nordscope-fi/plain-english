@@ -798,7 +798,13 @@ describe("init --agent vibe", () => {
     init({ root, agents: [vibe] });
     const judge = resolve(root, ".vibe/hooks/plain-english-judge.mjs");
     expect(existsSync(judge)).toBe(true);
-    expect(statSync(judge).mode & 0o111).toBeTruthy();
+    // Invoked through `node`, so it runs on a platform that honours neither a
+    // shebang nor an exec bit. NTFS carries no POSIX permission bits, so the
+    // mode reads as 0 there whatever `init` asked for.
+    expect(hooksToml()).toContain("node .vibe/hooks/plain-english-judge.mjs");
+    if (process.platform !== "win32") {
+      expect(statSync(judge).mode & 0o111, "judge is not executable").toBeGreaterThan(0);
+    }
     const body = readFileSync(judge, "utf8");
     expect(body).toContain("PLAIN_ENGLISH_VIBE_JUDGE");
     for (const channel of ["docs", "github", "issue"]) {

@@ -238,7 +238,11 @@ export const vibe: AgentProfile = {
               name: `plain-english-${c.channel}-judge`,
               type: "pre_tool",
               match: c.match,
-              command: `.vibe/hooks/plain-english-judge.mjs ${c.channel}`,
+              // Through `node`, not by shebang. Windows honours neither the
+              // shebang nor the exec bit, so a bare path here is a hook that
+              // fails to spawn on one platform and reports nothing, which is
+              // the silent-and-installed failure this package exists to avoid.
+              command: `node .vibe/hooks/plain-english-judge.mjs ${c.channel}`,
               timeout: 60,
               description: `plain-english ${c.channel} judge, opt-in`,
             })),
