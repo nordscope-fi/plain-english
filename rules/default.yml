@@ -296,11 +296,19 @@ rules:
     severity: warn
     match: "\\bnot un[a-z]+\\b"
     unless:
-      # Ordinary words that begin with 'un', where the negation is not a
-      # rhetorical softener.
-      - "\\bnot un(less|til|der|dergoing|do|done)\\b"
+      # Words where 'un' is not a prefix. Strip it and no English word is left,
+      # so the negation is plain rather than a rhetorical softener.
+      #
+      # Every alternative is open-ended on purpose. Closing each one with \b
+      # was the bug: the boundary landed right after 'der', so this was meant
+      # to cover "not underscores" and stopped at "not under". The same gap hid
+      # "not understood" and "not underway".
+      - "\\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\\b"
       # Negations a technical document makes on purpose. "not undefined" and
       # "not unique" are statements of fact, not litotes.
+      #
+      # These stay closed. "unreadable" and "unsupportable" are ordinary
+      # litotes, and opening 'read' or 'support' would except them.
       - "\\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\\b"
     message: "Say what it is: 'not uncommon' is 'common'."
 

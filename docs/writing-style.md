@@ -71,7 +71,7 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **mechanical**: `\bmechanical\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\b`
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
 - **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
-- **not-un**: `\bnot un(less|til|der|dergoing|do|done)\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
+- **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
 
 ## Sentence shapes
 

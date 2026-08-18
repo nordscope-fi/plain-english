@@ -3,9 +3,9 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
-## [Unreleased]
 ### Fixed
+
+- **`not-un` fired on ordinary negation of any word starting with those two letters.** "not universal" and "not underscores" were both reported as litotes in real documentation. Every exception was closed with a word boundary, so the alternative meant to cover "not underscores" stopped at "not under", and that hid "not understood" and "not underway" as well. The exceptions are open-ended now, and they cover the words where `un` is not a prefix at all: strip it from "universal" and "iversal" is left. "not unclear" and "not uncommon" still fire.
 
 - **The release script blamed an empty changelog for a duplicated heading.** `npm version` leaves a fresh empty `## [Unreleased]` behind after every release, so a branch that writes its own ends up with two. The entry then sits under the second while every check reads the first, and the release refused 0.12.1 with "`## [Unreleased]` is empty" over a file that had the entry written and waiting. It now counts the headings and says so. A refusal that names the wrong cause costs more than no refusal, because it sends whoever reads it looking in the wrong place.
 
