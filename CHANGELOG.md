@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-18
 ### Added
 
 - **The chat channel.** The one channel this tool could not reach. It is now covered three ways, and `init` installs all of them. An output style at three levels, generated from the ruleset; a hook on the stop events, which reads the finished reply and can hand a finding back to the model; and `plain-english lint --chat`, which reads what was already said.
@@ -268,7 +269,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.8.0
 [0.7.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.7.3
