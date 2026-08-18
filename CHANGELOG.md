@@ -3,6 +3,9 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+
+- **`doctor` reported the default agent as uninstalled straight after installing it.** It decided whether a config file was ours by searching it for `--agent <id>`. That holds for Codex and Vibe, which write the whole command inline, and fails for Claude Code, which writes shim scripts and references only their paths from `.claude/settings.json`, leaving the flag in the shim. So `init --agent claude-code` followed by `doctor` printed `(no plain-english entry)` three times over a working install, in every release since the check was added. Copilot and Cursor were unaffected for the same reason Codex was. It now asks `init` the same question `init` asks itself, so there is one definition of ownership rather than two that can drift, and a config holding only somebody else's hooks is still reported as having none of ours.
 
 ## [0.11.0] - 2026-08-18
 ### Added

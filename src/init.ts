@@ -360,6 +360,39 @@ export function readableHooksToml(text: string): boolean {
 }
 
 /**
+ * Whether this config file already carries our entries.
+ *
+ * `doctor` used to answer this by searching the file for `--agent <id>`. That
+ * is true of an agent whose command is written inline, and false of one that
+ * runs through a shim: Claude Code puts the flag in `.claude/hooks/*.sh` and
+ * references only the path from `.claude/settings.json`. So the default agent
+ * reported itself as uninstalled immediately after a successful install.
+ *
+ * Asking the same question `init` asks fixes it, and keeps one definition of
+ * ownership rather than two that can drift. A shim path contains the marker,
+ * so `isOurs` recognises it without knowing what a shim is.
+ */
+export function hasOurEntries(text: string, file: ConfigFile): boolean {
+  if (file.format === "toml") {
+    return splitHooksToml(text).blocks.some(isOurHook);
+  }
+  let doc: Json;
+  try {
+    doc = JSON.parse(text) as Json;
+  } catch {
+    // Unparseable is not ours. `init` refuses to touch such a file too, and
+    // reporting it as installed would claim something we cannot see.
+    return false;
+  }
+  const at = readAt(doc, file.at);
+  if (!Array.isArray(at)) return false;
+  if (file.shape === "nested") {
+    return (at as HookGroup[]).some((g) => (g.hooks ?? []).some(isOurs));
+  }
+  return at.some(isOurs);
+}
+
+/**
  * Put the generated section into AGENTS.md without disturbing the rest.
  *
  * Returns null when the file already says exactly this, so a re-run reports

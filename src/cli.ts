@@ -27,7 +27,7 @@ import {
 import type { HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
 import type { Decision } from "./adapters/hook.ts";
-import { init, allAgents } from "./init.ts";
+import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
@@ -874,7 +874,7 @@ function agentReport(root: string): string[] {
       if (!existsSync(path)) continue;
       let ours = false;
       try {
-        ours = readFileSync(path, "utf8").includes("--agent " + profile.id);
+        ours = hasOurEntries(readFileSync(path, "utf8"), file);
       } catch {
         /* unreadable counts as not ours */
       }

@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault } from "../src/rules.ts";
+import { agentIds } from "../src/agents/registry.ts";
 
 /**
  * End-to-end exit codes, run through the built CLI.
@@ -154,3 +155,102 @@ describe("explain reaches every collection", () => {
     expect(run(["explain", "no-such-rule"])).toBe(2);
   });
 });
+
+
+/**
+ * `doctor` has to recognise an install it just performed.
+ *
+ * It decided ownership by looking for `--agent <id>` inside the config file.
+ * That holds for Codex and Vibe, which put the whole command inline, and fails
+ * for Claude Code, which writes shim scripts and references only their paths
+ * from `.claude/settings.json`. The flag lives in the shim.
+ *
+ * So the default agent reported "(no plain-english entry)" immediately after a
+ * successful `init`, in every release up to 0.11.0. That is the inverse of what
+ * this command is for: the comment on `agentReport` says it exists to catch a
+ * config that looks perfect while nothing runs, and it produced a config that
+ * runs perfectly and looks broken.
+ *
+ * Run through the built CLI on a real install, because that is what it took to
+ * see it. Nothing shorter reproduces it.
+ */
+describe("doctor recognises an install it just wrote", () => {
+  let home: string;
+
+  beforeAll(() => {
+    home = mkdtempSync(resolve(tmpdir(), "pe-doctor-"));
+  });
+  afterAll(() => rmSync(home, { recursive: true, force: true }));
+
+  function installAndReport(agent: string): string {
+    const at = mkdtempSync(resolve(home, `${agent}-`));
+    execFileSync(process.execPath, [CLI, "init", "--agent", agent, "--root", at], {
+      stdio: "pipe",
+    });
+    const out = execFileSync(process.execPath, [CLI, "doctor"], {
+      cwd: at,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    // The agent's own line, from the `agents` block.
+    return out
+      .split("\n")
+      .filter((l) => l.trim().startsWith(agent + " "))
+      .join("\n");
+  }
+
+  for (const agent of agentIds()) {
+    it(`${agent}: no "(no plain-english entry)" right after init`, () => {
+      const line = installAndReport(agent);
+      expect(line, `${agent} reported nothing at all`).not.toBe("");
+      expect(line).not.toContain("not installed");
+      expect(line, `${agent} does not recognise its own install`).not.toContain(
+        "no plain-english entry",
+      );
+    });
+  }
+  it("still says so when the config is somebody else's hooks only", () => {
+    // The point of the check. Widening it until everything reads as installed
+    // would remove the warning rather than fix it, and this command exists to
+    // catch a config that looks perfect while nothing of ours runs.
+    const at = mkdtempSync(resolve(home, "foreign-"));
+    mkdirSync(resolve(at, ".claude"), { recursive: true });
+    writeFileSync(
+      resolve(at, ".claude/settings.json"),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "Write|Edit",
+              hooks: [{ type: "command", command: "$CLAUDE_PROJECT_DIR/.claude/hooks/other-guard.sh" }],
+            },
+          ],
+        },
+      }),
+    );
+    const out = execFileSync(process.execPath, [CLI, "doctor"], {
+      cwd: at,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    const line = out.split("\n").filter((l) => l.trim().startsWith("claude-code ")).join("\n");
+    expect(line).toContain("no plain-english entry");
+  });
+
+  it("does not read a TOML file's foreign hooks as ours", () => {
+    const at = mkdtempSync(resolve(home, "foreign-toml-"));
+    mkdirSync(resolve(at, ".vibe"), { recursive: true });
+    writeFileSync(
+      resolve(at, ".vibe/hooks.toml"),
+      '[[hooks]]\nname = "no-force-push"\ntype = "pre_tool"\nmatch = "bash"\ncommand = "./scripts/no-force-push.sh"\n',
+    );
+    const out = execFileSync(process.execPath, [CLI, "doctor"], {
+      cwd: at,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    const line = out.split("\n").filter((l) => l.trim().startsWith("vibe ")).join("\n");
+    expect(line).toContain("no plain-english entry");
+  });
+});
+
