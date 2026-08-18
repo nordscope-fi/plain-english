@@ -38,12 +38,13 @@ Do not fill gaps with general knowledge. Flag the gap explicitly.
 
 ## Rule 4: Self-verify and retract
 
-After drafting any user-facing claim, ADR, or CHANGELOG entry:
+After drafting any user-facing claim, architecture decision record
+(`ADR`), or CHANGELOG entry:
 
 - Confirm each claim has a supporting source (code, doc, tool output)
-- If a claim has no source, retract it or mark it `[unverified — needs confirmation]`
+- If a claim has no source, retract it or mark it `[unverified: needs confirmation]`
 
 This matters most for the shipped ruleset schema, the adapter contract,
-the CLI's public API, and the on-disk `.plain-english.yml` format —
-consumers script against those and a wrong claim about them is a broken
+the CLI's public API, and the on-disk `.plain-english.yml` format.
+Consumers script against those and a wrong claim about them is a broken
 integration downstream.

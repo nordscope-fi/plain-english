@@ -17,21 +17,21 @@ item belongs now.
 
 ## The precise trigger (fires rarely, by design)
 
-This gate BLOCKS only when at least one of these is objectively true.
-If none hold, it stays silent. A gate that fires on proportionate work
+This gate fires only when at least one of these is objectively true.
+If none hold, it says nothing. A gate that fires on proportionate work
 gets switched off.
 
-1. **Unjustified P1** — the plan pulls in P1 items with no per-item
+1. **Unjustified P1**: the plan pulls in P1 items with no per-item
    reason for being in this iteration rather than a fast-follow.
-2. **Untraceable scope** — a file, abstraction, or utility that traces
+2. **Untraceable scope**: a file, abstraction, or utility that traces
    to no P0 acceptance criterion.
-3. **Disproportionate size** — task count exceeds what the P0 stories
+3. **Disproportionate size**: task count exceeds what the P0 stories
    require, measured against the task's Trivial / Medium / Large
    classification.
 
 ## When it fires
 
-BLOCK and propose the smaller build:
+Block, and propose the smaller build:
 
 1. Name the minimal build.
 2. List what to cut, and where each cut goes.
@@ -39,10 +39,10 @@ BLOCK and propose the smaller build:
 
 ## Where cut scope goes
 
-- **Fast-follow** — an additive P1/P2 that can wait stays in the spec's
+- **Fast-follow**: an additive P1/P2 that can wait stays in the spec's
   own P1/P2 list as a documented follow-up. It is not built this
   iteration.
-- **Deferred issue** — scope actively pushed out of an agreed plan
+- **Deferred issue**: scope actively pushed out of an agreed plan
   gets a GitHub issue with the four fields from `decision-accountability.md`.
 
 ## Deconfliction

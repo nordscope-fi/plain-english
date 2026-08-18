@@ -1,4 +1,4 @@
-# VIBE.md — plain-english (Mistral Vibe adapter)
+# VIBE.md: plain-english (Mistral Vibe adapter)
 
 @AGENTS.md
 
@@ -10,8 +10,9 @@
   demand via `AGENTS.md` references.
 - Vibe lifecycle hooks are configured through `.vibe/hooks.toml`
   (project-local) and `~/.vibe/hooks.toml` (user-global).
-- Vibe MCP servers are configured through `.vibe/config.toml`. This
-  repository does not ship a project-local MCP server list — Vibe reads
+- The servers that give Vibe extra tools, which are called MCP servers,
+  are configured through `.vibe/config.toml`. This
+  repository does not ship a project-local MCP server list. Vibe reads
   its user-global config plus whatever project overrides the operator
   adds locally.
 - Vibe tool names map to the shared contract: `bash` = `Bash`,

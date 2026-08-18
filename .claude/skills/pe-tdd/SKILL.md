@@ -4,7 +4,7 @@ description: Test-first discipline. Use before writing implementation code for a
 user-invocable: true
 ---
 
-# pe-tdd — Test-Driven Development
+# pe-tdd: Test-Driven Development
 
 Watch red, then green, then refactor. No production code without a
 failing test first. No shortcuts, no "I'll add the test after".
@@ -25,51 +25,50 @@ failing test first. No shortcuts, no "I'll add the test after".
 
 ## The cycle
 
-### 1. RED — write the failing test
+### 1. Write the failing test (`RED`)
 
 ```
 # Add a spec that exercises the behavior you are about to add.
 # Path convention: test/<area>.test.ts
 ```
 
-Write ONE test that describes the intended behavior in the simplest
+Write **one** test that describes the intended behavior in the simplest
 terms possible. Do not write the implementation yet.
 
-### 2. VERIFY RED — run it, watch it fail
+### 2. Run it, watch it fail (verify `RED`)
 
 ```
 npx vitest run test/<file>
 ```
 
-The test MUST fail for the reason you expect. If it passes, one of:
+The test **must** fail for the reason you expect. If it passes, one of:
 - The behavior you thought was missing is already there. Read the code
   before adding more.
 - The test is not actually exercising the code you meant. Fix the test
   first.
 - The assertion is trivially true. Rewrite it.
 
-**Ferry trap** (applies here too): an assertion that cannot fail looks
-exactly like a pass. `expect(foo).toBeDefined()` after you just built
+**An assertion that cannot fail** looks exactly like a pass. `expect(foo).toBeDefined()` after you just built
 `foo` is not a test.
 
-### 3. GREEN — write the minimum code that passes
+### 3. Write the minimum code that passes (`GREEN`)
 
-Write ONLY the code needed for THIS test to pass. Not the next test.
+Write **only** the code needed for **this** test to pass. Not the next test.
 Not the interface you'll want later. The smallest change.
 
-### 4. VERIFY GREEN — run it
+### 4. Run it again (verify `GREEN`)
 
 ```
 npx vitest run test/<file>
 ```
 
-If more tests fail than passed, you have gone too broad — revert to the
+If more tests fail than passed, you have gone too broad. Revert to the
 last green, retry with a smaller change.
 
 ### 5. REFACTOR (optional)
 
 With the test green, tidy the implementation. The test must stay green.
-If refactoring breaks a test, the refactor changed behavior — either
+If refactoring breaks a test, the refactor changed behavior. Either
 change the test deliberately or revert.
 
 ## Common anti-patterns (do not do)

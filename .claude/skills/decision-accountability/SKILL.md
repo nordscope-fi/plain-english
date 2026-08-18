@@ -4,7 +4,7 @@ description: Runtime falsification procedure for the decision-accountability.md 
 user-invocable: true
 ---
 
-# decision-accountability — falsification procedure
+# decision-accountability: falsification procedure
 
 Runtime skill paired with `.claude/rules/decision-accountability.md`.
 Invoke when about to defer, describe something as "simpler for now",
@@ -30,7 +30,7 @@ For each "too complex" or "simpler for now" claim:
   not touch a foundational area, the "too complex" claim is falsified.
   Do it now.
 - **Foundational exception:** for the areas listed below, the 20-line
-  heuristic does NOT apply. Small diffs can carry high blast radius.
+  heuristic does **not** apply. Small diffs can carry high blast radius.
 
 ## Step 3: check ownership
 
@@ -46,7 +46,7 @@ is abandonment.
 
 ## Step 4: classify foundational vs additive
 
-Foundational areas in this project (small diff does NOT mean small risk):
+Foundational areas in this project (a small diff does **not** mean small risk):
 
 - The ruleset schema (`rules/**` JSON files and `src/rules.ts`)
 - The adapter contract (`src/adapters/**`, `docs/verifying-an-adapter.md`)
@@ -55,18 +55,18 @@ Foundational areas in this project (small diff does NOT mean small risk):
 - The on-disk `.plain-english.yml` format
 - The generated policy artifact (`docs/ai-writing-policy.md`)
 
-A change to any of these is foundational. There is no "v2" — only a
+A change to any of these is foundational. There is no "v2", only a
 rewrite of every downstream integration that depended on the old shape.
 
 ## Step 5: verdict
 
-- **PROCEED** — All complexity claims falsified; no foundational
+- `PROCEED`: all complexity claims falsified; no foundational
   deferral; every deferral carries the four fields (Why not now / Cost
   comparison / Owner / Trigger).
-- **BLOCKED** — Any of: unfalsified claim, foundational deferral,
+- `BLOCKED`: any of an unfalsified claim, a foundational deferral,
   incomplete four-field record. Revise the artifact.
 
-BLOCKED at a workflow gate forces revision, not override.
+`BLOCKED` at a workflow gate forces revision, not override.
 
 ## Output template
 

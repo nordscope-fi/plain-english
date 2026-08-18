@@ -12,7 +12,8 @@ Before adding a helper to `src/`, search for one that already exists.
 - Grep for the name you are about to define: `rg -n "^export (const|function) <name>" src/`
 - Grep for the shape you are about to write: patterns matching the same
   argument names and return types often exist under a different name
-- The `.claude/hooks/reuse-guard.sh` PreToolUse hook fires once per new
+- The `.claude/hooks/reuse-guard.sh` hook runs before a tool call, on
+  the event called `PreToolUse`. It fires once per new
   file created under `src/` and reminds you to check first. Fail-open;
   escape with `PE_REUSE_GUARD_MODE=observe`
 
@@ -52,5 +53,5 @@ that way unless a Large workflow adds one.
 
 ## Lint
 
-- `npm run lint:self` — dogfood the linter on the repo's own docs
+- `npm run lint:self`: dogfood the linter on the repo's own docs
 - No ESLint on source code by design; `tsc --strict` is the code gate

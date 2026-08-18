@@ -14,7 +14,7 @@ The single sentence, then the details.
 
 ## Consequences
 
-What this ADR commits us to (positive and negative). What it costs to
+What this record commits us to (positive and negative). What it costs to
 change later.
 
 ## Alternatives considered
@@ -24,4 +24,4 @@ explicitly if relevant.
 
 ## Re-evaluation triggers
 
-When would this ADR need revisiting.
+When would this record need revisiting.

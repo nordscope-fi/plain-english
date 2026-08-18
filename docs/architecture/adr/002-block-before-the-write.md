@@ -8,14 +8,15 @@
 A fix applied after the write cannot un-push a commit, un-save an
 issue, or un-show a doc that a reader already opened. If the goal is
 "AI tells never reach a reader", the check has to sit in front of the
-write, as a PreToolUse gate.
+write, on the event an agent fires before it runs a tool. In Claude
+Code that event is called `PreToolUse`.
 
 The corollary: a false positive is expensive. Somebody is stuck,
 mid-task, arguing with a gate.
 
 ## Decision
 
-Every adapter fires the linter as a PreToolUse hook against the text
+Every adapter fires the linter on that event, against the text
 about to be written (markdown content, commit message, PR/issue body,
 Linear comment). If the linter blocks, the write does not happen.
 
@@ -35,9 +36,9 @@ Linear comment). If the linter blocks, the write does not happen.
 
 ## Alternatives considered
 
-- **Post-write linting only.** Fails the goal — text has already
-  reached its destination. Kept as a fallback for hosts without
-  PreToolUse hooks; not the default.
+- **Post-write linting only.** Fails the goal. Text has already
+  reached its destination. Kept as a fallback for hosts with no
+  pre-write hook; not the default.
 - **Advisory pre-write (warn, do not block).** Considered. Rejected
   because the failure mode of "warn is ignored" is well documented
   across tooling generally, and the whole point is to keep tells out

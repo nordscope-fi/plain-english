@@ -4,7 +4,7 @@ description: The ONLY way to commit and push. Runs verification, dogfoods the li
 user-invocable: true
 ---
 
-# pe-ship — commit + push + PR, with gates
+# pe-ship: commit + push + PR, with gates
 
 The single terminal action. If a gate fails, ship refuses and points at
 what to fix. No `--no-verify`. No skipping.
@@ -39,7 +39,7 @@ cover, fix the copy. The repo's own writing is a test corpus.
 ## Step 3: CHANGELOG entry
 
 Every user-visible change needs a CHANGELOG entry. Non-user-visible
-changes (refactor, docs, CI) do not — commit them as `chore:` / `docs:`
+changes (refactor, docs, CI) do not. Commit them as `chore:` / `docs:`
 / `test:` and skip the entry.
 
 Format (matches existing CHANGELOG style):
@@ -53,7 +53,7 @@ Format (matches existing CHANGELOG style):
 
 ## Step 4: commit
 
-Small commits are fine — one logical change each. Long branches with
+Small commits are fine, one logical change each. Long branches with
 many small commits get squashed at merge; the PR title is the shipped
 summary.
 
@@ -92,7 +92,7 @@ EOF
 )"
 ```
 
-If it exists, update the body if the scope changed. Do NOT force-push.
+If it exists, update the body if the scope changed. Do **not** force-push.
 
 ## Step 6: gate on CI
 
@@ -105,7 +105,7 @@ If checks fail, fix and re-push. Do not merge on a red PR.
 ## Step 7: merge
 
 For most changes: squash-merge. Preserve branch (do not `--delete-branch`
-in the merge call — the branch stays for reference; delete manually if
+in the merge call. The branch stays for reference; delete manually if
 you want).
 
 ```

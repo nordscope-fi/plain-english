@@ -3,9 +3,11 @@ description: Live documentation lookup. Use Context7 MCP before writing code tha
 globs: "src/**,test/**,scripts/**"
 ---
 
-# Context7 — Live Documentation Lookup
+# Context7: Live Documentation Lookup
 
-Context7 MCP fetches current, version-specific library documentation.
+Context7 is a documentation server an agent connects to over the tool
+protocol called MCP. It fetches current, version-specific library
+documentation.
 Use it proactively; do not rely on training data for library APIs.
 
 ## Rule: use Context7 when working with library APIs

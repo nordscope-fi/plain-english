@@ -1,4 +1,4 @@
-# CLAUDE.md — plain-english (Claude Code adapter)
+# CLAUDE.md: plain-english (Claude Code adapter)
 
 @AGENTS.md
 
@@ -11,21 +11,21 @@
 - Lifecycle hooks and permissions live in `.claude/settings.json`
   (committed, project-wide) and `.claude/settings.local.json`
   (per-operator, not committed).
-- The `reuse-guard.sh` PreToolUse hook fires once per new file created
-  under `src/` in a session and reminds you to check for an existing
-  helper first. Fail-open; escape with `PE_REUSE_GUARD_MODE=observe`.
+- The `reuse-guard.sh` hook runs before a tool call, on the event called
+  `PreToolUse`. It fires once per new file created under `src/` in a
+  session and reminds you to check for an existing helper first. Fail-open; escape with `PE_REUSE_GUARD_MODE=observe`.
 
 ## Public-repo constraint
 
 This project is public. Nothing in `.claude/settings.json` may reference
 personal paths, credential vaults, or private hosts. If you need a
-personal MCP server or hook path, put it in `.claude/settings.local.json`
+personal tool server or hook path, put it in `.claude/settings.local.json`
 (gitignored) or in your user-global `~/.claude/settings.json`, never in
 the committed file.
 
 ## Model + effort
 
-`.claude/settings.json` does not pin a model — contributors on different
-Claude tiers should all be able to work here. The default your account
+`.claude/settings.json` does not pin a model. Contributors on different
+Claude tiers can all work here. The default your account
 provides is fine. Escalate manually with `/effort high` for the
 foundational areas listed in `AGENTS.md`.

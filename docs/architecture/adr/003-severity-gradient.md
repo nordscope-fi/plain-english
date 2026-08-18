@@ -1,4 +1,4 @@
-# ADR-003: Severity gradient — warn some words, block others
+# ADR-003: Severity gradient (warn some words, block others)
 
 **Status:** Accepted
 **Date:** 2026-08-18 (extracted from docs/design-rationale.md § "Severity, and why some words only warn")
@@ -25,12 +25,12 @@ meant to catch.
 
 Three mechanisms per rule, in order of preference:
 
-1. **Severity gradient** — `block`, `ask`, `warn`, `never`. Terms
+1. **Severity gradient**: `block`, `ask`, `warn`, `never`. Terms
    with legitimate technical senses default to `warn` unless the
    surrounding context resolves the ambiguity.
-2. **Per-rule `unless` clauses** — a rule can whitelist specific
+2. **Per-rule `unless` clauses**: a rule can whitelist specific
    contexts (regex or sentence-shape) where a match should be dropped.
-3. **Masking pass** (see ADR-004's twin) — code blocks, inline code,
+3. **Masking pass** (see ADR-004's twin): code blocks, inline code,
    URLs, and blockquotes are masked out before scanning, so
    `leverage` inside a customer quote or a fenced example never
    triggers.
@@ -45,14 +45,14 @@ and why.
 - CI includes a test that every term in the corpus produces its
   expected verdict; a mis-set severity fails a specific corpus case.
 - The `warn` severity implies a UI mechanism at the adapter layer.
-  Adapters that only support pass/fail lose warn-level information —
+  Adapters that only support pass/fail lose warn-level information,
   documented in `docs/verifying-an-adapter.md`.
 
 ## Alternatives considered
 
-- **All-or-nothing.** The initial state. Rejected — see the four cases
+- **All-or-nothing.** The initial state. Rejected: see the four cases
   above.
-- **Model-only judgment on ambiguous terms.** Rejected — a model with
+- **Model-only judgment on ambiguous terms.** Rejected: a model with
   the false-positive floor documented in
   `docs/design-rationale.md § "The semantic layer gets calibrated wrong"`
   should not be the last line of defense on an ambiguous term.

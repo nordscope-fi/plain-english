@@ -4,7 +4,7 @@ description: Systematic root-cause investigation. Use when encountering any bug,
 user-invocable: true
 ---
 
-# pe-debugging — Systematic Debugging
+# pe-debugging: Systematic Debugging
 
 Fix causes, not symptoms. Four phases: reproduce, root cause, fix,
 prevent regression.
@@ -22,7 +22,7 @@ first change that stops the error, stop. That is a symptom fix.
 
 ## Phase 2: root cause
 
-Trace data BACKWARDS from the failure to its source.
+Trace data **backwards** from the failure to its source.
 
 - Where does the wrong value first appear?
 - What produced it?
@@ -40,7 +40,7 @@ Common root causes in this project:
 - **Sentence splitter edge case.** `src/sentences.ts` handles a lot;
   a failure with unusual punctuation usually traces here.
 - **CLI exit code mismatch.** `docs/post-edit-lint.md` names the codes;
-  hooks read them. A mismatch produces "silent block" or "silent pass".
+  hooks read them. A mismatch means the hook blocks or passes with nothing reported.
 - **YAML config resolution.** The linter walks up looking for
   `.plain-english.yml`. A stray one in a parent dir changes results.
 

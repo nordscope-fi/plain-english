@@ -1,4 +1,4 @@
-# AGENTS.md — plain-english
+# AGENTS.md: plain-english
 
 Host-neutral contract for AI coding agents working in this repository.
 Adapter files (`CLAUDE.md`, `VIBE.md`, `.codex/`, `.cursor/`) point back
@@ -12,8 +12,9 @@ an npm CLI plus adapters for Claude Code, Codex, Copilot, and Cursor.
 
 This repository is **public**. Do not commit anything that references
 absolute home-directory paths, machine-specific hostnames, private
-services, personal MCP server paths, or credential vault URIs. Use
-relative paths or environment variables instead. `npm run check:refs`
+services, paths to the local servers an agent uses for extra tools (that
+protocol is called MCP), or credential vault URIs. Use relative paths or
+environment variables instead. `npm run check:refs`
 enforces this against a curated denylist; CI blocks the merge if it
 fires.
 
@@ -31,7 +32,7 @@ Default to the smallest change that fully solves the request.
 Read the request as a three-layer prompt:
 
 1. Layer 1: what the user wants (positive scope).
-2. Layer 2: what the user does NOT want (negative constraints, which matter MORE).
+2. Layer 2: what the user does **not** want (negative constraints, which matter **more**).
 3. Layer 3: scope limit (which file, which function, and nothing else).
 
 Every changed line must trace to the request. Anything that does not, delete
@@ -69,11 +70,11 @@ events to the same guard scripts so behavior stays consistent.
 
 Classify before you start.
 
-- **Trivial** — under 20 lines, one file, no public API change. Ship directly.
-- **Medium** — 3+ files, or touches the linter's rule engine, adapter
+- **Trivial**: under 20 lines, one file, no public API change. Ship directly.
+- **Medium**: 3+ files, or touches the linter's rule engine, adapter
   contracts, or the shipped CLI. Requires a short plan before code and a
   changelog entry.
-- **Large** — 5+ files, or changes any of: the ruleset schema (`rules/`),
+- **Large**: 5+ files, or changes any of: the ruleset schema (`rules/`),
   the adapter contract, the CLI's shipped commands, the on-disk format
   of `.plain-english.yml`, or the CI enforcement layer. Requires an
   approved brief + spec + design before code.
@@ -127,14 +128,14 @@ Domain rules live in `.claude/rules/` and load when the described paths
 are touched. They are host-neutral by content; the auto-loading is
 Claude-specific but the rules apply to every host.
 
-- `accuracy.md` — anti-hallucination discipline (admit uncertainty, quote
+- `accuracy.md`: anti-hallucination discipline (admit uncertainty, quote
   before analysing, self-verify claims)
-- `decision-accountability.md` — falsification gate for deferrals and
+- `decision-accountability.md`: falsification gate for deferrals and
   foundational-vs-additive classification
-- `right-sizing.md` — counterpart to above; gates over-engineering
-- `context7.md` — mandate to fetch current library docs via Context7 MCP
+- `right-sizing.md`: counterpart to above; gates over-engineering
+- `context7.md`: mandate to fetch current library docs via Context7 MCP
   when working with third-party APIs, rather than relying on training data
-- `code-conventions.md` — TypeScript, testing, reuse-before-write
+- `code-conventions.md`: TypeScript, testing, reuse-before-write
 
 ## Never
 

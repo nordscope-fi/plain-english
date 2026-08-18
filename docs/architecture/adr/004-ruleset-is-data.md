@@ -12,7 +12,7 @@ checked they agreed. They did not.
 
 Similarly, adding a new host initially meant a per-host instruction
 file, per-host rule format, and per-host update on every ruleset
-change — a file per host per release to keep true.
+change, a file per host per release to keep true.
 
 ## Decision
 

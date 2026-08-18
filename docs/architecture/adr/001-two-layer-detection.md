@@ -1,4 +1,4 @@
-# ADR-001: Two-layer detection — deterministic then semantic
+# ADR-001: Two-layer detection (deterministic then semantic)
 
 **Status:** Accepted
 **Date:** 2026-08-18 (extracted from docs/design-rationale.md § "Why two layers")
@@ -31,14 +31,14 @@ be wrong in an unbounded way.
 - Adding a new tell requires updating the ruleset first, then
   regenerating the prompt bodies (they are outputs of the ruleset).
 - The two-layer setup means two things must stay in sync. Because both
-  are generated from `rules/default.yml`, they cannot disagree — see
+  are generated from `rules/default.yml`, they cannot disagree. See
   ADR-004.
 
 ## Alternatives considered
 
 - **Model-only.** The failure mode documented in
   `docs/design-rationale.md § "The semantic layer gets calibrated wrong"`
-  is not hypothetical — it was reproduced during development. A gate
+  is not hypothetical. It was reproduced during development. A gate
   with a false-positive floor above zero cannot stand alone.
 - **Deterministic-only.** Misses rephrased cliches (a binary-contrast
   cliche can be authored a hundred ways). The corpus of "shape" hits
@@ -50,5 +50,5 @@ be wrong in an unbounded way.
   semantic layer catches nothing new for three months → consider
   dropping the semantic layer for cost reasons.
 - A model becomes cheap enough that the round-trip cost is negligible
-  → semantic layer could take on more of the ruleset (still not all —
-  determinism is a feature).
+  → semantic layer could take on more of the ruleset (still not all,
+  since determinism is a feature).

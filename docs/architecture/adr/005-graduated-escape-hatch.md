@@ -25,12 +25,12 @@ cheapest correct fix is the first thing the human sees.
 4. Add a path glob to `.plain-english.yml` (per-repo exclude)
 5. Downgrade severity in `.plain-english.yml` (per-repo tuning)
 6. Ten-minute acknowledgement file at the repo root
-   (`.plain-english-lint-ack` etc.) — the sixth option, marked as the
+   (`.plain-english-lint-ack` etc.), the sixth option, marked as the
    human's call
 
 Option 6 stays because 1-5 all need a permanent decision, and somebody
 mid-task does not always have one. It is not the first thing reached
-for by design — the message puts it last.
+for by design. The message puts it last.
 
 ## Consequences
 
@@ -48,9 +48,9 @@ for by design — the message puts it last.
 
 ## Alternatives considered
 
-- **Single global override.** Reverted from — this is what we had, and
+- **Single global override.** Reverted from: this is what we had, and
   see the second paragraph of context.
-- **Model-mediated exception ("please pass this")** — considered and
+- **Model-mediated exception ("please pass this")**: considered and
   rejected. Every override should be traceable in git, not in
   conversation state.
 

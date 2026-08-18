@@ -7,7 +7,7 @@ globs: "docs/architecture/adr/**,docs/**/*plan*.md,docs/**/*spec*.md,docs/**/*de
 
 Falsify every claim of "too complex", "simpler for now", "later", "v2",
 "out of scope", "accepted tradeoff", "we can unify later" before it lands
-in a spec, plan, or ADR.
+in a spec, plan, or architecture decision record (`ADR`).
 
 ## The dual failure mode
 
@@ -27,9 +27,9 @@ abandonment, not deferral.
 | **Why not now** | Actual blocker (not "too much work") |
 | **Cost comparison** | Now versus later, with estimates |
 | **Owner** | Who will do it (default: whoever wrote the deferral) |
-| **Trigger** | When it gets done — a date or a measurable condition |
+| **Trigger** | When it gets done: a date or a measurable condition |
 
-## Foundational areas — cannot be deferred
+## Foundational areas (cannot be deferred)
 
 Small diffs in these areas are not "simple" and their deferral is not
 "lightweight". A change here needs the Large workflow:
@@ -46,9 +46,9 @@ downstream integration that depended on the old shape.
 
 ## Verdict
 
-- **PROCEED** — All claims falsified, no foundational deferral, all
+- `PROCEED`: all claims falsified, no foundational deferral, all
   deferrals carry the four fields.
-- **BLOCKED** — Any of: unfalsified complexity claim, foundational
+- `BLOCKED`: any of an unfalsified complexity claim, a foundational
   deferral, incomplete four-field record. Revise before proceeding.
 
-BLOCKED at any gate forces revision, not override.
+`BLOCKED` at any gate forces revision, not override.

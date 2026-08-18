@@ -4,7 +4,7 @@ description: Evidence-before-completion gate. Use before marking any work comple
 user-invocable: true
 ---
 
-# pe-verify — Verification Before Completion
+# pe-verify: Verification Before Completion
 
 Iron law: no completion claim without a fresh verification run in the
 same message that makes the claim.
@@ -22,11 +22,11 @@ Before any of:
 
 ## The gate
 
-1. **Identify** — which command proves this claim
-2. **Run** — execute it now, in this session
-3. **Read** — the actual output, not the expected output
-4. **Check** — does the output match the claim
-5. **Only then** — make the claim, with the output visible
+1. **Identify**: which command proves this claim
+2. **Run**: execute it now, in this session
+3. **Read**: the actual output, not the expected output
+4. **Check**: does the output match the claim
+5. **Only then**: make the claim, with the output visible
 
 ## Commands by claim shape
 
@@ -49,21 +49,21 @@ For any other claim, name the command in your response before running it.
 - Running a subset. `npx vitest run test/foo.test.ts` proves one file, not
   the suite. Match the command to the claim.
 - Trusting green from a stale build. `npm test` runs pretest to build
-  first — do not skip it.
+  first. Do not skip it.
 - Claiming "the CI will catch anything I miss". CI is a backstop, not a
   substitute for local verification.
 
 ## Verify the verification
 
-The Ferry trap: `set +e; npm test; set -e; echo passed` will print
-"passed" even if tests failed. If you are wrapping a verification, prove
+A wrapper can swallow the result: `set +e; npm test; set -e; echo passed` will
+print "passed" even if tests failed. If you are wrapping a verification, prove
 the wrapper actually observes the exit code:
 
 - Deliberately break something, run your wrapper, confirm it fails
 - If it does not fail, the wrapper is decorative
 
 Same principle: `grep -q "PASS" $(npm test 2>&1)` is not verification if
-"PASS" never appears in that output, or appears in unrelated lines.
+`PASS` never appears in that output, or appears in unrelated lines.
 
 ## Do not skip
 
