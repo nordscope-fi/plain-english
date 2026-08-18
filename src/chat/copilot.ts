@@ -35,6 +35,7 @@ import { resolve } from "node:path";
 import {
   field,
   inScope,
+  readJsonl,
   withinDays,
   type Availability,
   type ChatReader,
@@ -176,7 +177,9 @@ export const copilotChat: ChatReader = {
 
   current(payload: Record<string, unknown>): Reply | null {
     const session = field(payload, "sessionId", "session_id") ?? "";
-    // Documented on SubagentStop, and documented as absent on Stop.
+    // Documented on SubagentStop, and documented as absent on Stop. Observed
+    // absent on Stop: the payload carries only sessionId, stopReason,
+    // stop_hook_active, cwd and transcriptPath.
     const direct = field(payload, "response", "last_assistant_message");
     if (direct) {
       return {
@@ -188,8 +191,30 @@ export const copilotChat: ChatReader = {
       };
     }
 
-    // Main loop. The reply is not on the event, so the store answers instead,
-    // and the Copilot reader was being built for the scan regardless.
+    // Main loop. `transcriptPath` names a live event stream, not the session
+    // store: `session-state/<id>/events.jsonl`, where an `assistant.message`
+    // record carries the reply under `data.content`. Observed present at the
+    // moment the Stop hook runs, which the store is not guaranteed to be.
+    const path = field(payload, "transcriptPath", "transcript_path");
+    if (path) {
+      let text = "";
+      let line = 0;
+      readJsonl(path, (record, at) => {
+        if (record["type"] !== "assistant.message") return;
+        const data = record["data"];
+        if (!data || typeof data !== "object") return;
+        const content = (data as Record<string, unknown>)["content"];
+        // Last one wins: the reply this stop event is about is the latest.
+        if (typeof content === "string" && content.trim()) {
+          text = content;
+          line = at;
+        }
+      });
+      if (text) return { text, isSubagent: false, session, source: path, line };
+    }
+
+    // Nothing readable there. The store is the fallback rather than the
+    // first choice, because it can lag the event that asked about it.
     if (!session) return null;
     const rows = query(SELECT + " AND t.session_id = ? ORDER BY t.turn_index DESC LIMIT 1", [session]);
     if (!Array.isArray(rows) || !rows.length) return null;

@@ -169,25 +169,55 @@ missing one means reading nothing and allowing the write.
 Chat is the newest channel and the only one that reads a reply rather than gating a write.
 Two mechanisms, and they do not reach equally far.
 
-| Agent | Event carrying the reply | Field | Can block | Evidence |
+| Agent | Event | Carries the reply | Transcript ready at hook time | Evidence |
 |---|---|---|---|---|
-| Claude Code | `Stop`, `SubagentStop` | `last_assistant_message`, documented as the complete final message | yes, `decision: "block"` with `reason` | docs |
-| OpenAI Codex CLI | `Stop`, `SubagentStop` | `last_assistant_message`, documented as "if available" and possibly incomplete | yes | docs |
-| GitHub Copilot | `subagentStop` only | `response` / `last_assistant_message`. `Stop` documents that it carries no reply | yes, plus `modifiedResponse` | docs |
-| Cursor | documents `stop` and `afterAgentResponse` | unverified | unverified | docs, plus bug reports |
+| Claude Code 2.1.234 | `Stop`, `SubagentStop` | yes, `last_assistant_message` | **no**, it lags | observed |
+| OpenAI Codex CLI 0.147.0 | `Stop` | yes, `last_assistant_message`, complete | yes | observed |
+| GitHub Copilot CLI 1.0.78 | `Stop` | **no** | yes, in `events.jsonl` | observed |
+| GitHub Copilot CLI 1.0.78 | `subagentStop` | yes, `response` | not applicable | docs |
+| Cursor CLI 2026.08.04 | none | not applicable | not applicable | observed |
 
-Every row is `docs` tier, the weakest this project accepts, so none of it has been watched
-happening. The tracer procedure in
-[`verifying-an-adapter.md`](verifying-an-adapter.md#register-a-tracer-on-every-event) is
-what moves a row to `observed`, and it has three questions to answer:
+All five rows were run against the live binary on 2026-08-18 with a tracer registered on
+every event each agent has. What that pass found, in the order it hurt:
 
-1. Does the event fire, and does it carry the reply under the documented field name?
-2. For Codex and Copilot, has the transcript caught up by the time the event fires? Claude
-   Code's documentation says its own transcript is written asynchronously and may lag, and
-   assuming the other two behave the same way either direction is a guess.
-3. Does Cursor's command-line tool dispatch `stop` or `afterAgentResponse` at all? Several
-   reports say it sends only `beforeShellExecution` and `afterShellExecution`, and that
-   cloud agents run neither. Nothing is installed there until that is settled.
+**Claude Code rejects the flat `Stop` shape, and says nothing.** The documentation shows
+`Stop` as a bare `{ type, command }` in the event array. Written that way, the settings
+file fails validation, and `claude --help` gives the rest: in print mode a settings file
+that fails validation is "silently ignored (no error dialog is shown)". One bad entry
+takes every other hook in the file with it. Nested `{ matcher, hooks }` fires; flat fires
+nothing. Every event in a working settings file on the test machine used the nested shape,
+including the ones documented flat. `init` writes nested, and a test pins it.
+
+**Claude Code does not act on a `Stop` block in print mode.** The hook runs, the block is
+emitted and read, and the turn ends anyway. Isolated with a hook that has nothing to do
+with this package: a minimal always-block `Stop` hook, correctly registered and confirmed
+to run once, did not continue the turn. So under `claude -p` the chat channel is advisory
+whatever `failOn` says. Interactive sessions are untested, because driving one needs a
+terminal this pass did not have.
+
+**Claude Code's transcript really does lag.** At `Stop` and at `SubagentStop`, the reply
+was absent from `transcript_path`. That confirms the documented warning and the design that
+follows from it: `current()` takes `last_assistant_message` off the payload and never reads
+the transcript for the turn it is judging.
+
+**Codex's `last_assistant_message` was complete, and its transcript was already written.**
+Its documentation hedges with "if available"; on this run neither hedge was needed. Codex
+also names a turn `turn_id` rather than `prompt_id`, which matters for the once-per-turn
+block key.
+
+**Copilot's `Stop` carries no reply, as documented, and names something better.** Its
+`transcriptPath` points at `session-state/<id>/events.jsonl`, a live event stream where an
+`assistant.message` record holds the reply under `data.content`, present at hook time. The
+reader prefers that over the SQLite store, which can lag the event asking about it.
+Registering both `Stop` and `agentStop` runs the hook twice, so pick one casing.
+
+**Cursor dispatches neither `stop` nor `afterAgentResponse`.** With twelve events
+registered, only `sessionStart` and `sessionEnd` fired. The community reports are right,
+chat on Cursor is ungated, and `lint --chat` is the only thing that reaches it.
+
+Still unverified, and worth saying rather than leaving implied: Claude Code and Codex
+`SubagentStop` blocking, Copilot's `subagentStop` payload, and whether an interactive
+Claude Code session honours a `Stop` block.
 
 **Copilot's `modifiedResponse` is deliberately unused.** It would replace a subagent's
 output before the parent sees it, which is a stronger tool than anything else here.

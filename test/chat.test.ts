@@ -511,3 +511,73 @@ describe("path handling survives Windows", () => {
     expect(inScope("C:\\work\\repository", "C:\\work\\repo")).toBe(false);
   });
 });
+
+describe("shapes observed against live agents on 2026-08-18", () => {
+  it("claude-code: Stop and SubagentStop install nested, never flat", () => {
+    // Flat is what the documentation shows for Stop, and against 2.1.234 it
+    // fails validation. `claude --help` says the consequence out loud: in print
+    // mode a settings file that fails validation is silently ignored. So a flat
+    // entry here takes every other hook in the user's file down with it.
+    const config = byId("claude-code")!.plan({ prompts: {}, model: "" }).config;
+    for (const event of ["hooks.Stop", "hooks.SubagentStop"]) {
+      const file = config.find((c) => c.at.join(".") === event)!;
+      expect(file, `${event} not installed`).toBeTruthy();
+      expect(file.shape, `${event} must be nested`).toBe("nested");
+      expect(Object.keys(file.entries[0] as object).sort()).toEqual(["hooks", "matcher"]);
+    }
+  });
+
+  it("claude-code: a SubagentStop names the subagent's own transcript", () => {
+    // `agent_transcript_path` is present only on SubagentStop. Without it a
+    // finding points at the parent's transcript, where the reply is not.
+    const reply = claudeCodeChat.current({
+      hook_event_name: "SubagentStop",
+      agent_id: "ab08736697aafa2e3",
+      agent_type: "Explore",
+      session_id: "s1",
+      transcript_path: "/parent.jsonl",
+      agent_transcript_path: "/agent.jsonl",
+      last_assistant_message: "Found it.",
+    });
+    expect(reply?.isSubagent).toBe(true);
+    expect(reply?.source).toBe("/agent.jsonl");
+  });
+
+  it("copilot: Stop carries no reply, so the event stream answers instead", () => {
+    // Observed payload keys on Stop: cwd, sessionId, stopReason,
+    // stop_hook_active, timestamp, transcriptPath. No reply text anywhere.
+    const events = resolve(home, "events.jsonl");
+    writeFileSync(
+      events,
+      jsonl([
+        { type: "user.message", data: { content: "a question" } },
+        { type: "assistant.message", data: { content: "An earlier turn." } },
+        { type: "assistant.message", data: { content: "We leverage a seamless approach." } },
+        { type: "assistant.turn_end", data: {} },
+      ]),
+    );
+    const reply = copilotChat.current({
+      sessionId: "s1",
+      stopReason: "end_turn",
+      stop_hook_active: false,
+      transcriptPath: events,
+    });
+    // Last one wins: the reply this stop event is about is the latest.
+    expect(reply?.text).toBe("We leverage a seamless approach.");
+    expect(reply?.isSubagent).toBe(false);
+  });
+
+  it("copilot: a SubagentStop reply still comes straight off the event", () => {
+    const reply = copilotChat.current({ sessionId: "s1", response: "Subagent said this." });
+    expect(reply?.text).toBe("Subagent said this.");
+    expect(reply?.isSubagent).toBe(true);
+  });
+
+  it("cursor installs no stop hook, because its CLI dispatches none", () => {
+    // Observed: with 12 events registered, including `stop` and
+    // `afterAgentResponse`, only sessionStart and sessionEnd fired.
+    const events = byId("cursor")!.plan({ prompts: {}, model: "" }).config.map((c) => c.at.join("."));
+    expect(events.some((e) => /stop|agentresponse/i.test(e))).toBe(false);
+    expect(byId("cursor")!.emitChat).toBeUndefined();
+  });
+});

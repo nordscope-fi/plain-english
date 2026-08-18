@@ -87,11 +87,13 @@ A style reaches the main conversation and a **fork**, which inherits the parent'
 | Agent | Event carrying the reply | Main loop | Subagents |
 |---|---|---|---|
 | Claude Code | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes |
-| Codex | `Stop`, `SubagentStop` (`last_assistant_message`, documented as "if available") | yes | yes |
-| GitHub Copilot | `SubagentStop` only (`response`); `Stop` documents that it does not carry the text | from the session store | yes |
-| Cursor | documents `stop` and `afterAgentResponse`; its CLI is reported to dispatch neither | **no** | **no** |
+| Codex | `Stop` (`last_assistant_message`) | yes | yes |
+| GitHub Copilot | `Stop` names an event stream that holds it; `subagentStop` carries it directly | yes | yes |
+| Cursor | dispatches neither `stop` nor `afterAgentResponse` | **no** | **no** |
 
-Every row there is `docs` tier by the ranking in [`verifying-an-adapter.md`](verifying-an-adapter.md), which is the weakest evidence this project accepts. Treat the table as what the vendors say, not as what was watched happening.
+Those rows were run against the live binaries on 2026-08-18, so they are `observed` by the ranking in [`verifying-an-adapter.md`](verifying-an-adapter.md). [`agents.md`](agents.md#the-chat-channel) carries the per-agent detail and the three things that pass changed.
+
+**One limitation is worth reading before you set `failOn: error`.** Claude Code runs the hook in print mode and does not act on the block: the turn ends anyway. Isolated with a minimal always-block hook that has nothing to do with this package, so it is not something in this adapter. Under `claude -p`, treat the chat channel as advisory whatever `failOn` says. Whether an interactive session honours the block is untested.
 
 Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A once-per-turn state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
 

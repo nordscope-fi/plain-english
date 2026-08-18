@@ -40,10 +40,21 @@ const CHANNELS = [
 /**
  * The two events that carry the assistant's final message.
  *
- * `Stop` is documented flat and `SubagentStop` with a matcher, so each is
- * written the way the documentation shows it rather than the way that would be
- * tidier. Ten seconds, well inside any budget: a hook holding up the end of a
- * turn is felt directly by whoever is waiting for the answer.
+ * **Both take the nested `{ matcher, hooks }` shape**, and getting that wrong
+ * is worse than it sounds. The documentation shows `Stop` flat, as a bare
+ * `{ type, command }` in the event array. Written that way against 2.1.234 the
+ * whole settings file fails validation, and `claude --help` says the rest out
+ * loud: in print mode a settings file that fails validation is "silently
+ * ignored (no error dialog is shown)". So one wrong entry here takes every
+ * other hook in the user's file down with it, without a word.
+ *
+ * Observed, 2026-08-18, Claude Code 2.1.234: flat `Stop` fires nothing at all,
+ * nested `Stop` fires and carries `last_assistant_message`. Every event in a
+ * working settings file on this machine uses the nested shape, including the
+ * ones the documentation shows flat.
+ *
+ * Ten seconds, well inside any budget: a hook holding up the end of a turn is
+ * felt directly by whoever is waiting for the answer.
  *
  * `SubagentStop` is the one that matters most. An output style never reaches a
  * subagent, and this is the only mechanism in the package that does.
@@ -191,12 +202,19 @@ export const claudeCode: AgentProfile = {
         {
           path: ".claude/settings.json",
           at: ["hooks", "Stop"],
-          shape: "flat" as const,
+          // Nested, not flat. See the note on CHAT_SHIM: flat is what the
+          // documentation shows and what silently voids the file.
+          shape: "nested" as const,
           entries: [
             {
-              type: "command",
-              command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
-              timeout: 10,
+              matcher: "*",
+              hooks: [
+                {
+                  type: "command",
+                  command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
+                  timeout: 10,
+                },
+              ],
             },
           ],
         },
