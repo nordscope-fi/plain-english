@@ -18,9 +18,10 @@ import { claudeCode } from "./claude-code.ts";
 import { codex } from "./codex.ts";
 import { copilot } from "./copilot.ts";
 import { cursor } from "./cursor.ts";
+import { vibe } from "./vibe.ts";
 
 /** Registration order is also the order `--help` lists them in. */
-export const PROFILES: readonly AgentProfile[] = [claudeCode, copilot, codex, cursor];
+export const PROFILES: readonly AgentProfile[] = [claudeCode, copilot, codex, cursor, vibe];
 
 export const DEFAULT_AGENT = claudeCode.id;
 

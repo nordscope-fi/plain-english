@@ -488,3 +488,218 @@ describe("the registry stays consistent with itself", () => {
     expect(byId("copilot")!.plan({ prompts: {}, model: "m" }).notes.join(" ")).toContain("deny");
   });
 });
+
+/**
+ * Mistral Vibe.
+ *
+ * Verified against vibe 2.24.1. Its payload is the only one in the registry
+ * that identifies itself: `hook_event_name` is `pre_tool`, `post_tool` or
+ * `post_agent`, a vocabulary no other agent uses.
+ *
+ * The reply is flat, not nested, and the vocabulary is `allow` / `deny` with
+ * no `ask` in it. Source: `vibe/core/hooks/models.py`, class
+ * `HookStructuredResponse`.
+ */
+describe("mistral vibe", () => {
+  const vibeWrite = (dir: string, content = BAD) => ({
+    hook_event_name: "pre_tool",
+    session_id: "s1",
+    transcript_path: "",
+    cwd: dir,
+    tool_name: "write_file",
+    tool_call_id: "call_1",
+    tool_input: { file_path: resolve(dir, "x.md"), content },
+  });
+
+  it("is in the registry", () => {
+    expect(agentIds()).toContain("vibe");
+  });
+
+  it("reads the prose out of a write_file", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const event = vibe.parse(vibeWrite(dir));
+      expect(event.tool).toBe("write");
+      const d = decide(event, "docs", { projectDir: dir, ruleSet: advisory });
+      expect(d.allow).toBe(false);
+      expect(d.findings.map((f) => f.ruleId)).toContain("leverage");
+    });
+  });
+
+  it("reads the prose out of an edit", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const event = vibe.parse({
+        ...vibeWrite(dir),
+        tool_name: "edit",
+        tool_input: { file_path: resolve(dir, "x.md"), old_string: "a", new_string: BAD },
+      });
+      expect(event.tool).toBe("edit");
+      const d = decide(event, "docs", { projectDir: dir, ruleSet: advisory });
+      expect(d.findings.map((f) => f.ruleId)).toContain("leverage");
+    });
+  });
+
+  it("recognises its own payload without being told", () => {
+    expect(resolveProfile(undefined, { hook_event_name: "pre_tool" }).id).toBe("vibe");
+    expect(resolveProfile(undefined, { hook_event_name: "post_agent" }).id).toBe("vibe");
+  });
+
+  it("advises with system_message, because pre_tool has no ask", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      expect(vibe.supportsAsk).toBe(false);
+      const d = decide(vibe.parse(vibeWrite(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      const out = JSON.parse(vibe.emit(d, "pre").stdout);
+      expect(out.system_message).toContain("leverage");
+      expect(out.decision).toBeUndefined();
+    });
+  });
+
+  it("refuses flat, with no hookSpecificOutput anywhere", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const d = decide(vibe.parse(vibeWrite(dir)), "docs", {
+        projectDir: dir,
+        ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+      });
+      const out = JSON.parse(vibe.emit(d, "pre").stdout);
+      expect(out.decision).toBe("deny");
+      expect(out.reason).toContain("leverage");
+      expect(out.hookSpecificOutput).toBeUndefined();
+      expect(out.permissionDecision).toBeUndefined();
+    });
+  });
+
+  it("does not self-name in the reason, because Vibe prefixes it already", () => {
+    // Vibe wraps a pre_tool denial as `Tool 'X' was denied by hook 'Y': reason`
+    // and prefixes hook-end content with `[hook-name]`. A reason that opened
+    // with "plain-english:" would read as "hook 'plain-english': plain-english:".
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const d = decide(vibe.parse(vibeWrite(dir)), "docs", {
+        projectDir: dir,
+        ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+      });
+      const out = JSON.parse(vibe.emit(d, "pre").stdout);
+      expect(out.reason.startsWith("plain-english")).toBe(false);
+    });
+  });
+
+  it("blocks a chat reply on the post_agent event", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const d = decide(vibe.parse(vibeWrite(dir)), "docs", {
+        projectDir: dir,
+        ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+      });
+      const out = JSON.parse(vibe.emitChat!(d, "post_agent").stdout);
+      expect(out.decision).toBe("deny");
+      expect(out.reason).toContain("leverage");
+    });
+  });
+
+  it("says nothing after the fact, since post_tool cannot unwrite a file", () => {
+    inTmp((dir) => {
+      const vibe = byId("vibe")!;
+      const d = decide(vibe.parse(vibeWrite(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(vibe.emit(d, "post").stdout).toBe("");
+    });
+  });
+});
+
+
+/**
+ * The Vibe trust gate.
+ *
+ * `.vibe/hooks.toml` is read only in a folder the user has trusted, and
+ * untrusted it produces no hooks and no error. That is the shipped-and-does-
+ * nothing failure `docs/verifying-an-adapter.md` opens with, so `doctor` has
+ * to be able to name it.
+ */
+describe("vibe trust diagnosis", () => {
+  const vibe = () => byId("vibe")!;
+
+  /**
+   * A temporary home and a temporary repo, with the trust file written to say
+   * whatever the test needs about that repo.
+   *
+   * `body` is a template: `{{ROOT}}` becomes the repo path. Writing the paths
+   * in by hand would make each test assert against a string it also authored,
+   * which is the assertion that cannot fail.
+   */
+  function withTrust<T>(
+    body: string | null,
+    fn: (root: string) => T,
+    opts: { installed?: boolean } = {},
+  ): T {
+    const home = mkdtempSync(resolve(tmpdir(), "pe-vibe-home-"));
+    const root = mkdtempSync(resolve(tmpdir(), "pe-vibe-repo-"));
+    const before = process.env["VIBE_HOME"];
+    process.env["VIBE_HOME"] = home;
+    try {
+      if (opts.installed !== false) {
+        mkdirSync(resolve(root, ".vibe"), { recursive: true });
+        writeFileSync(resolve(root, ".vibe/hooks.toml"), "[[hooks]]\n");
+      }
+      if (body !== null) {
+        writeFileSync(resolve(home, "trusted_folders.toml"), body.replaceAll("{{ROOT}}", root));
+      }
+      return fn(root);
+    } finally {
+      if (before === undefined) delete process.env["VIBE_HOME"];
+      else process.env["VIBE_HOME"] = before;
+      rmSync(home, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it("stays quiet when the folder is trusted, one entry per line", () => {
+    withTrust('trusted = [\n    "/somewhere/else",\n    "{{ROOT}}",\n]\nuntrusted = []\n', (root) => {
+      expect(vibe().diagnose!(root)).toEqual([]);
+    });
+  });
+
+  it("reads a single-line list too", () => {
+    withTrust('trusted = ["{{ROOT}}"]\nuntrusted = []\n', (root) => {
+      expect(vibe().diagnose!(root)).toEqual([]);
+    });
+  });
+
+  it("does not read the untrusted list as the trusted one", () => {
+    withTrust('trusted = []\nuntrusted = [\n    "{{ROOT}}",\n]\n', (root) => {
+      expect(vibe().diagnose!(root)).toHaveLength(1);
+    });
+  });
+
+  it("names the requirement when the folder is absent from the list", () => {
+    withTrust('trusted = [\n    "/somewhere/else",\n]\n', (root) => {
+      const line = vibe().diagnose!(root)[0]!;
+      expect(line).toContain("not trusted");
+      expect(line).toContain("hooks.toml");
+    });
+  });
+
+  it("does not offer --trust as the fix, because it does not persist", () => {
+    // vibe --help, 2.24.1: "Trust the working directory for this invocation
+    // only (not persisted to trusted_folders.toml)". Offering it as the fix
+    // would send somebody back to the same silent state on the next run.
+    withTrust(null, (root) => {
+      const line = vibe().diagnose!(root)[0]!;
+      expect(line).toContain("--trust");
+      expect(line).toContain("this invocation only");
+    });
+  });
+
+  it("stays quiet where this package is not installed at all", () => {
+    // `policy` calls diagnose on every profile, including agents a project does
+    // not use, and writes the result into a committed document. Reporting a
+    // trust problem about an agent with no hooks here put an absolute home path
+    // into a public file, and `npm run check:refs` caught it. Codex guards the
+    // same way and for the same reason: there is nothing to be wrong about
+    // until something is installed.
+    withTrust(null, (root) => {
+      expect(vibe().diagnose!(root)).toEqual([]);
+    }, { installed: false });
+  });
+});

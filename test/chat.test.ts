@@ -259,7 +259,7 @@ describe("Copilot session store", () => {
 
 describe("the reader registry", () => {
   it("covers every agent this package supports", () => {
-    expect(readerIds().sort()).toEqual(["claude-code", "codex", "copilot", "cursor"]);
+    expect(readerIds().sort()).toEqual(["claude-code", "codex", "copilot", "cursor", "vibe"]);
     for (const id of readerIds()) expect(readerFor(id)?.id).toBe(id);
   });
 
@@ -271,8 +271,9 @@ describe("the reader registry", () => {
     setEnv("CODEX_HOME", resolve(home, "absent"));
     setEnv("COPILOT_HOME", resolve(home, "absent"));
     setEnv("CURSOR_HOME", resolve(home, "absent"));
+    setEnv("VIBE_HOME", resolve(home, "absent"));
     const results = readAll(READERS, {});
-    expect(results).toHaveLength(4);
+    expect(results).toHaveLength(5);
     for (const r of results) {
       expect(r.replies).toEqual([]);
       expect(r.unavailable, `${r.id} should say why it found nothing`).toBeTruthy();
@@ -579,5 +580,119 @@ describe("shapes observed against live agents on 2026-08-18", () => {
     const events = byId("cursor")!.plan({ prompts: {}, model: "" }).config.map((c) => c.at.join("."));
     expect(events.some((e) => /stop|agentresponse/i.test(e))).toBe(false);
     expect(byId("cursor")!.emitChat).toBeUndefined();
+  });
+});
+
+/**
+ * Mistral Vibe session logs.
+ *
+ * Location: `$VIBE_HOME/logs/session/session_<ts>_<id>/messages.jsonl`,
+ * defaulting to `~/.vibe`. Subagents nest under `agents/<name>_<ts>_<id>/`
+ * inside their parent's directory.
+ *
+ * The transcript is a plain role/content message list, so it carries no
+ * working directory and no timestamps. Both live in the sibling `meta.json`,
+ * which is why scope is resolved per session rather than per record.
+ */
+describe("Mistral Vibe transcripts", () => {
+  const meta = (cwd: string, extra: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      session_id: "823cdc9b",
+      parent_session_id: null,
+      start_time: "2026-08-17T15:56:29.449527+00:00",
+      environment: { working_directory: cwd },
+      ...extra,
+    });
+
+  function seedSession(cwd: string, records: unknown[], id = "session_20260817_155629_abc"): string {
+    const dir = resolve(home, "logs/session", id);
+    write(resolve(dir, "meta.json"), meta(cwd));
+    write(resolve(dir, "messages.jsonl"), jsonl(records));
+    setEnv("VIBE_HOME", home);
+    return dir;
+  }
+
+  it("reads what the assistant said", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    seedSession("/work/repo", [
+      { role: "user", content: "hi", injected: false, message_id: "1" },
+      { role: "assistant", content: "We leverage the cache.", injected: false, message_id: "2" },
+    ]);
+    const replies = vibeChat.read({ cwd: "/work/repo" });
+    expect(replies).toHaveLength(1);
+    expect(replies[0]!.text).toBe("We leverage the cache.");
+    expect(replies[0]!.isSubagent).toBe(false);
+  });
+
+  it("skips a turn that only called a tool", () => {
+    // An assistant turn mid-tool-call carries `content: null` and its
+    // `tool_calls`. Counting those as replies would report empty prose.
+    return import("../src/chat/vibe.ts").then(({ vibeChat }) => {
+      seedSession("/work/repo", [
+        { role: "assistant", content: null, tool_calls: [{ id: "c1" }], injected: false },
+        { role: "tool", content: "ok", tool_call_id: "c1", injected: false },
+        { role: "assistant", content: "Done.", injected: false },
+      ]);
+      const replies = vibeChat.read({ cwd: "/work/repo" });
+      expect(replies.map((r) => r.text)).toEqual(["Done."]);
+    });
+  });
+
+  it("ignores a message Vibe injected, since nobody wrote it", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    seedSession("/work/repo", [
+      { role: "assistant", content: "Real reply.", injected: false },
+      { role: "assistant", content: "Injected retry text.", injected: true },
+    ]);
+    expect(vibeChat.read({ cwd: "/work/repo" }).map((r) => r.text)).toEqual(["Real reply."]);
+  });
+
+  it("scopes by the working directory in meta.json, not by the transcript", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    seedSession("/work/other", [{ role: "assistant", content: "Elsewhere.", injected: false }]);
+    expect(vibeChat.read({ cwd: "/work/repo" })).toHaveLength(0);
+    expect(vibeChat.read({ cwd: "/work/other" })).toHaveLength(1);
+  });
+
+  it("marks a subagent reply, because the style does reach one here", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    const dir = seedSession("/work/repo", [{ role: "assistant", content: "Parent.", injected: false }]);
+    write(resolve(dir, "agents/explore_20260817_163251_cb8/meta.json"), meta("/work/repo"));
+    write(
+      resolve(dir, "agents/explore_20260817_163251_cb8/messages.jsonl"),
+      jsonl([{ role: "assistant", content: "Child.", injected: false }]),
+    );
+    const replies = vibeChat.read({ cwd: "/work/repo" });
+    expect(replies.map((r) => r.text).sort()).toEqual(["Child.", "Parent."]);
+    expect(replies.find((r) => r.text === "Child.")!.isSubagent).toBe(true);
+    expect(replies.find((r) => r.text === "Parent.")!.isSubagent).toBe(false);
+  });
+
+  it("answers a post_agent event from the transcript it names", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    const dir = seedSession("/work/repo", [
+      { role: "assistant", content: "First.", injected: false },
+      { role: "assistant", content: "We leverage the cache.", injected: false },
+    ]);
+    const reply = vibeChat.current({
+      hook_event_name: "post_agent",
+      session_id: "823cdc9b",
+      transcript_path: resolve(dir, "messages.jsonl"),
+      cwd: "/work/repo",
+    });
+    expect(reply?.text).toBe("We leverage the cache.");
+  });
+
+  it("says why it cannot run rather than reporting a clean scan", async () => {
+    const { vibeChat } = await import("../src/chat/vibe.ts");
+    setEnv("VIBE_HOME", resolve(home, "nope"));
+    const availability = vibeChat.available();
+    expect(availability.ok).toBe(false);
+    if (!availability.ok) expect(availability.why).toContain("nope");
+  });
+
+  it("is in the reader registry", async () => {
+    await import("../src/chat/vibe.ts");
+    expect(readerIds()).toContain("vibe");
   });
 });

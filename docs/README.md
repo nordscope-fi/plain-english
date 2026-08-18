@@ -28,5 +28,4 @@ Start with the [README](../README.md). These go deeper.
 | [verifying-an-adapter.md](verifying-an-adapter.md) | Adding a fifth agent, or checking an existing one against a live binary. Read it first: four adapters were written from vendor documentation and four defects were later found in them. |
 | [releasing.md](releasing.md) | Maintainers, cutting a release. |
 
-Contributor rules live in [`AGENTS.md`](../AGENTS.md) at the repository root, with
-per-host notes in [`CLAUDE.md`](../CLAUDE.md) and [`VIBE.md`](../VIBE.md).
+Contributor rules live in [`AGENTS.md`](../AGENTS.md) at the repository root.

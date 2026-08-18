@@ -723,3 +723,123 @@ describe("upgrading from a 0.9.0 install", () => {
     expect(serialised).toContain("/theirs/flat-hook.sh");
   });
 });
+
+/**
+ * Mistral Vibe reads TOML, and nobody else in the registry does.
+ *
+ * `.vibe/hooks.toml` is an array of tables. The risk it brings is not the
+ * syntax, it is that `init` used to be a JSON-only writer, so a TOML path that
+ * silently produced JSON would install a file Vibe reads as a parse error and
+ * skips. That is this project's recurring failure, so it gets asserted on the
+ * bytes rather than on a parsed object.
+ */
+describe("init --agent vibe", () => {
+  const vibe = byId("vibe")!;
+  const hooksToml = () => readFileSync(resolve(root, ".vibe/hooks.toml"), "utf8");
+
+  /** A hooks.toml a project already had, holding somebody else's hook. */
+  function seedExistingHooks(): void {
+    mkdirSync(resolve(root, ".vibe"), { recursive: true });
+    writeFileSync(
+      resolve(root, ".vibe/hooks.toml"),
+      [
+        "# The team's own guard.",
+        "",
+        "[[hooks]]",
+        'name = "no-force-push"',
+        'type = "pre_tool"',
+        'match = "bash"',
+        'command = "./scripts/no-force-push.sh"',
+        "",
+      ].join("\n"),
+    );
+  }
+
+  it("writes TOML, not JSON", () => {
+    expect(init({ root, agents: [vibe] })).toBe(0);
+    const text = hooksToml();
+    expect(text.startsWith("{")).toBe(false);
+    expect(text).toContain("[[hooks]]");
+    expect(text).toContain('name = "plain-english-docs"');
+    expect(text).toContain('type = "pre_tool"');
+  });
+
+  it("wires the chat channel to post_agent, the only stop event Vibe has", () => {
+    init({ root, agents: [vibe] });
+    const text = hooksToml();
+    expect(text).toContain('name = "plain-english-chat"');
+    expect(text).toContain('type = "post_agent"');
+    // `match` is rejected outright on post_agent by Vibe's own validator.
+    const chat = text.slice(text.indexOf('name = "plain-english-chat"'));
+    expect(chat).not.toContain("match =");
+  });
+
+  it("keeps a hook the project already had", () => {
+    seedExistingHooks();
+    init({ root, agents: [vibe] });
+    const text = hooksToml();
+    expect(text).toContain('name = "no-force-push"');
+    expect(text).toContain("# The team's own guard.");
+    expect(text).toContain('name = "plain-english-docs"');
+  });
+
+  it("replaces its own entries rather than doubling them", () => {
+    seedExistingHooks();
+    init({ root, agents: [vibe] });
+    const once = hooksToml();
+    init({ root, agents: [vibe] });
+    const twice = hooksToml();
+    expect(twice).toBe(once);
+    expect(twice.split('name = "plain-english-docs"')).toHaveLength(2);
+    expect(twice.split('name = "no-force-push"')).toHaveLength(2);
+  });
+
+  it("writes the judge and its prompt, and leaves the judge switched off", () => {
+    init({ root, agents: [vibe] });
+    const judge = resolve(root, ".vibe/hooks/plain-english-judge.mjs");
+    expect(existsSync(judge)).toBe(true);
+    // Invoked through `node`, so it runs on a platform that honours neither a
+    // shebang nor an exec bit. NTFS carries no POSIX permission bits, so the
+    // mode reads as 0 there whatever `init` asked for.
+    expect(hooksToml()).toContain("node .vibe/hooks/plain-english-judge.mjs");
+    if (process.platform !== "win32") {
+      expect(statSync(judge).mode & 0o111, "judge is not executable").toBeGreaterThan(0);
+    }
+    const body = readFileSync(judge, "utf8");
+    expect(body).toContain("PLAIN_ENGLISH_VIBE_JUDGE");
+    for (const channel of ["docs", "github", "issue"]) {
+      const prompt = resolve(root, `.vibe/hooks/plain-english-${channel}.prompt.md`);
+      expect(existsSync(prompt), `${channel} prompt`).toBe(true);
+      // The host is responsible for the substitution, so the marker survives.
+      expect(readFileSync(prompt, "utf8")).toContain("$ARGUMENTS");
+    }
+  });
+
+  it("still writes AGENTS.md, which is how the style reaches Vibe at all", () => {
+    init({ root, agents: [vibe] });
+    const md = readFileSync(resolve(root, "AGENTS.md"), "utf8");
+    expect(md).toContain(AGENTS_MD_START);
+    expect(md).toContain(AGENTS_MD_END);
+  });
+
+  it("refuses a hooks.toml it cannot account for, rather than flattening it", () => {
+    mkdirSync(resolve(root, ".vibe"), { recursive: true });
+    writeFileSync(resolve(root, ".vibe/hooks.toml"), "[[hooks]\nname = broken\n");
+    expect(init({ root, agents: [vibe] })).toBe(2);
+    expect(readFileSync(resolve(root, ".vibe/hooks.toml"), "utf8")).toContain("[[hooks]");
+  });
+  it("stops the judge recursing into itself", () => {
+    // Observed on 2.24.1: the judge's own `vibe -p` call runs in the same
+    // working directory, so it inherits this repository's .vibe/hooks.toml and
+    // fires the same hooks. It survives today only because the judge session
+    // runs with every tool disabled and so calls nothing. That is a property of
+    // the flags, not of the design, and one flag change away from a hook that
+    // spawns a model call that spawns a hook.
+    init({ root, agents: [vibe] });
+    const body = readFileSync(resolve(root, ".vibe/hooks/plain-english-judge.mjs"), "utf8");
+    expect(body).toContain("PLAIN_ENGLISH_VIBE_JUDGE");
+    // The child must be told the judge is off, whatever the parent was told.
+    expect(body).toMatch(/env:\s*\{[^}]*PLAIN_ENGLISH_VIBE_JUDGE:\s*"0"/);
+  });
+});
+

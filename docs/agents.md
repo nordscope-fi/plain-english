@@ -8,6 +8,7 @@ npx plain-english init --agent claude-code   # default
 npx plain-english init --agent copilot
 npx plain-english init --agent codex
 npx plain-english init --agent cursor
+npx plain-english init --agent vibe
 npx plain-english init --agent all
 npx plain-english init --agent cursor --dry-run   # see what would change
 ```
@@ -23,11 +24,13 @@ twice and nothing changes the second time.
 | GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
 | OpenAI Codex CLI | `.codex/hooks.json` | yes, in a trusted folder you have approved | no | no |
 | Cursor | `.cursor/hooks.json` | yes | no | no |
+| Mistral Vibe | `.vibe/hooks.toml` + a judge in `.vibe/hooks/`, in a folder you have trusted | yes | no | yes, opt-in |
 
 The semantic layer is the model-judged pass over the nine sentence shapes a regex cannot
 reach. It rides on Claude Code's `prompt` hook type. Copilot documents an equivalent that
-this package does not yet use; Codex and Cursor have none. The deterministic rules, which
-are the ones that can fail a build, run everywhere.
+this package does not yet use; Codex and Cursor have none. Vibe has no prompt hook either,
+so its judge is a shell command that asks Vibe, off unless `PLAIN_ENGLISH_VIBE_JUDGE=1`.
+The deterministic rules, which are the ones that can fail a build, run everywhere.
 
 ## What the advisory default means on each agent
 
@@ -164,6 +167,36 @@ The adapter still accepts several spellings for each argument. The captured
 names go first, and the rest cost nothing: a wrong guess falls through, while a
 missing one means reading nothing and allowing the write.
 
+### Mistral Vibe
+
+Config is `.vibe/hooks.toml`, a TOML array of tables rather than the JSON every other agent
+reads, and this is the only place `init` writes TOML. Vibe reads it only in a folder you
+have trusted; untrusted it finds no hooks and says nothing, so `plain-english doctor` names
+that case.
+
+Three events exist and no more: `pre_tool`, `post_tool` and `post_agent`. The vocabulary is
+`allow` and `deny`, with no `ask` in it at all. Sending one is not ignored the way Cursor
+ignores it: the schema is `Literal["allow", "deny"]`, and a reply that fails validation is
+treated as a hook failure. So the advisory tier travels as `system_message` on an allow.
+
+Two things here are better than on Claude Code, and one is worse.
+
+**The chat gate is real.** `post_agent` fires once per turn after the reply, and a denial is
+injected back as a retry user message, capped at three per hook per user turn. Vibe applies
+that cap itself.
+
+**The style reaches subagents.** A Vibe subagent runs its own loop but is built with the
+same system prompt, so the project `AGENTS.md` reaches it. A Claude Code output style never
+reaches a subagent, which is why `SubagentStop` carries so much weight there. Verified by
+reading a live subagent's recorded system prompt.
+
+**There is no user-prompt event.** Nothing runs before the model sees a user turn, so that
+channel is uncovered on Vibe and no workaround is offered.
+
+One trap worth naming: `.vibe/prompts/` looks like the slot an output style belongs in and
+is not. A file there replaces Vibe's entire system prompt rather than adding to it, so
+putting a writing style in it would delete Vibe's own operating instructions.
+
 ## The chat channel
 
 Chat is the newest channel and the only one that reads a reply rather than gating a write.
@@ -246,8 +279,9 @@ session write one.
 | OpenAI Codex CLI | `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl` | `response_item`, `payload.role=assistant`, `content[].type=output_text` | observed, and docs |
 | Cursor | `~/.cursor/projects/<project>/agent-transcripts/<uuid>/<uuid>.jsonl` | `{role:"assistant", message.content[].text}` | observed, only after docs pointed at the path |
 | GitHub Copilot | `$COPILOT_HOME/session-store.db`, SQLite | `turns.assistant_response`, scoped by `sessions.cwd` | observed, and docs |
+| Mistral Vibe | `$VIBE_HOME/logs/session/session_*/messages.jsonl`, and subagents at `<session>/agents/*/` | `{role:"assistant", content}` as a string, skipping `injected` | observed, and source |
 
-Three things about that table are worth carrying:
+Four things about that table are worth carrying:
 
 - **Claude Code's subagent replies are in their own nested files.** A scan of the top level
   only finds every main-loop reply and no subagent reply, and reports that as zero. On the
@@ -260,6 +294,11 @@ Three things about that table are worth carrying:
   the log, so a live store reads as empty or as a missing table. The reader copies the
   database and its log to a scratch directory and opens the copy, which honours the log and
   cannot write to somebody's agent state.
+- **Vibe's transcript carries no working directory and no timestamps.** Both live in a
+  sibling `meta.json`, so scope is resolved per session rather than per record. An assistant
+  turn that only called tools carries `content: null`, and a message Vibe injected itself
+  carries `injected: true`. Counting either as a reply would lint text nobody wrote,
+  including this package's own block messages.
 
 Reading is local only. A transcript holds whatever passed through a tool, and Copilot's
 documentation notes that its sessions sync to the user's GitHub account by default.
@@ -279,6 +318,7 @@ different things get three different names:
 | Cursor | observed | observed | observed |
 | OpenAI Codex CLI | observed | observed, **with two gates, see below** | observed |
 | GitHub Copilot | observed | **observed wrong, see below** | observed |
+| Mistral Vibe | observed | observed, **needs a trusted folder, see below** | observed |
 
 Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
 `preToolUse` does fire for a `Write` in the CLI, which no source settled either
@@ -307,6 +347,46 @@ shaped an earlier version of this adapter turned out to be false:
   `apply_patch`. That described `openai/codex#16732`, fixed by PR #18391 in
   April, months before the version the claim named. A shell-redirection parser
   was nearly written on the strength of it.
+
+### What a live Vibe session showed
+
+Verified against `vibe 2.24.1` on 2026-08-18, and unusually the source was
+available first: Vibe ships as Python, so the hook models, the executor and the
+handlers were read before anything was written. The live session was there to
+answer what the source could not.
+
+The generated `.vibe/hooks.toml` was fed back through Vibe's own
+`_load_hooks_file`, which returned it with no issues, and every matcher was
+checked against Vibe's own `name_matches`. A config this package believes in and
+the vendor rejects is the failure worth designing against, so the vendor's own
+loader gets to decide.
+
+What the live session settled:
+
+- **`post_agent` fires with five keys and no message.** `session_id`,
+  `parent_session_id`, `transcript_path`, `cwd`, `hook_event_name`. Three of the
+  four other agents put the reply on the event; Vibe does not, so the transcript
+  is the only source there is.
+- **The transcript has caught up by the time the hook runs.** This was the open
+  question, because reading a reply that is not written yet would look exactly
+  like a clean scan. A probe hook reading its own `transcript_path` found the
+  complete final reply already there, so `current()` needs no retry.
+- **A denial really is injected as a retry.** A reply carrying banned words came
+  back into the same transcript as `{role: "user", injected: true}` holding the
+  findings, and the model answered it.
+- **A `pre_tool` denial is wrapped before the model sees it**, as
+  `Tool 'write_file' was denied by hook 'plain-english-docs': ...`. That wrapper
+  is why a reason must not name this package: it would read twice.
+- **The judge does not deadlock**, but it does inherit. A judge call runs its own
+  Vibe session in the same directory, so it reads the same `.vibe/hooks.toml` and
+  fires the same hooks. It survives today only because the judge runs with every
+  tool disabled, which is a property of one flag. The generated judge switches
+  itself off for its own child rather than relying on that.
+
+One behaviour worth knowing about rather than fixing: told to write blocked
+prose, the model's second attempt was to add the file to `exclude` in
+`.plain-english.yml`. It failed for an unrelated reason. A linter a model can
+edit its way past is a linter that needs its config in review, on every agent.
 
 ### What a live Codex session showed
 

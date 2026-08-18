@@ -17,6 +17,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | copilot | not installed | no hook runs |
 | codex | not installed | no hook runs |
 | cursor | not installed | no hook runs |
+| vibe | not installed | no hook runs |
 
 ## The rules in force
 
@@ -84,6 +85,7 @@ This section used to say that a chat reply is not a tool call, so nothing sees o
 | copilot | not installed | no |
 | codex | not installed | no |
 | cursor | not installed | no |
+| vibe | not installed | no |
 
 An output style shapes a reply before it exists and cannot be measured. A stop hook reads the finished reply and can hand a finding back to the model, which is the closest thing to a gate this channel has. Under `failOn: never` it reports and holds up nothing.
 

@@ -9,7 +9,8 @@ reads. It reads finished text and reports the giveaways, the way a spell checker
 misspellings. A tool shaped like that is called a linter.
 
 It also plugs into your coding agent, so the check runs before the write happens. Agents
-call that plug-in point a hook, and Claude Code, Copilot, Codex and Cursor all have one.
+call that plug-in point a hook, and Claude Code, Copilot, Codex, Cursor and Mistral Vibe
+all have one.
 Everywhere else, it runs as a plain command.
 
 ## Two problems, one tool
@@ -196,8 +197,8 @@ knowing before you rely on a hook:
   [`plain-english doctor`](docs/agents.md#openai-codex-cli) says which one is missing.
 
 Under the default `failOn: never` the finding is advisory. Claude Code and Copilot can say
-that on the wire and let you decide. Codex and Cursor have no way to express it, so on
-those two the finding is fed back to the model as text.
+that on the wire and let you decide. Codex, Cursor and Vibe have no way to express it, so
+on those three the finding is fed back to the model or shown to you as text.
 [`docs/agents.md`](docs/agents.md#what-the-advisory-default-means-on-each-agent) has the
 table.
 
@@ -267,7 +268,8 @@ Elsewhere the portable equivalent is the `AGENTS.md` section, at the default lev
 
 **A stop hook.** Claude Code, Codex and Copilot all document an event carrying the
 assistant's final message, so a finished reply can be judged and the finding handed back
-to the model. Under the default `failOn: never` it reports and holds up nothing. Cursor
+to the model. Vibe fires one too, `post_agent`, which carries no message but names the
+transcript. Under the default `failOn: never` it reports and holds up nothing. Cursor
 has no such event that its command-line tool dispatches, so chat there is ungated.
 
 **A scan of what was actually said:**
