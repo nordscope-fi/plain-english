@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [Unreleased]
+### Fixed
+
+- **The release script blamed an empty changelog for a duplicated heading.** `npm version` leaves a fresh empty `## [Unreleased]` behind after every release, so a branch that writes its own ends up with two. The entry then sits under the second while every check reads the first, and the release refused 0.12.1 with "`## [Unreleased]` is empty" over a file that had the entry written and waiting. It now counts the headings and says so. A refusal that names the wrong cause costs more than no refusal, because it sends whoever reads it looking in the wrong place.
+
 ## [0.12.1] - 2026-08-18
 ### Fixed
 
