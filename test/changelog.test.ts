@@ -88,6 +88,21 @@ describe("dating the changelog", () => {
     expect(() => dateChangelog(HEAD, "0.3.1", "2026-08-08")).toThrow(/already has a section/);
   });
 
+  it("names two Unreleased headings rather than calling the section empty", () => {
+    // How it happens: this script leaves a fresh empty Unreleased behind after
+    // every release, and a branch then writes its own. The entry sits under the
+    // second while every check reads the first.
+    //
+    // Live on 0.12.1. The release refused with "is empty" over a file that had
+    // the entry written and waiting, which sent the reader looking in the wrong
+    // place. A refusal that names the wrong cause is worse than none.
+    const doubled =
+      "# Changelog\n\n## [Unreleased]\n\n## [Unreleased]\n### Fixed\n\n- A real entry.\n\n## [0.3.1] - 2026-01-01\n";
+    expect(() => dateChangelog(doubled, "0.4.0", "2026-08-08")).toThrow(/2 '## \[Unreleased\]' headings/);
+    // And not the wrong diagnosis it used to give.
+    expect(() => dateChangelog(doubled, "0.4.0", "2026-08-08")).not.toThrow(/empty/);
+  });
+
   it("formats today as YYYY-MM-DD", () => {
     expect(today(new Date(2026, 7, 8))).toBe("2026-08-08");
     expect(today(new Date(2026, 0, 1))).toBe("2026-01-01");

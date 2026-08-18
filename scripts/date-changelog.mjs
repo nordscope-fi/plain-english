@@ -53,6 +53,23 @@ export function dateChangelog(text, version, date, { allowEmpty = false } = {}) 
     throw new Error(`CHANGELOG already has a section for ${version}`);
   }
 
+  // Two Unreleased headings, which is easier to produce than it sounds. This
+  // script leaves a fresh empty one behind after every release, so a branch
+  // that writes its own ends up with both. The entry is then under the second
+  // and every check here reads the first.
+  //
+  // Caught on 0.12.1, where the release refused with "'## [Unreleased]' is
+  // empty" over a file that had the entry written and waiting. A refusal that
+  // names the wrong cause costs more than no refusal, because it sends whoever
+  // reads it looking in the wrong place.
+  const headings = text.match(/^## \[Unreleased\]\s*$/gm) ?? [];
+  if (headings.length > 1) {
+    throw new Error(
+      `${headings.length} '## [Unreleased]' headings. Every check here reads the ` +
+        "first, so an entry written under a later one is invisible. Collapse them into one.",
+    );
+  }
+
   // Everything between the Unreleased heading and the next release heading.
   const start = text.search(heading);
   const after = text.slice(start + text.match(heading)[0].length);
