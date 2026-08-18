@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { allAgents, init, mergeNested, spliceAgentsMd } from "../src/init.ts";
@@ -843,3 +843,41 @@ describe("init --agent vibe", () => {
   });
 });
 
+
+
+/**
+ * The litter 0.12.0 left behind.
+ *
+ * The chat gate wrote its turn state into the project root, one file per
+ * session, with nothing deleting them and nothing ignoring them. One repository
+ * collected fourteen in an afternoon, and any `git add -A` would have committed
+ * them. 0.12.1 keeps that state in the temporary directory; this clears what
+ * the old version left.
+ */
+describe("init clears the state files 0.12.0 left in the project root", () => {
+  it("removes ours and leaves everything else alone", () => {
+    const at = mkdtempSync(resolve(tmpdir(), "pe-sweep-"));
+    for (const n of [".plain-english-chat-abc123", ".plain-english-chat-def456"]) {
+      writeFileSync(resolve(at, n), "turn-1");
+    }
+    // Neighbours that must survive: our ack file, which a person creates on
+    // purpose and which expires on its own, and an unrelated dotfile.
+    writeFileSync(resolve(at, ".plain-english-ack-chat"), "");
+    writeFileSync(resolve(at, ".editorconfig"), "root = true\n");
+
+    init({ root: at, agent: "claude-code" });
+
+    expect(readdirSync(at).filter((n) => n.startsWith(".plain-english-chat-"))).toEqual([]);
+    expect(existsSync(resolve(at, ".plain-english-ack-chat"))).toBe(true);
+    expect(existsSync(resolve(at, ".editorconfig"))).toBe(true);
+    rmSync(at, { recursive: true, force: true });
+  });
+
+  it("a dry run reports them without deleting anything", () => {
+    const at = mkdtempSync(resolve(tmpdir(), "pe-sweep-dry-"));
+    writeFileSync(resolve(at, ".plain-english-chat-abc123"), "turn-1");
+    init({ root: at, agent: "claude-code", dryRun: true });
+    expect(existsSync(resolve(at, ".plain-english-chat-abc123"))).toBe(true);
+    rmSync(at, { recursive: true, force: true });
+  });
+});

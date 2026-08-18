@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [Unreleased]
+### Fixed
+
+- **The chat gate dropped a file in your repository for every session it blocked.** It kept each turn's block state in the project root, one file per session, with nothing deleting them and nothing adding them to `.gitignore`. One repository collected fourteen in an afternoon, and any `git add -A` would have committed them. The state now lives in the temporary directory, keyed by a hash of the project path so two checkouts cannot share a turn. Losing it is safe: it means "not blocked yet", and the agent's own `stop_hook_active` is the real loop guard. `init` clears what 0.12.0 left behind, and reports the count rather than doing it out of sight.
+
 ## [0.12.0] - 2026-08-18
 ### Fixed
 

@@ -9,7 +9,7 @@ import { copilotChat } from "../src/chat/copilot.ts";
 import { READERS, readAll, readerFor, readerIds } from "../src/chat/registry.ts";
 import { hasSegment, inScope, withinDays } from "../src/chat/reader.ts";
 import { chatRuleSet, compile, loadDefault } from "../src/rules.ts";
-import { decideChat, blockStatePath } from "../src/adapters/chat.ts";
+import { decideChat, blockStatePath, sweepLegacyState } from "../src/adapters/chat.ts";
 import { decide } from "../src/adapters/hook.ts";
 import { byId } from "../src/agents/registry.ts";
 import { lintText } from "../src/lint.ts";
@@ -517,8 +517,14 @@ describe("the chat gate", () => {
 
   it("keeps its state file beside the ack file, and lets it expire", () => {
     const path = blockStatePath(home, "p1");
-    expect(path.startsWith(home)).toBe(true);
-    expect(path).toContain(".plain-english-chat-");
+    // Not inside the repository. Machine-written state that nobody reads by
+    // hand has no business in somebody's working tree, and 0.12.0 shipped it
+    // there: one file per session, never cleaned up, never gitignored. One
+    // repo on the author's machine collected fourteen in an afternoon, and any
+    // `git add -A` would have committed them.
+    expect(path.startsWith(home)).toBe(false);
+    expect(path.startsWith(tmpdir())).toBe(true);
+    expect(path).toContain("plain-english-chat-");
 
     const opts = { projectDir: home, ruleSet: strict, promptId: "p1" };
     expect(decideChat(reply("We leverage this."), opts).allow).toBe(false);
