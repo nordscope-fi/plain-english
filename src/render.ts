@@ -112,6 +112,25 @@ function readabilityDescription(r: ReadabilityRule): string {
       `idea is fine, and the usual fault at that length is three ideas in one.`
     );
   }
+  if (r.kind === "reply-length") {
+    return (
+      `Fires past ${r.maxWords} words of prose in one reply. Quoted output, tables and ` +
+      "code do not count, because quoting the line a claim rests on outranks brevity. " +
+      "The number is measured rather than chosen: across seven days of transcripts the " +
+      "90th-percentile reply was 254 words, and the shortest reply a reader complained " +
+      "about was 264."
+    );
+  }
+  if (r.kind === "reader-load") {
+    return (
+      `Fires past ${r.maxTerms} distinct backticked names in one reply: files, config ` +
+      "keys, flags. Counted absolutely and never as a rate, because the rate points the " +
+      "wrong way. In the replies readers complained about, jargon density was lower than " +
+      "in long replies generally; what separated them was the total. Five terms in a " +
+      "sixty-word answer is over quickly. Eighteen across five hundred words is carried " +
+      "to the end."
+    );
+  }
   const known = r.known?.length
     ? ` ${r.known.length} names a reader already has, such as JSON and GitHub, are exempt.`
     : "";
@@ -195,6 +214,25 @@ export function renderWritingStyle(set: RuleSet): string {
       "",
     );
     for (const r of shape) {
+      out.push(`### ${r.id}`, "");
+      out.push(readabilityDescription(r), "");
+      if (r.message) out.push(`Instead: ${r.message}`, "");
+    }
+  }
+
+  // The chat channel gets its own heading because its rules apply to one reply
+  // and to nothing else, and because the `link` on each of them points here.
+  const limits = (set.chat.limits ?? []).filter((r) => r.severity !== "off");
+  if (limits.length) {
+    out.push("## Chat", "");
+    out.push(
+      "These apply to a reply in the chat window and to nothing else. A document that " +
+        "runs long is doing its job; a reply that runs long is the complaint readers " +
+        "make most often. Both are checked on the stop event, and both can be waived " +
+        "by the judge when the reader asked for the depth.",
+      "",
+    );
+    for (const r of limits) {
       out.push(`### ${r.id}`, "");
       out.push(readabilityDescription(r), "");
       if (r.message) out.push(`Instead: ${r.message}`, "");
@@ -388,7 +426,54 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     JSON_CONTRACT,
   ].join("\n");
 
-  return { docs, github, issue };
+  /**
+   * The chat judge.
+   *
+   * Unlike the other three, this one is not asked to find a fault. The
+   * deterministic pass has already found one, and the only question left is
+   * whether the reader asked for it. So the default answer here is the
+   * opposite of the default answer there: waive, unless the length is doing
+   * nothing for the reader.
+   *
+   * It exists because a word count cannot tell a wall of text from a
+   * walkthrough somebody requested, and a check that cannot tell the
+   * difference would hold one turn in ten for no reason.
+   */
+  const chat = [
+    TXT_BANNER,
+    "",
+    "A reply is about to be sent. A word count has already found it long, or found it",
+    "carrying many separate names. You decide only whether that was earned.",
+    "",
+    "Hook input (the reader's last message, then the reply):",
+    "$ARGUMENTS",
+    "",
+    'Return {"ok": true}, waiving the length, if ANY of these hold:',
+    ...set.chat.expand.map((e) => `- ${e}`),
+    "- The reader asked a question whose honest answer is genuinely this long.",
+    "- The bulk of the reply is quoted output, a table, code, or a command to run.",
+    "",
+    'Return {"ok": false} only when the length buys the reader nothing: the answer is',
+    "in there but arrives late, the reply restates the question, it explains what it is",
+    "about to do, it covers a second topic nobody asked about, or it names files, keys",
+    "and flags where a plain description would do.",
+    "",
+    "When you refuse, `reason` must say what the reply should have led with, in one",
+    "sentence, quoting the line that should have been first.",
+    "",
+    "Your reason is shown to the reader and goes back to the model, so it is held to the",
+    "same rules as the reply. No em dashes: use a comma, parentheses, or a full stop. A",
+    "reason that breaks a rule is thrown away and replaced with a bare word count, which",
+    "helps nobody.",
+    "",
+    "CALIBRATION. Waiving is the normal answer and a complete job. The reader would",
+    "rather read one long reply they asked for than lose an answer they needed. Refuse",
+    "only when a much shorter reply would have served them better.",
+    "",
+    JSON_CONTRACT,
+  ].join("\n");
+
+  return { docs, github, issue, chat };
 }
 
 export interface RenderTarget {
@@ -429,6 +514,40 @@ function styleBody(set: RuleSet, level: string): string[] {
     if (g.bad) out.push(`Not this: ${g.bad}`);
     if (g.good) out.push(`This: ${g.good}`);
     if (g.bad || g.good) out.push("");
+  }
+
+  // The two numbers a reply is measured against, printed with the values the
+  // linter actually enforces rather than restated in prose. Every other section
+  // here is advice; this one is the only place the style says what will be
+  // checked, so it says the number.
+  const limits = (chat.limits ?? []).filter((l) => l.severity !== "off");
+  if (limits.length) {
+    out.push("## Two numbers, and they are checked", "");
+    for (const l of limits) {
+      if (l.kind === "reply-length" && l.maxWords !== undefined) {
+        out.push(
+          ...wrap(
+            `- Keep a reply under about ${l.maxWords} words of prose. Quoted output does not count. ${l.message ?? ""}`.trim(),
+            "  ",
+          ),
+        );
+      }
+      if (l.kind === "reader-load" && l.maxTerms !== undefined) {
+        out.push(
+          ...wrap(
+            `- Name at most about ${l.maxTerms} separate files, keys or flags in one reply. ${l.message ?? ""}`.trim(),
+            "  ",
+          ),
+        );
+      }
+    }
+    out.push(
+      "",
+      ...wrap(
+        "Both give way to the exceptions below. A reply that was asked to go deep is not too long, and a check that cannot tell the difference asks before it refuses.",
+      ),
+      "",
+    );
   }
 
   const tells = chat.tells.filter((t) => t.severity !== "off" && inLevel(t, level));
@@ -495,10 +614,17 @@ function wrap(text: string, continuation = "", width = 78): string[] {
 /**
  * The Claude Code output style.
  *
- * A hook cannot gate a chat reply: nothing sits between the text being written
- * and somebody reading it. An output style is appended to the system prompt and
- * re-stated to the model each turn, which makes it the strongest lever
- * available on that channel, and still a prompt.
+ * The prevention half of the chat channel, and no longer the only half.
+ *
+ * This comment used to say a hook cannot gate a chat reply. That was true when
+ * it was written and is not true now: `Stop` and `SubagentStop` both fire after
+ * the reply exists, and a block sends it back to be written again. Observed
+ * against Claude Code 2.1.234 on 2026-08-18.
+ *
+ * So the style is what stops a bad reply being written, and the gate is what
+ * catches the ones it does not stop. Neither replaces the other. The style
+ * reaches the model every turn and costs nothing; the gate reads one reply and
+ * can hold a turn.
  *
  * Select it with `/config`. The standalone `/output-style` command was removed
  * in Claude Code v2.1.91.
@@ -563,7 +689,8 @@ export function renderAgentsFragment(set: RuleSet): string {
     "issue or pull request body. Run `npx plain-english lint <file>` after writing",
     "prose, and fix what it reports.",
     "",
-    "Everything below is about what you say in chat, which no linter sees.",
+    "Everything below is about what you say in chat. A gate on the stop event reads",
+    "each reply and can send it back, so this is checked rather than merely asked for.",
     "",
     // One file, so it carries one level. Claude Code gets all of them as
     // separate output styles; every other agent gets the default.

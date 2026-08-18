@@ -13,6 +13,7 @@ import { decideChat, blockStatePath } from "../src/adapters/chat.ts";
 import { decide } from "../src/adapters/hook.ts";
 import { byId } from "../src/agents/registry.ts";
 import { lintText } from "../src/lint.ts";
+import { JUDGE_MARKER, isJudge, judgeInput, parseVerdict, runJudge, usableReason } from "../src/adapters/judge.ts";
 
 /**
  * Fixtures are hand-authored in each agent's real record shape, never copied
@@ -344,6 +345,84 @@ describe("the chat gate", () => {
     line: 1,
   });
 
+  /**
+   * The judge, and the boundary of what it may waive.
+   *
+   * A count cannot tell a wall of text from a walkthrough the reader asked
+   * for. Firing on one reply in ten, measured over seven days of transcripts,
+   * that difference is the whole cost of the rule. So the counts get a second
+   * opinion and nothing else does: an em dash is an em dash whatever was
+   * asked.
+   */
+  describe("the reply limits get a second opinion", () => {
+    const long = Array.from({ length: 65 }, (_, i) => `Point ${i} is settled.`).join(" ");
+    const banned = long + " We leverage a seamless approach.";
+
+    it("waives a length the reader asked for", () => {
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: strict,
+        judge: () => ({ ok: true }),
+      });
+      expect(d.allow).toBe(true);
+      expect(d.findings.some((f) => f.ruleId === "reply-length")).toBe(true);
+    });
+
+    it("refuses with what the reply should have led with, not with a word count", () => {
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: strict,
+        judge: () => ({ ok: false, reason: "Lead with: point 7 is the answer." }),
+      });
+      expect(d.allow).toBe(false);
+      expect(d.reason).toBe("Lead with: point 7 is the answer.");
+      expect(d.reason).not.toMatch(/words of prose/);
+    });
+
+    it("is never asked about a rule it has no business waiving", () => {
+      // A banned term is failing too, so the answer is already settled and the
+      // model call would be spent to change nothing.
+      let asked = false;
+      const d = decideChat(reply(banned), {
+        projectDir: home,
+        ruleSet: strict,
+        judge: () => {
+          asked = true;
+          return { ok: true };
+        },
+      });
+      expect(asked).toBe(false);
+      expect(d.allow).toBe(false);
+    });
+
+    it("falls back to the count when the judge cannot answer", () => {
+      // Timed out, failed to start, or replied with something unreadable. The
+      // count is the answer this package had before the judge existed, and a
+      // gate that fails open because a subprocess died is the failure this
+      // project keeps finding in other people's tools.
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: strict,
+        judge: () => undefined,
+      });
+      expect(d.allow).toBe(false);
+      expect(d.reason).toMatch(/words of prose/);
+    });
+
+    it("costs nothing when no limit is failing", () => {
+      let asked = false;
+      decideChat(reply("Two files changed."), {
+        projectDir: home,
+        ruleSet: strict,
+        judge: () => {
+          asked = true;
+          return { ok: true };
+        },
+      });
+      expect(asked).toBe(false);
+    });
+  });
+
   it("allows a clean reply and says nothing", () => {
     const d = decideChat(reply("Two files changed. Tests pass."), {
       projectDir: home,
@@ -353,12 +432,27 @@ describe("the chat gate", () => {
     expect(d.reason).toBeUndefined();
   });
 
-  it("reports without holding up a turn under the advisory default", () => {
-    // failOn: never is the shipped default. On this channel the cost of the
-    // default is a line of output, never a turn.
+  it("blocks by default here, while the document channel still only reports", () => {
+    // The two tiers are separate on purpose. The top-level default stays
+    // `never`, so installing this package cannot start failing anyone's build.
+    // Chat ships `error`, because a reply has no build to fail and the whole
+    // cost of the advisory tier is that the reader has already read the reply
+    // by the time anything objects to it.
+    expect(base.failOn).toBe("never");
+    expect(base.chat.failOn).toBe("error");
     const d = decideChat(reply("We leverage a seamless approach."), {
       projectDir: home,
       ruleSet: base,
+    });
+    expect(d.allow).toBe(false);
+    expect(d.reason).toContain("leverage");
+  });
+
+  it("still reports without holding up a turn when a project asks for that", () => {
+    const quiet = { ...base, chat: { ...base.chat, failOn: "never" as const } };
+    const d = decideChat(reply("We leverage a seamless approach."), {
+      projectDir: home,
+      ruleSet: quiet,
     });
     expect(d.allow).toBe(true);
     expect(d.advisory).toContain("leverage");
@@ -454,11 +548,31 @@ describe("stop-event wire formats", () => {
   const advisory = { allow: true, decision: "ask" as const, advisory: "heads up", findings: [] };
   const clean = { allow: true, decision: "allow" as const, findings: [] };
 
-  it("claude-code echoes the event it was given", () => {
+  /**
+   * Flat, not nested, and this one is observed rather than reasoned about.
+   *
+   * Run against Claude Code 2.1.234 in a real interactive session on
+   * 2026-08-18, driving a pty with a minimal always-block Stop hook whose
+   * reason asked for a word the model would never otherwise write. Same
+   * driver, same session, one variable changed:
+   *
+   *   nested `{hookSpecificOutput: {decision: "block"}}`  -> Stop fired once,
+   *     the turn ended, the word never appeared.
+   *   flat   `{decision: "block", reason}`                -> Stop fired again
+   *     with stop_hook_active true, and the reply carried the word.
+   *
+   * So the nested shape this package shipped could never hold a turn. The gate
+   * ran, reported, and let every reply through, which is this project's
+   * recurring failure wearing the package's own colours. `hookEventName` has
+   * no place in a flat body; the event is echoed nowhere because the hook is
+   * already registered per event.
+   */
+  it("claude-code blocks with the flat shape, which is the one that works", () => {
     const out = byId("claude-code")!.emitChat!(blocked, "SubagentStop");
     const body = JSON.parse(out.stdout);
-    expect(body.hookSpecificOutput.hookEventName).toBe("SubagentStop");
-    expect(body.hookSpecificOutput.decision).toBe("block");
+    expect(body.decision).toBe("block");
+    expect(body.reason).toBe("no");
+    expect("hookSpecificOutput" in body).toBe(false);
     expect(out.exitCode).toBe(0);
   });
 
@@ -694,5 +808,184 @@ describe("Mistral Vibe transcripts", () => {
   it("is in the reader registry", async () => {
     await import("../src/chat/vibe.ts");
     expect(readerIds()).toContain("vibe");
+  });
+});
+
+/**
+ * Reader load.
+ *
+ * Seven days of transcripts, read on 2026-08-18: thirteen replies drew an
+ * explicit complaint from the reader. Every one was 264 words or longer, and
+ * four of the thirteen produced no finding at all. Across all thirteen the
+ * linter fired 69 times, on em dashes, unglossed terms and long sentences, and
+ * not once on the thing the reader actually named.
+ *
+ * The complaint was always one of two words: too long, or "what EXACTLY do you
+ * need from me". So these two rules measure what one reply asks the reader to
+ * carry, which no existing rule does.
+ *
+ * Both are chat-only. A long document is not a fault.
+ *
+ * Fixtures are hand-authored to the measured thresholds, per the note at the
+ * top of this file.
+ */
+describe("reader load", () => {
+  const set = chatRuleSet(compile(loadDefault()));
+  const base = compile(loadDefault());
+  const fired = (text: string, id: string) =>
+    lintText(text, set).findings.some((f) => f.ruleId === id);
+
+  // 260 words of unobjectionable prose: no banned term, no em dash, every
+  // sentence short. The only thing wrong with it is that there is too much.
+  const long = Array.from({ length: 65 }, (_, i) => `Point ${i} is settled.`).join(" ");
+
+  it("counts the words in a reply", () => {
+    expect(long.split(/\s+/).length).toBeGreaterThan(250);
+    expect(lintText(long, set).findings.filter((f) => f.ruleId !== "reply-length")).toEqual([]);
+  });
+
+  it("fires on a reply past the length the reader stops reading", () => {
+    expect(fired(long, "reply-length")).toBe(true);
+  });
+
+  it("leaves a short reply alone", () => {
+    expect(fired("Two files changed. Nothing needs deciding.", "reply-length")).toBe(false);
+  });
+
+  it("does not judge a document by reply length", () => {
+    expect(lintText(long, base).findings.some((f) => f.ruleId === "reply-length")).toBe(false);
+  });
+
+  // Sixteen separate names in two short lines. Under 250 words, so the only
+  // thing wrong with it is how many things the reader has to hold.
+  const many = "Set " + Array.from({ length: 16 }, (_, i) => `\`opt-${i}\``).join(", ") + ".";
+
+  it("fires on a reply carrying too many separate names", () => {
+    expect(fired(many, "reader-load")).toBe(true);
+    expect(fired(many, "reply-length")).toBe(false);
+  });
+
+  it("counts distinct names, not repeated ones", () => {
+    // The same name twenty times is one thing to learn, not twenty. Density
+    // measured the wrong quantity and this is the case that shows it.
+    const repeated = "Set " + Array.from({ length: 20 }, () => "\`failOn\`").join(", ") + ".";
+    expect(fired(repeated, "reader-load")).toBe(false);
+  });
+
+  it("does not count a name against a document", () => {
+    expect(lintText(many, base).findings.some((f) => f.ruleId === "reader-load")).toBe(false);
+  });
+});
+
+/**
+ * The judge subprocess.
+ *
+ * Everything here fails towards the count. A judge that cannot start, cannot
+ * finish, or answers with something unreadable must hand the decision back to
+ * the number, because a gate that opens when a subprocess dies is the failure
+ * this package keeps finding in other people's tools.
+ */
+describe("the chat judge", () => {
+  it("reads a pass and a refusal", () => {
+    expect(parseVerdict('{"ok": true}')).toEqual({ ok: true });
+    expect(parseVerdict('{"ok": false, "reason": "Lead with the number."}')).toEqual({
+      ok: false,
+      reason: "Lead with the number.",
+    });
+  });
+
+  it("finds the JSON inside a fenced block or a sentence", () => {
+    expect(parseVerdict('Here you go:\n```json\n{"ok": true}\n```')).toEqual({ ok: true });
+  });
+
+  it("defers to the count on anything it cannot read", () => {
+    for (const junk of ["", "  ", "no", "{}", '{"ok": "yes"}', "{not json}"]) {
+      expect(parseVerdict(junk), JSON.stringify(junk)).toBeUndefined();
+    }
+  });
+
+  it("defers on a refusal that gives no reason", () => {
+    // Worse than no refusal: it holds the turn and says nothing about what to
+    // do differently.
+    expect(parseVerdict('{"ok": false}')).toBeUndefined();
+    expect(parseVerdict('{"ok": false, "reason": "  "}')).toBeUndefined();
+  });
+
+  it("will not start a judge from inside a judge", () => {
+    // The subprocess runs in the same directory and reads the same settings,
+    // so without this its own Stop hook would measure its own reply and start
+    // another. Live defect in the Vibe judge, caught only by the tools being
+    // disabled there.
+    expect(isJudge({ [JUDGE_MARKER]: "1" })).toBe(true);
+    const v = runJudge("anything", {
+      prompt: "judge this: $ARGUMENTS",
+      command: "definitely-not-a-real-binary",
+      args: [],
+      env: { [JUDGE_MARKER]: "1" },
+    });
+    expect(v).toBeUndefined();
+  });
+
+  it("returns nothing rather than throwing when the binary is absent", () => {
+    expect(
+      runJudge("anything", {
+        prompt: "judge this: $ARGUMENTS",
+        command: "definitely-not-a-real-binary",
+        args: [],
+        env: {},
+      }),
+    ).toBeUndefined();
+  });
+
+  it("refuses a prompt with no slot to put the reply in", () => {
+    expect(
+      runJudge("anything", { prompt: "no slot here", command: "echo", args: [], env: {} }),
+    ).toBeUndefined();
+  });
+
+  it("shows the judge what the reader asked, not just what was said", () => {
+    // Every exception the ruleset grants is a fact about the question.
+    const text = judgeInput(
+      { text: "a long answer", isSubagent: false, session: "s", source: "t", line: 1 },
+      "walk me through it",
+      [{ ruleId: "reply-length", severity: "error", match: "", line: 1, column: 1, lineText: "", message: "400 words of prose, over 250." }],
+    );
+    expect(text).toContain("walk me through it");
+    expect(text).toContain("reply-length");
+    expect(text).toContain("a long answer");
+  });
+
+  it("says the reader's message was unavailable rather than inventing one", () => {
+    const text = judgeInput(
+      { text: "x", isSubagent: false, session: "s", source: "t", line: 1 },
+      undefined,
+      [],
+    );
+    expect(text).toContain("(not available)");
+  });
+});
+
+describe("a refusal is held to the rules it enforces", () => {
+  const set = chatRuleSet(compile(loadDefault()));
+
+  it("rejects a reason carrying the thing the package bans", () => {
+    // Caught live on the first end-to-end run: the judge refused a reply and
+    // put an em dash in the refusal. A linter that emits the thing it bans has
+    // nothing to say, so an unusable reason falls back to the word count.
+    expect(usableReason("The reply never answers it — it repeats one line.", set)).toBe(false);
+    expect(usableReason("We leverage a seamless approach.", set)).toBe(false);
+  });
+
+  it("keeps a reason that only trips a warning", () => {
+    // Not worth trading the most useful sentence the reader will see for a
+    // bare word count.
+    const wordy =
+      "The reader asked for one word and this reply spends its whole length restating " +
+      "the question before it gets anywhere near an answer worth reading at all today.";
+    expect(usableReason(wordy, set)).toBe(true);
+  });
+
+  it("keeps a plain, useful reason", () => {
+    expect(usableReason('It should have led with "Yes."', set)).toBe(true);
   });
 });

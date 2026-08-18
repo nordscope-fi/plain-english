@@ -94,7 +94,28 @@ export interface ChatDecisionOptions {
   /** Distinguishes turns within a session, so a block is once per turn. */
   promptId?: string;
   now?: number;
+  /**
+   * Second opinion on the reply limits, and only on those.
+   *
+   * `reply-length` and `reader-load` are counts, and a count cannot tell a wall
+   * of text from a walkthrough the reader asked for. When the only thing
+   * failing is a count, this is consulted and may waive it. Returning
+   * `undefined`, or not supplying it at all, leaves the count in charge.
+   *
+   * Injected rather than called directly so the decision stays a pure function
+   * and the tests never shell out to a model.
+   */
+  judge?: (reply: Reply, findings: Finding[]) => { ok: boolean; reason?: string } | undefined;
 }
+
+/**
+ * The rules a judge may waive.
+ *
+ * Deliberately a closed list. Every other rule is a fact about the text that no
+ * amount of context makes acceptable: an em dash is an em dash. These two are
+ * measurements whose meaning depends on what was asked.
+ */
+const JUDGEABLE = new Set(["reply-length", "reader-load"]);
 
 /**
  * What to do about one reply.
@@ -119,12 +140,38 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   const findings = res.findings;
   const timedOut = res.timedOut.length ? { timedOut: [...res.timedOut].sort() } : {};
 
-  const failing =
-    ruleSet.failOn === "warn" ? findings : findings.filter((f) => f.severity === "error");
+  // The chat channel decides its own tier. `failOn` at the top of a config is
+  // about whether a lint run fails a build, and a reply has no build to fail.
+  const tier = base.chat?.failOn ?? ruleSet.failOn;
+  const failing = tier === "warn" ? findings : findings.filter((f) => f.severity === "error");
   if (!failing.length) return { allow: true, decision: "allow", findings, ...timedOut };
 
   if (hasAck("chat", opts.projectDir, now)) {
     return { allow: true, decision: "allow", findings, ...timedOut };
+  }
+
+  // The cheap check has fired and it is the only thing that has. Ask before
+  // refusing, because the counts are the two rules that can be wrong about a
+  // reply the reader wanted. Anything else failing skips this entirely, which
+  // is what keeps the model call on roughly one reply in ten rather than all
+  // of them.
+  if (opts.judge && failing.every((f) => JUDGEABLE.has(f.ruleId))) {
+    const verdict = opts.judge(reply, failing);
+    if (verdict?.ok) {
+      return { allow: true, decision: "allow", findings, ...timedOut };
+    }
+    if (verdict && verdict.reason) {
+      // The judge said what the reply should have led with. That is more use
+      // than "over 250 words", so it replaces the count in the message.
+      const reason = verdict.reason;
+      if (!shouldBlock(opts, now)) {
+        return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
+      }
+      return { allow: false, decision: "deny", reason, advisory: reason, findings, ...timedOut };
+    }
+    // No verdict at all: the judge timed out, failed to start, or answered
+    // something unreadable. Fall through to the count, which is the answer
+    // this package had before the judge existed.
   }
 
   const reason = formatReason(failing, "chat", "This reply");
@@ -132,7 +179,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   // Advisory tier. Nothing is refused, and the user is told. On this channel
   // there is no write to hold up, so the default costs a line of output and
   // never a turn.
-  if (ruleSet.failOn === "never") {
+  if (tier === "never") {
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
   }
 

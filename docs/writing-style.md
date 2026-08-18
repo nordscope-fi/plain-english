@@ -156,6 +156,22 @@ Fires past 35 words. Set generously: a long sentence carrying one idea is fine, 
 
 Instead: Split this. One idea per sentence.
 
+## Chat
+
+These apply to a reply in the chat window and to nothing else. A document that runs long is doing its job; a reply that runs long is the complaint readers make most often. Both are checked on the stop event, and both can be waived by the judge when the reader asked for the depth.
+
+### reply-length
+
+Fires past 250 words of prose in one reply. Quoted output, tables and code do not count, because quoting the line a claim rests on outranks brevity. The number is measured rather than chosen: across seven days of transcripts the 90th-percentile reply was 254 words, and the shortest reply a reader complained about was 264.
+
+Instead: Lead with the answer and cut the scaffolding, or say in one line that the detail exists.
+
+### reader-load
+
+Fires past 15 distinct backticked names in one reply: files, config keys, flags. Counted absolutely and never as a rate, because the rate points the wrong way. In the replies readers complained about, jargon density was lower than in long replies generally; what separated them was the total. Five terms in a sixty-word answer is over quickly. Eighteen across five hundred words is carried to the end.
+
+Instead: Name the thing, not its configuration. Say what it does before you name it.
+
 ## Suppressions
 
 Silencing a rule is a decision, and the next reader cannot review a decision with no stated reason.

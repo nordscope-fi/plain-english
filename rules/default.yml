@@ -702,6 +702,53 @@ chat:
         defending a narrower version of the old one.
       levels: [full]
 
+  # Chat blocks where a document only reports.
+  #
+  # The top-level `failOn` decides whether a lint run fails a build, and its
+  # default stays `never` so installing this package cannot break anyone's CI.
+  # A reply has no build to fail. The cost of blocking here is a few seconds
+  # and a rewrite; the cost of not blocking is that the reader has already read
+  # the reply by the time anything objects to it, which is what fifteen of
+  # seventeen repositories on this machine were doing.
+  failOn: error
+
+  # What one reply may ask the reader to carry.
+  #
+  # Every other rule in this file judges words and sentences. These two judge
+  # the reply as a whole, because that is where the complaints landed. Seven
+  # days of transcripts, read 2026-08-18: thirteen replies drew an explicit
+  # complaint, every one was 264 words or longer, four produced no finding at
+  # all, and across all thirteen the linter fired 69 times without once naming
+  # the fault the reader named.
+  #
+  # Chat only. A document that runs long is doing its job.
+  #
+  # Both are `error` rather than `warn` because a warning cannot hold a turn,
+  # and a gate that reports after the reader has already read the reply is the
+  # thing this pair exists to replace. The semantic judge is what keeps that
+  # honest: it waives a reply whose depth was asked for.
+  limits:
+    - id: reply-length
+      kind: reply-length
+      severity: error
+      # 250, and it is measured rather than chosen. Over those seven days the
+      # 90th-percentile reply was 254 words of prose, and the shortest reply
+      # that drew a complaint was 264. Fenced output does not count toward it.
+      maxWords: 250
+      message: "Lead with the answer and cut the scaffolding, or say in one line that the detail exists."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    - id: reader-load
+      kind: reader-load
+      severity: error
+      # Distinct backticked names, counted absolutely and never as a rate.
+      # Density pointed the wrong way: in the replies that drew a complaint it
+      # was LOWER than in long replies generally, 2.4 per 100 words against
+      # 4.1. The total separated them, a median of 18 against 12.
+      maxTerms: 15
+      message: "Name the thing, not its configuration. Say what it does before you name it."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
   # Deterministic and chat-only. Phrases rather than regexes on purpose: the
   # pattern is generated from this list, so the wording shown to a model and
   # the wording matched by `lint --chat` cannot drift apart.

@@ -473,6 +473,18 @@ function isGlossed(text: string, start: number, end: number): boolean {
  * drops code, tables, link destinations and blockquotes, and it needs real
  * markdown to do that, so masking first would hide the structure it reads.
  */
+/**
+ * Where to anchor a finding about the whole reply.
+ *
+ * A reply-wide fault has no one position, and pointing at character 0 with a
+ * zero-width match gives an editor nothing to highlight. The first line is the
+ * shortest honest answer to "where".
+ */
+function firstLineEnd(text: string): number {
+  const nl = text.indexOf("\n");
+  return nl === -1 ? Math.min(text.length, 80) : Math.min(nl, 80);
+}
+
 function readabilityFindings(
   text: string,
   ruleSet: RuleSet,
@@ -511,6 +523,59 @@ function readabilityFindings(
   };
 
   for (const rule of active) {
+    /**
+     * How much prose one reply asks the reader to get through.
+     *
+     * Counted by summing sentence words rather than splitting the raw source,
+     * so fenced output, tables and link destinations do not count. That is
+     * deliberate: `quote-the-decisive-line` says quoting real output outranks
+     * brevity, and a rule that punished the quote would contradict it.
+     */
+    if (rule.kind === "reply-length") {
+      const max = rule.maxWords ?? 250;
+      let words = 0;
+      for (const sentence of sentences(text)) words += sentence.words;
+      if (words > max) {
+        add(
+          rule,
+          0,
+          Math.min(text.length, firstLineEnd(text)),
+          `${words} words of prose, over ${max}.` + (rule.message ? ` ${rule.message}` : ""),
+        );
+      }
+      continue;
+    }
+
+    /**
+     * How many separate names the reader has to hold at once.
+     *
+     * The count is distinct backticked names, and it is absolute rather than a
+     * rate. Measured over seven days of transcripts on 2026-08-18: in the
+     * replies the reader complained about, jargon *density* was LOWER than in
+     * long replies generally (2.4 per 100 words against 4.1). What separated
+     * them was the total, a median of 18 against 12. Five terms in a sixty-word
+     * answer is over quickly. Eighteen across five hundred words is a load
+     * carried to the end.
+     */
+    if (rule.kind === "reader-load") {
+      const max = rule.maxTerms ?? 15;
+      const names = new Set<string>();
+      for (const m of text.matchAll(/(?<!`)`([^`\n]{1,80})`(?!`)/g)) {
+        const name = (m[1] ?? "").trim();
+        if (name) names.add(name.toLowerCase());
+      }
+      if (names.size > max) {
+        add(
+          rule,
+          0,
+          Math.min(text.length, firstLineEnd(text)),
+          `${names.size} separate names, over ${max}.` +
+            (rule.message ? ` ${rule.message}` : ""),
+        );
+      }
+      continue;
+    }
+
     if (rule.kind === "long-sentence") {
       const max = rule.maxWords ?? 35;
       for (const sentence of sentences(text)) {

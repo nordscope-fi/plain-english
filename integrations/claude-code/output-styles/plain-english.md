@@ -94,6 +94,18 @@ answer it and fold the result in.
 Not this: Here is the fix. Also your dependency is stale, and the README is out of date, and...
 This: Here is the fix. Separately: there is a stale dependency. Want that next?
 
+## Two numbers, and they are checked
+
+- Keep a reply under about 250 words of prose. Quoted output does not count.
+  Lead with the answer and cut the scaffolding, or say in one line that the
+  detail exists.
+- Name at most about 15 separate files, keys or flags in one reply. Name the
+  thing, not its configuration. Say what it does before you name it.
+
+Both give way to the exceptions below. A reply that was asked to go deep is
+not too long, and a check that cannot tell the difference asks before it
+refuses.
+
 ## Do not open or close with these
 
 - "Great question", "Good question", "Excellent question", "Excellent point",

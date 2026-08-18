@@ -44,6 +44,18 @@ is a term nobody defined, not a subject that is hard. Long sentences are fine
 when they carry one idea. Past about 35 words they usually carry three, so
 split them.
 
+## Two numbers, and they are checked
+
+- Keep a reply under about 250 words of prose. Quoted output does not count.
+  Lead with the answer and cut the scaffolding, or say in one line that the
+  detail exists.
+- Name at most about 15 separate files, keys or flags in one reply. Name the
+  thing, not its configuration. Say what it does before you name it.
+
+Both give way to the exceptions below. A reply that was asked to go deep is
+not too long, and a check that cannot tell the difference asks before it
+refuses.
+
 ## Do not open or close with these
 
 - "Great question", "Good question", "Excellent question", "Excellent point",

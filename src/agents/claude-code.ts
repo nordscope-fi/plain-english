@@ -53,8 +53,11 @@ const CHANNELS = [
  * working settings file on this machine uses the nested shape, including the
  * ones the documentation shows flat.
  *
- * Ten seconds, well inside any budget: a hook holding up the end of a turn is
- * felt directly by whoever is waiting for the answer.
+ * Sixty seconds, and the reason it is not ten is worth stating. A hook that
+ * times out has its output thrown away, so a budget set too tight does not make
+ * the gate quicker: it deletes the block and reports nothing. Almost every
+ * reply is judged by counting, which is instant. The tenth that trips a limit
+ * goes to a judge in print mode, and that takes seconds.
  *
  * `SubagentStop` is the one that matters most. An output style never reaches a
  * subagent, and this is the only mechanism in the package that does.
@@ -139,8 +142,7 @@ export const claudeCode: AgentProfile = {
    * which then writes again. `systemMessage` reaches the user either way, and
    * is how the advisory tier says something without holding up a turn.
    */
-  emitChat(decision: Decision, eventName: string) {
-    const event = eventName === "SubagentStop" ? "SubagentStop" : "Stop";
+  emitChat(decision: Decision) {
     if (decision.allow && !decision.advisory) return { stdout: "", exitCode: 0 };
     if (decision.allow) {
       return {
@@ -148,13 +150,18 @@ export const claudeCode: AgentProfile = {
         exitCode: 0,
       };
     }
+    // Flat. The nested `hookSpecificOutput` shape shipped here until 0.11.0 and
+    // could never hold a turn: observed 2026-08-18 against Claude Code 2.1.234
+    // in a real interactive session, the nested body produced no second turn at
+    // all while the flat one did. See the note on the wire-format test.
+    //
+    // `systemMessage` rides along so the reader sees why their turn paused
+    // rather than watching the model write twice for no stated reason.
     return {
       stdout: JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: event,
-          decision: "block",
-          reason: decision.reason,
-        },
+        decision: "block",
+        reason: decision.reason,
+        ...(decision.advisory ? { systemMessage: decision.advisory } : {}),
       }),
       exitCode: 0,
     };
@@ -211,8 +218,15 @@ export const claudeCode: AgentProfile = {
               hooks: [
                 {
                   type: "command",
+                  // 60, not 10. The deterministic pass is instant, but a
+                  // failing reply limit sends the reply to a judge running in
+                  // print mode, and that takes seconds. A hook that times out
+                  // has its output discarded, so too short a timeout does not
+                  // slow the gate down: it silently removes the block. That is
+                  // the failure this package exists to catch, so it is not
+                  // going to ship one.
+                  timeout: 60,
                   command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
-                  timeout: 10,
                 },
               ],
             },
@@ -228,8 +242,15 @@ export const claudeCode: AgentProfile = {
               hooks: [
                 {
                   type: "command",
+                  // 60, not 10. The deterministic pass is instant, but a
+                  // failing reply limit sends the reply to a judge running in
+                  // print mode, and that takes seconds. A hook that times out
+                  // has its output discarded, so too short a timeout does not
+                  // slow the gate down: it silently removes the block. That is
+                  // the failure this package exists to catch, so it is not
+                  // going to ship one.
+                  timeout: 60,
                   command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
-                  timeout: 10,
                 },
               ],
             },
@@ -265,7 +286,7 @@ export const claudeCode: AgentProfile = {
         "The style takes effect on the next session. Run /clear, or start a new one.",
         "Switch level under /config > Output style. The standalone /output-style command was removed in v2.1.91.",
         "A style reaches the main conversation and a fork, which inherits the parent's system prompt. It does not reach a subagent, which runs its own.",
-        "The Stop and SubagentStop hooks cover what a style cannot. Under the default failOn: never they report and never hold up a turn; set failOn: error to have a finding sent back to the model.",
+        "The Stop and SubagentStop hooks cover what a style cannot. They hold a turn and send the finding back to be written again. To have them report without holding anything up, put chat.failOn: never in .plain-english.yml.",
       ],
     };
   },
