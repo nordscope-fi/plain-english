@@ -15,7 +15,7 @@
  * twice changes nothing the second time.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { compile, loadDefault } from "./rules.ts";
@@ -29,6 +29,7 @@ import {
 } from "./render.ts";
 import type { AgentProfile, ConfigFile } from "./agents/profile.ts";
 import { byId, DEFAULT_AGENT, PROFILES } from "./agents/registry.ts";
+import { sweepLegacyState } from "./adapters/chat.ts";
 
 const MARKER = "plain-english";
 
@@ -37,6 +38,15 @@ type Json = Record<string, unknown>;
 interface HookGroup {
   matcher: string;
   hooks: Json[];
+}
+
+/** What `sweepLegacyState` would remove, for `--dry-run`. */
+function listLegacyState(root: string): string[] {
+  try {
+    return readdirSync(root).filter((n) => n.startsWith(".plain-english-chat-"));
+  } catch {
+    return [];
+  }
 }
 
 const STARTER_CONFIG = `# Project config for plain-english.
@@ -635,6 +645,19 @@ export function init(opts: InitOptions): number {
   if (!existsSync(configPath)) {
     planned.push(`create ${relative(root, configPath)}`);
     writes.push({ path: configPath, body: STARTER_CONFIG });
+  }
+
+  // 0.12.0 wrote the chat gate's turn state into the project root, one file per
+  // session, with nothing deleting them and nothing ignoring them. 0.12.1 keeps
+  // that state in the temporary directory. This clears what the old version
+  // left behind, because `init` is the one moment the package is already
+  // writing here and has any business tidying up.
+  const legacy = dryRun ? listLegacyState(root) : sweepLegacyState(root);
+  if (legacy.length) {
+    planned.push(
+      `remove ${legacy.length} stale chat state file${legacy.length === 1 ? "" : "s"} ` +
+        `left in the project root by 0.12.0`,
+    );
   }
 
   if (dryRun) {

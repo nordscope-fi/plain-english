@@ -19,7 +19,9 @@
  * and it blocks again. Everything in `shouldBlock` exists for that.
  */
 
-import { readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { lintText, type Finding } from "../lint.ts";
 import { chatRuleSet, resolveRuleSet, type RuleSet } from "../rules.ts";
@@ -35,15 +37,51 @@ import {
 /**
  * Where a turn's block is remembered.
  *
- * Deliberately the same shape as `ackPath`: repository root, one file, an
- * `mtime` that expires on its own. A second state mechanism with its own
- * lifetime would be state two code paths touch, and stale state that stops a
- * gate firing without saying so is this project's recurring failure.
+ * The temporary directory, not the repository. 0.12.0 put it in the project
+ * root, beside the ack file, on the reasoning that one expiring-`mtime`
+ * mechanism is better than two. That was wrong about where, and the difference
+ * is who writes it. The ack file is touched by a person and belongs where they
+ * can see it. This one is written by the gate, read by the gate, and never
+ * looked at, so in a working tree it is litter: one file per session, nothing
+ * deleting them, nothing ignoring them. One repository collected fourteen in an
+ * afternoon, and any `git add -A` would have committed them.
+ *
+ * Losing the file is safe. It means "not blocked yet", and `stop_hook_active`
+ * is the real loop guard either way.
+ *
+ * The project directory is part of the name so two checkouts of the same
+ * repository, or two repositories in one session, cannot share a turn's state.
  */
 export function blockStatePath(projectDir: string, sessionId: string): string {
   // A session id is a uuid from the agent. Anything else is not going in a path.
   const safe = sessionId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "session";
-  return resolve(projectDir, `.plain-english-chat-${safe}`);
+  const scope = createHash("sha256").update(resolve(projectDir)).digest("hex").slice(0, 12);
+  return resolve(tmpdir(), `plain-english-chat-${scope}-${safe}`);
+}
+
+/**
+ * Remove the state files 0.12.0 left in a working tree.
+ *
+ * Called by `init`, which is already writing to this repository and is the one
+ * moment the package has permission to tidy. Named by our own marker, so
+ * nothing else can match.
+ */
+export function sweepLegacyState(projectDir: string): string[] {
+  const removed: string[] = [];
+  try {
+    for (const name of readdirSync(projectDir)) {
+      if (!name.startsWith(".plain-english-chat-")) continue;
+      try {
+        unlinkSync(resolve(projectDir, name));
+        removed.push(name);
+      } catch {
+        // A file we cannot delete is not worth failing an install over.
+      }
+    }
+  } catch {
+    // An unreadable directory means nothing to sweep.
+  }
+  return removed;
 }
 
 /** Whether this turn has already been blocked once. */
