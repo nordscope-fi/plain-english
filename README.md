@@ -328,9 +328,12 @@ extends: default            # never fork the ruleset
 
 failOn: never               # never (default) | error | warn
 
-allow:                      # suppresses every rule on a matching line
-  - "\\bMRR\\b"
-  - "hs_[a-z_]+"
+allow:
+  - "\\bMRR\\b"             # a bare string suppresses every rule on the line
+
+  - pattern: "\\b(Deal|Contact|Company|Ticket)\\b"
+    rules: [unglossed-term]  # this rule only
+    semantic: true           # and tell the model that judges sentence shapes
 
 exclude:                    # files skipped entirely
   - "docs/writing-style.md"
@@ -359,9 +362,18 @@ readability:
 in every file, which is broader than any comment, so `plain-english policy` prints the
 reason next to the change.
 
-`allow` and `known` are separate on purpose. `allow` silences every rule on any line it
-matches, so putting a name there would also hide an em dash on the same line. `known`
-silences only `unglossed-term`.
+`allow` and `known` are separate on purpose. `known` reaches `unglossed-term` and
+nothing else. A bare `allow` string reaches everything on the line. That is a large
+promise. In one repository, an entry added so nobody would be asked to gloss the word
+"Deal" was also hiding 247 findings that had nothing to do with vocabulary. Naming
+`rules` narrows it, and `semantic: true` passes the same words to the prompt-based
+layer, which reads no config of its own and so used to ask for a gloss the
+deterministic rules had been told to skip.
+
+`plain-english lint --show-suppressed` prints what each entry hid, per rule, and names
+the entries that hid nothing. Without the flag a run that suppressed something says so
+in one line. In that same repository nine of the eleven entries suppressed nothing at
+all, and finding that out meant removing them one at a time.
 
 An unknown key is a hard error with a suggestion. A typo'd `allowlist:` used to suppress
 nothing while looking like it worked.
@@ -385,6 +397,8 @@ LINT OPTIONS
                                      output shape (default: text).
                                      unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
+  --show-suppressed                  what the allow entries hid, per entry and
+                                     per rule, and which hid nothing
 
 LINT --chat OPTIONS
   --agent ID|all                     claude-code, codex, copilot, cursor

@@ -207,10 +207,41 @@ export interface RuleSet {
    * readable would make a commit message useless, so they cannot share a list.
    */
   chat: ChatSection;
-  allow: string[];
+  allow: AllowEntry[];
   exclude: string[];
   /** Compiled from `allow`. */
-  allowRe?: RegExp[];
+  allowRe?: CompiledAllow[];
+}
+
+/**
+ * One vocabulary declaration.
+ *
+ * A bare string is the original form and still means what it always did:
+ * silence every rule on a matching line. That is a blunt instrument, and it
+ * was the only one available. Measured on one repository, an entry added to
+ * stop the linter asking for a gloss on the word "Deal" was also hiding 247
+ * other findings, and nothing said so.
+ *
+ * `rules` narrows the entry to the rules it was meant for. `semantic` sends
+ * the same vocabulary to the prompt-based layer, which reads no config of its
+ * own and so used to ask for a gloss the deterministic side had been told to
+ * skip.
+ */
+export interface AllowEntry {
+  /** Regex, matched case-insensitively. */
+  pattern: string;
+  /** Rule ids this entry silences. Absent or empty means every rule. */
+  rules?: string[];
+  /** Declare the same terms to the semantic layer as vocabulary it knows. */
+  semantic?: boolean;
+}
+
+/** An `allow` entry with its regex built. */
+export interface CompiledAllow {
+  entry: AllowEntry;
+  re: RegExp;
+  /** Absent means every rule. */
+  rules?: Set<string>;
 }
 
 interface RawRule {
@@ -261,6 +292,47 @@ function asStringArray(v: unknown, where: string): string[] {
   return v.map((x, i) => {
     if (typeof x !== "string") throw new RuleError(`${where}[${i}] must be a string`);
     return x;
+  });
+}
+
+const ALLOW_KEYS = new Set(["pattern", "rules", "semantic"]);
+
+/**
+ * Read `allow`, in either shape.
+ *
+ * The string form is the whole of the original language and stays exact, so
+ * every config written before scoping existed keeps its meaning.
+ */
+function readAllow(v: unknown): AllowEntry[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("allow must be a list");
+  return v.map((raw, i) => {
+    if (typeof raw === "string") return { pattern: raw };
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new RuleError(`allow[${i}] must be a string or a mapping with 'pattern'`);
+    }
+    const e = raw as Record<string, unknown>;
+    for (const key of Object.keys(e)) {
+      if (!ALLOW_KEYS.has(key)) {
+        throw new RuleError(
+          `allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_KEYS].sort().join(", ")}`,
+        );
+      }
+    }
+    if (typeof e["pattern"] !== "string") {
+      throw new RuleError(`allow[${i}].pattern must be a string`);
+    }
+    const out: AllowEntry = { pattern: e["pattern"] };
+    if (e["rules"] !== undefined) {
+      out.rules = asStringArray(e["rules"], `allow[${i}].rules`);
+    }
+    if (e["semantic"] !== undefined) {
+      if (typeof e["semantic"] !== "boolean") {
+        throw new RuleError(`allow[${i}].semantic must be true or false`);
+      }
+      out.semantic = e["semantic"];
+    }
+    return out;
   });
 }
 
@@ -690,7 +762,7 @@ function toRuleSet(raw: RawSet): RuleSet {
     readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
     chat: readChat(raw.chat),
-    allow: asStringArray(raw.allow, "allow"),
+    allow: readAllow(raw.allow),
     exclude: asStringArray(raw.exclude, "exclude"),
   };
 }
@@ -918,16 +990,51 @@ export function compile(set: RuleSet): RuleSet {
       }
     });
   }
+  // Every id an `allow` entry may legitimately name. The chat tells compile
+  // into rules of their own later, so they belong here too.
+  // Defensive on every list: `compile` is public, and a ruleset assembled by a
+  // consumer rather than loaded from YAML may carry only the sections it uses.
+  const ids = new Set([
+    ...(set.rules ?? []).map((r) => r.id),
+    ...(set.readability ?? []).map((r) => r.id),
+    ...(set.chat?.tells ?? []).map((t) => t.id),
+    ...(set.chat?.limits ?? []).map((r) => r.id),
+  ]);
+
+  // A bare string reaching here means a caller built the ruleset by hand
+  // rather than loading it, which the public API allows. Normalise instead of
+  // rejecting: the string form is still the language, it just came in raw.
+  set.allow = (set.allow ?? []).map((a) =>
+    typeof a === "string" ? { pattern: a as string } : a,
+  );
+
   set.allowRe = set.allow.map((a, i) => {
-    guard(a, `allow[${i}]`);
+    guard(a.pattern, `allow[${i}]`);
+    let re: RegExp;
     try {
-      return new RegExp(a, "i");
+      re = new RegExp(a.pattern, "i");
     } catch (e) {
       throw new RuleError(
-        `allow[${i}]: invalid regex ${JSON.stringify(a)}: ` +
+        `allow[${i}]: invalid regex ${JSON.stringify(a.pattern)}: ` +
           (e instanceof Error ? e.message : String(e)),
       );
     }
+    const compiled: CompiledAllow = { entry: a, re };
+    // An empty list is the same as no list. Writing `rules: []` and getting an
+    // entry that silences nothing at all would be a trap of its own.
+    if (a.rules?.length) compiled.rules = new Set(a.rules);
+    // A misspelled rule id reaches nothing and says nothing, which is the
+    // failure this whole key exists to end. Same argument as the unknown-key
+    // error at the top level.
+    for (const id of a.rules ?? []) {
+      if (!ids.has(id)) {
+        throw new RuleError(
+          `allow[${i}].rules: no rule called '${id}'.\n` +
+            `  Run 'plain-english explain' to list the rule ids.`,
+        );
+      }
+    }
+    return compiled;
   });
   return set;
 }

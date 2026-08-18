@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { humanise, renderWritingStyle, renderPrompts, renderOutputStyle, renderAll, outputStylePath } from "../src/render.ts";
+import {
+  humanise,
+  renderWritingStyle,
+  renderPrompts,
+  renderOutputStyle,
+  renderAll,
+  outputStylePath,
+  vocabularyTerms,
+} from "../src/render.ts";
 import { chatRules, compile, loadDefault, merge } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
@@ -316,5 +324,54 @@ describe("a project adjusts chat without forking the ruleset", () => {
     expect(() =>
       overlay({ tells: [{ id: "invented", at: "anywhere", severity: "warn", phrases: [] }] }),
     ).toThrow(/needs 'phrases'/);
+  });
+});
+
+
+/**
+ * Vocabulary reaching the semantic layer.
+ *
+ * The prompts read no config, so a project that told the deterministic rules
+ * "everybody here knows what a Deal is" was still asked for a gloss by the
+ * model. `semantic: true` is what closes that.
+ */
+describe("project vocabulary in the prompts", () => {
+  const withVocabulary = (allow: unknown[]) =>
+    renderPrompts(
+      compile({ ...loadDefault(), allow: allow as never }),
+    );
+
+  it("says nothing when the project declared none", () => {
+    for (const body of Object.values(renderPrompts(compile(loadDefault())))) {
+      expect(body).not.toContain("PROJECT VOCABULARY");
+    }
+  });
+
+  it("reaches every channel, in words rather than in regex", () => {
+    const prompts = withVocabulary([
+      { pattern: "\\b(Deal|Contact)\\b", rules: ["unglossed-term"], semantic: true },
+    ]);
+    for (const body of Object.values(prompts)) {
+      expect(body).toContain("PROJECT VOCABULARY");
+      expect(body).toContain("Deal, Contact");
+      expect(body).not.toContain("\\b(Deal|Contact)\\b");
+    }
+  });
+
+  it("leaves an entry that did not ask for it out", () => {
+    const prompts = withVocabulary([{ pattern: "\\bMRR\\b" }]);
+    expect(prompts["docs"]).not.toContain("PROJECT VOCABULARY");
+  });
+
+  it("quotes a pattern that is not a list of words", () => {
+    const prompts = withVocabulary([{ pattern: "hs_[a-z_]+", semantic: true }]);
+    expect(prompts["docs"]).toContain("anything matching /hs_[a-z_]+/");
+  });
+
+  it("reads the words out of the shapes a config actually uses", () => {
+    expect(vocabularyTerms("\\bMRR\\b")).toEqual(["MRR"]);
+    expect(vocabularyTerms("\\b(Deal|Contact)\\b")).toEqual(["Deal", "Contact"]);
+    expect(vocabularyTerms("\\bSegments?\\b")).toEqual(["Segment"]);
+    expect(vocabularyTerms("hs_[a-z_]+")).toEqual([]);
   });
 });

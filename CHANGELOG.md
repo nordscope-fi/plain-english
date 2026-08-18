@@ -5,15 +5,21 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 ## [Unreleased]
 ### Added
 
+- **`allow` can name the rules it covers, and can reach the semantic layer.** A bare string still silences every rule on a matching line, which is what it always meant. An entry written as a mapping takes `rules` to narrow it, and `semantic: true` to pass the same words to the prompt templates, which read no config of their own and so kept asking for a gloss the deterministic rules had been told to skip. A regex is turned back into words for the prompt, so `\b(Deal|Contact)\b` arrives as "Deal, Contact". A rule id nothing answers to is now a load error rather than an entry that reaches nothing and says nothing.
+
+  The measurement behind it: one repository carried eleven `allow` entries, every one added so the semantic layer would stop asking for glosses. Nine suppressed no gloss at all, because `unglossed-term` fires on an acronym or a camel-cased name and none of those patterns is either. One was hiding 247 other findings. That repository's true em dash count was 951 while the linter reported 646.
+
+- **`lint --show-suppressed` prints what `allow` hid.** Per entry, per rule, with a count, and it names the entries that hid nothing, so an inert one shows up on the first run instead of after a one-at-a-time experiment. Without the flag, a run that suppressed something says so in one line. `plain-english policy` now lists scoped entries separately from the ones reaching every rule, because the two are very different promises.
+
 - **`emphasis` under `unglossed-term`**, for words a project shouts. Adds to the shipped list rather than replacing it, the way `known` does.
 
 ### Fixed
 
+- **`not-un` fired on ordinary negation of any word starting with those two letters.** "not universal" and "not underscores" were both reported as litotes in real documentation. Every exception was closed with a word boundary, so the alternative meant to cover "not underscores" stopped at "not under", and that hid "not understood" and "not underway" as well. The exceptions are open-ended now, and they cover the words where `un` is not a prefix at all: strip it from "universal" and "iversal" is left. "not unclear" and "not uncommon" still fire.
+
 - **`unglossed-term` treated a word shouted for emphasis as an unexplained acronym.** An acronym and a word in capitals are the same shape, and across one repository's documentation 129 of 274 findings were the second kind. "DONE" alone accounted for 25, from a house style that ends a workflow with it. Two tests separate them now. Anything five letters or longer ending in an English inflection reads as a word, which covers CONFIRMED, UPDATING, PARTIALLY and UNVERIFIABLE without listing any of them, and 96 common short ones are listed.
 
   A dictionary looks like the obvious fix and is worse than this. The unabridged list shipped with macOS holds `roi`, `sla`, `mau`, `ram`, `ide` and `vat`, so checking against it would stop reporting ROI, SLA and MAU, which are exactly the jargon the rule exists for. It also carries no inflections, so VERIFIED and UPDATING would still have been reported. A curated list can leave out the words that are also acronyms: MAP, SOW, RAM, ARC, BUS and CAN are absent on purpose and stay reportable.
-
-- **`not-un` fired on ordinary negation of any word starting with those two letters.** "not universal" and "not underscores" were both reported as litotes in real documentation. Every exception was closed with a word boundary, so the alternative meant to cover "not underscores" stopped at "not under", and that hid "not understood" and "not underway" as well. The exceptions are open-ended now, and they cover the words where `un` is not a prefix at all: strip it from "universal" and "iversal" is left. "not unclear" and "not uncommon" still fire.
 
 - **The release script blamed an empty changelog for a duplicated heading.** `npm version` leaves a fresh empty `## [Unreleased]` behind after every release, so a branch that writes its own ends up with two. The entry then sits under the second while every check reads the first, and the release refused 0.12.1 with "`## [Unreleased]` is empty" over a file that had the entry written and waiting. It now counts the headings and says so. A refusal that names the wrong cause costs more than no refusal, because it sends whoever reads it looking in the wrong place.
 

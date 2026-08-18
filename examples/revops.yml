@@ -10,21 +10,57 @@
 version: 1
 extends: default
 
-# Terms that never trigger a finding. Standard platform vocabulary your readers
-# already use daily should go here, so the semantic layer stops asking you to
-# gloss words like "picklist".
+# Your vocabulary. Two shapes, and the difference matters.
+#
+# A bare string silences EVERY rule on any line it matches. That is a large
+# promise. An earlier version of this file used it for all eleven entries
+# below; measured afterwards, one of them was hiding 247 findings that had
+# nothing to do with vocabulary, and nine were hiding nothing at all. Run
+# `plain-english lint --show-suppressed` to see what yours cost.
+#
+# The mapping form names the rules the entry is for, and `semantic: true`
+# passes the same words to the model that judges sentence shapes, which reads
+# no config of its own.
 allow:
-  - "\\bSegments?\\b"
-  - "\\bSnippets?\\b"
-  - "\\bpicklist\\b"
-  - "\\bMRR\\b"
-  - "\\bARR\\b"
-  - "\\bpipeline stages?\\b"
-  - "\\bsequences?\\b"
-  - "\\benrollments?\\b"
-  - "\\bworkflows?\\b"
-  - "hs_[a-z_]+"          # namespaced CRM property names
-  - "\\b(Deal|Contact|Company|Ticket)\\b"
+  # Acronyms your readers use daily. These are what `unglossed-term` fires on.
+  - pattern: "\\bMRR\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bARR\\b"
+    rules: [unglossed-term]
+    semantic: true
+
+  # Object names. Ordinary words in this domain, and the model asks for a gloss
+  # on them unless it is told not to.
+  - pattern: "\\b(Deal|Contact|Company|Ticket)\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bSegments?\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bSnippets?\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bpicklist\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bpipeline stages?\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bsequences?\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\benrollments?\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bworkflows?\\b"
+    rules: [unglossed-term]
+    semantic: true
+
+  # Namespaced property names, which are identifiers and not prose.
+  - pattern: "hs_[a-z_]+"
+    rules: [unglossed-term]
+    semantic: true
 
 # Files the linter skips entirely. Anything that quotes the banned list as
 # reference material belongs here.

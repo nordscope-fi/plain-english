@@ -18,7 +18,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
-import { compile, loadDefault } from "./rules.ts";
+import { compile, loadDefault, resolveRuleSet, type RuleSet } from "./rules.ts";
 import {
   renderAgentsFragment,
   renderOutputStyle,
@@ -446,13 +446,34 @@ export interface InitOptions {
   includeUser?: boolean;
 }
 
+/**
+ * The project's effective ruleset, or nothing when there is not one yet.
+ *
+ * `init` runs before `.plain-english.yml` exists on a first install, and runs
+ * again over a config somebody has since edited. Both have to work, and a
+ * config that will not load must not stop an install.
+ */
+function projectRuleSet(root: string): RuleSet | undefined {
+  if (!existsSync(resolve(root, ".plain-english.yml"))) return undefined;
+  try {
+    return resolveRuleSet(root);
+  } catch {
+    return undefined;
+  }
+}
+
 export function init(opts: InitOptions): number {
   const { root, dryRun = false } = opts;
   const model = opts.model ?? "claude-sonnet-5";
   const agents = opts.agents?.length ? opts.agents : [byId(DEFAULT_AGENT)!];
   const includeUser = opts.includeUser ?? false;
   const set = compile(loadDefault());
-  const prompts = renderPrompts(set);
+  // Prompts alone are rendered from the project's own ruleset, so vocabulary
+  // declared with `semantic: true` reaches the model. Everything else stays on
+  // the shipped set: an output style is this package's guidance, not the
+  // project's. A config that will not load is not a reason to refuse an
+  // install, so this falls back rather than throwing.
+  const prompts = renderPrompts(projectRuleSet(root) ?? set);
   // Rendered once here rather than inside each profile: a profile is a
   // translation table and should not know how a style is built, only where its
   // host wants the file.

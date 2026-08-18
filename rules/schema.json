@@ -28,10 +28,39 @@
       }
     },
     "allow": {
-      "description": "Terms that never trigger a finding, even if a rule matches them. Treated as regexes.",
+      "description": "Vocabulary that never triggers a finding. A bare string is a regex that suppresses every rule on a matching line. A mapping narrows that to named rules, and can declare the same words to the semantic layer.",
       "type": "array",
       "items": {
-        "type": "string"
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "required": [
+              "pattern"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "description": "Regex, matched case-insensitively.",
+                "type": "string"
+              },
+              "rules": {
+                "description": "Rule ids this entry silences. Omit for every rule. A rule id nothing answers to is a load error.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/id"
+                }
+              },
+              "semantic": {
+                "description": "Also declare these words to the prompt-based layer, which reads no config of its own.",
+                "type": "boolean",
+                "default": false
+              }
+            }
+          }
+        ]
       }
     },
     "exclude": {

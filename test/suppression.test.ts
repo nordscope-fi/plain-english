@@ -3,7 +3,14 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { lintText } from "../src/lint.ts";
-import { compile, loadConfig, loadDefault, type RuleSet } from "../src/rules.ts";
+import {
+  RuleError,
+  compile,
+  loadConfig,
+  loadDefault,
+  merge,
+  type RuleSet,
+} from "../src/rules.ts";
 
 /**
  * Suppression directives, and the reason each one has to carry.
@@ -205,5 +212,99 @@ describe("a config override can carry its reason", () => {
     );
 
     expect(set.rules.find((r) => r.id === "leverage")?.reason).toBeUndefined();
+  });
+});
+
+
+/**
+ * Scoped vocabulary.
+ *
+ * `allow` used to be one blunt instrument: it silenced every rule on any line
+ * it matched, and nothing reported the cost. Measured on one repository,
+ * eleven entries were added to stop the linter asking for a gloss. Nine of
+ * them suppressed no gloss at all, and one was hiding 247 other findings.
+ */
+describe("an allow entry can name the rules it covers", () => {
+  function withAllow(body: string): RuleSet {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-allow-"));
+    const path = resolve(dir, ".plain-english.yml");
+    writeFileSync(path, body);
+    return compile(merge(loadDefault(), loadConfig(path)));
+  }
+
+  const LINE = "The Deal record is how we leverage the CRM.";
+
+  it("a bare string still silences every rule on the line, as it always did", () => {
+    const set = withAllow(
+      ["version: 1", "extends: default", "allow:", "  - '\\bDeal\\b'"].join("\n"),
+    );
+
+    // The word rules are matched against the line, so an entry naming one word
+    // on it silences all of them. That reach is the whole complaint.
+    expect(lintText(LINE, set).findings.map((f) => f.ruleId)).not.toContain("leverage");
+  });
+
+  it("a scoped entry leaves the other rules alone", () => {
+    const set = withAllow(
+      [
+        "version: 1",
+        "extends: default",
+        "allow:",
+        "  - pattern: '\\bCRM\\b'",
+        "    rules: [unglossed-term]",
+      ].join("\n"),
+    );
+
+    const found = lintText(LINE, set).findings.map((f) => f.ruleId);
+    expect(found).toContain("leverage");
+    expect(found).not.toContain("unglossed-term");
+  });
+
+  it("records what it silenced, and which entry did it", () => {
+    const set = withAllow(
+      [
+        "version: 1",
+        "extends: default",
+        "allow:",
+        "  - pattern: '\\bCRM\\b'",
+        "    rules: [unglossed-term]",
+      ].join("\n"),
+    );
+
+    expect(lintText(LINE, set).suppressed).toEqual([
+      { pattern: "\\bCRM\\b", ruleId: "unglossed-term", line: 1 },
+    ]);
+  });
+
+  it("reports nothing suppressed when a project declares no vocabulary", () => {
+    expect(lintText(LINE, compile(loadDefault())).suppressed).toEqual([]);
+  });
+
+  it("refuses a rule id nothing answers to", () => {
+    expect(() =>
+      withAllow(
+        [
+          "version: 1",
+          "extends: default",
+          "allow:",
+          "  - pattern: '\\bCRM\\b'",
+          "    rules: [unglosed-term]",
+        ].join("\n"),
+      ),
+    ).toThrow(/no rule called 'unglosed-term'/);
+  });
+
+  it("refuses a key nobody defined", () => {
+    expect(() =>
+      withAllow(
+        [
+          "version: 1",
+          "extends: default",
+          "allow:",
+          "  - pattern: '\\bCRM\\b'",
+          "    rule: [unglossed-term]",
+        ].join("\n"),
+      ),
+    ).toThrow(RuleError);
   });
 });

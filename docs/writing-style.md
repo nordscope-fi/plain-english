@@ -146,7 +146,7 @@ These read the shape of a sentence, so there is no term to match. All are warnin
 
 ### unglossed-term
 
-Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. 82 names a reader already has, such as JSON and GitHub, are exempt. So is a word shouted for emphasis: 96 common ones are listed, and anything longer ending in -ed, -ing, -ly, -tion or -able is read as a word rather than an acronym. A project adds its own vocabulary through `known` in `.plain-english.yml`.
+Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. 82 names a reader already has, such as JSON and GitHub, are exempt. So is a word shouted for emphasis: 96 common ones are listed, and anything longer ending in -ed, -ing, -ly, -tion or -able is read as a word rather than an acronym. A project adds its own vocabulary through `known` in `.plain-english.yml`, or through an `allow` entry scoped to this rule.
 
 Instead: Say what it does, then name it.
 

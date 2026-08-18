@@ -10,7 +10,7 @@
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { extname, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { lintText, type Finding } from "./lint.ts";
+import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
 import { renderAll, renderPrompts, writeTargets } from "./render.ts";
@@ -195,6 +195,55 @@ function emitFindings(
   return { errors, warns };
 }
 
+/**
+ * What `allow` hid, per entry.
+ *
+ * An `allow` entry is a promise about vocabulary and a licence to hide
+ * anything on the same line, and until now only the first half was visible.
+ * Measured on one repository: eleven entries, nine of which suppressed
+ * nothing, and one of which was hiding 247 findings nobody had counted.
+ *
+ * Printed to stderr so it cannot corrupt JSON or annotations on stdout.
+ */
+function reportSuppressed(ruleSet: RuleSet, suppressed: Suppression[]): void {
+  const byPattern = new Map<string, Map<string, number>>();
+  for (const s of suppressed) {
+    const rules = byPattern.get(s.pattern) ?? new Map<string, number>();
+    rules.set(s.ruleId, (rules.get(s.ruleId) ?? 0) + 1);
+    byPattern.set(s.pattern, rules);
+  }
+
+  if (!ruleSet.allow.length) {
+    process.stderr.write("plain-english: this project declares no allow entries\n");
+    return;
+  }
+
+  process.stderr.write("suppressed by allow:\n");
+  for (const entry of ruleSet.allow) {
+    const rules = byPattern.get(entry.pattern);
+    const scope = entry.rules?.length ? entry.rules.join(", ") : "every rule";
+    if (!rules) {
+      // The entry that costs nothing and buys nothing is the one worth
+      // naming. Nine of the eleven measured were this. An entry carrying
+      // `semantic: true` is not in that class: its work is done in the prompt,
+      // where this command cannot count it.
+      process.stderr.write(
+        `  ${entry.pattern}  (${scope})  nothing suppressed` +
+          (entry.semantic
+            ? "; declared to the semantic layer\n"
+            : "; the entry may be unnecessary\n"),
+      );
+      continue;
+    }
+    const total = [...rules.values()].reduce((a, b) => a + b, 0);
+    const detail = [...rules.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([id, n]) => `${id} ${n}`)
+      .join(", ");
+    process.stderr.write(`  ${entry.pattern}  (${scope})  ${total}: ${detail}\n`);
+  }
+}
+
 async function cmdLint(args: Args): Promise<number> {
   const root = process.cwd();
   const ruleSet = resolveRuleSet(root);
@@ -211,11 +260,13 @@ async function cmdLint(args: Args): Promise<number> {
   const noteStalled = (file: string, ids: string[]) => {
     if (ids.length) stalled.set(file, new Set(ids));
   };
+  const suppressed: Suppression[] = [];
 
   if (!args.positionals.length || args.positionals[0] === "-") {
     const text = await readStdin();
     const res = lintText(text, ruleSet);
     noteStalled("<stdin>", res.timedOut);
+    suppressed.push(...res.suppressed);
     all.push({ file: "<stdin>", findings: res.findings });
   } else {
     for (const target of args.positionals) {
@@ -230,12 +281,25 @@ async function cmdLint(args: Args): Promise<number> {
         const text = readFileSync(file, "utf8");
         const res = lintText(text, ruleSet);
         noteStalled(file, res.timedOut);
+        suppressed.push(...res.suppressed);
         all.push({ file, findings: res.findings });
       }
     }
   }
 
   const { errors, warns } = emitFindings(all, ruleSet, root, format, "file");
+
+  if (args.flags["show-suppressed"]) reportSuppressed(ruleSet, suppressed);
+  else if (suppressed.length && format === "text") {
+    // One line, not a table. The failure this answers was silence, and one
+    // line ends silence without turning every run into a config review.
+    process.stdout.write(
+      dim(
+        `${suppressed.length} finding${suppressed.length === 1 ? "" : "s"} hidden by allow ` +
+          `(--show-suppressed for which)\n`,
+      ),
+    );
+  }
 
   // Never suppressed by --format: a partial scan reported as a whole one is
   // worse than noise in a pipeline, and this goes to stderr so it cannot
@@ -801,6 +865,9 @@ LINT OPTIONS
                                      output shape (default: text).
                                      unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
+  --show-suppressed                  what the config's allow entries hid, per
+                                     entry and per rule, and which of them hid
+                                     nothing at all
 
 LINT --chat OPTIONS
   Reads the session transcripts each agent writes to local disk. Local only:

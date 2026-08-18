@@ -146,7 +146,8 @@ function readabilityDescription(r: ReadabilityRule): string {
     '"X stands for Y" and a parenthetical expansion in either order all pass.' +
     known +
     emphasis +
-    " A project adds its own vocabulary through `known` in `.plain-english.yml`."
+    " A project adds its own vocabulary through `known` in `.plain-english.yml`, or " +
+    "through an `allow` entry scoped to this rule."
   );
 }
 
@@ -341,15 +342,75 @@ const PRECISION =
   "inline code, quoted third-party text in blockquotes, URLs, normal concise writing, or " +
   "stylistic choices outside this list. Be precise, not paranoid.";
 
+/** Characters a pattern may hold and still be read as plain words. */
+const LITERAL_TERM = /^[A-Za-z0-9][A-Za-z0-9 ._'-]*$/;
+
+/**
+ * The words behind an `allow` pattern, for a reader who is not a regex engine.
+ *
+ * `\b(Deal|Contact)\b` is four characters of syntax around two ordinary
+ * nouns, and a model told to accept "Deal" needs the noun. A pattern that is
+ * not a plain alternation of literals cannot be turned back into words, so it
+ * is quoted as itself and labelled.
+ */
+export function vocabularyTerms(pattern: string): string[] {
+  const stripped = pattern.replaceAll("\\b", "").trim();
+  const group = /^\((?:\?:)?([^()]+)\)$/.exec(stripped);
+  const parts = (group ? group[1]! : stripped).split("|");
+  const out: string[] = [];
+  for (const part of parts) {
+    // "Deals?" is one word with an optional plural, which is the commonest
+    // shape in a real config.
+    const base = part.replace(/s\?$/, "").trim();
+    if (!LITERAL_TERM.test(base)) return [];
+    out.push(base);
+  }
+  return out;
+}
+
+/**
+ * The project's vocabulary, as a sentence a model can act on.
+ *
+ * The semantic layer reads no config, so a project that declared "everybody
+ * here knows what a Deal is" to the deterministic rules was still asked for a
+ * gloss by the model. An entry opts in with `semantic: true`.
+ */
+export function vocabularyForPrompt(set: RuleSet): string {
+  const named: string[] = [];
+  const patterns: string[] = [];
+  for (const entry of set.allow) {
+    if (!entry.semantic) continue;
+    const terms = vocabularyTerms(entry.pattern);
+    if (terms.length) named.push(...terms);
+    else patterns.push(entry.pattern);
+  }
+  if (!named.length && !patterns.length) return "";
+  const parts = [...named];
+  if (patterns.length) {
+    parts.push(`anything matching ${patterns.map((p) => `/${p}/`).join(" or ")}`);
+  }
+  return (
+    "PROJECT VOCABULARY. This project's readers already know these, so never ask for " +
+    `a gloss or an explanation of them: ${parts.join(", ")}.`
+  );
+}
+
 /**
  * The semantic prompt bodies.
  *
  * `{{PROJECT_DIR}}` is a placeholder that `plain-english init` fills in on the
  * adopter's own machine. No absolute path is ever committed here.
+ *
+ * The shipped ruleset declares no vocabulary, so the templates committed to
+ * this repository are unchanged by that section. It appears only in the copies
+ * `init` writes into a project that asked for it.
  */
 export function renderPrompts(set: RuleSet): Record<string, string> {
   const words = ruleListForPrompt(set);
   const shapes = structureListForPrompt(set);
+  const vocabulary = vocabularyForPrompt(set);
+  /** The vocabulary paragraph, or nothing, without leaving a blank line. */
+  const vocab = vocabulary ? [vocabulary, ""] : [];
 
   const docs = [
     TXT_BANNER,
@@ -368,6 +429,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
     "",
+    ...vocab,
     CALIBRATION,
     "",
     PRECISION,
@@ -395,6 +457,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
     "",
+    ...vocab,
     CALIBRATION,
     "",
     PRECISION,
@@ -425,6 +488,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
     "",
+    ...vocab,
     CALIBRATION,
     "",
     PRECISION,
@@ -476,6 +540,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "rather read one long reply they asked for than lose an answer they needed. Refuse",
     "only when a much shorter reply would have served them better.",
     "",
+    ...vocab,
     JSON_CONTRACT,
   ].join("\n");
 
