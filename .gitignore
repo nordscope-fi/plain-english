@@ -10,6 +10,12 @@ coverage/
 # committed settings.json that references them — is tracked. Per-operator
 # state (permissions, release notes) is not.
 .claude-session-lock
-.claude/settings.local.json
-.claude/RELEASING.md
+
+# The operator's own agent setup, and not this project's business. It lives on
+# each machine and is backed up in the private claude-setup repository. A public
+# repository publishes a tool, not the way one person happens to drive it.
+.claude/
+AGENTS.md
+CLAUDE.md
+VIBE.md
 .playwright-mcp/
