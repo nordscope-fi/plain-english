@@ -8,7 +8,7 @@ Open an issue first. For a false positive, the sentence that was wrongly flagged
 
 If you work here with an AI coding agent, it has instructions waiting for it.
 
-`AGENTS.md` at the repository root is the host-neutral contract: what this project is, how to size a task, which areas cannot be changed casually, and what to run before claiming you are done. Roughly twenty agents read that filename. `CLAUDE.md` and `VIBE.md` add the per-host detail and point back at it rather than restating it.
+`AGENTS.md` at the repository root is the host-neutral contract: what this project is, how to size a task, which areas cannot be changed casually, and what to run before claiming you are done. Roughly twenty agents read that filename, Mistral Vibe among them, so most agents need nothing else to work here.
 
 Three things live under `.claude/`. Rules that load when you touch the paths they describe. Skills for test-first work and for verifying a claim before making it. And a hook that reminds you to look for an existing helper before adding a new file under `src/`. All of it is prose the linter checks, so keep it in plain English too.
 
