@@ -747,7 +747,7 @@ LINT --chat OPTIONS
   a transcript holds whatever passed through a tool, so this is never a CI
   step and the GitHub Action takes no --chat input.
 
-  --agent ID|all                     claude-code, codex, copilot, cursor
+  --agent ID|all                     claude-code, codex, copilot, cursor, vibe
                                      (default: all)
   --since DAYS                       how far back to look (default: 30).
                                      Bounded by the agent's own retention.
@@ -770,7 +770,7 @@ POLICY OPTIONS
 
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, or all
+                                     cursor, vibe, or all
   --user                             also write outside the repo, under ~.
                                      Copilot's CLI needs this; nothing else does.
   --dry-run                          print what would change

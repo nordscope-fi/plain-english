@@ -253,6 +253,113 @@ function applyConfig(
 }
 
 /**
+ * A `hooks.toml`, split into the blocks it is made of.
+ *
+ * Vibe is the only agent in the registry that reads TOML, and this is the whole
+ * of the support it needs: an array of tables at the top level, each one a
+ * `[[hooks]]` header followed by scalar keys. Anything before the first header,
+ * and any other table, is somebody else's and travels through untouched.
+ *
+ * A line scan rather than a parser, which is the same call `codex.ts` makes
+ * about `config.toml`. A parser would be a dependency; a strict one would throw
+ * on syntax it does not know in a file this package does not own.
+ */
+export function splitHooksToml(text: string): { preamble: string; blocks: string[] } {
+  const lines = text.split(/\r?\n/);
+  const preamble: string[] = [];
+  const blocks: string[] = [];
+  let current: string[] | null = null;
+
+  for (const line of lines) {
+    if (line.trim() === "[[hooks]]") {
+      if (current) blocks.push(current.join("\n"));
+      current = [line];
+      continue;
+    }
+    // Any other table header ends the array of tables. What follows belongs to
+    // that table, so it stays where it is rather than being swept into a block.
+    if (current && /^\s*\[/.test(line)) {
+      blocks.push(current.join("\n"));
+      current = null;
+      preamble.push(line);
+      continue;
+    }
+    (current ?? preamble).push(line);
+  }
+  if (current) blocks.push(current.join("\n"));
+  return { preamble: preamble.join("\n"), blocks };
+}
+
+/** The `name` of a `[[hooks]]` block, or "" when it does not declare one. */
+function hookName(block: string): string {
+  const m = /^\s*name\s*=\s*["']([^"']*)["']/m.exec(block);
+  return m ? m[1]! : "";
+}
+
+/**
+ * Ours, by name rather than by command.
+ *
+ * `isOurs` matches the marker anywhere in a command string, which is right for
+ * JSON where we wrote the whole entry. Here it would be wrong: a project whose
+ * own hook shells out to this linter under its own name would lose that hook on
+ * every install. We only own the names we write.
+ */
+function isOurHook(block: string): boolean {
+  return hookName(block).startsWith(MARKER + "-");
+}
+
+/** One TOML scalar. Enough for the shapes a hook entry actually holds. */
+function tomlValue(v: unknown): string {
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(String(v));
+}
+
+/** One `[[hooks]]` block, keys in the order the profile listed them. */
+function renderHook(entry: unknown): string {
+  const e = entry as Record<string, unknown>;
+  const lines = ["[[hooks]]"];
+  for (const [key, value] of Object.entries(e)) {
+    if (value === undefined) continue;
+    lines.push(key + " = " + tomlValue(value));
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Splice our hooks into a `hooks.toml`, keeping everyone else's.
+ *
+ * Ours are dropped wherever they were and re-appended together, which is what
+ * `mergeFlat` does for JSON. Appending is always valid: `[[hooks]]` defines a
+ * top-level array of tables, so it means the same thing at the end of a file as
+ * it does in the middle, whatever tables came before it.
+ */
+export function mergeHooksToml(existing: string, entries: unknown[]): string {
+  const { preamble, blocks } = splitHooksToml(existing);
+  const kept = blocks.filter((b) => !isOurHook(b));
+  const parts = [preamble.trimEnd(), ...kept.map((b) => b.trimEnd()), ...entries.map(renderHook)];
+  return parts.filter((p) => p.length).join("\n\n") + "\n";
+}
+
+/**
+ * Whether this text is a `hooks.toml` we can account for line by line.
+ *
+ * The scan above cannot report a syntax error, so it must not be handed one.
+ * A header this package half-recognises, such as `[[hooks]` with a bracket
+ * missing, would be swept into a block and rewritten. Refusing is the same
+ * promise the JSON path makes: a file we cannot parse is a file we do not touch.
+ */
+export function readableHooksToml(text: string): boolean {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line.startsWith("[")) continue;
+    if (!/^\[\[[A-Za-z0-9_.-]+\]\]$/.test(line) && !/^\[[A-Za-z0-9_.-]+\]$/.test(line)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Put the generated section into AGENTS.md without disturbing the rest.
  *
  * Returns null when the file already says exactly this, so a re-run reports
@@ -330,6 +437,11 @@ export function init(opts: InitOptions): number {
   // post hook together left only whichever came last.
   const docs = new Map<string, Json>();
 
+  // TOML travels separately, as text rather than as a parsed document. Only
+  // Vibe reads it, the merge is a line scan, and giving it a `Json` shape would
+  // mean writing a serialiser for a format this package barely touches.
+  const tomlDocs = new Map<string, string>();
+
   // A user-scoped path is anchored to the home directory rather than the
   // project. Only a profile asks for one, and only when `includeUser`.
   const locate = (file: { path: string; scope?: "repo" | "user" }) =>
@@ -377,6 +489,31 @@ export function init(opts: InitOptions): number {
     for (const file of plan.config) {
       const path = locate(file);
       const existed = existsSync(path);
+
+      if (file.format === "toml") {
+        let text = tomlDocs.get(path);
+        if (text === undefined) {
+          text = existed ? readFileSync(path, "utf8") : "";
+          if (!readableHooksToml(text)) {
+            process.stderr.write(
+              `plain-english: ${relative(root, path)} has a table header this ` +
+                `installer does not recognise, refusing to touch it\n`,
+            );
+            return 2;
+          }
+        }
+        const before = splitHooksToml(text).blocks.length;
+        const next = mergeHooksToml(text, file.entries);
+        tomlDocs.set(path, next);
+        const preserved = splitHooksToml(next).blocks.length - file.entries.length;
+        planned.push(
+          `${existed ? "update" : "create"} ${relative(root, path)} ${file.at.join(".")}` +
+            ` (${before ? "replaced" : "added"}: ${file.entries.length};` +
+            ` preserved ${preserved} unrelated hook${preserved === 1 ? "" : "s"})`,
+        );
+        continue;
+      }
+
       const doc = load(path);
       if (doc === null) return 2;
       const result = applyConfig(docs.get(path)!, file);
@@ -447,6 +584,10 @@ export function init(opts: InitOptions): number {
 
   for (const [path, doc] of docs) {
     writes.push({ path, body: JSON.stringify(doc, null, 2) + "\n" });
+  }
+
+  for (const [path, body] of tomlDocs) {
+    writes.push({ path, body });
   }
 
   const existingAgentsMd = existsSync(agentsMdPath)

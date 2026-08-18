@@ -97,8 +97,8 @@ probe("patch old_string is not judged", {
 
 console.log("\n-- per agent --");
 
-// Every profile has to see the same text in the same payload. Three of the four
-// read the snake_case envelope Claude Code established; Cursor uses it too with
+// Every profile has to see the same text in the same payload. Most read the
+// snake_case envelope Claude Code established; Cursor and Vibe use it too, with
 // different tool names.
 for (const profile of PROFILES) {
   probe(`${profile.id}: reads a markdown Write`, {
@@ -106,6 +106,16 @@ for (const profile of PROFILES) {
     tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
   }, "docs", "deny", "em-dash", profile.id);
 }
+
+probe("vibe: reads a markdown write_file", {
+  tool_name: "write_file",
+  tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
+}, "docs", "deny", "em-dash", "vibe");
+
+probe("vibe: reads the new text out of an edit", {
+  tool_name: "edit",
+  tool_input: { file_path: `${T}/x.md`, old_string: "old", new_string: `a ${EM} b` },
+}, "docs", "deny", "em-dash", "vibe");
 
 probe("codex: reads added lines out of an apply_patch", {
   tool_name: "apply_patch",
@@ -135,6 +145,13 @@ const wire = (id, event = "pre") => {
 
 check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
   "claude-code nests permissionDecision under hookSpecificOutput");
+// Vibe's schema is Literal["allow", "deny"]. Sending `ask` is not ignored, it
+// fails validation, and a pre_tool reply that fails validation is a hook
+// failure. So the advisory tier has to be a system_message on an allow.
+check(wire("vibe").system_message?.includes("em-dash") &&
+      wire("vibe").decision === undefined &&
+      wire("vibe").hookSpecificOutput === undefined,
+  "vibe advises with a flat system_message and never says ask");
 check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
   "copilot puts permissionDecision at the top level");
 // Codex fails the hook run outright on `ask`, so its advisory travels as

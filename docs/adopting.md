@@ -119,7 +119,7 @@ Step 3 already installed all of this. This step is about which part does what, b
 
 This one is Claude Code only. Elsewhere the same guidance arrives through the `AGENTS.md` section from step 6, loaded once per session rather than restated each turn, and weaker for it.
 
-**A stop hook** reads the finished reply and hands any finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. Claude Code, Codex and Copilot all fire an event carrying the final message. Cursor fires none, so chat there is ungated.
+**A stop hook** reads the finished reply and hands any finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. Claude Code, Codex and Copilot all fire an event carrying the final message, and Vibe fires one naming the transcript instead. Cursor fires none, so chat there is ungated.
 
 **A scan of what was actually said:**
 

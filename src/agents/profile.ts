@@ -57,6 +57,18 @@ export interface ConfigFile {
   /** Path, relative to the repository root unless `scope` says otherwise. */
   path: string;
   /**
+   * How the file on disk is encoded.
+   *
+   * JSON everywhere except Vibe, which reads `.vibe/hooks.toml`. Optional so
+   * that four existing profiles say nothing and keep working; a profile that
+   * wants TOML asks for it.
+   *
+   * The two are not interchangeable at the `at` level. TOML here means one
+   * array of tables named by `at`, so `at` is a single key and `shape` is
+   * always `flat`.
+   */
+  format?: "json" | "toml";
+  /**
    * Where the path is anchored.
    *
    * `repo` is the default and the only one `init` writes without being asked.

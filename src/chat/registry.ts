@@ -11,6 +11,7 @@ import { claudeCodeChat } from "./claude-code.ts";
 import { codexChat } from "./codex.ts";
 import { copilotChat } from "./copilot.ts";
 import { cursorChat } from "./cursor.ts";
+import { vibeChat } from "./vibe.ts";
 import type { ChatReader, ReadOptions, Reply } from "./reader.ts";
 
 export const READERS: readonly ChatReader[] = [
@@ -18,6 +19,7 @@ export const READERS: readonly ChatReader[] = [
   codexChat,
   copilotChat,
   cursorChat,
+  vibeChat,
 ];
 
 export function readerFor(id: string): ChatReader | undefined {
