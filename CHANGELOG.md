@@ -3,6 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.12.0] - 2026-08-18
 ### Fixed
 
 - **The chat gate could never hold a turn on Claude Code.** `emitChat` printed the block inside `hookSpecificOutput`. Claude Code reads it flat. Observed on 2026-08-18 against 2.1.234 by driving a real interactive session through a pseudo-terminal with an always-block `Stop` hook: same driver, same session, the nested body produced no second turn at all while the flat body produced one carrying the word the block asked for. So the gate ran, reported, and let every reply through, in every release that shipped it. Copilot was never affected, because its profile had the flat shape from the start. Registration in `settings.json` is the opposite case and stays nested; both now have a test.
@@ -314,7 +316,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.11.0
 [0.10.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.9.0
