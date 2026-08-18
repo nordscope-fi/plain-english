@@ -324,13 +324,41 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
 
   out.push("## What nothing here can reach", "");
   out.push(
-    "A chat reply is not a tool call, so no hook sees one. What reaches chat is a prompt, " +
-      "and a prompt is an instruction that can be ignored. Nothing measures compliance.",
+    "This section used to say that a chat reply is not a tool call, so nothing sees one. " +
+      "That is no longer true everywhere, and where it is still true it is worth naming " +
+      "per agent rather than as one flat claim.",
+    "",
+  );
+  out.push("| Agent | Chat gate | Reaches subagents |");
+  out.push("|---|---|---|");
+  for (const a of scan.agents) {
+    const profile = PROFILES.find((p) => p.id === a.id);
+    const gated = Boolean(profile?.emitChat);
+    const state = !a.installed
+      ? "not installed"
+      : gated
+        ? "on the stop events"
+        : "**none**, no event carries the reply";
+    out.push(`| ${a.id} | ${state} | ${gated && a.installed ? "yes" : "no"} |`);
+  }
+  out.push("");
+  out.push(
+    "An output style shapes a reply before it exists and cannot be measured. A stop hook " +
+      "reads the finished reply and can hand a finding back to the model, which is the " +
+      "closest thing to a gate this channel has. Under `failOn: never` it reports and " +
+      "holds up nothing.",
     "",
   );
   out.push(
-    "Subagents run their own system prompt, so an agent's research or exploration helper " +
-      "keeps writing the old way.",
+    "A style reaches the main conversation and a fork, which inherits the parent's system " +
+      "prompt. It does not reach a subagent, which runs its own. Where the table above " +
+      "says a chat gate is installed, the subagent gap is covered by that instead.",
+    "",
+  );
+  out.push(
+    "`plain-english lint --chat` reads what was actually said, from the transcripts each " +
+      "agent writes locally, and splits the rate by main loop against subagent. It is " +
+      "local only: a transcript holds whatever passed through a tool.",
     "",
   );
   const semantic = scan.agents.filter((a) => a.installed).map((a) => a.id);

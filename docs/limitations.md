@@ -72,23 +72,46 @@ Several rules match words that are ordinary vocabulary in some field: `leverage`
 
 These rules describe how models wrote in 2024 and 2025. Vendors actively suppress known tells, so a rule keyed to a specific tic decays. Expect maintenance.
 
-## What no hook can reach
+## What reaches chat, and what it costs
 
-A chat reply is not a tool call, so none of the linting hooks see it. What reaches chat instead is a prompt, and which prompt depends on the agent.
+This section used to say that a chat reply is not a tool call, so no hook sees one. That was true when it was written and it is no longer true for three of the four agents. What reaches chat is now three things with different strengths, and it is worth being precise about which is which.
 
-For Claude Code it is the output style at `integrations/claude-code/output-styles/plain-english.md`, generated from the same ruleset. Everywhere else it is the `AGENTS.md` section from `integrations/agents-md/plain-english.md`, also generated from it. Three things are worth knowing.
+**An output style** shapes the reply before it exists. Claude Code appends it to the system prompt and restates it each turn, which makes it the strongest lever on wording and still an instruction that can be ignored. Three levels ship, at `integrations/claude-code/output-styles/`, and `plain-english init` installs all three and selects one. Everywhere else the same guidance arrives through the `AGENTS.md` section, which is loaded once at session start rather than restated per turn, and is weaker again.
 
-Both are prompts, not gates. Claude Code appends the output style to the end of the system prompt and reminds the model of it each turn, which makes it the strongest lever available here, and it is still an instruction that can be ignored. `AGENTS.md` is weaker again: it is loaded once at session start rather than restated per turn. Nothing measures compliance in either case.
+Two mechanics catch people out. A style is part of the system prompt, which Claude Code reads once at session start, so installing one changes nothing until `/clear` or a new session. And project styles load from every `.claude/output-styles/` between the working directory and the repository root, with the one closest to the working directory winning, which decides behaviour in a monorepo.
 
-Neither applies to subagents. A subagent runs its own system prompt, so any research or exploration agent keeps writing the old way.
+A style reaches the main conversation and a **fork**, which inherits the parent's full system prompt. It does not reach a **subagent**, which runs its own. This document previously said only the second half.
 
-One hook does reach chat text, and this document previously claimed none did. It is Claude Code's alone; none of the other three agents has an equivalent. `MessageDisplay` fires while a reply renders and can replace what appears on screen through `displayContent`. Two limits make it unsuitable for this ruleset today. It is display-only, so the transcript and the model's own view keep the original text. And it fires per batch of completed lines with a ten second budget, so it can substitute a word and cannot restructure a reply. Its input schema is also currently contested: the docs describe `message_text` and `is_final_chunk`, neither of which appears in the shipped 2.1.224 binary, which uses `delta` and `final`. Anything built on it needs a stdin log first.
+**A stop hook** reads the finished reply and can hand a finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. `plain-english init` installs it on the events below. Under the default `failOn: never` it reports and holds up nothing; `failOn: error` makes a finding block the turn.
+
+| Agent | Event carrying the reply | Main loop | Subagents |
+|---|---|---|---|
+| Claude Code | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes |
+| Codex | `Stop`, `SubagentStop` (`last_assistant_message`, documented as "if available") | yes | yes |
+| GitHub Copilot | `SubagentStop` only (`response`); `Stop` documents that it does not carry the text | from the session store | yes |
+| Cursor | documents `stop` and `afterAgentResponse`; its CLI is reported to dispatch neither | **no** | **no** |
+
+Every row there is `docs` tier by the ranking in [`verifying-an-adapter.md`](verifying-an-adapter.md), which is the weakest evidence this project accepts. Treat the table as what the vendors say, not as what was watched happening.
+
+Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A once-per-turn state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
+
+**`plain-english lint --chat`** reads what was already said. Every agent writes its sessions to local disk, so this is the one thing here that measures rather than instructs, and the number it produces is the reason the stop hook exists at all. It splits findings by main loop against subagent, because an output style never reaches a subagent and a single number across both hides exactly the gap worth knowing about.
+
+It is local only, and that is not squeamishness. A transcript holds whatever passed through a tool: file contents, command output, pasted text, and, per Claude Code's own documentation, a credential that an environment file or a command happened to print. Copilot's documentation adds that its sessions sync to the user's GitHub account by default. Nothing here belongs in CI, and the GitHub Action takes no `--chat` input. How far back a scan can see is bounded by each agent's own retention, which for Claude Code is the `cleanupPeriodDays` setting.
+
+### `MessageDisplay` is not the answer, for different reasons than before
+
+An earlier version of this document said Claude Code's `MessageDisplay` hook could replace on-screen text through `displayContent`, and that the shipped binary used `delta` and `final` against a documented `message_text` and `is_final_chunk`. The current documentation says none of that. The event is display-only, hook output does not modify the displayed text, blocking with exit 2 has no effect, its fields are `role`, `content` and `is_partial`, and its timeout is ten seconds rather than the usual default.
+
+So the conclusion survives and the reasoning does not: it is a monitoring event, and a monitoring event that fires per streamed chunk is a worse place to judge a reply than a stop event that fires once with the whole thing.
 
 ## What each agent cannot reach
 
 The deterministic rules run identically everywhere. The rest does not.
 
 The semantic layer, which judges the nine sentence shapes a regex cannot, rides on a prompt hook. Claude Code has one. Copilot documents an equivalent this package does not yet use. Codex and Cursor have none, so on those two the sentence shapes are covered by the prompt in `AGENTS.md` and by nothing that runs.
+
+Chat is covered on three of the four, per the table above. Cursor is the exception, and the word for that is ungated: `lint --chat` reports what it said afterwards and gates nothing.
 
 Two vendor behaviours are worth knowing before you rely on a refusal. Copilot's cloud coding agent treats `ask` as `deny`, so the advisory default is blocking there. And Codex needs two separate approvals before it runs a hook at all, one for the folder and one for the hook itself; [`agents.md`](agents.md#openai-codex-cli) says what each does and how to grant them. That file also records which claims here were verified against a running agent and which were taken from a vendor's documentation.
 

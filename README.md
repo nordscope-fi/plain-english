@@ -148,7 +148,7 @@ Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the 
 | PR and issue bodies | GitHub Action, or an agent hook | agent prompt hook |
 | Issue tracker (Linear-shaped tool calls) | agent hook | agent prompt hook |
 | Editor diagnostics | `--format unix` or `--format sarif` | none |
-| A chat reply | `AGENTS.md`, or a Claude Code output style | none |
+| A chat reply | an output style, a stop hook, and `lint --chat` after the fact | none |
 
 The findings file in that table, the one editors and GitHub code scanning both read, is
 called SARIF (Static Analysis Results Interchange Format).
@@ -246,24 +246,43 @@ the setup can reach. Chat replies, subagents, and the sentence shapes on any age
 with no prompt hook. [`docs/ai-writing-policy.md`](docs/ai-writing-policy.md) is this
 repository's own, generated the same way and checked in CI.
 
-### The Claude Code output style
+### Chat
 
-Hooks sit on tool calls. A chat reply is not a tool call, so nothing can gate one. What
-reaches chat instead is an output style, generated from the same ruleset:
+The channel this tool could not reach, until recently. Three things cover it now, and
+`init` installs all of them.
 
-```bash
-mkdir -p .claude/output-styles
-cp node_modules/plain-english/integrations/claude-code/output-styles/plain-english.md \
-   .claude/output-styles/
+**An output style**, generated from the ruleset, at three levels. `init` writes all three
+and selects one, so there is nothing to copy and no menu to find:
+
+```
+.claude/output-styles/plain-english-brief.md    "Plain English (brief)"
+.claude/output-styles/plain-english.md          "Plain English"      <- selected
+.claude/output-styles/plain-english-full.md     "Plain English (full)"
 ```
 
-Then run `/config` and pick it under **Output style**. (The standalone `/output-style`
-command was removed in Claude Code v2.1.91.) It is a prompt, so nothing measures
-compliance, and it does not reach subagents, which run their own system prompt.
-[`docs/limitations.md`](docs/limitations.md) covers both.
+Switch between them under `/config` > **Output style**. A style is part of the system
+prompt, which is read once at session start, so a change takes effect after `/clear`.
+Elsewhere the portable equivalent is the `AGENTS.md` section, at the default level.
 
-Elsewhere the portable equivalent is the `AGENTS.md` section, which `init` writes for
-every agent.
+**A stop hook.** Claude Code, Codex and Copilot all document an event carrying the
+assistant's final message, so a finished reply can be judged and the finding handed back
+to the model. Under the default `failOn: never` it reports and holds up nothing. Cursor
+has no such event that its command-line tool dispatches, so chat there is ungated.
+
+**A scan of what was actually said:**
+
+```bash
+npx plain-english lint --chat --summary
+```
+
+It reads the session transcripts each agent writes locally and reports findings per 1,000
+words, split main loop against subagent. That split is the point: an output style never
+reaches a subagent, so a single number across both hides the one gap it cannot close.
+
+Local only. A transcript holds whatever passed through a tool, so this is never a CI step
+and the GitHub Action takes no `--chat` input.
+[`docs/limitations.md`](docs/limitations.md) covers what each agent reaches and what it
+does not.
 
 ### pre-commit
 
@@ -349,17 +368,25 @@ See [`examples/revops.yml`](examples/revops.yml) for a filled-in config, and
 
 ```
 plain-english lint [PATH...]       lint files or directories (default: stdin)
+plain-english lint --chat          lint what agents said in the chat window
 plain-english render               regenerate docs/ and prompt templates
 plain-english explain [RULE]       show a rule, or list them all
 plain-english doctor               environment dump for bug reports
 plain-english init                 wire this repo up
-plain-english hook <CHANNEL>       pre-tool-call adapter (docs|github|issue)
+plain-english hook <CHANNEL>       hook adapter (docs|github|issue|chat)
 
 LINT OPTIONS
   --format text|json|unix|github|sarif
                                      output shape (default: text).
                                      unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
+
+LINT --chat OPTIONS
+  --agent ID|all                     claude-code, codex, copilot, cursor
+  --since DAYS                       how far back to look (default: 30)
+  --all-projects                     every project, not just this repository
+  --summary                          rate per 1,000 words, main loop against
+                                     subagents
 
 RENDER OPTIONS
   --check                            exit 1 if generated files are stale
@@ -395,11 +422,11 @@ config error.
 
 ## One hand-written source
 
-`rules/default.yml` is edited by hand. `plain-english render` generates six files from it:
+`rules/default.yml` is edited by hand. `plain-english render` generates eight files from it:
 
 - `docs/writing-style.md`
 - `integrations/agents-md/plain-english.md`
-- `integrations/claude-code/output-styles/plain-english.md`
+- `integrations/claude-code/output-styles/plain-english{,-brief,-full}.md`
 - `integrations/claude-code/prompts/{docs,github,issue}.txt`
 
 The build fails if any of them drift, which keeps the docs, the regexes, the prompt text

@@ -11,7 +11,8 @@ import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSy
 import { extname, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
-import { resolveRuleSet, compile, loadDefault, RuleError, type RuleSet } from "./rules.ts";
+import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
+import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
 import { renderAll, writeTargets } from "./render.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
@@ -24,6 +25,8 @@ import {
   type Channel,
 } from "./adapters/hook.ts";
 import type { HookEvent } from "./agents/profile.ts";
+import { decideChat } from "./adapters/chat.ts";
+import type { Decision } from "./adapters/hook.ts";
 import { init, allAgents } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
@@ -108,44 +111,21 @@ function printText(file: string, findings: Finding[], root: string): void {
   process.stdout.write("\n");
 }
 
-async function cmdLint(args: Args): Promise<number> {
-  const root = process.cwd();
-  const ruleSet = resolveRuleSet(root);
-  const format = String(args.flags["format"] ?? "text");
-  const failOn = String(args.flags["fail-on"] ?? ruleSet.failOn);
-
-  const all: { file: string; findings: Finding[] }[] = [];
-  // Rules that ran out of match budget. Reported on stderr at the end: a rule
-  // that stopped working is not a finding about the writing, but it must not
-  // pass unmentioned either, or a clean run means two different things.
-  const stalled = new Map<string, Set<string>>();
-  const noteStalled = (file: string, ids: string[]) => {
-    if (ids.length) stalled.set(file, new Set(ids));
-  };
-
-  if (!args.positionals.length || args.positionals[0] === "-") {
-    const text = await readStdin();
-    const res = lintText(text, ruleSet);
-    noteStalled("<stdin>", res.timedOut);
-    all.push({ file: "<stdin>", findings: res.findings });
-  } else {
-    for (const target of args.positionals) {
-      const abs = resolve(root, target);
-      if (!existsSync(abs)) {
-        process.stderr.write(`plain-english: no such path: ${target}\n`);
-        return 2;
-      }
-      for (const file of walk(abs)) {
-        const rel = relative(root, file);
-        if (matchesAny(rel, ruleSet.exclude)) continue;
-        const text = readFileSync(file, "utf8");
-        const res = lintText(text, ruleSet);
-        noteStalled(file, res.timedOut);
-        all.push({ file, findings: res.findings });
-      }
-    }
-  }
-
+/**
+ * Print findings in whichever shape was asked for, and count them.
+ *
+ * Shared by the file scan and the chat scan. A chat reply arrives as the same
+ * `{ file, findings }` pair a document does, with the transcript as the file,
+ * so every formatter here works on both without knowing which it has. That is
+ * the reason `lint --chat` needed no new output code.
+ */
+function emitFindings(
+  all: { file: string; findings: Finding[] }[],
+  ruleSet: RuleSet,
+  root: string,
+  format: string,
+  unit: string,
+): { errors: number; warns: number } {
   const errors = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "error").length, 0);
   const warns = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "warn").length, 0);
 
@@ -205,12 +185,56 @@ async function cmdLint(args: Args): Promise<number> {
     const scanned = all.length;
     if (errors || warns) {
       process.stdout.write(
-        `${errors} blocking, ${warns} warning${warns === 1 ? "" : "s"} across ${scanned} file${scanned === 1 ? "" : "s"}\n`,
+        `${errors} blocking, ${warns} warning${warns === 1 ? "" : "s"} across ${scanned} ${unit}${scanned === 1 ? "" : "s"}\n`,
       );
     } else {
-      process.stdout.write(dim(`clean (${scanned} file${scanned === 1 ? "" : "s"})\n`));
+      process.stdout.write(dim(`clean (${scanned} ${unit}${scanned === 1 ? "" : "s"})\n`));
     }
   }
+  return { errors, warns };
+}
+
+async function cmdLint(args: Args): Promise<number> {
+  const root = process.cwd();
+  const ruleSet = resolveRuleSet(root);
+  const format = String(args.flags["format"] ?? "text");
+  const failOn = String(args.flags["fail-on"] ?? ruleSet.failOn);
+
+  if (args.flags["chat"]) return cmdLintChat(args, root, ruleSet, format, failOn);
+
+  const all: { file: string; findings: Finding[] }[] = [];
+  // Rules that ran out of match budget. Reported on stderr at the end: a rule
+  // that stopped working is not a finding about the writing, but it must not
+  // pass unmentioned either, or a clean run means two different things.
+  const stalled = new Map<string, Set<string>>();
+  const noteStalled = (file: string, ids: string[]) => {
+    if (ids.length) stalled.set(file, new Set(ids));
+  };
+
+  if (!args.positionals.length || args.positionals[0] === "-") {
+    const text = await readStdin();
+    const res = lintText(text, ruleSet);
+    noteStalled("<stdin>", res.timedOut);
+    all.push({ file: "<stdin>", findings: res.findings });
+  } else {
+    for (const target of args.positionals) {
+      const abs = resolve(root, target);
+      if (!existsSync(abs)) {
+        process.stderr.write(`plain-english: no such path: ${target}\n`);
+        return 2;
+      }
+      for (const file of walk(abs)) {
+        const rel = relative(root, file);
+        if (matchesAny(rel, ruleSet.exclude)) continue;
+        const text = readFileSync(file, "utf8");
+        const res = lintText(text, ruleSet);
+        noteStalled(file, res.timedOut);
+        all.push({ file, findings: res.findings });
+      }
+    }
+  }
+
+  const { errors, warns } = emitFindings(all, ruleSet, root, format, "file");
 
   // Never suppressed by --format: a partial scan reported as a whole one is
   // worse than noise in a pipeline, and this goes to stderr so it cannot
@@ -225,6 +249,169 @@ async function cmdLint(args: Args): Promise<number> {
   if (failOn === "warn") return errors + warns > 0 ? 1 : 0;
   if (failOn === "never") return 0;
   return errors > 0 ? 1 : 0;
+}
+
+/**
+ * `plain-english lint --chat`
+ *
+ * The other half of the chat channel. The hook judges a reply as it is made;
+ * this reads what was already said. Both take their text from the same
+ * `ChatReader`, and every reply arrives here as the `{ file, findings }` pair
+ * a document produces, so the formatters need no chat-specific code.
+ *
+ * Local only, deliberately, and the reason is not squeamishness. A transcript
+ * holds whatever passed through a tool: file contents, command output, pasted
+ * text, and, per Claude Code's own documentation, a credential that an
+ * environment file or a command happened to print. Copilot's documentation
+ * adds that its sessions sync to the user's GitHub account by default. Nothing
+ * here belongs in CI, and the GitHub Action takes no `--chat` input.
+ */
+async function cmdLintChat(
+  args: Args,
+  root: string,
+  base: RuleSet,
+  format: string,
+  failOn: string,
+): Promise<number> {
+  const ruleSet = chatRuleSet(base);
+
+  const agent = args.flags["agent"];
+  const readers =
+    typeof agent === "string" && agent !== "all"
+      ? [readerFor(agent)].filter((r): r is NonNullable<typeof r> => Boolean(r))
+      : READERS;
+  if (typeof agent === "string" && agent !== "all" && !readers.length) {
+    process.stderr.write(
+      `plain-english: unknown agent '${agent}'. Known: ${readerIds().join(", ")}, all\n`,
+    );
+    return 2;
+  }
+
+  const sinceRaw = args.flags["since"];
+  const sinceDays = sinceRaw === undefined || sinceRaw === true ? 30 : Number(sinceRaw);
+  if (!Number.isFinite(sinceDays) || sinceDays <= 0) {
+    process.stderr.write("plain-english: --since takes a number of days\n");
+    return 2;
+  }
+
+  const results = readAll(readers, {
+    sinceDays,
+    // Default scope is this repository. A linter run inside a project that
+    // reported on every project on the machine answers a question nobody asked.
+    ...(args.flags["all-projects"] ? {} : { cwd: root }),
+  });
+
+  const all: { file: string; findings: Finding[] }[] = [];
+  const arms = { main: { replies: 0, words: 0 }, subagent: { replies: 0, words: 0 } };
+  const perRule = new Map<string, { main: number; subagent: number }>();
+
+  for (const result of results) {
+    for (const reply of result.replies) {
+      const arm = reply.isSubagent ? arms.subagent : arms.main;
+      arm.replies += 1;
+      arm.words += (reply.text.match(/\b[\p{L}\p{N}'-]+\b/gu) ?? []).length;
+
+      // Inline suppression is off: a chat reply carries no waivers, and a
+      // reply that happens to quote the directive syntax is not one.
+      const res = lintText(reply.text, ruleSet, { allowInlineSuppression: false });
+      if (!res.findings.length) continue;
+      for (const f of res.findings) {
+        const row = perRule.get(f.ruleId) ?? { main: 0, subagent: 0 };
+        row[reply.isSubagent ? "subagent" : "main"] += 1;
+        perRule.set(f.ruleId, row);
+      }
+      all.push({
+        // The transcript, so a finding names something a person can open.
+        file: reply.source || `<${result.id}>`,
+        findings: res.findings.map((f) => ({ ...f, line: reply.line || f.line })),
+      });
+    }
+  }
+
+  const unavailable = results.filter((r) => r.unavailable);
+
+  if (args.flags["summary"]) {
+    printChatSummary(results, arms, perRule);
+  } else {
+    emitFindings(all, ruleSet, root, format, "reply");
+  }
+
+  // Never suppressed by --format, and never folded into "clean". A reader that
+  // could not run and a reader that found nothing print identically otherwise,
+  // which is the failure docs/verifying-an-adapter.md opens by naming.
+  for (const r of unavailable) {
+    process.stderr.write(`plain-english: ${r.label} not scanned: ${r.unavailable}\n`);
+  }
+
+  const errors = all.reduce(
+    (n, f) => n + f.findings.filter((x) => x.severity === "error").length,
+    0,
+  );
+  const warns = all.reduce(
+    (n, f) => n + f.findings.filter((x) => x.severity === "warn").length,
+    0,
+  );
+  if (failOn === "warn") return errors + warns > 0 ? 1 : 0;
+  if (failOn === "never") return 0;
+  return errors > 0 ? 1 : 0;
+}
+
+/**
+ * The report only this channel can produce.
+ *
+ * A rate per 1,000 words, split main loop against subagent. The split is the
+ * point: an output style never reaches a subagent, so a single number across
+ * both hides the one gap the style cannot close.
+ */
+function printChatSummary(
+  results: ReaderResult[],
+  arms: { main: { replies: number; words: number }; subagent: { replies: number; words: number } },
+  perRule: Map<string, { main: number; subagent: number }>,
+): void {
+  const scanned = results.filter((r) => !r.unavailable);
+  process.stdout.write(
+    bold("scanned ") +
+      `${scanned.map((r) => r.label).join(", ") || "nothing"}\n` +
+      dim(
+        `  main loop  ${arms.main.replies.toLocaleString()} replies, ` +
+          `${arms.main.words.toLocaleString()} words\n` +
+          `  subagents  ${arms.subagent.replies.toLocaleString()} replies, ` +
+          `${arms.subagent.words.toLocaleString()} words\n`,
+      ) +
+      "\n",
+  );
+
+  if (!perRule.size) {
+    process.stdout.write(dim("no findings\n"));
+    return;
+  }
+
+  const rate = (n: number, words: number) => (words ? (n / words) * 1000 : 0);
+  const rows = [...perRule.entries()]
+    .map(([id, n]) => ({
+      id,
+      main: rate(n.main, arms.main.words),
+      sub: rate(n.subagent, arms.subagent.words),
+      total: n.main + n.subagent,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  process.stdout.write(
+    `${"rule".padEnd(24)}${"main /1k".padStart(10)}${"subagent /1k".padStart(14)}${"total".padStart(8)}\n`,
+  );
+  for (const r of rows) {
+    // A subagent rate above the main-loop rate is the shape to look for: it is
+    // what a prompt that cannot reach subagents looks like from the outside.
+    const worse = r.sub > r.main && arms.subagent.words > 0;
+    const sub = r.sub.toFixed(2).padStart(14);
+    process.stdout.write(
+      r.id.padEnd(24) +
+        r.main.toFixed(2).padStart(10) +
+        (worse ? red(sub) : sub) +
+        String(r.total).padStart(8) +
+        "\n",
+    );
+  }
 }
 
 function cmdRender(args: Args): number {
@@ -414,6 +601,41 @@ function cmdExplain(args: Args): number {
   return 2;
 }
 
+/**
+ * The chat gate, on a stop event.
+ *
+ * Fails open in the strongest sense available here: an agent with no reader,
+ * no `emitChat`, or a payload carrying no reply gets silence and exit 0. A
+ * chat hook that refused a turn because it could not find the text would be
+ * worse than no chat hook.
+ */
+function hookChat(
+  payload: Record<string, unknown>,
+  profile: { id: string; emitChat?: (d: Decision, e: string) => { stdout: string; exitCode: number } },
+): number {
+  if (!profile.emitChat) return 0;
+  const reader = readerFor(profile.id);
+  if (!reader) return 0;
+
+  const reply = reader.current(payload);
+  if (!reply || !reply.text.trim()) return 0;
+
+  const cwd = typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd();
+  const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
+
+  const decision = decideChat(reply, {
+    projectDir: resolve(cwd),
+    // Both Claude Code and Copilot document this, and it is the agent telling
+    // you the current turn exists because a hook blocked the last one.
+    stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true,
+    promptId: String(payload["prompt_id"] ?? payload["promptId"] ?? payload["session_id"] ?? ""),
+  });
+
+  const out = profile.emitChat(decision, eventName);
+  if (out.stdout) process.stdout.write(out.stdout);
+  return out.exitCode;
+}
+
 async function cmdHook(args: Args): Promise<number> {
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
@@ -440,6 +662,10 @@ async function cmdHook(args: Args): Promise<number> {
       process.stderr.write(`plain-english: ${e instanceof Error ? e.message : String(e)}\n`);
       profile = resolveProfile(undefined, payload);
     }
+
+    // Chat is judged from the reply, not from a tool call, so it forks here
+    // before `parse` is asked for tool input a stop event does not have.
+    if (channel === "chat") return hookChat(payload, profile);
 
     // `post` runs after the tool did, so it can only tell the model something.
     // Only agents that discard `ask` install one, and only `init` writes the
@@ -489,6 +715,7 @@ const USAGE = `plain-english - catch AI writing tells before they land
 
 USAGE
   plain-english lint [PATH...]       lint files or directories (default: stdin)
+  plain-english lint --chat          lint what agents said in the chat window
   plain-english render               regenerate docs/ and prompt templates
   plain-english policy               write this repo's AI writing policy
   plain-english explain [RULE]       show a rule, or list them all
@@ -501,6 +728,21 @@ LINT OPTIONS
                                      output shape (default: text).
                                      unix is path:line:col for editors.
   --fail-on never|error|warn         exit-code threshold (default: never)
+
+LINT --chat OPTIONS
+  Reads the session transcripts each agent writes to local disk. Local only:
+  a transcript holds whatever passed through a tool, so this is never a CI
+  step and the GitHub Action takes no --chat input.
+
+  --agent ID|all                     claude-code, codex, copilot, cursor
+                                     (default: all)
+  --since DAYS                       how far back to look (default: 30).
+                                     Bounded by the agent's own retention.
+  --all-projects                     every project, not just this repository
+  --summary                          findings per 1,000 words, main loop
+                                     against subagents. The split is the
+                                     point: an output style never reaches a
+                                     subagent.
 
 RENDER OPTIONS
   --check                            exit 1 if generated files are stale
@@ -726,10 +968,35 @@ async function main(): Promise<number> {
   }
 }
 
-main().then(
-  (code) => process.exit(code),
-  (e: unknown) => {
-    process.stderr.write(`plain-english: ${e instanceof Error ? e.stack : String(e)}\n`);
-    process.exit(2);
-  },
-);
+/**
+ * Exit, but not before stdout has actually left the process.
+ *
+ * `process.exit()` discards whatever stdout still has buffered. Writing to a
+ * terminal that is invisible, because a TTY write is synchronous. Writing to a
+ * pipe it is not: the buffer is about 64 KB, and a report larger than that
+ * arrives truncated at exactly that boundary with no error anywhere.
+ *
+ * Found with `lint --chat --format json`, whose output is naturally large: 514
+ * KB of valid JSON in a file became 65 KB of invalid JSON through a pipe. The
+ * same fault was always reachable by `lint` over a big enough tree, and a
+ * consumer parsing that output would have seen a syntax error rather than a
+ * clue.
+ *
+ * So: hand the exit code over, and wait for the drain when bytes are still in
+ * flight. An `error` listener covers the reader closing the pipe early, which
+ * is what `| head` does and which would otherwise hang here.
+ */
+function exitWhenFlushed(code: number): void {
+  process.exitCode = code;
+  if (process.stdout.writableLength === 0) {
+    process.exit(code);
+    return;
+  }
+  process.stdout.once("error", () => process.exit(code));
+  process.stdout.once("drain", () => process.exit(code));
+}
+
+main().then(exitWhenFlushed, (e: unknown) => {
+  process.stderr.write(`plain-english: ${e instanceof Error ? e.stack : String(e)}\n`);
+  exitWhenFlushed(2);
+});

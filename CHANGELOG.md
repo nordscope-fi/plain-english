@@ -3,6 +3,25 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+- **The chat channel.** The one channel this tool could not reach. It is now covered three ways, and `init` installs all of them. An output style at three levels, generated from the ruleset; a hook on the stop events, which reads the finished reply and can hand a finding back to the model; and `plain-english lint --chat`, which reads what was already said.
+- **Three output-style levels**, `brief`, `standard` and `full`, all generated from one new `chat:` section in `rules/default.yml`. They are strictly nested and a test proves it, so switching up never loses a rule. `init` writes all three and selects `standard` by setting `outputStyle` in `.claude/settings.local.json`, the file Claude Code's own picker writes, and prints what it replaced when it replaces one. Switching level is a menu choice under `/config` rather than a re-install. A project moves a section between levels, or drops one, with a `chat.guidance` override, the same field-by-field idiom the word rules already use.
+- The chat guidance used to be a hand-written TypeScript string in `src/render.ts`. Only the number 35 came from the ruleset, while the README said the whole thing did. It is data now, which is the point of the file it should always have lived in.
+- **`plain-english lint --chat`**, reading the session transcripts all four agents write to local disk. Findings arrive in the same shape a document produces, so every existing formatter works on them unchanged. `--summary` reports findings per 1,000 words split by main loop against subagent, which is the split that matters: an output style never reaches a subagent, so one number across both hides the only gap it cannot close. Local only, never a CI step, and the GitHub Action takes no `--chat` input.
+- **A `chat` hook channel**, on `Stop` and `SubagentStop`. Under the default `failOn: never` it reports through `systemMessage` and holds up nothing; under `failOn: error` it blocks and the findings become the model's next prompt. Blocking is guarded three ways, because a blocked turn produces a new reply that can trip a different rule: the agent's own `stop_hook_active`, one block per turn recorded beside the ack file on the same self-expiring clock, and `.plain-english-ack-chat`.
+- Five chat-only tells, held as phrases rather than regexes so the words shown to a model and the pattern matched by the linter cannot drift: `affirmation-opener`, `announced-structure`, `closing-pleasantry` block, and `concession-formula` and `error-theatre` warn. The last two have real uses that no pattern can separate from the tell, which is the same reason `silently` and `holistic` warn.
+- `Decision.replacement`, unset. Copilot's `subagentStop` accepts a `modifiedResponse` that replaces a subagent's output outright. Using it means generating prose and nothing here does, but `Decision` is the contract all four profiles implement, so the field lands now rather than as a later change to a type four profiles depend on.
+
+### Fixed
+
+- **A large report was truncated at about 64 KB through a pipe.** `process.exit()` discards whatever stdout has buffered, which is invisible writing to a terminal and silent writing to a pipe. Found on `lint --chat --format json`, where 514 KB of valid JSON became 65 KB of invalid JSON, and always reachable by `lint` over a big enough tree.
+
+### Changed
+
+- **Two claims in the documentation were wrong, and one was out of date.** A chat reply is no longer unreachable: three of the four agents document an event carrying the assistant's final message. A style does not reach a subagent, which was said, and does reach a fork, which inherits the parent's system prompt, which was not. And `MessageDisplay` is documented as display-only with fields `role`, `content` and `is_partial`, not as something that can replace on-screen text through `displayContent`. The conclusion that it is unsuitable survives; every reason given for it did not.
+- The generated policy's "what nothing here can reach" section is a per-agent table instead of one flat claim, built from which chat hooks are actually installed.
+- `init` no longer asks anyone to `mkdir`, `cp` out of `node_modules`, and find a menu. It writes the styles and selects one. `render` emits eight files rather than six.
 
 ## [0.9.0] - 2026-08-15
 ### Changed

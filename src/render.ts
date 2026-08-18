@@ -12,6 +12,7 @@
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { inLevel } from "./rules.ts";
 import type { ReadabilityRule, Rule, RuleSet, Structure } from "./rules.ts";
 
 const BANNER =
@@ -404,49 +405,91 @@ export interface RenderTarget {
  * It carries structure and glossing. The deterministic linter keeps owning
  * banned terms, so neither restates the other.
  */
-function styleBody(set: RuleSet): string[] {
+function styleBody(set: RuleSet, level: string): string[] {
+  const chat = set.chat;
   const maxWords = set.readability.find((r) => r.kind === "long-sentence")?.maxWords;
+  // A placeholder rather than a hardcoded number, so the threshold the style
+  // states and the threshold `long-sentence` enforces are the same value.
+  const fill = (s: string): string =>
+    s.replace(/\{\{maxWords\}\}/g, maxWords === undefined ? "35" : String(maxWords));
 
-  return [
-    "## Open with what this is",
-    "",
-    "The first line names the subject and says whether this is a result, a problem,",
-    "or a question. No preamble, no restating the request.",
-    "",
-    "## Explain a thing before naming it",
-    "",
-    "Give the plain description first, then the technical term, so the name lands on",
-    "something the reader already understands.",
-    "",
-    "> GitHub signs a receipt proving where the code came from. That receipt is",
-    "> called provenance.",
-    "",
-    "Not the reverse. An acronym introduced before its explanation makes the reader",
-    "carry an unknown through the rest of the sentence.",
-    "",
-    "## Say what needs a decision",
-    "",
-    "When a reply contains a choice, end with what the reader has to decide and what",
-    "each option costs. When nothing is needed from them, say that too, so silence",
-    "never has to be interpreted.",
-    "",
-    "## Depth is welcome, unexplained depth is not",
-    "",
-    "Technical detail is the point of the conversation. Keep it. The failure mode is",
-    "a term nobody defined, not a subject that is hard.",
-    "",
-    maxWords !== undefined
-      ? `Long sentences are fine when they carry one idea. Past about ${maxWords} words they` +
-        "\nusually carry three, so split them."
-      : "Long sentences are fine when they carry one idea. Split them when they carry three.",
-    "",
-    "## Do not",
-    "",
-    "- Open with a summary of what was just asked.",
-    "- Announce structure (\"I will first explain, then show\"). Just do it.",
-    "- Claim something is done without having checked.",
-    "- Bury the decision in the middle of a paragraph.",
-  ];
+  const out: string[] = [];
+
+  if (chat.scope) {
+    out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
+  }
+
+  for (const g of chat.guidance) {
+    if (!inLevel(g, level)) continue;
+    out.push(`## ${g.name ?? g.id}`, "");
+    if (g.description) out.push(...wrap(fill(g.description)), "");
+    // Quoted rather than paraphrased. A rule about how to write is easier to
+    // follow from one example of each than from another sentence describing
+    // the difference.
+    if (g.bad) out.push(`Not this: ${g.bad}`);
+    if (g.good) out.push(`This: ${g.good}`);
+    if (g.bad || g.good) out.push("");
+  }
+
+  const tells = chat.tells.filter((t) => t.severity !== "off" && inLevel(t, level));
+  if (tells.length) {
+    out.push("## Do not open or close with these", "");
+    for (const t of tells) {
+      const phrases = t.phrases.map((p) => `"${p}"`).join(", ");
+      out.push(...wrap(`- ${phrases}. ${t.message ?? ""}`.trim(), "  "));
+    }
+    out.push("");
+  }
+
+  const avoid = chat.avoid.filter((a) => inLevel(a, level));
+  if (avoid.length) {
+    out.push("## Do not", "");
+    for (const a of avoid) out.push(...wrap(`- ${a.text}`, "  "));
+    out.push("");
+  }
+
+  if (chat.expand.length) {
+    out.push("## When to expand instead", "");
+    out.push(
+      ...wrap(
+        "These outrank everything above. A short reply that drops the answer is a " +
+          "worse failure than a long one.",
+      ),
+      "",
+    );
+    for (const e of chat.expand) out.push(...wrap(`- ${e}`, "  "));
+    out.push("");
+  }
+
+  // The generator owns the trailing blank line, so every caller gets the same
+  // shape and `--check` does not fail on whitespace nobody can see.
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out;
+}
+
+/**
+ * Wrap to the width the rest of this file is written at.
+ *
+ * The output style is markdown a person reads in a review, and an unwrapped
+ * paragraph assembled from YAML arrives as one very long line. `continuation`
+ * indents every line after the first, which is what a list item needs.
+ */
+function wrap(text: string, continuation = "", width = 78): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    const limit = lines.length ? width - continuation.length : width;
+    if (candidate.length > limit && line) {
+      lines.push(line);
+      line = word;
+      continue;
+    }
+    line = candidate;
+  }
+  if (line) lines.push(line);
+  return lines.map((l, i) => (i === 0 ? l : continuation + l));
 }
 
 /**
@@ -460,11 +503,13 @@ function styleBody(set: RuleSet): string[] {
  * Select it with `/config`. The standalone `/output-style` command was removed
  * in Claude Code v2.1.91.
  */
-export function renderOutputStyle(set: RuleSet): string {
+export function renderOutputStyle(set: RuleSet, level?: string): string {
+  const id = level ?? set.chat.level;
+  const meta = set.chat.levels.find((l) => l.id === id);
   return [
     "---",
-    "name: Plain English",
-    "description: Lead with the subject, explain a term before naming it, say what needs a decision.",
+    `name: ${meta?.name ?? "Plain English"}`,
+    `description: ${meta?.description ?? "Lead with the answer, explain a term before naming it, say what needs a decision."}`,
     // Without this, Claude Code drops its built-in software-engineering
     // instructions and the style changes far more than tone.
     "keep-coding-instructions: true",
@@ -472,9 +517,22 @@ export function renderOutputStyle(set: RuleSet): string {
     "",
     "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit. -->",
     "",
-    ...styleBody(set),
+    ...styleBody(set, id),
     "",
   ].join("\n");
+}
+
+/**
+ * Where one level's style is written.
+ *
+ * The default level keeps the unsuffixed name, so an existing install that
+ * already selected "Plain English" in `/config` keeps working across this
+ * change rather than finding its style renamed out from under it.
+ */
+export function outputStylePath(set: RuleSet, level: string): string {
+  return level === set.chat.level
+    ? "integrations/claude-code/output-styles/plain-english.md"
+    : `integrations/claude-code/output-styles/plain-english-${level}.md`;
 }
 
 /** Markers `init` splices between, so a re-run replaces only what it wrote. */
@@ -501,12 +559,16 @@ export function renderAgentsFragment(set: RuleSet): string {
     "",
     "## Writing style",
     "",
-    "Applies to every file you write, every commit message, and every issue or pull",
-    "request body. `plain-english lint` checks the parts of this a regex can reach.",
+    "`plain-english lint` checks every file you write, every commit message, and every",
+    "issue or pull request body. Run `npx plain-english lint <file>` after writing",
+    "prose, and fix what it reports.",
     "",
-    ...styleBody(set),
+    "Everything below is about what you say in chat, which no linter sees.",
     "",
-    "Run `npx plain-english lint <file>` after writing prose, and fix what it reports.",
+    // One file, so it carries one level. Claude Code gets all of them as
+    // separate output styles; every other agent gets the default.
+    ...styleBody(set, set.chat.level),
+    "",
     AGENTS_MD_END,
     "",
   ].join("\n");
@@ -520,10 +582,10 @@ export function renderAll(set: RuleSet, root: string): RenderTarget[] {
       path: resolve(root, "integrations/agents-md/plain-english.md"),
       content: renderAgentsFragment(set),
     },
-    {
-      path: resolve(root, "integrations/claude-code/output-styles/plain-english.md"),
-      content: renderOutputStyle(set),
-    },
+    ...set.chat.levels.map((level) => ({
+      path: resolve(root, ...outputStylePath(set, level.id).split("/")),
+      content: renderOutputStyle(set, level.id),
+    })),
     ...Object.entries(prompts).map(([name, content]) => ({
       path: resolve(root, `integrations/claude-code/prompts/${name}.txt`),
       content,

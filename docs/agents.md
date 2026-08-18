@@ -164,6 +164,76 @@ The adapter still accepts several spellings for each argument. The captured
 names go first, and the rest cost nothing: a wrong guess falls through, while a
 missing one means reading nothing and allowing the write.
 
+## The chat channel
+
+Chat is the newest channel and the only one that reads a reply rather than gating a write.
+Two mechanisms, and they do not reach equally far.
+
+| Agent | Event carrying the reply | Field | Can block | Evidence |
+|---|---|---|---|---|
+| Claude Code | `Stop`, `SubagentStop` | `last_assistant_message`, documented as the complete final message | yes, `decision: "block"` with `reason` | docs |
+| OpenAI Codex CLI | `Stop`, `SubagentStop` | `last_assistant_message`, documented as "if available" and possibly incomplete | yes | docs |
+| GitHub Copilot | `subagentStop` only | `response` / `last_assistant_message`. `Stop` documents that it carries no reply | yes, plus `modifiedResponse` | docs |
+| Cursor | documents `stop` and `afterAgentResponse` | unverified | unverified | docs, plus bug reports |
+
+Every row is `docs` tier, the weakest this project accepts, so none of it has been watched
+happening. The tracer procedure in
+[`verifying-an-adapter.md`](verifying-an-adapter.md#register-a-tracer-on-every-event) is
+what moves a row to `observed`, and it has three questions to answer:
+
+1. Does the event fire, and does it carry the reply under the documented field name?
+2. For Codex and Copilot, has the transcript caught up by the time the event fires? Claude
+   Code's documentation says its own transcript is written asynchronously and may lag, and
+   assuming the other two behave the same way either direction is a guess.
+3. Does Cursor's command-line tool dispatch `stop` or `afterAgentResponse` at all? Several
+   reports say it sends only `beforeShellExecution` and `afterShellExecution`, and that
+   cloud agents run neither. Nothing is installed there until that is settled.
+
+**Copilot's `modifiedResponse` is deliberately unused.** It would replace a subagent's
+output before the parent sees it, which is a stronger tool than anything else here.
+Replacing a reply means generating prose, and nothing in this package generates prose.
+`Decision.replacement` exists for it and stays unset, so the contract does not have to
+change if that ever becomes true.
+
+**Blocking is guarded three ways**, because a blocked turn produces a new reply that can
+trip a different rule and block again:
+
+- `stop_hook_active`, which Claude Code and Copilot both document, and which is the agent
+  saying this turn already exists because a hook blocked the last one.
+- one block per turn, recorded in `.plain-english-chat-<prompt-id>` at the repository root,
+  on the same ten-minute self-expiring clock as the ack file.
+- `.plain-english-ack-chat`, which waives the channel like any other.
+
+### Where each agent keeps its transcripts
+
+`plain-english lint --chat` reads these. Locations were read off live stores on one machine
+and then checked against each vendor's documentation, which is not the same as watching a
+session write one.
+
+| Agent | Location | Reply text | Evidence |
+|---|---|---|---|
+| Claude Code | `$CLAUDE_CONFIG_DIR/projects/<project>/<session>.jsonl`, and subagents at `<session>/subagents/agent-*.jsonl` | `type=assistant`, `message.content[]` where `type=text` | observed, and docs |
+| OpenAI Codex CLI | `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl` | `response_item`, `payload.role=assistant`, `content[].type=output_text` | observed, and docs |
+| Cursor | `~/.cursor/projects/<project>/agent-transcripts/<uuid>/<uuid>.jsonl` | `{role:"assistant", message.content[].text}` | observed, only after docs pointed at the path |
+| GitHub Copilot | `$COPILOT_HOME/session-store.db`, SQLite | `turns.assistant_response`, scoped by `sessions.cwd` | observed, and docs |
+
+Three things about that table are worth carrying:
+
+- **Claude Code's subagent replies are in their own nested files.** A scan of the top level
+  only finds every main-loop reply and no subagent reply, and reports that as zero. On the
+  machine this was written on that silently dropped 1,845 replies, which are exactly the
+  ones an output style cannot reach.
+- **Cursor's `~/.cursor/chats/*/store.db` is not the transcript.** It is session metadata,
+  and in the store examined only 11 of 39 blobs parsed as JSON with 4 assistant messages
+  among them. See [`verifying-an-adapter.md`](verifying-an-adapter.md#chat-transcripts).
+- **Copilot's store runs in write-ahead logging mode.** Opening it with `immutable=1` skips
+  the log, so a live store reads as empty or as a missing table. The reader copies the
+  database and its log to a scratch directory and opens the copy, which honours the log and
+  cannot write to somebody's agent state.
+
+Reading is local only. A transcript holds whatever passed through a tool, and Copilot's
+documentation notes that its sessions sync to the user's GitHub account by default.
+
 ## Verification status
 
 Honesty matters more than coverage, so each claim carries what backs it. Three

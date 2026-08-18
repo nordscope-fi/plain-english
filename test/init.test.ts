@@ -516,16 +516,21 @@ describe("init --user", () => {
     byId("copilot")!.plan({ prompts: {}, model: "m", includeUser });
 
   it("writes nothing outside the repo by default", () => {
-    const scopes = copilotPlan(false).config.map((c) => c.scope ?? "repo");
-    expect(scopes).toEqual(["repo"]);
+    const scopes = new Set(copilotPlan(false).config.map((c) => c.scope ?? "repo"));
+    expect([...scopes]).toEqual(["repo"]);
   });
 
   it("adds the location the CLI actually reads when asked", () => {
     const config = copilotPlan(true).config;
-    expect(config.map((c) => c.scope ?? "repo")).toEqual(["repo", "user"]);
-    expect(config[1]!.path).toBe(".copilot/hooks/plain-english.json");
-    // Same entries in both, so the two copies cannot drift.
-    expect(JSON.stringify(config[1]!.entries)).toBe(JSON.stringify(config[0]!.entries));
+    const user = config.filter((c) => c.scope === "user");
+    const repo = config.filter((c) => (c.scope ?? "repo") === "repo");
+    expect(user).toHaveLength(1);
+    expect(repo.length).toBeGreaterThan(0);
+    expect(user[0]!.path).toBe(".copilot/hooks/plain-english.json");
+    // Same entries as the repository file for the same event, so the two
+    // copies cannot drift.
+    const sameEvent = repo.find((c) => c.at.join(".") === user[0]!.at.join("."))!;
+    expect(JSON.stringify(user[0]!.entries)).toBe(JSON.stringify(sameEvent.entries));
   });
 
   it("no other agent asks for a file outside the repo, with or without the flag", () => {
@@ -560,5 +565,111 @@ describe("init --user", () => {
     const out = lines.join("");
     expect(out).toContain(resolve(homedir(), ".copilot/hooks/plain-english.json"));
     expect(out).not.toContain("../");
+  });
+});
+
+describe("the chat output styles", () => {
+  const set = compile(loadDefault());
+  const styleDir = ".claude/output-styles";
+  const local = () =>
+    JSON.parse(readFileSync(resolve(root, ".claude/settings.local.json"), "utf8"));
+
+  it("installs one style per level, so switching is a menu choice", () => {
+    init({ root, agents: [byId("claude-code")!] });
+    for (const level of set.chat.levels) {
+      const name =
+        level.id === set.chat.level ? "plain-english.md" : `plain-english-${level.id}.md`;
+      const path = resolve(root, styleDir, name);
+      expect(existsSync(path), `missing ${name}`).toBe(true);
+      expect(readFileSync(path, "utf8")).toContain(`name: ${level.name}`);
+    }
+  });
+
+  it("writes a style 0644, not 0755 like a shim", () => {
+    // Nothing would ever report the wrong mode on a markdown file, which is
+    // exactly why it is asserted rather than assumed.
+    init({ root, agents: [byId("claude-code")!] });
+    const mode = statSync(resolve(root, styleDir, "plain-english.md")).mode & 0o777;
+    expect(mode & 0o111).toBe(0);
+  });
+
+  it("selects the default level, so nobody has to pick one", () => {
+    init({ root, agents: [byId("claude-code")!] });
+    const name = set.chat.levels.find((l) => l.id === set.chat.level)!.name;
+    // .claude/settings.local.json is the file Claude Code's own /config picker
+    // writes. Writing anywhere else installs a style nothing selects.
+    expect(local()["outputStyle"]).toBe(name);
+  });
+
+  it("keeps every other setting when it selects one", () => {
+    mkdirSync(resolve(root, ".claude"), { recursive: true });
+    writeFileSync(
+      resolve(root, ".claude/settings.local.json"),
+      JSON.stringify({ outputStyle: "Explanatory", permissions: { allow: ["Bash(ls:*)"] } }),
+    );
+    init({ root, agents: [byId("claude-code")!] });
+    expect(local()["outputStyle"]).toBe("Plain English");
+    expect(local()["permissions"]).toEqual({ allow: ["Bash(ls:*)"] });
+  });
+
+  it("says what it replaced, because a style somebody chose is not ours to swap in silence", () => {
+    mkdirSync(resolve(root, ".claude"), { recursive: true });
+    writeFileSync(
+      resolve(root, ".claude/settings.local.json"),
+      JSON.stringify({ outputStyle: "Explanatory" }),
+    );
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    (process.stdout as any).write = (s: string) => (lines.push(String(s)), true);
+    try {
+      init({ root, agents: [byId("claude-code")!] });
+    } finally {
+      (process.stdout as any).write = write;
+    }
+    expect(lines.join("")).toContain('was "Explanatory"');
+  });
+
+  it("reports nothing about styles on a second run", () => {
+    // `init` promises a second run changes nothing. Listing three files it did
+    // not change reads as a broken promise even though no byte moved.
+    init({ root, agents: [byId("claude-code")!] });
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    (process.stdout as any).write = (s: string) => (lines.push(String(s)), true);
+    try {
+      init({ root, agents: [byId("claude-code")!] });
+    } finally {
+      (process.stdout as any).write = write;
+    }
+    expect(lines.join("")).not.toContain("output-styles");
+  });
+
+  it("puts a hand-edited style back", () => {
+    init({ root, agents: [byId("claude-code")!] });
+    const path = resolve(root, styleDir, "plain-english-brief.md");
+    writeFileSync(path, "corrupted");
+    init({ root, agents: [byId("claude-code")!] });
+    expect(readFileSync(path, "utf8")).toContain("keep-coding-instructions: true");
+  });
+
+  it("tells the user the style needs a new session, which is the usual confusion", () => {
+    const plan = byId("claude-code")!.plan({ prompts: {}, model: "" });
+    expect(plan.notes.join(" ")).toMatch(/\/clear|new one/);
+  });
+
+  it("says a fork inherits the style and a subagent does not", () => {
+    // Both halves matter. Saying only the second reads as "styles never reach
+    // anything but the main loop", which is not what the documentation says.
+    const notes = byId("claude-code")!.plan({ prompts: {}, model: "" }).notes.join(" ");
+    expect(notes).toContain("fork");
+    expect(notes).toContain("subagent");
+  });
+
+  it("installs no style for an agent that has no such concept", () => {
+    for (const id of ["codex", "cursor", "copilot"]) {
+      const plan = byId(id)!.plan({ prompts: {}, model: "" });
+      expect(plan.files ?? [], `${id} should not install an output style`).toEqual([]);
+      expect(plan.settings ?? [], `${id} should not set outputStyle`).toEqual([]);
+    }
   });
 });

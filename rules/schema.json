@@ -69,6 +69,97 @@
         }
       }
     },
+    "chat": {
+      "description": "What the agent says in the chat window. Rendered into one output style per level, and checked by `lint --chat` and the chat hook. Distinct from every other section, which applies to text somebody reads later.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "description": "The channel boundary, stated to the model. What chat covers, and what it does not.",
+          "type": "string"
+        },
+        "level": {
+          "description": "Which level the AGENTS.md fragment carries and `init` selects. Must name an entry in `levels`.",
+          "type": "string"
+        },
+        "levels": {
+          "description": "Renderings of one guidance list, ordered narrowest first. Each emits its own output style.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "guidance": {
+          "description": "Prose sections. A project overrides `levels` on an id to move a section between levels, or sets it empty to drop the section.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "bad": { "type": "string" },
+              "good": { "type": "string" },
+              "levels": { "$ref": "#/$defs/levelList" },
+              "reason": { "$ref": "#/$defs/reason" }
+            }
+          }
+        },
+        "tells": {
+          "description": "Chat-only phrases, matched deterministically. The regex is generated from `phrases`, so the wording shown to a model and the wording matched by the linter cannot drift.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "at": {
+                "description": "start anchors to the beginning of the reply, which is where an opener has to be. anywhere does not anchor.",
+                "enum": ["start", "anywhere"],
+                "default": "anywhere"
+              },
+              "phrases": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "severity": { "enum": ["error", "warn", "off"], "default": "warn" },
+              "message": { "type": "string" },
+              "levels": { "$ref": "#/$defs/levelList" },
+              "reason": { "$ref": "#/$defs/reason" }
+            }
+          }
+        },
+        "avoid": {
+          "description": "Do-nots no pattern can reach, so they are stated rather than checked.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string" },
+              "levels": { "$ref": "#/$defs/levelList" }
+            }
+          }
+        },
+        "expand": {
+          "description": "When the shape gives way and the answer wins. Without these a shaping prompt clips answers that needed to be long.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
     "structures": {
       "description": "Sentence shapes no regex can reach. Consumed by the semantic layer and the docs generator.",
       "type": "array",
@@ -90,6 +181,11 @@
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "levelList": {
+      "description": "Which chat levels include this entry. An empty list drops it from every level, which is how a project turns one section off.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" }
     },
     "ruleList": {
       "type": "array",

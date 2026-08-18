@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { humanise, renderWritingStyle, renderPrompts, renderOutputStyle, renderAll } from "../src/render.ts";
-import { compile, loadDefault } from "../src/rules.ts";
+import { humanise, renderWritingStyle, renderPrompts, renderOutputStyle, renderAll, outputStylePath } from "../src/render.ts";
+import { chatRules, compile, loadDefault, merge } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
 import { resolve } from "node:path";
@@ -116,22 +116,71 @@ describe("generated artifacts", () => {
 
 describe("output style", () => {
   const set = compile(loadDefault());
+  const levels = set.chat.levels.map((l) => l.id);
 
-  it("carries keep-coding-instructions, which is not optional", () => {
-    // The default is false, which drops Claude Code's built-in
-    // software-engineering instructions and changes far more than tone.
-    expect(renderOutputStyle(set)).toContain("keep-coding-instructions: true");
+  it("ships one style per level, brief first", () => {
+    expect(levels).toEqual(["brief", "standard", "full"]);
+    expect(set.chat.level).toBe("standard");
   });
 
-  it("has valid frontmatter with a name and description", () => {
-    const style = renderOutputStyle(set);
-    const lines = style.split("\n");
-    expect(lines[0]).toBe("---");
-    const close = lines.indexOf("---", 1);
-    expect(close).toBeGreaterThan(1);
-    const front = lines.slice(1, close).join("\n");
-    expect(front).toMatch(/^name: .+$/m);
-    expect(front).toMatch(/^description: .+$/m);
+  for (const level of ["brief", "standard", "full"]) {
+    it(`${level}: carries keep-coding-instructions, which is not optional`, () => {
+      // The default is false, which drops Claude Code's built-in
+      // software-engineering instructions and changes far more than tone.
+      expect(renderOutputStyle(set, level)).toContain("keep-coding-instructions: true");
+    });
+
+    it(`${level}: has valid frontmatter with a name and description`, () => {
+      const style = renderOutputStyle(set, level);
+      const lines = style.split("\n");
+      expect(lines[0]).toBe("---");
+      const close = lines.indexOf("---", 1);
+      expect(close).toBeGreaterThan(1);
+      const front = lines.slice(1, close).join("\n");
+      expect(front).toMatch(/^name: .+$/m);
+      expect(front).toMatch(/^description: .+$/m);
+    });
+
+    it(`${level}: does not restate the banned word list`, () => {
+      // The deterministic linter owns document terms. Duplicating them here is
+      // the drift problem this repo exists to remove. Chat tells are a
+      // different set, which is the whole argument for a separate section.
+      const style = renderOutputStyle(set, level).toLowerCase();
+      for (const term of ["delve", "seamless", "paradigm shift", "synergy"]) {
+        expect(style).not.toContain(term);
+      }
+    });
+
+    it(`${level}: lints clean under our own rules`, () => {
+      expect(lintText(renderOutputStyle(set, level), set).errorCount).toBe(0);
+    });
+
+    it(`${level}: names the channel it applies to`, () => {
+      // Without this line the style reads as advice about everything, and the
+      // rules that make chat readable would make a commit message useless.
+      //
+      // Compared with whitespace collapsed, because the renderer wraps to 78
+      // columns and the ruleset holds the scope as one folded line.
+      const flat = (s: string) => s.replace(/\s+/g, " ").trim();
+      expect(flat(renderOutputStyle(set, level))).toContain(flat(set.chat.scope));
+    });
+  }
+
+  it("the levels are strictly nested, so switching up never loses a rule", () => {
+    const headings = (level: string) =>
+      renderOutputStyle(set, level)
+        .split("\n")
+        .filter((l) => l.startsWith("## "))
+        .map((l) => l.slice(3));
+
+    const [brief, standard, full] = [headings("brief"), headings("standard"), headings("full")];
+    expect(brief.length).toBeGreaterThan(0);
+    for (const h of brief) expect(standard, `brief section missing from standard: ${h}`).toContain(h);
+    for (const h of standard) expect(full, `standard section missing from full: ${h}`).toContain(h);
+    // And strictly, not merely equal: three identical files would pass the
+    // subset checks above and defeat the point of having three.
+    expect(brief.length).toBeLessThan(standard.length);
+    expect(standard.length).toBeLessThan(full.length);
   });
 
   it("takes the sentence threshold from the ruleset, not a hardcoded number", () => {
@@ -144,27 +193,117 @@ describe("output style", () => {
     expect(renderOutputStyle(tweaked)).toContain("99");
   });
 
-  it("does not restate the banned word list", () => {
-    // The deterministic linter owns terms. Duplicating them here is the drift
-    // problem this repo exists to remove.
-    const style = renderOutputStyle(set);
-    for (const term of ["delve", "seamless", "paradigm shift", "synergy"]) {
-      expect(style.toLowerCase()).not.toContain(term);
+  it("leaves no unfilled placeholder in any level", () => {
+    for (const level of levels) {
+      expect(renderOutputStyle(set, level)).not.toMatch(/\{\{\w+\}\}/);
     }
   });
 
-  it("is emitted by renderAll so the CI drift check covers it", () => {
+  it("emits every level from renderAll so the CI drift check covers all of them", () => {
     const root = resolve("/tmp/root");
     const paths = renderAll(set, root).map((t) => t.path);
     // Built with resolve, not a literal suffix: renderAll returns native paths,
     // so a hardcoded "output-styles/plain-english.md" never matches on Windows.
     // Same fault as the exec-bit assertion fixed in a0e5bcf.
-    expect(paths).toContain(
-      resolve(root, "integrations", "claude-code", "output-styles", "plain-english.md"),
-    );
+    const at = (file: string) =>
+      resolve(root, "integrations", "claude-code", "output-styles", file);
+    expect(paths).toContain(at("plain-english.md"));
+    expect(paths).toContain(at("plain-english-brief.md"));
+    expect(paths).toContain(at("plain-english-full.md"));
   });
 
-  it("lints clean under our own rules", () => {
-    expect(lintText(renderOutputStyle(set), set).errorCount).toBe(0);
+  it("keeps the unsuffixed filename for the default level", () => {
+    // An install that already selected "Plain English" in /config must survive
+    // this change rather than finding its style renamed out from under it.
+    expect(outputStylePath(set, set.chat.level)).toBe(
+      "integrations/claude-code/output-styles/plain-english.md",
+    );
+    expect(outputStylePath(set, "brief")).toContain("plain-english-brief.md");
+  });
+});
+
+describe("chat tells", () => {
+  const set = compile(loadDefault());
+
+  it("generates a pattern from the phrases, not the other way round", () => {
+    const rules = chatRules(set);
+    expect(rules.length).toBe(set.chat.tells.filter((t) => t.severity !== "off").length);
+    for (const r of rules) expect(() => new RegExp(r.match, "i")).not.toThrow();
+  });
+
+  it("anchors a start-of-reply tell, and does not anchor the others", () => {
+    const opener = chatRules(set).find((r) => r.id === "affirmation-opener")!;
+    const closer = chatRules(set).find((r) => r.id === "closing-pleasantry")!;
+    expect(opener.match.startsWith("^")).toBe(true);
+    expect(closer.match.startsWith("^")).toBe(false);
+
+    const re = new RegExp(opener.match, "i");
+    expect(re.test("Great question. The answer is 4.")).toBe(true);
+    // Mid-reply, the same words are somebody being quoted or discussed.
+    expect(re.test("You asked whether that is a great question. It is not.")).toBe(false);
+  });
+
+  it("catches both apostrophes, because a model writes each of them", () => {
+    const re = new RegExp(chatRules(set).find((r) => r.id === "affirmation-opener")!.match, "i");
+    expect(re.test("You're absolutely right, the path is wrong.")).toBe(true);
+    expect(re.test("You’re absolutely right, the path is wrong.")).toBe(true);
+  });
+
+  it("narrows with the level, so brief carries fewer than full", () => {
+    expect(chatRules(set, "brief").length).toBeLessThan(chatRules(set, "full").length);
+  });
+});
+
+describe("a project adjusts chat without forking the ruleset", () => {
+  const base = compile(loadDefault());
+
+  /** The overlay shape `loadConfig` builds from a `.plain-english.yml`. */
+  const overlay = (chat: Partial<typeof base.chat>) =>
+    merge(base, {
+      ...base,
+      meta: { title: "", intro: "" },
+      rules: [],
+      readability: [],
+      structures: [],
+      allow: [],
+      exclude: [],
+      chat: { scope: "", level: "", levels: [], guidance: [], tells: [], avoid: [], expand: [], ...chat },
+    });
+
+  it("moves one section to another level and keeps its wording", () => {
+    const before = base.chat.guidance.find((g) => g.id === "time-estimates")!;
+    expect(before.levels).toEqual(["full"]);
+
+    const merged = overlay({ guidance: [{ id: "time-estimates", levels: ["brief", "standard", "full"] }] });
+    const after = merged.chat.guidance.find((g) => g.id === "time-estimates")!;
+    expect(after.levels).toEqual(["brief", "standard", "full"]);
+    expect(after.description).toBe(before.description);
+    expect(renderOutputStyle(merged, "brief")).toContain(before.name!);
+  });
+
+  it("turns a section off everywhere with an empty level list", () => {
+    // `levels: []` has to differ from an absent `levels`, which means every
+    // level. Testing for presence rather than length is what makes that work.
+    const merged = overlay({ guidance: [{ id: "rank-and-cap-lists", levels: [] }] });
+    for (const level of ["brief", "standard", "full"]) {
+      expect(renderOutputStyle(merged, level)).not.toContain("Rank a list");
+    }
+  });
+
+  it("adds a phrase to a shipped tell instead of replacing the list", () => {
+    // Replacing would mean restating the upstream phrases to add one, which is
+    // how a project's list stops tracking the ruleset it extends.
+    const merged = overlay({
+      tells: [{ id: "closing-pleasantry", at: "anywhere", severity: "warn", phrases: ["Anything else I can do"] }],
+    });
+    const tell = merged.chat.tells.find((t) => t.id === "closing-pleasantry")!;
+    expect(tell.phrases).toContain("Hope this helps");
+    expect(tell.phrases).toContain("Anything else I can do");
+  });
+
+  it("refuses a brand new tell that carries no phrases", () => {
+    expect(() =>
+      overlay({ tells: [{ id: "invented", at: "anywhere", severity: "warn", phrases: [] }] }),
+    ).toThrow(/needs 'phrases'/);
   });
 });
