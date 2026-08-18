@@ -127,13 +127,32 @@ export function readJsonl(
   }
 }
 
+/**
+ * Path segments, on either separator.
+ *
+ * Windows `resolve` returns backslashes, so anything asking "is this directory
+ * in the path" has to accept both. This repository has already shipped that
+ * bug once, in an assertion that built a path by string suffix.
+ */
+export function segments(path: string): string[] {
+  return path.split(/[\\/]+/).filter(Boolean);
+}
+
+/** Whether a path contains a directory with this name, at any depth. */
+export function hasSegment(path: string, name: string): boolean {
+  return segments(path).includes(name);
+}
+
 /** Whether a reply's directory is inside the requested one. */
 export function inScope(replyCwd: string | undefined, wanted: string | undefined): boolean {
   if (!wanted) return true;
   if (!replyCwd) return false;
-  const a = replyCwd.replace(/\/+$/, "");
-  const b = wanted.replace(/\/+$/, "");
-  return a === b || a.startsWith(b + "/");
+  const a = segments(replyCwd);
+  const b = segments(wanted);
+  if (b.length > a.length) return false;
+  // Segment by segment rather than by string prefix, so `/work/repository` is
+  // not read as inside `/work/repo`.
+  return b.every((part, i) => a[i] === part);
 }
 
 /** Whether a timestamp is inside the window. */

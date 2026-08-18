@@ -26,6 +26,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
   field,
+  hasSegment,
   inScope,
   readJsonl,
   withinDays,
@@ -148,7 +149,7 @@ export const claudeCodeChat: ChatReader = {
             // on the record, and a subagent also gets its own file under a
             // `subagents/` directory. Trusting only the flag would miss a file
             // whose records do not carry it.
-            isSubagent: record["isSidechain"] === true || path.includes("/subagents/"),
+            isSubagent: record["isSidechain"] === true || hasSegment(path, "subagents"),
             session: typeof record["sessionId"] === "string" ? record["sessionId"] : "",
             source: path,
             line,

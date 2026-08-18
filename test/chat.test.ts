@@ -7,7 +7,7 @@ import { codexChat } from "../src/chat/codex.ts";
 import { cursorChat } from "../src/chat/cursor.ts";
 import { copilotChat } from "../src/chat/copilot.ts";
 import { READERS, readAll, readerFor, readerIds } from "../src/chat/registry.ts";
-import { inScope, withinDays } from "../src/chat/reader.ts";
+import { hasSegment, inScope, withinDays } from "../src/chat/reader.ts";
 import { chatRuleSet, compile, loadDefault } from "../src/rules.ts";
 import { decideChat, blockStatePath } from "../src/adapters/chat.ts";
 import { decide } from "../src/adapters/hook.ts";
@@ -489,5 +489,25 @@ describe("stop-event wire formats", () => {
         expect(byId(id)!.emitChat!(d, "Stop").exitCode, id).toBe(0);
       }
     }
+  });
+});
+
+describe("path handling survives Windows", () => {
+  it("finds a subagent by its directory on either separator", () => {
+    // The fixture in the reader test also sets isSidechain, so it passes even
+    // when the directory check is broken. This asserts the directory check on
+    // its own, with the separator Windows `resolve` actually returns.
+    expect(hasSegment("C:\\Users\\x\\.claude\\projects\\p\\s\\subagents\\a.jsonl", "subagents")).toBe(true);
+    expect(hasSegment("/srv/agent/projects/p/s/subagents/a.jsonl", "subagents")).toBe(true);
+    // Not a substring match: a project literally named "subagents-notes" is a
+    // project, not a subagent.
+    expect(hasSegment("/srv/agent/projects/subagents-notes/s.jsonl", "subagents")).toBe(false);
+  });
+
+  it("scopes by path segment, not by string prefix", () => {
+    // `/work/repository`.startsWith("/work/repo") is true and wrong.
+    expect(inScope("C:\\work\\repo\\src", "C:\\work\\repo")).toBe(true);
+    expect(inScope("/work/repository", "/work/repo")).toBe(false);
+    expect(inScope("C:\\work\\repository", "C:\\work\\repo")).toBe(false);
   });
 });

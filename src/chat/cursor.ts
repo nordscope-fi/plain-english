@@ -29,7 +29,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import {
   inScope,
   readJsonl,
@@ -147,7 +147,8 @@ export const cursorChat: ChatReader = {
     const now = Date.now();
     const out: Reply[] = [];
     for (const { path } of transcripts(options.cwd, options.sinceDays, now)) {
-      const session = path.split("/").slice(-1)[0]!.replace(/\.jsonl$/, "");
+      // `basename`, not a split on "/": Windows `resolve` returns backslashes.
+      const session = basename(path, ".jsonl");
       readJsonl(path, (record, line) => {
         if (record["role"] !== "assistant") return;
         const message = record["message"];
