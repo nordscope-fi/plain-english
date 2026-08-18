@@ -4,6 +4,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-18
 ### Added
 - **A fifth agent: Mistral Vibe.** `plain-english init --agent vibe` writes `.vibe/hooks.toml`, wiring the three write channels to `pre_tool` and the chat channel to `post_agent`. Verified against vibe 2.24.1: the generated config was fed back through Vibe's own `_load_hooks_file` and every matcher through its own `name_matches`, and a live session showed a write refused and a reply sent back for a rewrite. `docs/agents.md` records what came from source and what came from a running binary.
   - **The chat channel works here**, which was not obvious. `post_agent` carries no message, unlike the stop events on three of the four other agents, so the reply is read out of the transcript the payload names. A live probe confirmed the transcript has caught up before the hook runs, so nothing has to wait for it.
@@ -291,7 +292,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.11.0
 [0.10.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.9.0
 [0.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.8.0
