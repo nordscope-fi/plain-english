@@ -2,11 +2,15 @@
 
 Why this works the way it does, for anyone adapting it.
 
+This is the narrative version. Each decision below also has a record of its own under [`architecture/adr/`](architecture/adr/README.md), which carries the status, the alternatives that lost, and what would make it worth revisiting. When the two disagree, the record wins.
+
 ## The problem
 
 AI-generated writing has predictable tells: a small set of overused words, plus a handful of sentence shapes (a contrast cliche, a throat-clearing opener, an unnamed-authority claim, a fake-strong verb dressing up a plain fact). New AI-written text keeps arriving. The check has to run at write time, in every channel where text gets produced.
 
 ## Why two layers
+
+[ADR-001](architecture/adr/001-two-layer-detection.md)
 
 A word list matches exact terms in about a millisecond and is fully testable. It cannot see a rephrased cliche or a sentence shape.
 
@@ -16,11 +20,15 @@ Running both means the cheap layer carries the load it can carry, and the expens
 
 ## Why block before the write
 
+[ADR-002](architecture/adr/002-block-before-the-write.md)
+
 A fix applied afterwards cannot un-push a commit, un-save an issue, or un-show a doc that a reader already opened. The check has to sit in front of the write.
 
 The corollary is that a false positive is expensive. Somebody is stuck, mid-task, arguing with a gate. That is why the severity split and the graduated escape scopes exist.
 
 ## Severity, and why some words only warn
+
+[ADR-003](architecture/adr/003-severity-gradient.md)
 
 The first version of this ruleset blocked on `silently`, `quietly`, `mechanical`, `underscores`, `holistic` and `dive into`. Every one of those has an ordinary technical or domain sense:
 
@@ -68,6 +76,8 @@ A fourth mitigation is structural: the semantic layer never gets to be the only 
 
 ## Why the ruleset is data
 
+[ADR-004](architecture/adr/004-ruleset-is-data.md)
+
 The version this replaces maintained the same word list in five places: a regex pasted into three shell scripts, a prose list inside three prompt bodies, and a table in a markdown file. Nothing checked that they agreed, and they did not.
 
 The same argument decided how four coding agents are supported. Each agent gets a translation table in `src/agents/`, mapping its payload onto one canonical event and one `Decision` back onto its wire format. Nothing about deciding lives in a profile. That was affordable because Claude Code's hook contract turned into the shape the others copied. Copilot ships an explicit compatibility mode for it. Codex uses the same reply vocabulary, and Cursor uses the same event with different words. Four linters would have drifted the way five word lists did.
@@ -78,11 +88,13 @@ Here, `rules/default.yml` is the only hand-written source. The docs and the prom
 
 ## Why the escape hatch is graduated
 
-A ten-minute acknowledgement file that disables an entire guard is a blunt instrument. It is also the only tool the previous version had, so it got used for cases that deserved a one-line suppression.
+[ADR-005](architecture/adr/005-graduated-escape-hatch.md)
+
+A ten-minute acknowledgement file that disables an entire guard is a blunt instrument. On its own it gets used for cases that deserve a one-line suppression instead.
 
 Five scopes now exist, narrowest first: one rule on one line, one rule across a range, a whole file, a path glob in config, and a severity downgrade in config. The refusal message lists them in that order and names the specific rule id to suppress, so the cheapest correct fix is the one presented first.
 
-The acknowledgement file survives as the sixth and last, still ten minutes and still expiring on its own. It moved to the repository root in 0.4.0, from inside `.claude/`. The message tells a human to `touch` it, and `touch` will not create a missing parent, so the old path worked only because Claude Code had already made that directory. An agent that keeps no directory would have made the advice impossible to follow. It stays because the five above all need a decision about what the right permanent fix is, and somebody mid-task does not always have one. What it should never be is the first thing reached for, which is why the message puts it last and marks it as the human's call.
+The acknowledgement file survives as the sixth and last, still ten minutes and still expiring on its own. It lives at the repository root rather than inside `.claude/`, because the message tells a human to `touch` it and `touch` will not create a missing parent. Under an agent that keeps no `.claude/` directory, the advice would be impossible to follow. It stays because the five above all need a decision about what the right permanent fix is, and somebody mid-task does not always have one. What it should never be is the first thing reached for, which is why the message puts it last and marks it as the human's call.
 
 ## What to watch for when adapting this
 

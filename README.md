@@ -94,7 +94,7 @@ produce nothing at all.
 ```
 
 Plus an `exclude` list of file patterns and a severity downgrade in config. Every one of
-these came from a false positive in the version this replaces.
+these came from a real false positive.
 
 The text after the colon is the reason. Leaving it out is itself a finding:
 `unexplained-suppression` warns on a waiver that does not say why. The next person to
@@ -132,7 +132,8 @@ These read the shape of a sentence, so there is no term to match. Both are warni
 
 - `unglossed-term` fires on an acronym or camel-cased name used before it is explained,
   on first use only. A term that arrives with its gloss is never reported: "is called X",
-  "known as X", "X stands for Y" and a parenthetical expansion all count. About eighty
+  "known as X", "X stands for Y" and a parenthetical expansion in either order all
+  count. About eighty
   names a reader already has, such as JSON and GitHub, are exempt by default.
 - `long-sentence` fires past 35 words. Set generously, so that dense but explained
   writing is left alone.
@@ -485,6 +486,10 @@ turning on blocking.
 
 [`docs/design-rationale.md`](docs/design-rationale.md) covers why the checks run before
 the write, why there are two layers, and the calibration problem the semantic layer has.
+
+Each of those decisions also has a record of its own under
+[`docs/architecture/adr/`](docs/architecture/adr/README.md), with the alternatives that
+lost and what would make it worth revisiting.
 
 ## Licence
 

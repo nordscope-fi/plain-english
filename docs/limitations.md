@@ -74,13 +74,13 @@ These rules describe how models wrote in 2024 and 2025. Vendors actively suppres
 
 ## What reaches chat, and what it costs
 
-This section used to say that a chat reply is not a tool call, so no hook sees one. That was true when it was written and it is no longer true for three of the four agents. What reaches chat is now three things with different strengths, and it is worth being precise about which is which.
+Three things reach a chat reply, with very different strengths, and it is worth being precise about which is which.
 
 **An output style** shapes the reply before it exists. Claude Code appends it to the system prompt and restates it each turn, which makes it the strongest lever on wording and still an instruction that can be ignored. Three levels ship, at `integrations/claude-code/output-styles/`, and `plain-english init` installs all three and selects one. Everywhere else the same guidance arrives through the `AGENTS.md` section, which is loaded once at session start rather than restated per turn, and is weaker again.
 
 Two mechanics catch people out. A style is part of the system prompt, which Claude Code reads once at session start, so installing one changes nothing until `/clear` or a new session. And project styles load from every `.claude/output-styles/` between the working directory and the repository root, with the one closest to the working directory winning, which decides behaviour in a monorepo.
 
-A style reaches the main conversation and a **fork**, which inherits the parent's full system prompt. It does not reach a **subagent**, which runs its own. This document previously said only the second half.
+A style reaches the main conversation and a **fork**, which inherits the parent's full system prompt. It does not reach a **subagent**, which runs its own.
 
 **A stop hook** reads the finished reply and can hand a finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. `plain-english init` installs it on the events below. Under the default `failOn: never` it reports and holds up nothing; `failOn: error` makes a finding block the turn.
 
@@ -101,11 +101,11 @@ Blocking a reply can loop: the model rewrites, the rewrite trips another rule, a
 
 It is local only, and that is not squeamishness. A transcript holds whatever passed through a tool: file contents, command output, pasted text, and, per Claude Code's own documentation, a credential that an environment file or a command happened to print. Copilot's documentation adds that its sessions sync to the user's GitHub account by default. Nothing here belongs in CI, and the GitHub Action takes no `--chat` input. How far back a scan can see is bounded by each agent's own retention, which for Claude Code is the `cleanupPeriodDays` setting.
 
-### `MessageDisplay` is not the answer, for different reasons than before
+### Why `MessageDisplay` is not the place to judge a reply
 
-An earlier version of this document said Claude Code's `MessageDisplay` hook could replace on-screen text through `displayContent`, and that the shipped binary used `delta` and `final` against a documented `message_text` and `is_final_chunk`. The current documentation says none of that. The event is display-only, hook output does not modify the displayed text, blocking with exit 2 has no effect, its fields are `role`, `content` and `is_partial`, and its timeout is ten seconds rather than the usual default.
+Claude Code's `MessageDisplay` event is display-only. Hook output does not modify the displayed text, blocking with exit 2 has no effect, its fields are `role`, `content` and `is_partial`, and its timeout is ten seconds rather than the usual default.
 
-So the conclusion survives and the reasoning does not: it is a monitoring event, and a monitoring event that fires per streamed chunk is a worse place to judge a reply than a stop event that fires once with the whole thing.
+It is a monitoring event, and a monitoring event that fires per streamed chunk is a worse place to judge a reply than a stop event that fires once with the whole thing.
 
 ## What each agent cannot reach
 

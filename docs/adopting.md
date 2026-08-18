@@ -111,21 +111,25 @@ Full ruleset: docs/writing-style.md
 
 A summary that drifts from the generated guide is worse than a pointer.
 
-## 7. Install the output style, and know what it cannot do
+## 7. Know what covers the chat window
 
-A chat reply has no tool call between being written and being read, so no linting hook can sit in that path. What reaches chat instead is an output style, generated from the same ruleset:
+Step 3 already installed all of this. This step is about which part does what, because the three pieces have very different strengths.
+
+**An output style** shapes the reply before it exists. `init` writes three levels under `.claude/output-styles/` and selects the middle one, so there is nothing to copy and no menu to hunt for. Switch level under `/config` > **Output style**. A style is part of the system prompt, which Claude Code reads once at session start, so a change takes effect after `/clear`. (The standalone `/output-style` command was removed in Claude Code v2.1.91.)
+
+This one is Claude Code only. Elsewhere the same guidance arrives through the `AGENTS.md` section from step 6, loaded once per session rather than restated each turn, and weaker for it.
+
+**A stop hook** reads the finished reply and hands any finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. Claude Code, Codex and Copilot all fire an event carrying the final message. Cursor fires none, so chat there is ungated.
+
+**A scan of what was actually said:**
 
 ```bash
-mkdir -p .claude/output-styles
-cp node_modules/plain-english/integrations/claude-code/output-styles/plain-english.md \
-   .claude/output-styles/
+npx plain-english lint --chat --summary
 ```
 
-Then run `/config` and pick it under **Output style**. The standalone `/output-style` command was deprecated in Claude Code v2.1.73 and removed in v2.1.91.
+It reads the session transcripts your agents write to local disk and reports findings per 1,000 words, split main loop against subagent. That split is the point: a style never reaches a subagent, so one number across both hides the one gap it cannot close. Local only, never a CI step, because a transcript holds whatever passed through a tool.
 
-This one is Claude Code only. Elsewhere the portable equivalent is the `AGENTS.md` section from step 6, which is loaded once per session rather than restated each turn, and is weaker for it.
-
-Two limits are worth stating up front. It is a prompt, so nothing measures compliance. And it does not reach subagents, which run their own system prompt, so any research or exploration agent keeps writing the old way. `docs/limitations.md` covers both.
+Two limits are worth knowing before you rely on any of it. A style is a prompt, so nothing measures compliance, which is what the scan is for. And under `claude -p` the stop hook runs but the block does not land, so treat chat as advisory there whatever `failOn` says. [`docs/limitations.md`](limitations.md#what-reaches-chat-and-what-it-costs) covers both.
 
 Everything else runs before the write lands.
 
@@ -160,7 +164,7 @@ rules:
 
 **Someone is running the whole-file directive routinely.** Treat that as a calibration signal, not a discipline problem.
 
-**A hook is refusing a write you need to land now.** `touch .plain-english-ack-docs` waives that channel for ten minutes, then expires on its own. The channels are `docs`, `github` and `issue`. (Before 0.4.0 this lived at `.claude/.docs-plain-english-ack`, which is still honoured. It moved to the repository root because the message tells you to `touch` it and `touch` will not create a missing directory.) Reach for it when the finding is wrong and you are mid-task; fix the config afterwards, since a hatch nobody follows up on is a rule nobody trusts.
+**A hook is refusing a write you need to land now.** `touch .plain-english-ack-docs` waives that channel for ten minutes, then expires on its own. The channels are `docs`, `github` and `issue`. Reach for it when the finding is wrong and you are mid-task; fix the config afterwards, since a hatch nobody follows up on is a rule nobody trusts.
 
 **Your agent has no hook here.** Two fallbacks, in `docs/post-edit-lint.md` and `docs/editors.md`: tell it to run `plain-english lint` after it edits, or feed findings into your editor's Problems list, which several agents read.
 

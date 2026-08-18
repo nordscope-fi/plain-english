@@ -46,8 +46,8 @@ CI fails when the working tree changes after running the render
 - **Per-host instruction files.** Considered and rejected. Every host
   drifts on its own release cadence. Four adapters would have drifted
   the way five word lists did.
-- **Ruleset embedded in code.** Rejected. A prose contributor should
-  be able to propose a new rule with a YAML edit, not a TypeScript PR.
+- **Ruleset embedded in code.** Rejected. A prose contributor can
+  propose a new rule with a YAML edit, not a TypeScript PR.
 
 ## Re-evaluation triggers
 

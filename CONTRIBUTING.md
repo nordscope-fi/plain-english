@@ -4,6 +4,14 @@
 
 Open an issue first. For a false positive, the sentence that was wrongly flagged is a complete bug report, and it usually becomes the test case verbatim.
 
+## The rules your coding agent reads
+
+If you work here with an AI coding agent, it has instructions waiting for it.
+
+`AGENTS.md` at the repository root is the host-neutral contract: what this project is, how to size a task, which areas cannot be changed casually, and what to run before claiming you are done. Roughly twenty agents read that filename. `CLAUDE.md` and `VIBE.md` add the per-host detail and point back at it rather than restating it.
+
+Three things live under `.claude/`. Rules that load when you touch the paths they describe. Skills for test-first work and for verifying a claim before making it. And a hook that reminds you to look for an existing helper before adding a new file under `src/`. All of it is prose the linter checks, so keep it in plain English too.
+
 ## Setup
 
 ```bash
@@ -37,6 +45,8 @@ npm run build && npm test
 npm run render && git diff --exit-code
 npm run lint:self
 ```
+
+`lint:self` reads the docs, the root markdown files and everything under `.claude/`, and fails on a blocking finding. This repository does not exempt itself from its own rules.
 
 ## What gets rejected
 
