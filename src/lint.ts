@@ -457,7 +457,12 @@ function isGlossed(text: string, start: number, end: number): boolean {
     /\b(called|named|known as|termed|dubbed|abbreviated|short for|stands for|an acronym for)\s+[("'`]?$/i.test(before) ||
     /^[)"'`]?\s*(stands for|means|is short for)\b/i.test(after) ||
     /^[)"'`]?\s*,\s*(which|meaning)\b/i.test(after) ||
-    /^\s*\(/.test(after)
+    /^\s*\(/.test(after) ||
+    // The other order, "a signed record of where the code came from (SLSA)",
+    // which is what "explain a thing before naming it" produces. The lowercase
+    // letter is what says prose ran into the bracket, so a parenthetical that
+    // opens a clause is still reported.
+    /[a-z]\s*\(\s*$/.test(before)
   );
 }
 

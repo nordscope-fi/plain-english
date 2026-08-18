@@ -119,7 +119,7 @@ function readabilityDescription(r: ReadabilityRule): string {
     "Fires on an acronym of three or more letters, or a camel-cased name, used before " +
     "it is explained. First use only: repeating a term is not the problem. A term that " +
     'arrives with its gloss is never reported, so "is called X", "known as X", ' +
-    '"X stands for Y" and a parenthetical expansion all pass.' +
+    '"X stands for Y" and a parenthetical expansion in either order all pass.' +
     known +
     " A project adds its own vocabulary through `known` in `.plain-english.yml`."
   );

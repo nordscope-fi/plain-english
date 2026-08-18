@@ -68,7 +68,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 Nothing. The shipped ruleset is unchanged here.
 
-Files skipped entirely: `docs/writing-style.md`, `docs/limitations.md`, `CHANGELOG.md`.
+Files skipped entirely: `docs/writing-style.md`, `docs/limitations.md`, `CHANGELOG.md`, `.claude/RELEASING.md`.
 
 ## Waivers in the tree
 

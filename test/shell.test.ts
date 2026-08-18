@@ -108,33 +108,27 @@ describe("it stays linear", () => {
     }
   });
 
-  it("scales linearly and not quadratically", () => {
-    const build = (n: number) => "cat > x.md <<EOF\n" + "some line of text\n".repeat(n);
-    // Best of five, not one. A scheduling pause or a collection can only make a
-    // run slower, so the fastest of several is the closest reading of what the
-    // work costs. One sample each put this at 3.3ms against 38.9ms on a shared
-    // Windows runner, a ratio of 11.8 for code that is linear.
-    const time = (n: number) => {
-      const input = build(n);
-      let best = Infinity;
-      for (let i = 0; i < 5; i += 1) {
-        const s = performance.now();
-        shellFileWrites(input);
-        best = Math.min(best, performance.now() - s);
-      }
-      return best;
-    };
-    // Big enough to read. Best-of-five removed most of the noise and the
-    // ratio still flaked at 11.4 on a shared runner, because `small` was
-    // 1.3ms: at that size a single scheduling pause is a third of the
-    // measurement, and the ratio inherits all of it. Four times the work makes
-    // the denominator large enough that a blip cannot dominate it. The 4x
-    // relationship between the two sizes is what the assertion rests on, and
-    // that is unchanged.
-    time(40_000); // warm
-    const small = Math.max(time(40_000), 0.5);
-    const large = time(160_000);
-    // Four times the input. Linear predicts about 4x; quadratic predicts 16x.
-    expect(large / small, `${small.toFixed(1)}ms -> ${large.toFixed(1)}ms`).toBeLessThan(10);
+  /**
+   * The regression this guards is a hang, not a slow run. A quadratic rescan of
+   * this input costs 18,183ms at 40,000 lines against the scanner's 5.9ms, and
+   * the parser this replaced hung a blocking hook for 200 seconds. The gap is
+   * three orders of magnitude, so an absolute ceiling reads it with room to
+   * spare.
+   *
+   * It used to be a ratio: time 40,000 lines, time 160,000, assert under 4x
+   * plus slack. A ratio needs both readings to come off a machine running at
+   * the same speed at both moments, which a shared runner does not promise.
+   * Best-of-five and a 4x size bump each cut the noise inside one reading and
+   * neither could fix that, and the ratio still flaked at 11.8, 11.4 and 12.4.
+   * A ceiling takes one reading, so there is no second moment to disagree with.
+   */
+  it("does not go quadratic on a long heredoc", () => {
+    const input = "cat > x.md <<EOF\n" + "some line of text\n".repeat(160_000);
+    shellFileWrites(input); // warm, so the reading is of the work and not the JIT
+    const started = performance.now();
+    shellFileWrites(input);
+    const ms = performance.now() - started;
+    // About 5ms in practice. Quadratic here is minutes.
+    expect(ms, `160,000 lines took ${ms.toFixed(0)}ms`).toBeLessThan(500);
   });
 });

@@ -5,7 +5,11 @@ coverage/
 .DS_Store
 .plain-english-cache/
 
-# Claude Code session state, not project content.
+# Claude Code state.
+# Project content — rules, skills, shared hooks, output styles, and the
+# committed settings.json that references them — is tracked. Per-operator
+# state (permissions, release notes) is not.
 .claude-session-lock
-.claude/
+.claude/settings.local.json
+.claude/RELEASING.md
 .playwright-mcp/

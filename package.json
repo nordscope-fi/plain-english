@@ -61,7 +61,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "render": "node dist/cli.js render",
-    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md",
+    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md AGENTS.md CLAUDE.md VIBE.md .claude --fail-on error",
     "policy": "node dist/cli.js policy",
     "policy:check": "node dist/cli.js policy --check",
     "check:refs": "bash scripts/check-no-private-refs.sh",
