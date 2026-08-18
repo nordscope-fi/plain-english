@@ -109,7 +109,7 @@ An agent that has none of the above still commits. `pre-commit` catches that:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.12.0
+    rev: v0.12.1
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
