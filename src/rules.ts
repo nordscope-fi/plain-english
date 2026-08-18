@@ -72,6 +72,14 @@ export interface ReadabilityRule {
    * em dash on any line that mentions GitHub.
    */
   known?: string[];
+  /**
+   * unglossed-term only: ordinary words typed in capitals for emphasis.
+   *
+   * Separate from `known` because they are a different claim. `known` says the
+   * reader already knows this name. `emphasis` says this is not a name at all,
+   * it is a word somebody shouted.
+   */
+  emphasis?: string[];
   message?: string;
   link?: string;
   /** Why this project changed the rule. See `Rule.reason`. */
@@ -348,10 +356,11 @@ function readReadability(v: unknown): ReadabilityRule[] {
       }
       out.maxTerms = n;
     }
-    if (Array.isArray(r["known"])) {
-      out.known = (r["known"] as unknown[]).map((k, j) => {
+    for (const field of ["known", "emphasis"] as const) {
+      if (!Array.isArray(r[field])) continue;
+      out[field] = (r[field] as unknown[]).map((k, j) => {
         if (typeof k !== "string") {
-          throw new RuleError(`readability[${i}] (${r["id"]}).known[${j}] must be a string`);
+          throw new RuleError(`readability[${i}] (${r["id"]}).${field}[${j}] must be a string`);
         }
         return k;
       });
@@ -730,6 +739,9 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       // A project's `known` list adds to the defaults instead of replacing
       // them, so nobody has to restate "GitHub" to add their own terms.
       if (r.known?.length) existing.known = [...(existing.known ?? []), ...r.known];
+      if (r.emphasis?.length) {
+        existing.emphasis = [...(existing.emphasis ?? []), ...r.emphasis];
+      }
       if (r.message) existing.message = r.message;
       if (r.link) existing.link = r.link;
       if (r.reason) existing.reason = r.reason;

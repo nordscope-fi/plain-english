@@ -351,6 +351,8 @@ readability:
     known:                  # adds to the defaults, does not replace them
       - RevOps
       - ARR
+    emphasis:               # words you shout, which are not acronyms
+      - SHIPPED
 ```
 
 `reason` is optional and nothing validates it. Turning a rule off in config silences it

@@ -134,12 +134,18 @@ function readabilityDescription(r: ReadabilityRule): string {
   const known = r.known?.length
     ? ` ${r.known.length} names a reader already has, such as JSON and GitHub, are exempt.`
     : "";
+  const emphasis = r.emphasis?.length
+    ? ` So is a word shouted for emphasis: ${r.emphasis.length} common ones are listed, ` +
+      "and anything longer ending in -ed, -ing, -ly, -tion or -able is read as a word " +
+      "rather than an acronym."
+    : "";
   return (
     "Fires on an acronym of three or more letters, or a camel-cased name, used before " +
     "it is explained. First use only: repeating a term is not the problem. A term that " +
     'arrives with its gloss is never reported, so "is called X", "known as X", ' +
     '"X stands for Y" and a parenthetical expansion in either order all pass.' +
     known +
+    emphasis +
     " A project adds its own vocabulary through `known` in `.plain-english.yml`."
   );
 }

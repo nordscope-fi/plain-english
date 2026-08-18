@@ -99,6 +99,13 @@
               "type": "string"
             }
           },
+          "emphasis": {
+            "description": "unglossed-term only: ordinary words typed in capitals for emphasis, which are not acronyms. A project's entries add to the defaults rather than replacing them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "message": {
             "type": "string"
           },
@@ -298,6 +305,13 @@
               },
               "known": {
                 "description": "unglossed-term only: names a reader already has. A project's entries add to the defaults rather than replacing them. Distinct from `allow`, which suppresses every rule on a matching line.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "emphasis": {
+                "description": "unglossed-term only: ordinary words typed in capitals for emphasis, which are not acronyms. A project's entries add to the defaults rather than replacing them.",
                 "type": "array",
                 "items": {
                   "type": "string"

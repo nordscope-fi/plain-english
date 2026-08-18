@@ -3,7 +3,15 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+- **`emphasis` under `unglossed-term`**, for words a project shouts. Adds to the shipped list rather than replacing it, the way `known` does.
+
 ### Fixed
+
+- **`unglossed-term` treated a word shouted for emphasis as an unexplained acronym.** An acronym and a word in capitals are the same shape, and across one repository's documentation 129 of 274 findings were the second kind. "DONE" alone accounted for 25, from a house style that ends a workflow with it. Two tests separate them now. Anything five letters or longer ending in an English inflection reads as a word, which covers CONFIRMED, UPDATING, PARTIALLY and UNVERIFIABLE without listing any of them, and 96 common short ones are listed.
+
+  A dictionary looks like the obvious fix and is worse than this. The unabridged list shipped with macOS holds `roi`, `sla`, `mau`, `ram`, `ide` and `vat`, so checking against it would stop reporting ROI, SLA and MAU, which are exactly the jargon the rule exists for. It also carries no inflections, so VERIFIED and UPDATING would still have been reported. A curated list can leave out the words that are also acronyms: MAP, SOW, RAM, ARC, BUS and CAN are absent on purpose and stay reportable.
 
 - **`not-un` fired on ordinary negation of any word starting with those two letters.** "not universal" and "not underscores" were both reported as litotes in real documentation. Every exception was closed with a word boundary, so the alternative meant to cover "not underscores" stopped at "not under", and that hid "not understood" and "not underway" as well. The exceptions are open-ended now, and they cover the words where `un` is not a prefix at all: strip it from "universal" and "iversal" is left. "not unclear" and "not uncommon" still fire.
 

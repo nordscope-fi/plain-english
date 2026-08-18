@@ -9,7 +9,7 @@
 import { maskNonProse } from "./mask.ts";
 import { matchAllWithDeadline } from "./safe-regex.ts";
 import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
-import { sentences, jargonTerms } from "./sentences.ts";
+import { sentences, jargonTerms, isShoutedWord } from "./sentences.ts";
 import { compile, resolveRuleSet, type RuleSet, type Severity } from "./rules.ts";
 
 export interface Finding {
@@ -596,9 +596,13 @@ function readabilityFindings(
       // introducing one without saying what it does is.
       const seen = new Set<string>();
       const known = new Set((rule.known ?? []).map((k) => k.toLowerCase()));
+      const emphasis = new Set((rule.emphasis ?? []).map((k) => k.toLowerCase()));
       for (const term of jargonTerms(text)) {
         const key = term.text.toLowerCase();
         if (known.has(key)) continue;
+        // A word shouted for emphasis is the same shape as an acronym and is
+        // not jargon. "End every workflow with DONE" asks for no gloss.
+        if (emphasis.has(key) || isShoutedWord(term.text)) continue;
         if (seen.has(key)) continue;
         seen.add(key);
         // A project's own vocabulary is declared through `allow`.

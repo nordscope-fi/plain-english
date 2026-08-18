@@ -804,6 +804,27 @@ cases:
     warns: [unglossed-term]
     text: "The OIDC publisher handles the upload for us."
 
+  # An acronym and a shouted word are the same shape. Reported across one
+  # repository's documentation, 129 of 274 findings were words in capitals.
+  - name: "a word shouted for emphasis is not an acronym"
+    expect: pass
+    text: "End every workflow with DONE plus one to three next actions."
+
+  - name: "a run of shouted words is not a run of acronyms"
+    expect: pass
+    text: "Mark it GREEN, not AMBER or RED. This is ALWAYS the case and NEVER the other way."
+
+  # These are caught by their endings rather than by the list, so a word nobody
+  # thought to list is still handled.
+  - name: "an inflected word in capitals is not an acronym"
+    expect: pass
+    text: "The result is CONFIRMED, PARTIALLY VALIDATED and still UPDATING."
+
+  - name: "a real acronym that is also an English word still fires"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The ROI is measured monthly."
+
   # ==========================================================================
   # Padding. Fixed phrases that carry no information, from Strunk's rule 13.
   #

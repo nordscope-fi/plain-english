@@ -122,4 +122,52 @@ export function jargonTerms(text: string): Term[] {
   return out;
 }
 
-export const __testing = { JARGON, parse };
+/**
+ * English inflections. A run of capitals ending in one of these is a word
+ * somebody shouted, not an acronym.
+ *
+ * This is the half of the emphasis problem that generalises. `CONFIRMED`,
+ * `UPDATING`, `PARTIALLY` and `UNVERIFIABLE` are all caught here without
+ * anybody having to list them, and an acronym five letters or longer that ends
+ * in `-ing` or `-ly` is not a thing English does.
+ *
+ * The short ones are left to the `emphasis` list in the ruleset, because at
+ * three or four letters the shapes really do collide: `LED` and `RED` end the
+ * same way and only one of them is a word.
+ */
+const INFLECTIONS = [
+  "ED",
+  "ING",
+  "LY",
+  "TION",
+  "SION",
+  "MENT",
+  "NESS",
+  "ABLE",
+  "IBLE",
+  "FUL",
+  "LESS",
+  "EST",
+  "IES",
+  "OUS",
+  "IVE",
+  "ANCE",
+  "ENCE",
+];
+
+/** Shortest token the suffix test will judge. */
+const INFLECTION_MIN = 5;
+
+/**
+ * True when an all-capitals token is an ordinary word typed for emphasis.
+ *
+ * Only all-capitals tokens are judged. A camel-cased name is a name whatever
+ * it ends in, so the `Marketing` inside `HubSpotMarketing` is not evidence.
+ */
+export function isShoutedWord(value: string): boolean {
+  if (!/^[A-Z][A-Z0-9]{2,}$/.test(value)) return false;
+  if (value.length < INFLECTION_MIN) return false;
+  return INFLECTIONS.some((suffix) => value.endsWith(suffix));
+}
+
+export const __testing = { JARGON, INFLECTIONS, parse };
