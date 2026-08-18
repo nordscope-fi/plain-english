@@ -138,8 +138,24 @@ export function mergeNested(
   const hadOurs = new Set<string>();
   const groups: HookGroup[] = [];
   for (const g of existing) {
-    const keep = (g.hooks ?? []).filter((h) => !isOurs(h));
-    const wasOurs = (g.hooks ?? []).length !== keep.length;
+    // A flat entry where a group belongs. This is what 0.9.0 wrote into
+    // `hooks.Stop`, following documentation that shows the event flat, and
+    // Claude Code rejects the whole file over it. Treating it as a group turns
+    // it into `{ type, command, hooks: [] }`, which is a third thing and still
+    // invalid, so an upgrade left the file just as broken as it found it.
+    //
+    // Ours goes. Somebody else's is left exactly as it is: their flat entry is
+    // their business, and rewriting it would be the same mistake in reverse.
+    if (!Array.isArray((g as { hooks?: unknown }).hooks)) {
+      if (isOurs(g)) {
+        hadOurs.add(g.matcher);
+        continue;
+      }
+      groups.push(g);
+      continue;
+    }
+    const keep = g.hooks.filter((h) => !isOurs(h));
+    const wasOurs = g.hooks.length !== keep.length;
     if (wasOurs) {
       hadOurs.add(g.matcher);
       if (!wanted.has(g.matcher)) orphaned.push(g.matcher);

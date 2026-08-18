@@ -673,3 +673,53 @@ describe("the chat output styles", () => {
     }
   });
 });
+
+describe("upgrading from a 0.9.0 install", () => {
+  it("replaces the flat Stop entry that voided the file, rather than mangling it", () => {
+    // 0.9.0 wrote `hooks.Stop` flat, following documentation that shows the
+    // event flat, and Claude Code rejects the whole file over it. Reading that
+    // entry as a group turned it into `{ type, command, hooks: [] }`, a third
+    // thing that is still invalid, so re-running init left the file exactly as
+    // broken as it found it.
+    mkdirSync(resolve(root, ".claude"), { recursive: true });
+    writeFileSync(
+      resolve(root, ".claude/settings.json"),
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              type: "command",
+              command: "$CLAUDE_PROJECT_DIR/.claude/hooks/plain-english-chat.sh",
+              timeout: 10,
+            },
+          ],
+          PreToolUse: [
+            { matcher: "Bash", hooks: [{ type: "command", command: "/theirs/guard.sh" }] },
+            // Somebody else's flat entry. Not ours to rewrite.
+            { type: "command", command: "/theirs/flat-hook.sh" },
+          ],
+        },
+      }),
+    );
+
+    init({ root, agents: [byId("claude-code")!] });
+    const after = settings();
+
+    const entries = Object.values(after["hooks"] as Record<string, unknown[]>).flat() as Record<
+      string,
+      unknown
+    >[];
+    // The shape that fails validation: group keys and flat keys on one entry.
+    const hybrid = entries.filter((e) => "hooks" in e && "command" in e);
+    expect(hybrid, JSON.stringify(hybrid)).toEqual([]);
+
+    const stop = (after["hooks"] as Record<string, unknown[]>)["Stop"] as Record<string, unknown>[];
+    expect(stop).toHaveLength(1);
+    expect(Object.keys(stop[0]!).sort()).toEqual(["hooks", "matcher"]);
+
+    // Their hooks survive untouched, flat one included.
+    const serialised = JSON.stringify(after);
+    expect(serialised).toContain("/theirs/guard.sh");
+    expect(serialised).toContain("/theirs/flat-hook.sh");
+  });
+});

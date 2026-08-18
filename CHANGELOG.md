@@ -3,20 +3,7 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Fixed
 
-- **The Claude Code `Stop` hook was installed in a shape that fails validation, which silently voided the user's whole settings file.** The documentation shows `Stop` as a bare `{ type, command }` in the event array, and 0.9.0 wrote it that way. Against Claude Code 2.1.234 that entry fails validation, and `claude --help` gives the consequence: in print mode a settings file that fails validation is "silently ignored (no error dialog is shown)". So one bad entry stopped every other hook in the file, including hooks nothing to do with this package. Both stop events now install nested as `{ matcher, hooks }`, which is what every event in a working settings file uses, and a test pins the shape.
-- The once-per-turn block key read `prompt_id` and fell back to the session. Codex names a turn `turn_id`, so on Codex one block would have silenced the rest of the session rather than the rest of the turn.
-- The Copilot chat reader asked the session store for the current reply. Copilot's `Stop` payload names something better and more timely: `transcriptPath` points at `session-state/<id>/events.jsonl`, where an `assistant.message` record carries the reply under `data.content`, present at the moment the hook runs. The store is now the fallback rather than the first choice.
-- A Claude Code `SubagentStop` finding named the parent's transcript. That event carries `agent_transcript_path`, the subagent's own file, which is where the reply actually is.
-
-### Changed
-
-- **Every per-agent chat claim moved from `docs` tier to `observed`.** A tracer was registered on every event each of the four agents has and run against the live binaries: Claude Code 2.1.234, Codex 0.147.0, Copilot 1.0.78, Cursor 2026.08.04. [`docs/agents.md`](docs/agents.md#the-chat-channel) carries the table and what the pass changed. Four results were not what the documentation implied.
-- **Claude Code does not act on a `Stop` block in print mode.** The hook runs and the block is emitted and read, and the turn ends anyway. Isolated with a minimal always-block hook that has nothing to do with this package, so it is not something in this adapter. Under `claude -p` the chat channel is advisory whatever `failOn` says. Interactive sessions are untested; driving one needs a terminal this pass did not have.
-- **Claude Code's transcript really does lag**, at both `Stop` and `SubagentStop`. That confirms the documented warning and the design it forced: take `last_assistant_message` off the payload and never read the transcript for the turn being judged. Codex's transcript, by contrast, was already written.
-- **Cursor dispatches neither `stop` nor `afterAgentResponse`.** With twelve events registered, only `sessionStart` and `sessionEnd` fired. Chat there is ungated, which the generated policy already said, and now it is measured rather than reported.
-- Copilot's `Stop` carries no reply text, exactly as documented. Registering both `Stop` and `agentStop` runs the hook twice, so pick one casing.
 ### Added
 
 - **The chat channel.** The one channel this tool could not reach. It is now covered three ways, and `init` installs all of them. An output style at three levels, generated from the ruleset; a hook on the stop events, which reads the finished reply and can hand a finding back to the model; and `plain-english lint --chat`, which reads what was already said.
@@ -27,15 +14,26 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - Five chat-only tells, held as phrases rather than regexes so the words shown to a model and the pattern matched by the linter cannot drift: `affirmation-opener`, `announced-structure`, `closing-pleasantry` block, and `concession-formula` and `error-theatre` warn. The last two have real uses that no pattern can separate from the tell, which is the same reason `silently` and `holistic` warn.
 - `Decision.replacement`, unset. Copilot's `subagentStop` accepts a `modifiedResponse` that replaces a subagent's output outright. Using it means generating prose and nothing here does, but `Decision` is the contract all four profiles implement, so the field lands now rather than as a later change to a type four profiles depend on.
 
-### Fixed
-
-- **A large report was truncated at about 64 KB through a pipe.** `process.exit()` discards whatever stdout has buffered, which is invisible writing to a terminal and silent writing to a pipe. Found on `lint --chat --format json`, where 514 KB of valid JSON became 65 KB of invalid JSON, and always reachable by `lint` over a big enough tree.
-
 ### Changed
 
+- **Every per-agent chat claim moved from `docs` tier to `observed`.** A tracer was registered on every event each of the four agents has and run against the live binaries: Claude Code 2.1.234, Codex 0.147.0, Copilot 1.0.78, Cursor 2026.08.04. [`docs/agents.md`](docs/agents.md#the-chat-channel) carries the table and what the pass changed. Four results were not what the documentation implied.
+- **Claude Code does not act on a `Stop` block in print mode.** The hook runs and the block is emitted and read, and the turn ends anyway. Isolated with a minimal always-block hook that has nothing to do with this package, so it is not something in this adapter. Under `claude -p` the chat channel is advisory whatever `failOn` says. Interactive sessions are untested; driving one needs a terminal this pass did not have.
+- **Claude Code's transcript really does lag**, at both `Stop` and `SubagentStop`. That confirms the documented warning and the design it forced: take `last_assistant_message` off the payload and never read the transcript for the turn being judged. Codex's transcript, by contrast, was already written.
+- **Cursor dispatches neither `stop` nor `afterAgentResponse`.** With twelve events registered, only `sessionStart` and `sessionEnd` fired. Chat there is ungated, which the generated policy already said, and now it is measured rather than reported.
+- Copilot's `Stop` carries no reply text, exactly as documented. Registering both `Stop` and `agentStop` runs the hook twice, so pick one casing.
 - **Two claims in the documentation were wrong, and one was out of date.** A chat reply is no longer unreachable: three of the four agents document an event carrying the assistant's final message. A style does not reach a subagent, which was said, and does reach a fork, which inherits the parent's system prompt, which was not. And `MessageDisplay` is documented as display-only with fields `role`, `content` and `is_partial`, not as something that can replace on-screen text through `displayContent`. The conclusion that it is unsuitable survives; every reason given for it did not.
 - The generated policy's "what nothing here can reach" section is a per-agent table instead of one flat claim, built from which chat hooks are actually installed.
 - `init` no longer asks anyone to `mkdir`, `cp` out of `node_modules`, and find a menu. It writes the styles and selects one. `render` emits eight files rather than six.
+
+### Fixed
+
+- **Upgrading from 0.9.0 left the broken settings file broken.** That release wrote `hooks.Stop` flat, which Claude Code rejects, and re-running `init` read the flat entry as a group and rewrote it as `{ type, command, hooks: [] }`. That is a third shape, still invalid, so the repair did nothing. The old entry is now removed outright, and a flat entry belonging to somebody else is left exactly as it is.
+
+- **The Claude Code `Stop` hook was installed in a shape that fails validation, which silently voided the user's whole settings file.** The documentation shows `Stop` as a bare `{ type, command }` in the event array, and 0.9.0 wrote it that way. Against Claude Code 2.1.234 that entry fails validation, and `claude --help` gives the consequence: in print mode a settings file that fails validation is "silently ignored (no error dialog is shown)". So one bad entry stopped every other hook in the file, including hooks nothing to do with this package. Both stop events now install nested as `{ matcher, hooks }`, which is what every event in a working settings file uses, and a test pins the shape.
+- The once-per-turn block key read `prompt_id` and fell back to the session. Codex names a turn `turn_id`, so on Codex one block would have silenced the rest of the session rather than the rest of the turn.
+- The Copilot chat reader asked the session store for the current reply. Copilot's `Stop` payload names something better and more timely: `transcriptPath` points at `session-state/<id>/events.jsonl`, where an `assistant.message` record carries the reply under `data.content`, present at the moment the hook runs. The store is now the fallback rather than the first choice.
+- A Claude Code `SubagentStop` finding named the parent's transcript. That event carries `agent_transcript_path`, the subagent's own file, which is where the reply actually is.
+- **A large report was truncated at about 64 KB through a pipe.** `process.exit()` discards whatever stdout has buffered, which is invisible writing to a terminal and silent writing to a pipe. Found on `lint --chat --format json`, where 514 KB of valid JSON became 65 KB of invalid JSON, and always reachable by `lint` over a big enough tree.
 
 ## [0.9.0] - 2026-08-15
 ### Changed

@@ -124,9 +124,16 @@ describe("it stays linear", () => {
       }
       return best;
     };
-    time(20_000); // warm
-    const small = Math.max(time(20_000), 0.5);
-    const large = time(80_000);
+    // Big enough to read. Best-of-five removed most of the noise and the
+    // ratio still flaked at 11.4 on a shared runner, because `small` was
+    // 1.3ms: at that size a single scheduling pause is a third of the
+    // measurement, and the ratio inherits all of it. Four times the work makes
+    // the denominator large enough that a blip cannot dominate it. The 4x
+    // relationship between the two sizes is what the assertion rests on, and
+    // that is unchanged.
+    time(40_000); // warm
+    const small = Math.max(time(40_000), 0.5);
+    const large = time(160_000);
     // Four times the input. Linear predicts about 4x; quadratic predicts 16x.
     expect(large / small, `${small.toFixed(1)}ms -> ${large.toFixed(1)}ms`).toBeLessThan(10);
   });

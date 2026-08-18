@@ -873,3 +873,79 @@ cases:
     expect: pass
     warns: [with-respect-to]
     text: "The report says nothing with respect to cost."
+
+  # ==========================================================================
+  # Chat tells. `channel: chat` judges the case with the chat ruleset, which is
+  # the document ruleset plus these. Each has a case that fires and a case that
+  # does not, because every one of them is a phrase with an innocent twin.
+  # ==========================================================================
+
+  - name: "an affirmation opener is a chat finding"
+    channel: chat
+    expect: block
+    rule: affirmation-opener
+    text: "Great question. The answer is four."
+
+  - name: "the same words mid-reply are somebody being quoted"
+    channel: chat
+    expect: pass
+    text: "You asked whether that counts as a great question. It does not."
+
+  - name: "you're absolutely right, with a curly apostrophe"
+    channel: chat
+    expect: block
+    rule: affirmation-opener
+    text: "You\u2019re absolutely right, the path was wrong."
+
+  - name: "announcing structure instead of doing it"
+    channel: chat
+    expect: block
+    rule: announced-structure
+    text: "Let me start by explaining how the parser works."
+
+  - name: "starting something is not announcing it"
+    channel: chat
+    expect: pass
+    text: "The parser reads the file, then masks every code span."
+
+  - name: "a closing pleasantry"
+    channel: chat
+    expect: block
+    rule: closing-pleasantry
+    text: "Two files changed and the tests pass. Hope this helps."
+
+  - name: "an offer of specific further work is not a pleasantry"
+    channel: chat
+    expect: pass
+    text: "Two files changed. The migration is still unwritten: want that next?"
+
+  - name: "a concession formula standing in for a correction"
+    channel: chat
+    expect: pass
+    warns: [concession-formula]
+    text: "Fair point. The rate is measured per thousand words."
+
+  - name: "naming the error instead of conceding warns about nothing"
+    channel: chat
+    expect: pass
+    text: "I had the denominator wrong. It is per thousand words, so the rate is 3.4 and not 34."
+
+  - name: "error theatre"
+    channel: chat
+    expect: pass
+    warns: [error-theatre]
+    text: "Uh oh, the build did not come back."
+
+  - name: "quoting what the log actually said is not theatre"
+    channel: chat
+    expect: pass
+    text: "The build failed at step 4 with exit code 2. The cause is a missing lockfile."
+
+  - name: "a chat tell inside a code span is not a finding"
+    channel: chat
+    expect: pass
+    text: "The banned opener is matched by `Great question` at the start of a reply."
+
+  - name: "chat tells do not fire on a document"
+    expect: pass
+    text: "Great question. The answer is four."
