@@ -18,23 +18,42 @@ what to fix. No `--no-verify`. No skipping.
 ## Step 1: verify
 
 ```
-npm run check:refs && npm run build && npm test
+npm test
+npm run render -- --check
+npm run policy:check
 ```
 
-`npm test` runs `pretest` (check:refs + build) then vitest then
-`posttest` (probe). If it fails, fix before continuing. Do not `--no-verify`.
+`npm test` runs `pretest` (check:refs + build), then vitest, then
+`posttest` (probe). The other two are what the "Generated docs match
+rules" job checks, and neither is part of `npm test`. Running them here
+is the difference between finding drift now and finding it on a red pull
+request. Note the `--` before `--check`: without it npm reads the flag
+itself and the script runs in write mode.
 
-## Step 2: dogfood the linter on changed docs
+If any of the three fails, fix before continuing. Do not `--no-verify`.
+
+## Step 2: dogfood the linter
 
 ```
-CHANGED_DOCS=$(git diff --name-only main -- '*.md' '*.mdx' | grep -v CHANGELOG.md || true)
-if [ -n "$CHANGED_DOCS" ]; then
-  node dist/cli.js lint $CHANGED_DOCS
-fi
+npm run lint:self
 ```
 
-If the linter flags anything the .plain-english.yml block/ask rules
-cover, fix the copy. The repo's own writing is a test corpus.
+It reads `docs/`, the root markdown files and everything under
+`.claude/`, and exits non-zero on a blocking finding.
+
+This step used to build a file list with `git diff --name-only` and pass
+it unquoted. That relies on the shell splitting a variable on
+whitespace, which bash does and zsh does not. Under zsh the whole
+newline-joined list arrived as a single path, and the step exited 2,
+"bad path", without reading anything. Linting a fixed set has no such
+failure mode and covers more.
+
+The four generated files under `integrations/` sit outside this scope.
+Editing one by hand is already forbidden, and step 1's
+`render -- --check` catches a stale one.
+
+If the linter flags something, fix the copy. This repository's own
+writing is a test corpus.
 
 ## Step 3: CHANGELOG entry
 
