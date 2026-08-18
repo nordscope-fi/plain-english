@@ -787,6 +787,18 @@ cases:
     expect: pass
     text: "The build attaches SLSA (a signed record of where the code came from)."
 
+  # The other order, and the one the style guide asks for: say the thing, then
+  # name it. "Explain a thing before naming it" is a rule in this repository's
+  # own writing guide, so the checker has to read the form that follows it.
+  - name: "an expansion before the acronym counts as a gloss"
+    expect: pass
+    text: "The build attaches a signed record of where the code came from (SLSA)."
+
+  - name: "a bracket that opens a clause is not a gloss"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The upload runs without a password. (SLSA provenance is attached at publish time.)"
+
   - name: "naming without explaining still fires"
     expect: pass
     warns: [unglossed-term]
