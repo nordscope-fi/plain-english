@@ -628,7 +628,20 @@ function hookChat(
     // Both Claude Code and Copilot document this, and it is the agent telling
     // you the current turn exists because a hook blocked the last one.
     stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true,
-    promptId: String(payload["prompt_id"] ?? payload["promptId"] ?? payload["session_id"] ?? ""),
+    // Each agent names the turn differently, and getting this wrong is not
+    // loud: the block-once key falls back to the session, so one block would
+    // silence the rest of the session instead of the rest of the turn.
+    // Observed 2026-08-18: Claude Code sends `prompt_id`, Codex sends
+    // `turn_id`, Copilot sends neither and only `sessionId`.
+    promptId: String(
+      payload["prompt_id"] ??
+        payload["promptId"] ??
+        payload["turn_id"] ??
+        payload["turnId"] ??
+        payload["session_id"] ??
+        payload["sessionId"] ??
+        "",
+    ),
   });
 
   const out = profile.emitChat(decision, eventName);

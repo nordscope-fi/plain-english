@@ -173,7 +173,11 @@ export const claudeCodeChat: ChatReader = {
       isSubagent:
         payload["hook_event_name"] === "SubagentStop" || typeof payload["agent_id"] === "string",
       session: field(payload, "session_id") ?? "",
-      source: field(payload, "transcript_path") ?? "",
+      // `agent_transcript_path` is the subagent's own file and is present only
+      // on SubagentStop. Preferring it means a finding names the transcript the
+      // reply is actually in, rather than the parent's.
+      source:
+        field(payload, "agent_transcript_path") ?? field(payload, "transcript_path") ?? "",
       line: 0,
     };
     return reply;
