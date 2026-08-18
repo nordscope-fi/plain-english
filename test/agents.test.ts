@@ -197,14 +197,37 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     });
   });
 
-  it("installs one hook event per agent now that the pre event can speak", () => {
+  it("installs no post-tool event, now that the pre event can speak", () => {
+    // The point of this assertion is what is absent. The advisory moved onto
+    // the pre event in 0.7.0, and a leftover PostToolUse hook would spawn a
+    // process per tool call to say nothing.
     const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
     const events = (id: string) =>
       byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
-    expect(events("codex")).toEqual(["hooks.PreToolUse"]);
-    expect(events("cursor")).toEqual(["hooks.preToolUse"]);
-    expect(events("claude-code")).toEqual(["hooks.PreToolUse"]);
-    expect(events("copilot")).toEqual(["hooks.PreToolUse"]);
+    for (const id of ["codex", "cursor", "claude-code", "copilot"]) {
+      expect(events(id).some((e) => /post/i.test(e)), `${id} installs a post hook`).toBe(false);
+      expect(events(id).some((e) => /pretooluse/i.test(e)), `${id} has no pre hook`).toBe(true);
+    }
+  });
+
+  it("puts the chat gate on the stop events, and only where one carries the reply", () => {
+    const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
+    const events = (id: string) =>
+      byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
+
+    // Three agents document an event carrying the assistant's final message.
+    for (const id of ["claude-code", "codex", "copilot"]) {
+      expect(events(id), `${id} should gate chat`).toContain("hooks.Stop");
+      expect(events(id), `${id} should gate subagent chat`).toContain("hooks.SubagentStop");
+      expect(byId(id)!.emitChat, `${id} should speak the stop format`).toBeTypeOf("function");
+    }
+
+    // Cursor documents `stop` and `afterAgentResponse`, and its CLI is reported
+    // to dispatch only the two shell events. Installing a hook that never fires
+    // is the failure docs/verifying-an-adapter.md exists to prevent, so chat on
+    // Cursor is ungated and says so.
+    expect(events("cursor").some((e) => /stop/i.test(e))).toBe(false);
+    expect(byId("cursor")!.emitChat).toBeUndefined();
   });
 
   it("codex asks for the timeout under the key Codex actually reads", () => {

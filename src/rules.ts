@@ -79,6 +79,69 @@ export interface Structure {
   good?: string;
 }
 
+/** One rendering of the chat guidance. Ordered narrowest first. */
+export interface ChatLevel {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/**
+ * Which levels an entry appears in.
+ *
+ * Absent means every level, so an entry added upstream reaches everyone
+ * without each project having to opt in. An empty list means none, which is
+ * how a project turns one section off without forking the ruleset.
+ */
+type Levelled = { levels?: string[] };
+
+export type ChatGuidance = Levelled & {
+  id: string;
+  name?: string;
+  description?: string;
+  bad?: string;
+  good?: string;
+  reason?: string;
+};
+
+/**
+ * A chat-only phrase, held as literal text rather than a regex.
+ *
+ * Every other rule in this file carries a pattern, because a pattern is what
+ * the engine needs. These carry phrases, because the same list has two
+ * readers: `lint --chat` compiles it to a regex, and the output style prints
+ * it to a model as words not to write. Storing the regex and re-deriving the
+ * words for the prompt is the drift this package exists to remove.
+ */
+export type ChatTell = Levelled & {
+  id: string;
+  /** `start` anchors to the beginning of the reply. `anywhere` does not. */
+  at: "start" | "anywhere";
+  phrases: string[];
+  severity: Severity;
+  message?: string;
+  reason?: string;
+};
+
+export type ChatAvoid = Levelled & { text: string };
+
+export interface ChatSection {
+  /** The channel boundary, stated to the model. */
+  scope: string;
+  /** Which level the AGENTS.md fragment carries and `init` selects. */
+  level: string;
+  levels: ChatLevel[];
+  guidance: ChatGuidance[];
+  tells: ChatTell[];
+  avoid: ChatAvoid[];
+  expand: string[];
+}
+
+/** True when a levelled entry belongs in `level`. */
+export function inLevel(entry: Levelled, level: string): boolean {
+  return entry.levels === undefined || entry.levels.includes(level);
+}
+
 export type FailOn = "error" | "warn" | "never";
 
 export interface RuleSet {
@@ -100,6 +163,14 @@ export interface RuleSet {
   rules: Rule[];
   readability: ReadabilityRule[];
   structures: Structure[];
+  /**
+   * The chat channel.
+   *
+   * Separate from everything above because it is the one channel whose text is
+   * read once, by one person, mid-task. The rules that make a chat reply
+   * readable would make a commit message useless, so they cannot share a list.
+   */
+  chat: ChatSection;
   allow: string[];
   exclude: string[];
   /** Compiled from `allow`. */
@@ -125,11 +196,15 @@ interface RawSet {
   rules?: unknown;
   readability?: unknown;
   structures?: unknown;
+  chat?: unknown;
   allow?: unknown;
   exclude?: unknown;
 }
 
 export class RuleError extends Error {}
+
+/** Rule and section ids. Mirrors `$defs.id` in rules/schema.json. */
+const ID_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -158,7 +233,7 @@ function readRules(v: unknown, where: string): Rule[] {
   if (!Array.isArray(v)) throw new RuleError(`${where} must be a list`);
   return v.map((raw, i) => {
     const r = raw as RawRule;
-    if (typeof r.id !== "string" || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(r.id)) {
+    if (typeof r.id !== "string" || !ID_RE.test(r.id)) {
       throw new RuleError(`${where}[${i}].id must be a kebab-case string`);
     }
     const severity = (r.severity ?? "error") as Severity;
@@ -266,6 +341,183 @@ function readStructures(v: unknown): Structure[] {
   });
 }
 
+const EMPTY_CHAT: ChatSection = {
+  scope: "",
+  level: "",
+  levels: [],
+  guidance: [],
+  tells: [],
+  avoid: [],
+  expand: [],
+};
+
+function readLevels(v: unknown, where: string): string[] | undefined {
+  if (v === undefined) return undefined;
+  return asStringArray(v, where);
+}
+
+/**
+ * The chat section.
+ *
+ * Absent in most project configs, and absent in every ruleset written before
+ * this section existed, so a missing key is an empty section rather than an
+ * error. `merge` is what decides whether an overlay entry is allowed to name
+ * an id the base does not have.
+ */
+function readChat(v: unknown): ChatSection {
+  if (v === undefined || v === null) return { ...EMPTY_CHAT };
+  if (typeof v !== "object" || Array.isArray(v)) throw new RuleError("chat must be a mapping");
+  const c = v as Record<string, unknown>;
+
+  const out: ChatSection = { ...EMPTY_CHAT };
+  if (c["scope"] !== undefined) {
+    if (typeof c["scope"] !== "string") throw new RuleError("chat.scope must be a string");
+    out.scope = c["scope"];
+  }
+  if (c["level"] !== undefined) {
+    if (typeof c["level"] !== "string") throw new RuleError("chat.level must be a string");
+    out.level = c["level"];
+  }
+
+  if (c["levels"] !== undefined) {
+    if (!Array.isArray(c["levels"])) throw new RuleError("chat.levels must be a list");
+    out.levels = c["levels"].map((raw, i) => {
+      const l = raw as Record<string, unknown>;
+      for (const k of ["id", "name"]) {
+        if (typeof l[k] !== "string") throw new RuleError(`chat.levels[${i}].${k} must be a string`);
+      }
+      const level: ChatLevel = { id: l["id"] as string, name: l["name"] as string };
+      if (typeof l["description"] === "string") level.description = l["description"];
+      return level;
+    });
+  }
+
+  if (c["guidance"] !== undefined) {
+    if (!Array.isArray(c["guidance"])) throw new RuleError("chat.guidance must be a list");
+    out.guidance = c["guidance"].map((raw, i) => {
+      const g = raw as Record<string, unknown>;
+      if (typeof g["id"] !== "string" || !ID_RE.test(g["id"])) {
+        throw new RuleError(`chat.guidance[${i}].id must be a kebab-case string`);
+      }
+      const entry: ChatGuidance = { id: g["id"] };
+      for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+        if (typeof g[k] === "string") entry[k] = g[k] as string;
+      }
+      const levels = readLevels(g["levels"], `chat.guidance[${i}].levels`);
+      if (levels) entry.levels = levels;
+      return entry;
+    });
+  }
+
+  if (c["tells"] !== undefined) {
+    if (!Array.isArray(c["tells"])) throw new RuleError("chat.tells must be a list");
+    out.tells = c["tells"].map((raw, i) => {
+      const t = raw as Record<string, unknown>;
+      if (typeof t["id"] !== "string" || !ID_RE.test(t["id"])) {
+        throw new RuleError(`chat.tells[${i}].id must be a kebab-case string`);
+      }
+      const at = (t["at"] ?? "anywhere") as string;
+      if (at !== "start" && at !== "anywhere") {
+        throw new RuleError(`chat.tells[${i}] (${t["id"]}): at must be start or anywhere`);
+      }
+      const severity = (t["severity"] ?? "warn") as Severity;
+      if (!["error", "warn", "off"].includes(severity)) {
+        throw new RuleError(
+          `chat.tells[${i}] (${t["id"]}): severity must be error, warn or off`,
+        );
+      }
+      const entry: ChatTell = {
+        id: t["id"],
+        at,
+        severity,
+        phrases: asStringArray(t["phrases"], `chat.tells[${i}] (${t["id"]}).phrases`),
+      };
+      if (typeof t["message"] === "string") entry.message = t["message"];
+      if (typeof t["reason"] === "string") entry.reason = t["reason"];
+      const levels = readLevels(t["levels"], `chat.tells[${i}].levels`);
+      if (levels) entry.levels = levels;
+      return entry;
+    });
+  }
+
+  if (c["avoid"] !== undefined) {
+    if (!Array.isArray(c["avoid"])) throw new RuleError("chat.avoid must be a list");
+    out.avoid = c["avoid"].map((raw, i) => {
+      const a = raw as Record<string, unknown>;
+      if (typeof a["text"] !== "string") throw new RuleError(`chat.avoid[${i}].text must be a string`);
+      const entry: ChatAvoid = { text: a["text"] };
+      const levels = readLevels(a["levels"], `chat.avoid[${i}].levels`);
+      if (levels) entry.levels = levels;
+      return entry;
+    });
+  }
+
+  out.expand = asStringArray(c["expand"], "chat.expand");
+  return out;
+}
+
+/**
+ * A phrase, as a regex that matches the phrase and nothing else.
+ *
+ * The apostrophe is the only character that needs more than escaping. A model
+ * writes "You're" and "You’re" interchangeably, and a rule that catches one
+ * and not the other reports half the time while looking like it works.
+ */
+export function phrasePattern(phrase: string): string {
+  return phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['\u2019]/g, "['\u2019]");
+}
+
+/**
+ * Chat tells, compiled into ordinary rules.
+ *
+ * Returned separately rather than merged into `set.rules`, because these apply
+ * to one channel only. A reply that opens "Great question" is a finding; a
+ * document quoting that phrase is not.
+ */
+/**
+ * The ruleset as the chat channel sees it.
+ *
+ * Three differences from the document ruleset, each with a reason:
+ *
+ *   + chat tells, which apply here and nowhere else. A reply that opens
+ *     "Great question" is a finding; a document quoting the phrase is not.
+ *   - `unexplained-suppression`, because a chat reply carries no waivers and
+ *     nothing in it could ever be one.
+ *
+ * Returned compiled, so a caller cannot forget.
+ */
+export function chatRuleSet(set: RuleSet, level?: string): RuleSet {
+  return compile({
+    ...set,
+    rules: [...set.rules.map((r) => ({ ...r })), ...chatRules(set, level)],
+    readability: set.readability
+      .filter((r) => r.kind !== "unexplained-suppression")
+      .map((r) => ({ ...r })),
+    allow: [...set.allow],
+  });
+}
+
+export function chatRules(set: RuleSet, level?: string): Rule[] {
+  return set.chat.tells
+    .filter((t) => t.severity !== "off")
+    .filter((t) => level === undefined || inLevel(t, level))
+    .filter((t) => t.phrases.length)
+    .map((t) => {
+      const body = `(?:${t.phrases.map(phrasePattern).join("|")})`;
+      const rule: Rule = {
+        id: t.id,
+        severity: t.severity,
+        // \b after the body, not before: several phrases start at the very
+        // beginning of a reply where there is no preceding word character for
+        // \b to sit against.
+        match: t.at === "start" ? `^\\s*${body}\\b` : `\\b${body}\\b`,
+        unless: [],
+      };
+      if (t.message) rule.message = t.message;
+      return rule;
+    });
+}
+
 function parseSet(text: string, where: string): RawSet {
   let doc: unknown;
   try {
@@ -303,6 +555,7 @@ export const KNOWN_TOP_LEVEL = new Set([
   "rules",
   "readability",
   "structures",
+  "chat",
 ]);
 
 /** Levenshtein distance, used only to suggest the key the author meant. */
@@ -367,6 +620,7 @@ function toRuleSet(raw: RawSet): RuleSet {
     rules: [...readRules(raw.punctuation, "punctuation"), ...readRules(raw.rules, "rules")],
     readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
+    chat: readChat(raw.chat),
     allow: asStringArray(raw.allow, "allow"),
     exclude: asStringArray(raw.exclude, "exclude"),
   };
@@ -437,8 +691,62 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
     rules: [...byId.values()],
     readability: [...readability.values()],
     structures: [...structures.values()],
+    chat: mergeChat(base.chat, overlay.chat),
     allow: [...base.allow, ...overlay.allow],
     exclude: [...base.exclude, ...overlay.exclude],
+  };
+}
+
+/**
+ * Merge one chat section over another.
+ *
+ * Field by field on a matching id, the same idiom the word rules use, so
+ * `- id: time-estimates\n  levels: []` moves one section out of every level
+ * and keeps its wording. `levels: []` is meaningful and `undefined` is not, so
+ * the check is for presence rather than for length.
+ */
+function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
+  const guidance = new Map(base.guidance.map((g) => [g.id, { ...g }]));
+  for (const g of overlay.guidance) {
+    const existing = guidance.get(g.id);
+    if (!existing) {
+      guidance.set(g.id, { ...g });
+      continue;
+    }
+    for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+      if (g[k]) existing[k] = g[k];
+    }
+    if (g.levels !== undefined) existing.levels = g.levels;
+  }
+
+  const tells = new Map(base.tells.map((t) => [t.id, { ...t }]));
+  for (const t of overlay.tells) {
+    const existing = tells.get(t.id);
+    if (!existing) {
+      if (!t.phrases.length) {
+        throw new RuleError(`chat tell '${t.id}' is new to this config and needs 'phrases'`);
+      }
+      tells.set(t.id, { ...t });
+      continue;
+    }
+    existing.severity = t.severity;
+    // A project's phrases add to the defaults, the way `known` does on
+    // unglossed-term. Replacing them would mean restating the shipped list to
+    // add one phrase, which is how a list stops tracking upstream.
+    if (t.phrases.length) existing.phrases = [...existing.phrases, ...t.phrases];
+    if (t.message) existing.message = t.message;
+    if (t.reason) existing.reason = t.reason;
+    if (t.levels !== undefined) existing.levels = t.levels;
+  }
+
+  return {
+    scope: overlay.scope || base.scope,
+    level: overlay.level || base.level,
+    levels: overlay.levels.length ? overlay.levels : base.levels,
+    guidance: [...guidance.values()],
+    tells: [...tells.values()],
+    avoid: overlay.avoid.length ? overlay.avoid : base.avoid,
+    expand: overlay.expand.length ? overlay.expand : base.expand,
   };
 }
 

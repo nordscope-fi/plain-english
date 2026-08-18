@@ -19,7 +19,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from "n
 import { homedir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { compile, loadDefault } from "./rules.ts";
-import { renderAgentsFragment, renderPrompts, AGENTS_MD_START, AGENTS_MD_END } from "./render.ts";
+import {
+  renderAgentsFragment,
+  renderOutputStyle,
+  renderPrompts,
+  outputStylePath,
+  AGENTS_MD_START,
+  AGENTS_MD_END,
+} from "./render.ts";
 import type { AgentProfile, ConfigFile } from "./agents/profile.ts";
 import { byId, DEFAULT_AGENT, PROFILES } from "./agents/registry.ts";
 
@@ -280,6 +287,20 @@ export function init(opts: InitOptions): number {
   const includeUser = opts.includeUser ?? false;
   const set = compile(loadDefault());
   const prompts = renderPrompts(set);
+  // Rendered once here rather than inside each profile: a profile is a
+  // translation table and should not know how a style is built, only where its
+  // host wants the file.
+  const styles = set.chat.levels.map((level) => ({
+    level: level.id,
+    name: level.name,
+    // The basename only. A profile decides which directory its host reads.
+    path: outputStylePath(set, level.id).split("/").pop()!,
+    body: renderOutputStyle(set, level.id),
+  }));
+  const defaultLevel = set.chat.levels.find((l) => l.id === set.chat.level);
+  const defaultStyle = defaultLevel
+    ? { level: defaultLevel.id, name: defaultLevel.name }
+    : undefined;
   const configPath = resolve(root, ".plain-english.yml");
   const agentsMdPath = resolve(root, "AGENTS.md");
 
@@ -318,7 +339,7 @@ export function init(opts: InitOptions): number {
   };
 
   for (const agent of agents) {
-    const plan = agent.plan({ prompts, model, includeUser });
+    const plan = agent.plan({ prompts, model, includeUser, styles, ...(defaultStyle ? { defaultStyle } : {}) });
 
     // Retirement first, so a location this version has stopped writing to is
     // cleared before anything else in the same file is merged.
@@ -358,6 +379,51 @@ export function init(opts: InitOptions): number {
       const path = resolve(root, s.path);
       planned.push(`create ${relative(root, path)}`);
       writes.push({ path, body: s.body, mode: 0o755 });
+    }
+
+    // 0644, not 0755. An output style is markdown the agent reads, not a
+    // script it runs, and nothing would ever report the wrong mode.
+    //
+    // Reported only when the bytes differ. `init` promises that a second run
+    // changes nothing, and a run that lists three files it did not change
+    // reads as a broken promise even though nothing moved.
+    for (const f of plan.files ?? []) {
+      const path = locate(f);
+      let current: string | null = null;
+      try {
+        current = readFileSync(path, "utf8");
+      } catch {
+        current = null;
+      }
+      if (current === f.body) continue;
+      planned.push(`${current === null ? "create" : "update"} ${relative(root, path)}`);
+      writes.push({ path, body: f.body });
+    }
+
+    for (const patch of plan.settings ?? []) {
+      const path = locate(patch);
+      const doc = load(path);
+      if (doc === null) return 2;
+      const current = docs.get(path)!;
+      const next: Json = { ...current };
+      const changes: string[] = [];
+      for (const [key, value] of Object.entries(patch.set)) {
+        const before = current[key];
+        if (before === value) continue;
+        // Say what was replaced. Changing a setting somebody chose by hand
+        // without telling them is the kind of help nobody asked for.
+        changes.push(
+          before === undefined
+            ? `${key}=${JSON.stringify(value)}`
+            : `${key}=${JSON.stringify(value)} (was ${JSON.stringify(before)})`,
+        );
+        next[key] = value;
+      }
+      if (!changes.length) continue;
+      docs.set(path, next);
+      planned.push(
+        `${existsSync(path) ? "update" : "create"} ${relative(root, path)} ${changes.join(", ")}`,
+      );
     }
 
     for (const n of plan.notes) notes.push(`${agent.label}: ${n}`);

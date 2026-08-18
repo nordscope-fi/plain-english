@@ -106,6 +106,33 @@ export const copilot: AgentProfile = {
     };
   },
 
+  /**
+   * agentStop and subagentStop.
+   *
+   * Only `subagentStop` carries the reply; `Stop` documents that it does not,
+   * so the main loop is answered from the session store instead. `block`
+   * forces another turn and `reason` becomes the prompt for it.
+   *
+   * `modifiedResponse` would replace a subagent's output outright, and is not
+   * used: replacing a reply means generating prose, and nothing in this package
+   * generates prose. `Decision.replacement` exists for it and stays unset.
+   */
+  emitChat(decision: Decision, _eventName: string) {
+    void _eventName;
+    if (decision.allow && !decision.advisory) return { stdout: "", exitCode: 0 };
+    if (decision.allow) {
+      return { stdout: JSON.stringify({ systemMessage: decision.advisory }), exitCode: 0 };
+    }
+    return {
+      stdout: JSON.stringify({
+        decision: "block",
+        reason: decision.reason,
+        ...(decision.replacement ? { modifiedResponse: decision.replacement } : {}),
+      }),
+      exitCode: 0,
+    };
+  },
+
   plan(ctx: PlanContext) {
     const entries = Object.entries(MATCHERS).map(([channel, matcher]) => ({
       type: "command",
@@ -125,6 +152,27 @@ export const copilot: AgentProfile = {
           shape: "flat" as const,
           defaults: { version: 1 },
           entries,
+        },
+        {
+          // Both stop events. Copilot documents that `Stop` does not carry the
+          // reply text and `SubagentStop` does, so the main loop is answered
+          // from the session store the reader already opens for `lint --chat`.
+          path: ".github/hooks/plain-english.json",
+          at: ["hooks", "Stop"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: [
+            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: 10 },
+          ],
+        },
+        {
+          path: ".github/hooks/plain-english.json",
+          at: ["hooks", "SubagentStop"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: [
+            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: 10 },
+          ],
         },
         // The location the CLI actually reads. Its own `copilot help config`
         // documents the repository file above, and 1.0.78 does not load it:

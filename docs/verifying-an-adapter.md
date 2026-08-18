@@ -175,6 +175,54 @@ somebody's real one.
 `init` writes it, and it is the reference implementation for the other three,
 since its hook contract is the shape they all copied.
 
+## Chat transcripts
+
+The chat channel reads what an agent already said, which means finding where it keeps it.
+That turned into the cleanest worked example on this page of why both halves of the order
+below matter.
+
+**Disk first, and it was not enough.** Inspecting a live machine found
+`~/.cursor/chats/<hash>/<uuid>/store.db`, a SQLite file whose `blobs` table holds message
+JSON. It looked like the answer. In the store examined, 11 of 39 blobs parsed as JSON and 4
+of those were assistant messages; the rest are opaque to a plain JSON read. A reader built
+on it would have returned a fraction of the replies and looked exactly like one that found
+nothing, which is the failure this page opens by naming.
+
+**Then documentation, which named a different file.** Cursor documents neither the location
+nor the format, but third-party writing on it pointed at
+`~/.cursor/projects/<project>/agent-transcripts/<uuid>/<uuid>.jsonl`. That path existed on
+the same machine, held the full transcript, and was never going to be found by looking at
+the obviously-named directory.
+
+**And documentation alone would have been worse.** Claude Code's own subagent transcripts
+live in a nested `subagents/` directory that no page describes, and only a walk of the tree
+turns them up. Codex's rollout record shape, Copilot's table names and the write-ahead
+logging behaviour of its store all came off disk too.
+
+So the order that worked here was: read the disk, read the documentation, and treat
+disagreement between them as the interesting part rather than as noise.
+
+### Two traps specific to a store rather than a payload
+
+**A SQLite file may be mostly log.** Copilot's `session-store.db` was 4 KB with a 650 KB
+write-ahead log beside it. `file:<path>?immutable=1` promises SQLite the file cannot
+change, so SQLite skips the log entirely. The query then returned "no such table" against
+a store that plainly had one. A plain read-only open does read the log, but it wants to
+touch the `-shm` file to do it, which is a write to somebody's agent state. Copy the
+database and its sidecars to a scratch directory and open the copy.
+
+**A store that cannot be read must not report clean.** Every reader answers `available()`
+with a reason rather than a boolean, and the CLI prints one line per reader that could not
+run, counted separately from zero findings. Without that, a missing `node:sqlite`, a moved
+`COPILOT_HOME` and a genuinely clean scan all print the same thing.
+
+### Fixtures, not captures
+
+`test/chat.test.ts` hand-authors one fixture per agent in that agent's real record shape.
+None is copied from a real session, and none should be. A transcript holds file contents,
+command output and pasted text. Claude Code's documentation adds that a credential printed
+by a command lands in one too.
+
 ## Install the way a user would
 
 Pack the tarball and install it into a scratch repository:

@@ -89,6 +89,35 @@ export interface ConfigFile {
 /** A place in a config file, without saying what goes there. */
 export type ConfigLocation = Pick<ConfigFile, "path" | "at" | "scope">;
 
+/**
+ * A plain file to write, verbatim.
+ *
+ * Distinct from `shims`, which are executable. An output style is neither a
+ * hook nor a script: it is markdown the agent reads, and writing it 0755 would
+ * be wrong in a way nothing would ever report.
+ */
+export interface PlainFile {
+  path: string;
+  body: string;
+  scope?: "repo" | "user";
+}
+
+/**
+ * Scalar keys to set in a JSON file, leaving everything else alone.
+ *
+ * `ConfigFile` splices into an array, which is right for hooks and wrong for a
+ * setting like `outputStyle`. This sets named keys and nothing more, so a
+ * settings file full of somebody's own preferences survives.
+ *
+ * `init` reports the previous value when it replaces one. Silently changing a
+ * setting a person chose by hand is the kind of help nobody asked for.
+ */
+export interface SettingPatch {
+  path: string;
+  scope?: "repo" | "user";
+  set: Record<string, unknown>;
+}
+
 /** Everything `init` needs to wire one agent up. */
 export interface InstallPlan {
   config: ConfigFile[];
@@ -106,6 +135,10 @@ export interface InstallPlan {
   retire?: ConfigLocation[];
   /** Executable scripts, written 0755. Paths are relative to the root. */
   shims: { path: string; body: string }[];
+  /** Plain files, written 0644. Output styles arrive this way. */
+  files?: PlainFile[];
+  /** Scalar settings to set without disturbing the rest of the file. */
+  settings?: SettingPatch[];
   /**
    * What the installer cannot do for the user: approval steps, and behaviour
    * that differs from what the rest of the documentation promises.
@@ -118,6 +151,15 @@ export interface PlanContext {
   prompts: Record<string, string>;
   /** Model for prompt hooks. */
   model: string;
+  /**
+   * The rendered chat styles, one per level, and which level is the default.
+   *
+   * Passed in rather than rendered here, because a profile is a translation
+   * table and not a strategy. Nothing in `src/agents/` should know how a style
+   * is built, only where its host wants the file and what the host calls it.
+   */
+  styles?: { level: string; name: string; path: string; body: string }[];
+  defaultStyle?: { level: string; name: string };
   /**
    * Whether the caller has asked for files outside the repository.
    *
@@ -185,5 +227,17 @@ export interface AgentProfile {
    * "carry on". The safe answer everywhere is 0 with an explicit decision.
    */
   emit(decision: Decision, event: HookEvent): { stdout: string; exitCode: number };
+  /**
+   * The same decision, in this agent's stop-event format.
+   *
+   * Optional, and its absence is meaningful rather than an oversight: an agent
+   * with no event carrying the assistant's reply has no chat gate, and
+   * `plain-english policy` prints that as an uncovered channel. Cursor is that
+   * agent today.
+   *
+   * `eventName` is the event that fired, because at least one agent echoes it
+   * back and the two stop events are not interchangeable.
+   */
+  emitChat?(decision: Decision, eventName: string): { stdout: string; exitCode: number };
   plan(ctx: PlanContext): InstallPlan;
 }

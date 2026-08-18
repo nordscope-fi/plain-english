@@ -28,9 +28,9 @@ import { asRecord, parseApplyPatch, pick, pickArray } from "../agents/fields.ts"
 import { shellFileWrites } from "../shell.ts";
 import type { NormalisedEvent } from "../agents/profile.ts";
 
-export type Channel = "docs" | "github" | "issue";
+export type Channel = "docs" | "github" | "issue" | "chat";
 
-export const CHANNELS: readonly Channel[] = ["docs", "github", "issue"];
+export const CHANNELS: readonly Channel[] = ["docs", "github", "issue", "chat"];
 
 export function isChannel(v: string): v is Channel {
   return (CHANNELS as readonly string[]).includes(v);
@@ -80,6 +80,17 @@ export interface Decision {
    * the refusal.
    */
   advisory?: string;
+  /**
+   * Replacement text for the reply, where an agent can substitute one.
+   *
+   * Nothing sets this today, and that is deliberate: replacing a reply means
+   * generating prose, and nothing in this package generates prose. It is here
+   * now because `Decision` is the contract all four profiles implement, and
+   * Copilot's `SubagentStop` already accepts a `modifiedResponse`. Adding the
+   * field later would mean changing a type four profiles and their tests
+   * depend on; adding it now costs one line.
+   */
+  replacement?: string;
 }
 
 /**
@@ -327,6 +338,7 @@ const CHANNEL_LABEL: Record<Channel, string> = {
   docs: "This file",
   github: "This commit message, PR or issue body",
   issue: "This issue title or body",
+  chat: "This reply",
 };
 
 const WRITE_SHAPED = new Set(["write", "edit", "multi-edit", "patch"]);
@@ -390,6 +402,11 @@ export function decide(
     );
     // Naming it a commit message would be wrong when what was caught is a file.
     if (files.length && !texts.length) label = CHANNEL_LABEL["docs"];
+  } else if (channel === "chat") {
+    // A stop event carries no tool input. `decideChat` in ./chat.ts takes the
+    // reply text directly, and the CLI routes there instead. Reaching here
+    // would judge an empty object and allow everything.
+    throw new Error("the chat channel is judged by decideChat, not decide");
   } else {
     texts = extractFromIssue(event.input);
   }

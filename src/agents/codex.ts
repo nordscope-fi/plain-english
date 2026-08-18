@@ -195,6 +195,26 @@ export const codex: AgentProfile = {
     return out;
   },
 
+  /**
+   * Stop and SubagentStop.
+   *
+   * Codex documents `decision: "block"` on Stop, and `systemMessage` as a
+   * shared output field. Its `last_assistant_message` is documented as "if
+   * available" and possibly incomplete, which is why the reader falls back to
+   * the rollout file rather than trusting the payload.
+   */
+  emitChat(decision: Decision, _eventName: string) {
+    void _eventName;
+    if (decision.allow && !decision.advisory) return { stdout: "", exitCode: 0 };
+    if (decision.allow) {
+      return { stdout: JSON.stringify({ systemMessage: decision.advisory }), exitCode: 0 };
+    }
+    return {
+      stdout: JSON.stringify({ decision: "block", reason: decision.reason }),
+      exitCode: 0,
+    };
+  },
+
   plan(_ctx: PlanContext) {
     return {
       config: [
@@ -215,6 +235,42 @@ export const codex: AgentProfile = {
               },
             ],
           })),
+        },
+        {
+          // Both stop events. Codex documents last_assistant_message on them as
+          // "if available", so the reader falls back to the rollout file.
+          path: ".codex/hooks.json",
+          at: ["hooks", "Stop"],
+          shape: "nested" as const,
+          entries: [
+            {
+              matcher: "*",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx --no-install plain-english hook chat --agent codex",
+                  timeout: 10,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          path: ".codex/hooks.json",
+          at: ["hooks", "SubagentStop"],
+          shape: "nested" as const,
+          entries: [
+            {
+              matcher: "*",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx --no-install plain-english hook chat --agent codex",
+                  timeout: 10,
+                },
+              ],
+            },
+          ],
         },
       ],
       // Where the advisory used to live, before 0.7.0 moved it onto the pre

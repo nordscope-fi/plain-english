@@ -109,11 +109,15 @@ describe("waivers in the tree", () => {
 });
 
 describe("what nothing here can reach", () => {
-  it("names chat replies and subagents whatever the config says", () => {
+  it("names chat and subagents whatever the config says", () => {
     const doc = renderPolicy(defaults(), emptyScan());
 
     expect(doc).toContain("chat");
-    expect(doc).toContain("Subagents");
+    expect(doc).toContain("subagent");
+    // A fork inherits the parent's system prompt and a subagent does not.
+    // Saying only the second half is what this document used to do.
+    expect(doc).toContain("fork");
+    expect(doc).toContain("lint --chat");
   });
 
   it("does not claim an agent is covered when no hook is installed", () => {
