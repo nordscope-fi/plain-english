@@ -7,11 +7,14 @@
 version: 1
 extends: default
 
-# Warnings are reported and the run still exits 0. The rules are advisory by
-# design and this repo does not exempt itself from that.
+# The default stays advisory, which is what a consumer gets out of the box.
+# `npm run lint:self` passes `--fail-on error` on top, so a blocking finding in
+# this repository's own prose fails the build. A linter whose own docs are
+# exempt is not one to trust.
 failOn: never
 
 exclude:
-  - "docs/writing-style.md"     # quotes every banned term as reference material
-  - "docs/limitations.md"       # same, plus it discusses the terms directly
-  - "CHANGELOG.md"
+  - "docs/writing-style.md"   # quotes every banned term as reference material
+  - "docs/limitations.md"     # same, plus it discusses the terms directly
+  - "CHANGELOG.md"            # a record of what was said, not prose to fix
+  - ".claude/RELEASING.md"    # per-operator notes, gitignored, never published
