@@ -77,21 +77,32 @@ describe("generated artifacts", () => {
     for (const p of Object.values(renderPrompts(set))) expect(p).toContain("GENERATED");
   });
 
-  it("lists every blocking term in each prompt", () => {
+  /**
+   * The prompts that hunt for a fault have to know every fault.
+   *
+   * `chat` is not one of them. It is asked a single question, whether a length
+   * the linter already measured was earned, and it never looks for a banned
+   * term: the deterministic pass owns those and has already run. Holding it to
+   * this list would put four hundred lines of word rules in front of a model
+   * that must not use them.
+   */
+  const FAULT_FINDING = ["docs", "github", "issue"];
+
+  it("lists every blocking term in each fault-finding prompt", () => {
     const prompts = renderPrompts(set);
     const blocking = set.rules.filter((r) => r.severity === "error");
-    for (const [name, prompt] of Object.entries(prompts)) {
+    for (const name of FAULT_FINDING) {
       for (const r of blocking) {
-        expect(prompt, `${name} prompt is missing ${r.id}`).toContain(humanise(r));
+        expect(prompts[name], `${name} prompt is missing ${r.id}`).toContain(humanise(r));
       }
     }
   });
 
-  it("names every sentence shape in each prompt", () => {
+  it("names every sentence shape in each fault-finding prompt", () => {
     const prompts = renderPrompts(set);
-    for (const [name, prompt] of Object.entries(prompts)) {
+    for (const name of FAULT_FINDING) {
       for (const s of set.structures) {
-        expect(prompt, `${name} prompt is missing ${s.id}`).toContain(s.name);
+        expect(prompts[name], `${name} prompt is missing ${s.id}`).toContain(s.name);
       }
     }
   });

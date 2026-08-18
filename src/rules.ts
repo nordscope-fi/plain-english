@@ -44,7 +44,12 @@ export interface Rule {
 export type ReadabilityKind =
   | "unglossed-term"
   | "long-sentence"
-  | "unexplained-suppression";
+  | "unexplained-suppression"
+  // Chat only, and declared under `chat.limits` rather than `readability`.
+  // These two measure what one reply asks the reader to carry. A document has
+  // no equivalent fault: length is how a document does its job.
+  | "reply-length"
+  | "reader-load";
 
 /** A rule measured over sentence structure rather than matched at a point. */
 export interface ReadabilityRule {
@@ -55,8 +60,10 @@ export interface ReadabilityRule {
    * base already defines. `merge` requires it of an id the base does not know.
    */
   kind?: ReadabilityKind;
-  /** long-sentence only: words above which the rule fires. */
+  /** long-sentence and reply-length: words above which the rule fires. */
   maxWords?: number;
+  /** reader-load only: distinct backticked names above which the rule fires. */
+  maxTerms?: number;
   /**
    * unglossed-term only: names a reader already knows.
    *
@@ -135,6 +142,27 @@ export interface ChatSection {
   tells: ChatTell[];
   avoid: ChatAvoid[];
   expand: string[];
+  /**
+   * The tier at which a chat finding holds a turn.
+   *
+   * Separate from the global `failOn` because the two answer different
+   * questions. The global one decides whether a lint run fails a build, and
+   * defaulting that to blocking would break the CI of everyone who installs
+   * this. Chat has no build to fail: the whole cost of blocking is a few
+   * seconds and a rewrite, and the whole cost of not blocking is that the
+   * reader has already read the reply by the time anyone objects.
+   *
+   * Unset means fall back to the global value.
+   */
+  failOn?: FailOn;
+  /**
+   * What one reply may ask the reader to carry.
+   *
+   * Here rather than in `readability` because these apply to a reply and to
+   * nothing else. Same shape as a readability rule, and `chatRuleSet` appends
+   * them to `readability` so the whole existing lint path runs unchanged.
+   */
+  limits: ReadabilityRule[];
 }
 
 /** True when a levelled entry belongs in `level`. */
@@ -271,7 +299,13 @@ function readRules(v: unknown, where: string): Rule[] {
 function readReadability(v: unknown): ReadabilityRule[] {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v)) throw new RuleError("readability must be a list");
-  const KINDS = ["unglossed-term", "long-sentence", "unexplained-suppression"];
+  const KINDS = [
+    "unglossed-term",
+    "long-sentence",
+    "unexplained-suppression",
+    "reply-length",
+    "reader-load",
+  ];
   return v.map((raw, i) => {
     const r = raw as Record<string, unknown>;
     if (typeof r["id"] !== "string") {
@@ -304,6 +338,15 @@ function readReadability(v: unknown): ReadabilityRule[] {
         );
       }
       out.maxWords = n;
+    }
+    if (r["maxTerms"] !== undefined) {
+      const n = Number(r["maxTerms"]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): maxTerms must be a positive integer`,
+        );
+      }
+      out.maxTerms = n;
     }
     if (Array.isArray(r["known"])) {
       out.known = (r["known"] as unknown[]).map((k, j) => {
@@ -349,6 +392,7 @@ const EMPTY_CHAT: ChatSection = {
   tells: [],
   avoid: [],
   expand: [],
+  limits: [],
 };
 
 function readLevels(v: unknown, where: string): string[] | undefined {
@@ -453,6 +497,16 @@ function readChat(v: unknown): ChatSection {
   }
 
   out.expand = asStringArray(c["expand"], "chat.expand");
+  if (c["failOn"] !== undefined) {
+    const f = c["failOn"];
+    if (f !== "error" && f !== "warn" && f !== "never") {
+      throw new RuleError("chat.failOn must be error, warn or never");
+    }
+    out.failOn = f;
+  }
+  // Same reader as `readability`, so a limit is validated, overridden and
+  // switched off through exactly the machinery that already exists.
+  out.limits = readReadability(c["limits"]);
   return out;
 }
 
@@ -490,9 +544,15 @@ export function chatRuleSet(set: RuleSet, level?: string): RuleSet {
   return compile({
     ...set,
     rules: [...set.rules.map((r) => ({ ...r })), ...chatRules(set, level)],
-    readability: set.readability
-      .filter((r) => r.kind !== "unexplained-suppression")
-      .map((r) => ({ ...r })),
+    readability: [
+      ...set.readability
+        .filter((r) => r.kind !== "unexplained-suppression")
+        .map((r) => ({ ...r })),
+      // The reply limits, which apply here and nowhere else. A document that
+      // runs long is doing its job; a reply that runs long is the complaint
+      // this package heard most often over seven days of transcripts.
+      ...(set.chat.limits ?? []).map((r) => ({ ...r })),
+    ],
     allow: [...set.allow],
   });
 }
@@ -739,6 +799,29 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     if (t.levels !== undefined) existing.levels = t.levels;
   }
 
+  // A project overrides a threshold or switches a limit off by id, the same
+  // way it overrides a readability rule. Anything new needs a `kind`, which
+  // `readReadability` has already checked.
+  // `?? []` on both sides, matching the note in `readabilityFindings`: a chat
+  // section hand-assembled by a consumer, or written before 0.12.0, reaches
+  // here without this key. That is an older config, not a reason to throw.
+  const limits = new Map((base.limits ?? []).map((l) => [l.id, { ...l }]));
+  for (const l of overlay.limits ?? []) {
+    const existing = limits.get(l.id);
+    if (!existing) {
+      if (!l.kind) {
+        throw new RuleError(`chat limit '${l.id}' is new to this config and needs a 'kind'`);
+      }
+      limits.set(l.id, { ...l });
+      continue;
+    }
+    existing.severity = l.severity;
+    if (l.maxWords !== undefined) existing.maxWords = l.maxWords;
+    if (l.maxTerms !== undefined) existing.maxTerms = l.maxTerms;
+    if (l.message) existing.message = l.message;
+    if (l.reason) existing.reason = l.reason;
+  }
+
   return {
     scope: overlay.scope || base.scope,
     level: overlay.level || base.level,
@@ -747,6 +830,8 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     tells: [...tells.values()],
     avoid: overlay.avoid.length ? overlay.avoid : base.avoid,
     expand: overlay.expand.length ? overlay.expand : base.expand,
+    ...(overlay.failOn ?? base.failOn ? { failOn: overlay.failOn ?? base.failOn } : {}),
+    limits: [...limits.values()],
   };
 }
 

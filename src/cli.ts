@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { lintText, type Finding } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
-import { renderAll, writeTargets } from "./render.ts";
+import { renderAll, renderPrompts, writeTargets } from "./render.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
   decide,
@@ -26,6 +26,7 @@ import {
 } from "./adapters/hook.ts";
 import type { HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
+import { isJudge, judgeInput, runJudge, usableReason } from "./adapters/judge.ts";
 import type { Decision } from "./adapters/hook.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
@@ -609,6 +610,32 @@ function cmdExplain(args: Args): number {
  * chat hook that refused a turn because it could not find the text would be
  * worse than no chat hook.
  */
+/**
+ * The reader's last message, for the judge.
+ *
+ * Every exception the ruleset grants ("the reader asked you to explain", "the
+ * options are the answer") is a fact about the question rather than about the
+ * reply, so a judge shown only the reply is being asked to guess. Each agent
+ * names this differently and some send nothing, which is why the judge treats
+ * an absent value as ordinary rather than as an error.
+ */
+function lastUserMessage(payload: Record<string, unknown>): string | undefined {
+  for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
+    const v = payload[key];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return undefined;
+}
+
+/** The ruleset a hook judges by, resolved from the directory it fired in. */
+function ruleSetFor(cwd: string): RuleSet {
+  try {
+    return resolveRuleSet(resolve(cwd));
+  } catch {
+    return compile(loadDefault());
+  }
+}
+
 function hookChat(
   payload: Record<string, unknown>,
   profile: { id: string; emitChat?: (d: Decision, e: string) => { stdout: string; exitCode: number } },
@@ -624,6 +651,39 @@ function hookChat(
   const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
 
   const decision = decideChat(reply, {
+    /**
+     * Consulted only when a reply limit is the only thing failing, which is
+     * roughly one reply in ten. Everything about it fails towards the count,
+     * so a machine with no `claude` on the PATH behaves exactly as this
+     * package did before the judge existed.
+     */
+    judge: (r, findings) => {
+      if (isJudge()) return undefined;
+      const prompt = renderPrompts(ruleSetFor(cwd))["chat"];
+      if (!prompt) return undefined;
+      const verdict = runJudge(judgeInput(r, lastUserMessage(payload), findings), {
+        prompt,
+        command: "claude",
+        // No tools, no file reads, one turn. The judge answers a question
+        // about text it was handed and has no business touching the repo.
+        args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
+        cwd: resolve(cwd),
+      });
+      // The reason is shown to the reader and sent back to the model, so it is
+      // this package speaking and it is held to this package's rules. Caught
+      // live on the first end-to-end run: the judge refused a reply and put an
+      // em dash in the refusal. A linter that emits the thing it bans has
+      // nothing to say. An unusable reason falls back to the count.
+      if (
+        verdict &&
+        !verdict.ok &&
+        verdict.reason &&
+        !usableReason(verdict.reason, chatRuleSet(ruleSetFor(cwd)))
+      ) {
+        return undefined;
+      }
+      return verdict;
+    },
     projectDir: resolve(cwd),
     // Both Claude Code and Copilot document this, and it is the agent telling
     // you the current turn exists because a hook blocked the last one.

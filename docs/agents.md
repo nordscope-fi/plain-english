@@ -225,8 +225,25 @@ including the ones documented flat. `init` writes nested, and a test pins it.
 emitted and read, and the turn ends anyway. Isolated with a hook that has nothing to do
 with this package: a minimal always-block `Stop` hook, correctly registered and confirmed
 to run once, did not continue the turn. So under `claude -p` the chat channel is advisory
-whatever `failOn` says. Interactive sessions are untested, because driving one needs a
-terminal this pass did not have.
+whatever `chat.failOn` says.
+
+**An interactive session does act on it, and only for the flat body.** Run on 2026-08-18
+against 2.1.234 by driving a real session through a pseudo-terminal, with a minimal
+always-block `Stop` hook whose reason asked for a word the model would never otherwise
+write. Same driver, same session, one variable changed:
+
+| Body the hook printed | What happened |
+|---|---|
+| `{"hookSpecificOutput": {"hookEventName": "Stop", "decision": "block", ...}}` | `Stop` fired once, the turn ended, the word never appeared |
+| `{"decision": "block", "reason": "..."}` | `Stop` fired again with `stop_hook_active: true`, and the reply carried the word |
+
+This package emitted the nested body up to and including 0.11.0, so its chat gate could
+never hold a turn on Claude Code. It ran, it reported, and every reply went through.
+Copilot's profile had the flat shape from the start, which is why only this one was wrong.
+
+Note that the two shapes are not the same question. Registration in `settings.json` must
+be nested, or the whole file fails validation. The body a hook prints must be flat. Getting
+either backwards fails without a word, which is why both now have a test.
 
 **Claude Code's transcript really does lag.** At `Stop` and at `SubagentStop`, the reply
 was absent from `transcript_path`. That confirms the documented warning and the design that
@@ -249,8 +266,7 @@ registered, only `sessionStart` and `sessionEnd` fired. The community reports ar
 chat on Cursor is ungated, and `lint --chat` is the only thing that reaches it.
 
 Still unverified, and worth saying rather than leaving implied: Claude Code and Codex
-`SubagentStop` blocking, Copilot's `subagentStop` payload, and whether an interactive
-Claude Code session honours a `Stop` block.
+`SubagentStop` blocking, and Copilot's `subagentStop` payload.
 
 **Copilot's `modifiedResponse` is deliberately unused.** It would replace a subagent's
 output before the parent sees it, which is a stronger tool than anything else here.

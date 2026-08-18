@@ -5,7 +5,26 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 ## [Unreleased]
 ### Fixed
 
+- **The chat gate could never hold a turn on Claude Code.** `emitChat` printed the block inside `hookSpecificOutput`. Claude Code reads it flat. Observed on 2026-08-18 against 2.1.234 by driving a real interactive session through a pseudo-terminal with an always-block `Stop` hook: same driver, same session, the nested body produced no second turn at all while the flat body produced one carrying the word the block asked for. So the gate ran, reported, and let every reply through, in every release that shipped it. Copilot was never affected, because its profile had the flat shape from the start. Registration in `settings.json` is the opposite case and stays nested; both now have a test.
+
 - **`doctor` reported the default agent as uninstalled straight after installing it.** It decided whether a config file was ours by searching it for `--agent <id>`. That holds for Codex and Vibe, which write the whole command inline, and fails for Claude Code, which writes shim scripts and references only their paths from `.claude/settings.json`, leaving the flag in the shim. So `init --agent claude-code` followed by `doctor` printed `(no plain-english entry)` three times over a working install, in every release since the check was added. Copilot and Cursor were unaffected for the same reason Codex was. It now asks `init` the same question `init` asks itself, so there is one definition of ownership rather than two that can drift, and a config holding only somebody else's hooks is still reported as having none of ours.
+
+### Added
+
+- **Two rules that measure a reply rather than its words.** `reply-length` fires past 250 words of prose, `reader-load` past 15 distinct backticked names. Chat only: a document that runs long is doing its job.
+
+  Both numbers are measured, not chosen. Across seven days of transcripts on this machine, thirteen replies drew an explicit complaint from the reader. Every one was 264 words or longer, four produced no finding at all, and across all thirteen the linter fired 69 times without once naming the fault the reader named. The 90th-percentile reply was 254 words. Replayed against these rules, twelve of the thirteen now produce a finding, and the pair fires on about one reply in ten.
+
+  `reader-load` counts distinct names absolutely and never as a rate, because the rate points the wrong way: in the replies readers complained about, jargon density was *lower* than in long replies generally (2.4 per 100 words against 4.1). The total separated them, a median of 18 against 12.
+
+- **A judge for those two rules, and only those two.** A word count cannot tell a wall of text from a walkthrough somebody asked for, so when a reply limit is the only thing failing, the reply and the reader's last message go to the agent's own print mode for a second opinion, which can waive it. Every other rule skips this, which keeps the model call on roughly one reply in ten. It fails towards the count: a judge that cannot start, cannot finish inside 25 seconds, or answers with something unreadable leaves the number in charge. It sets a marker in its child environment so a judge cannot start a judge.
+
+### Changed
+
+- **Chat now blocks by default, and has its own tier to do it with.** `chat.failOn` defaults to `error` while the top-level `failOn` stays `never`, so installing this package still cannot start failing anyone's build. The two answer different questions: a lint run can fail a build, and a reply has no build to fail. The cost of blocking here is a few seconds and a rewrite; the cost of the old default is that the reader has already read the reply by the time anything objects to it. Put `chat.failOn: never` in `.plain-english.yml` for the old behaviour.
+- The `Stop` and `SubagentStop` hook timeout went from 10 seconds to 60. A hook that times out has its output discarded, so too tight a budget does not make the gate quicker: it deletes the block and reports nothing.
+- The output style states the two numbers it will be measured against, filled in from the rules rather than restated, so the figure shown to a model and the figure enforced cannot drift.
+- Corrected two comments in `src/render.ts` that said a hook cannot gate a chat reply and that no linter sees chat. Both were true when written and stopped being true when the chat gate shipped, and that stale assumption is why nothing measured this channel until now.
 
 ## [0.11.0] - 2026-08-18
 ### Added

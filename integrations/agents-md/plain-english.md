@@ -8,7 +8,8 @@
 issue or pull request body. Run `npx plain-english lint <file>` after writing
 prose, and fix what it reports.
 
-Everything below is about what you say in chat, which no linter sees.
+Everything below is about what you say in chat. A gate on the stop event reads
+each reply and can send it back, so this is checked rather than merely asked for.
 
 ## What this applies to
 
@@ -97,6 +98,18 @@ answer it and fold the result in.
 
 Not this: Here is the fix. Also your dependency is stale, and the README is out of date, and...
 This: Here is the fix. Separately: there is a stale dependency. Want that next?
+
+## Two numbers, and they are checked
+
+- Keep a reply under about 250 words of prose. Quoted output does not count.
+  Lead with the answer and cut the scaffolding, or say in one line that the
+  detail exists.
+- Name at most about 15 separate files, keys or flags in one reply. Name the
+  thing, not its configuration. Say what it does before you name it.
+
+Both give way to the exceptions below. A reply that was asked to go deep is
+not too long, and a check that cannot tell the difference asks before it
+refuses.
 
 ## Do not open or close with these
 
