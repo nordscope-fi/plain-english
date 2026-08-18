@@ -3,8 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
 
+### Added
 - **A fifth agent: Mistral Vibe.** `plain-english init --agent vibe` writes `.vibe/hooks.toml`, wiring the three write channels to `pre_tool` and the chat channel to `post_agent`. Verified against vibe 2.24.1: the generated config was fed back through Vibe's own `_load_hooks_file` and every matcher through its own `name_matches`, and a live session showed a write refused and a reply sent back for a rewrite. `docs/agents.md` records what came from source and what came from a running binary.
   - **The chat channel works here**, which was not obvious. `post_agent` carries no message, unlike the stop events on three of the four other agents, so the reply is read out of the transcript the payload names. A live probe confirmed the transcript has caught up before the hook runs, so nothing has to wait for it.
   - **The writing style reaches Vibe subagents**, which a Claude Code output style never does. Vibe builds a subagent's system prompt from the same project `AGENTS.md`, so the one gap that makes `SubagentStop` matter on Claude Code does not exist here.
@@ -13,23 +13,18 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
   - Not covered: Vibe has no event before a user turn, so that channel is uncovered there and no workaround is offered.
 
 - **`init` can write TOML.** `ConfigFile` takes an optional `format`, defaulting to JSON so no existing agent changes. The TOML path merges by hook name rather than by command string, so a project whose own hook happens to call this linter keeps it.
+- `docs/README.md`, an index over the ten documents in that directory, grouped by whether you are using the linter, deciding whether to turn on blocking, or working on it.
+- A `CONTRIBUTING.md` section on the instructions a coding agent reads here, with `AGENTS.md` as the host-neutral contract that roughly twenty agents read, Mistral Vibe among them.
 
 ### Changed
-
 - **`npm run lint:self` now gates.** It carries `--fail-on error`, so a blocking finding in this repository's own prose fails the build. It also reads `AGENTS.md` and the per-host adapter notes beside it, which it did not before. Under the old scope and the config's advisory `failOn: never`, the CI job named "Repo lints itself" ran green with 65 blocking findings in the tree: 18 in the architecture decision records and 47 in the agent rules and skills. All 65 are fixed, mostly em dashes and unglossed all-caps words.
 - **`docs/adopting.md` step 7 described the world before 0.10.0.** It opened by saying no hook can sit in the chat path, which that release disproved, and then told the reader to `mkdir` and `cp` an output style out of `node_modules`, which `init` has done for them since the same release. Rewritten around what actually covers chat now: the three installed style levels, the stop hook, and `plain-english lint --chat`.
 - **The docs no longer argue with their own earlier drafts.** `limitations.md`, `design-rationale.md`, `adopting.md` and the README carried corrections to statements a reader arriving today has never seen, plus a `0.4.0` file-path move and a reference to "the version this replaces". The current position is stated instead; the record of what changed is this file's job.
 - `docs/design-rationale.md` and the README now point at [`docs/architecture/adr/`](docs/architecture/adr/README.md), and each of the five narrative sections names its record. The records were reachable only through a directory listing in `AGENTS.md` before.
 
 ### Fixed
-
 - **`unglossed-term` read a parenthetical gloss in one order only.** `SLSA (a signed record of where the code came from)` passed; `a signed record of where the code came from (SLSA)` was reported, even though the second is the order this project's own guide asks for, which is to explain a thing before naming it. Both pass now. A bracket that opens a clause is still reported, and there is a corpus case for each.
 - **The linearity test in `test/shell.test.ts` could fail on a machine it had no complaint about.** It compared two wall-clock readings taken at different moments and asserted the ratio, which needs the machine to be running at the same speed at both, and it flaked at 11.8, 11.4 and 12.4 against a limit of 10. It is an absolute ceiling on one reading now. The regression it guards is a hang: a quadratic rescan of the same input measures 18,183ms at 40,000 lines against the scanner's 5.9ms, and the parser this replaced hung a blocking hook for 200 seconds, so 500ms separates them with three orders of magnitude to spare.
-
-### Added
-
-- `docs/README.md`, an index over the ten documents in that directory, grouped by whether you are using the linter, deciding whether to turn on blocking, or working on it.
-- A `CONTRIBUTING.md` section on the instructions a coding agent reads here: `AGENTS.md` as the host-neutral contract, `CLAUDE.md` and `VIBE.md` as per-host notes, and the rules, skills and reuse hook under `.claude/`.
 
 ## [0.10.0] - 2026-08-18
 ### Added
