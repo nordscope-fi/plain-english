@@ -3,6 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.13.0] - 2026-08-19
 ### Added
 
 - **`allow` can name the rules it covers, and can reach the semantic layer.** A bare string still silences every rule on a matching line, which is what it always meant. An entry written as a mapping takes `rules` to narrow it, and `semantic: true` to pass the same words to the prompt templates, which read no config of their own and so kept asking for a gloss the deterministic rules had been told to skip. A regex is turned back into words for the prompt, so `\b(Deal|Contact)\b` arrives as "Deal, Contact". A rule id nothing answers to is now a load error rather than an entry that reaches nothing and says nothing.
@@ -340,7 +342,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.0
 [0.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.1
 [0.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.11.0
