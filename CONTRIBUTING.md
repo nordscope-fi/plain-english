@@ -56,4 +56,14 @@ npm run lint:self
 
 ## Releasing
 
+A merge to `main` releases when `package.json` names a version no tag points at. So a change worth shipping carries its own bump, in the same pull request:
+
+```bash
+npm version minor --no-git-tag-version    # patch / minor / major
+```
+
+Commit that with the rest of the branch. The flag keeps npm from making its own commit and tag. The tag is CI's, made after both gates pass.
+
+Leave the bump out for a change that ships nothing: documentation, comments, tests, CI. Then it rides along with the next release.
+
 Maintainers: see [`docs/releasing.md`](docs/releasing.md). The first publish has to be done by hand, because npm cannot attach a trusted publisher to a package name that does not exist yet.

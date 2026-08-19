@@ -3,6 +3,16 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.13.1] - 2026-08-19
+### Changed
+
+- **A release is a merge now.** `release.yml` runs on a push to `main` and releases when `package.json` names a version no tag points at, so the bump rides in the pull request and merging it ships. The tag is created by CI after both gates pass, which inverts what it means: it used to say "somebody wants this released" and now says "this passed". A tag push still works for a release made by hand.
+
+  The `npm` environment no longer requires an approval. It never stopped a token, since any session holding a `gh` token as the owner could approve it, and the real protection on the package is npm 2FA plus the two gates every release runs. The environment itself stays, empty, because the trusted publisher registration names it.
+
+  What this fixes: a merged fix used to sit unreleased until somebody remembered the second step, and remembering it was a conversation every time.
+
 ### Fixed
 
 - **A contended CI runner could block a release.** The 0.13.0 publish was skipped because `init` in an empty repo passed vitest's 5 second default on Windows. That call writes about fifteen small files and takes 27 milliseconds on a laptop, and the same job spent 14 seconds on 28 CLI spawns, so the runner was busy rather than the test slow. Re-running the same commit passed. `testTimeout` and `hookTimeout` are now 30 seconds, in a `vitest.config.ts` that says why. Both numbers were needed: the file that timed out also makes a temporary directory before each test and removes the tree after it, on the same disk, against a separate 10 second clock.
@@ -345,7 +355,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.0
 [0.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.1
 [0.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.0
