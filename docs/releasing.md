@@ -38,12 +38,29 @@ npmjs.com, package settings, Publishing access: **Require two-factor authenticat
 
 **4. Create the `npm` environment on GitHub.**
 
-Settings, Environments, new environment named `npm`. Add yourself as a required reviewer so each publish waits for an explicit approval.
+Settings, Environments, new environment named `npm`. Leave it empty. It exists because the trusted publisher registration names it, and a job that runs outside it is refused by npm.
+
+It used to carry a required reviewer. That was removed on 2026-08-19, along with the separate tagging step, because between them they meant a merged fix sat unreleased until somebody remembered it.
 
 ## Every release after that
 
+A release is a merge. Put the bump in the pull request:
+
 ```bash
-npm version patch      # or minor, or major
+npm version minor --no-git-tag-version    # or patch, or major
+git commit -am "chore(release): 0.14.0"
+```
+
+`--no-git-tag-version` matters. It bumps `package.json` and runs the changelog and pin script, and it makes no commit and no tag, so the release commit is yours and the tag is CI's.
+
+Merging that pull request is the whole release. `release.yml` runs on the push to `main`, sees a version no tag points at, runs both gates, tags it, publishes, and writes the GitHub Release.
+
+A merge carrying no bump releases nothing, which is how a documentation change lands without shipping. Two pull requests that bump to the same version are the case to watch: the second one merges, finds its version already tagged, and releases nothing, so its changes wait for the next bump.
+
+The by-hand path still works when you want it:
+
+```bash
+npm version patch      # commits and tags locally
 git push --follow-tags
 ```
 
@@ -57,7 +74,9 @@ This used to be a manual step on the checklist below. It was missed on two conse
 
 `npm version` also moves the version pins in the copy-paste examples. `rev:` in a pre-commit block and `@vX.Y.Z` on the GitHub Action both name a tag. A stale one hands a new reader the ruleset from three releases ago, and five of them had gone stale that way. The script rewrites every pin in `README.md` and `docs/*.md` and stages those files into the same commit. A test asserts each pin matches `package.json`. A version mentioned in prose is left alone.
 
-The tag triggers `release.yml`, which verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint`, `arethetypeswrong`, and a check that the tag matches `package.json`. It also runs the full CI matrix across Linux, Windows and macOS on Node 20, 22 and 24, because a publish gate weaker than the pull-request gate let `v0.2.0` ship with a red Windows job. Then it waits for your approval on the `npm` environment and publishes.
+`release.yml` verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint` and `arethetypeswrong`. A tag push is checked against `package.json` first, because a tag that disagrees would publish something other than what it claims to be. It also runs the full CI matrix across Linux, Windows and macOS on Node 20, 22 and 24, because a publish gate weaker than the pull-request gate let `v0.2.0` ship with a red Windows job. Then it tags and publishes.
+
+The tag is made after the gates rather than before them, so it means "this passed" rather than "somebody pushed it". A tag pushed with the Actions token raises no workflow run, which is what stops a release from starting a second one of itself.
 
 ## The GitHub Release
 
@@ -79,7 +98,7 @@ Semver against the CLI and the rules together. A rule change that produces new f
 | minor | New rules. New CLI flags. A new output format. |
 | patch | Fixes to an existing rule's regex or exceptions. Documentation. Dependencies. |
 
-## Checklist before tagging
+## Checklist before merging a release
 
 - `CHANGELOG.md` has an entry under `## [Unreleased]`. Dating it is automatic, and `npm version` fails if the section is empty.
 - `npm run render` produced no diff.
