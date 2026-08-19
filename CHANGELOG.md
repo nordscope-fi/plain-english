@@ -3,6 +3,9 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+
+- **A contended CI runner could block a release.** The 0.13.0 publish was skipped because `init` in an empty repo passed vitest's 5 second default on Windows. That call writes about fifteen small files and takes 27 milliseconds on a laptop, and the same job spent 14 seconds on 28 CLI spawns, so the runner was busy rather than the test slow. Re-running the same commit passed. `testTimeout` and `hookTimeout` are now 30 seconds, in a `vitest.config.ts` that says why. Both numbers were needed: the file that timed out also makes a temporary directory before each test and removes the tree after it, on the same disk, against a separate 10 second clock.
 
 ## [0.13.0] - 2026-08-19
 ### Added
