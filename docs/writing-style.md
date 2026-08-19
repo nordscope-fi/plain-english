@@ -71,7 +71,7 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **mechanical**: `\bmechanical\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\b`
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
 - **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
-- **not-un**: `\bnot un(less|til|der|dergoing|do|done)\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
+- **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
 
 ## Sentence shapes
 
@@ -146,7 +146,7 @@ These read the shape of a sentence, so there is no term to match. All are warnin
 
 ### unglossed-term
 
-Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. 82 names a reader already has, such as JSON and GitHub, are exempt. A project adds its own vocabulary through `known` in `.plain-english.yml`.
+Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. 82 names a reader already has, such as JSON and GitHub, are exempt. So is a word shouted for emphasis: 96 common ones are listed, and anything longer ending in -ed, -ing, -ly, -tion or -able is read as a word rather than an acronym. A project adds its own vocabulary through `known` in `.plain-english.yml`, or through an `allow` entry scoped to this rule.
 
 Instead: Say what it does, then name it.
 

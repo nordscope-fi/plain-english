@@ -101,5 +101,5 @@ The acknowledgement file survives as the sixth and last, still ten minutes and s
 - Word lists need occasional expansion. A near-synonym slips through when only the original term is listed.
 - Any file that quotes the banned list as reference material needs a directive or an exclude. This includes your own style guide and often your CHANGELOG.
 - Scope the file-path check to the target repo. An unscoped check fires on unrelated files elsewhere on disk that the same session happens to touch.
-- Put standard domain vocabulary on the `allow` list from the start. The semantic layer otherwise flags normal working vocabulary as unexplained jargon.
+- Put standard domain vocabulary on the `allow` list from the start, scoped to the rule you mean and marked `semantic: true`. The semantic layer otherwise flags normal working vocabulary as unexplained jargon, and an unscoped entry hides everything else on the line while it is at it.
 - Watch the escape hatches. If people reach for the whole-file directive routinely, a rule is miscalibrated and should be a warning.

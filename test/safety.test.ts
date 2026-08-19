@@ -267,7 +267,10 @@ describe("overlapping alternations are seen through character classes", () => {
       if (r.match) expect(findUnsafe(r.match), `${r.id} match`).toBeNull();
       for (const u of r.unless ?? []) expect(findUnsafe(u), `${r.id} unless`).toBeNull();
     }
-    for (const a of set.allow ?? []) expect(findUnsafe(a), "allow").toBeNull();
+    for (const a of set.allow ?? []) {
+      const pattern = typeof a === "string" ? a : a.pattern;
+      expect(findUnsafe(pattern), "allow").toBeNull();
+    }
   });
 });
 

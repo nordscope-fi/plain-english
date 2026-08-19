@@ -804,6 +804,27 @@ cases:
     warns: [unglossed-term]
     text: "The OIDC publisher handles the upload for us."
 
+  # An acronym and a shouted word are the same shape. Reported across one
+  # repository's documentation, 129 of 274 findings were words in capitals.
+  - name: "a word shouted for emphasis is not an acronym"
+    expect: pass
+    text: "End every workflow with DONE plus one to three next actions."
+
+  - name: "a run of shouted words is not a run of acronyms"
+    expect: pass
+    text: "Mark it GREEN, not AMBER or RED. This is ALWAYS the case and NEVER the other way."
+
+  # These are caught by their endings rather than by the list, so a word nobody
+  # thought to list is still handled.
+  - name: "an inflected word in capitals is not an acronym"
+    expect: pass
+    text: "The result is CONFIRMED, PARTIALLY VALIDATED and still UPDATING."
+
+  - name: "a real acronym that is also an English word still fires"
+    expect: pass
+    warns: [unglossed-term]
+    text: "The ROI is measured monthly."
+
   # ==========================================================================
   # Padding. Fixed phrases that carry no information, from Strunk's rule 13.
   #
@@ -875,6 +896,31 @@ cases:
   - name: "not unless passes"
     expect: pass
     text: "Do not retry, not unless the caller asked for it."
+
+  # Both of these fired in real documentation. 'un' is not a prefix in either
+  # word: strip it and 'iversal' and 'derscores' are left.
+  - name: "not universal passes"
+    expect: pass
+    text: "Percentages are one source's field results, not universal benchmarks."
+
+  - name: "not underscores passes"
+    expect: pass
+    text: "Use lowercase and hyphens, not underscores, and no spaces."
+
+  - name: "not understood passes"
+    expect: pass
+    text: "The cause of the stall is not understood."
+
+  - name: "not unanimous passes"
+    expect: pass
+    text: "The vote to ship was not unanimous."
+
+  # The exception list must not swallow the rule it qualifies. 'unclear' starts
+  # with the same three letters as 'uncle' and is an ordinary litotes.
+  - name: "not unclear still warns"
+    expect: pass
+    warns: [not-un]
+    text: "The failure mode is not unclear."
 
   - name: "prior to warns"
     expect: pass

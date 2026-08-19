@@ -269,12 +269,28 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   } else {
     out.push("Nothing. The shipped ruleset is unchanged here.", "");
   }
-  if (set.allow.length) {
+  // Split by reach, because the two are very different promises. An unscoped
+  // entry silences the whole ruleset on any line it touches, and a reader of
+  // this document deserves to see which entries do that.
+  const wide = set.allow.filter((a) => !a.rules?.length);
+  const scoped = set.allow.filter((a) => a.rules?.length);
+  if (wide.length) {
     out.push(
-      `Vocabulary that suppresses every rule on a matching line (${set.allow.length} ` +
-        `patterns): ${set.allow.map((a) => `\`${a}\``).join(", ")}.`,
+      `Vocabulary that suppresses every rule on a matching line (${wide.length} ` +
+        `patterns): ${wide.map((a) => `\`${a.pattern}\``).join(", ")}.`,
       "",
     );
+  }
+  if (scoped.length) {
+    out.push("Vocabulary declared to named rules only:", "");
+    for (const a of scoped) {
+      out.push(
+        `- \`${a.pattern}\` for ${a.rules!.map((r) => `\`${r}\``).join(", ")}` +
+          (a.semantic ? ", and to the semantic layer" : "") +
+          ".",
+      );
+    }
+    out.push("");
   }
   if (set.exclude.length) {
     out.push(

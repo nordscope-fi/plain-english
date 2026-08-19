@@ -9,8 +9,14 @@
 import { maskNonProse } from "./mask.ts";
 import { matchAllWithDeadline } from "./safe-regex.ts";
 import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
-import { sentences, jargonTerms } from "./sentences.ts";
-import { compile, resolveRuleSet, type RuleSet, type Severity } from "./rules.ts";
+import { sentences, jargonTerms, isShoutedWord } from "./sentences.ts";
+import {
+  compile,
+  resolveRuleSet,
+  type CompiledAllow,
+  type RuleSet,
+  type Severity,
+} from "./rules.ts";
 
 export interface Finding {
   ruleId: string;
@@ -26,10 +32,27 @@ export interface Finding {
   link?: string;
 }
 
+/**
+ * One finding an `allow` entry stopped.
+ *
+ * Recorded rather than dropped because the cost of an `allow` entry used to be
+ * invisible. One repository carried eleven of them; nine bought nothing, and
+ * one was hiding 247 findings its author never meant to touch. Finding that
+ * out took removing each entry in turn and re-running the linter.
+ */
+export interface Suppression {
+  /** The `allow` pattern that matched. */
+  pattern: string;
+  ruleId: string;
+  line: number;
+}
+
 export interface LintResult {
   findings: Finding[];
   errorCount: number;
   warnCount: number;
+  /** What `allow` silenced. Empty unless the project declared vocabulary. */
+  suppressed: Suppression[];
   /**
    * Rules abandoned because the document exhausted the match budget.
    *
@@ -127,6 +150,24 @@ function merge(
 }
 
 /**
+ * The `allow` entry that silences this rule here, if any.
+ *
+ * An entry with no `rules` list covers every rule, which is what a bare string
+ * has always meant. An entry that names rules covers only those, so a project
+ * can declare "Deal is a word we all know" to `unglossed-term` without also
+ * hiding an em dash on the same line.
+ */
+function allowedBy(
+  ruleSet: RuleSet,
+  ruleId: string,
+  text: string,
+): CompiledAllow | undefined {
+  return ruleSet.allowRe?.find(
+    (a) => (!a.rules || a.rules.has(ruleId)) && a.re.test(text),
+  );
+}
+
+/**
  * Which rules are suppressed on each line.
  *
  * Three forms, matching the convention the ecosystem settled on:
@@ -188,6 +229,9 @@ export function lintText(
   const { allowInlineSuppression = true, budgetMs = DEFAULT_BUDGET_MS } = options;
   const findings: Finding[] = [];
   const timedOut: string[] = [];
+  // Named `silenced` and not `suppressed`: the inline-suppression map below
+  // already owns that word, and the two are different mechanisms.
+  const silenced: Suppression[] = [];
   const deadline = Date.now() + budgetMs;
 
   // Two views of the same text.
@@ -218,7 +262,9 @@ export function lintText(
   // return below runs no rule at all, so a reasonless `disable-file` is
   // reported here or nowhere.
   if (allowInlineSuppression) {
-    findings.push(...unexplainedSuppressions(text, directiveView, ruleSet, sourceLines));
+    findings.push(
+      ...unexplainedSuppressions(text, directiveView, ruleSet, sourceLines, silenced),
+    );
   }
 
   if (allowInlineSuppression && SUPPRESS_FILE.test(directiveView)) {
@@ -226,6 +272,7 @@ export function lintText(
       findings,
       errorCount: findings.filter((f) => f.severity === "error").length,
       warnCount: findings.filter((f) => f.severity === "warn").length,
+      suppressed: silenced,
       timedOut,
     };
   }
@@ -295,7 +342,11 @@ export function lintText(
       // whole shipped example config was inert. Matching the line is what the
       // documentation always described.
       if (rule.unlessRe?.some((re) => re.test(maskedLine))) continue;
-      if (ruleSet.allowRe?.some((re) => re.test(maskedLine))) continue;
+      const allowed = allowedBy(ruleSet, rule.id, maskedLine);
+      if (allowed) {
+        silenced.push({ pattern: allowed.entry.pattern, ruleId: rule.id, line });
+        continue;
+      }
 
       const sup = suppressed.get(line);
       if (sup === "all" || (sup instanceof Set && sup.has(rule.id))) continue;
@@ -314,7 +365,9 @@ export function lintText(
     }
   }
 
-  findings.push(...readabilityFindings(text, ruleSet, starts, sourceLines, suppressed));
+  findings.push(
+    ...readabilityFindings(text, ruleSet, starts, sourceLines, suppressed, silenced),
+  );
 
   findings.sort((a, b) => a.line - b.line || a.column - b.column || a.ruleId.localeCompare(b.ruleId));
 
@@ -322,6 +375,7 @@ export function lintText(
     findings,
     errorCount: findings.filter((f) => f.severity === "error").length,
     warnCount: findings.filter((f) => f.severity === "warn").length,
+    suppressed: silenced,
     timedOut,
   };
 }
@@ -414,6 +468,7 @@ function unexplainedSuppressions(
   directiveView: string,
   ruleSet: RuleSet,
   sourceLines: string[],
+  silenced: Suppression[],
 ): Finding[] {
   const rule = (ruleSet.readability ?? []).find(
     (r) => r.kind === "unexplained-suppression",
@@ -425,7 +480,11 @@ function unexplainedSuppressions(
   for (const d of directivesIn(text, directiveView)) {
     if (d.reason) continue;
     const sourceLine = sourceLines[d.line - 1] ?? "";
-    if (ruleSet.allowRe?.some((re) => re.test(sourceLine))) continue;
+    const allowed = allowedBy(ruleSet, rule.id, sourceLine);
+    if (allowed) {
+      silenced.push({ pattern: allowed.entry.pattern, ruleId: rule.id, line: d.line });
+      continue;
+    }
 
     const finding: Finding = {
       ruleId: rule.id,
@@ -491,6 +550,7 @@ function readabilityFindings(
   starts: number[],
   sourceLines: string[],
   suppressed: Map<number, Set<string> | "all">,
+  silenced: Suppression[],
 ): Finding[] {
   // `lintText` is this package's public entry point, so a ruleset assembled by
   // a consumer rather than by `compile` reaches here. Missing readability is a
@@ -596,13 +656,22 @@ function readabilityFindings(
       // introducing one without saying what it does is.
       const seen = new Set<string>();
       const known = new Set((rule.known ?? []).map((k) => k.toLowerCase()));
+      const emphasis = new Set((rule.emphasis ?? []).map((k) => k.toLowerCase()));
       for (const term of jargonTerms(text)) {
         const key = term.text.toLowerCase();
         if (known.has(key)) continue;
+        // A word shouted for emphasis is the same shape as an acronym and is
+        // not jargon. "End every workflow with DONE" asks for no gloss.
+        if (emphasis.has(key) || isShoutedWord(term.text)) continue;
         if (seen.has(key)) continue;
         seen.add(key);
         // A project's own vocabulary is declared through `allow`.
-        if (ruleSet.allowRe?.some((re) => re.test(term.text))) continue;
+        const allowed = allowedBy(ruleSet, rule.id, term.text);
+        if (allowed) {
+          const { line } = locate(starts, term.start);
+          silenced.push({ pattern: allowed.entry.pattern, ruleId: rule.id, line });
+          continue;
+        }
         // The whole point of the rule is "explain it, then name it", so a term
         // that arrives already attached to its explanation has complied. This
         // catches the naming half of that sentence: "...is called OIDC",

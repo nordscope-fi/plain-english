@@ -45,9 +45,15 @@ version: 1
 extends: default
 
 allow:
-  - "\\bMRR\\b"
-  - "\\bpicklist\\b"
-  - "hs_[a-z_]+"
+  - pattern: "\\bMRR\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "\\bpicklist\\b"
+    rules: [unglossed-term]
+    semantic: true
+  - pattern: "hs_[a-z_]+"
+    rules: [unglossed-term]
+    semantic: true
 
 exclude:
   - "docs/writing-style.md"
@@ -61,6 +67,10 @@ readability:
       - ARR
       - ICP
 ```
+
+Write these as mappings rather than bare strings. A bare string silences every rule on any line it matches, so an entry naming one word also hides an em dash sitting next to it.
+
+Naming `rules` keeps the entry to the rule you meant. Setting `semantic: true` passes the same words to the model that judges sentence shapes, which reads no config of its own. Run `plain-english lint --show-suppressed` afterwards to see what each entry actually cost.
 
 `extends: default` matters. A copied ruleset stops receiving upstream fixes on the day you copy it.
 
