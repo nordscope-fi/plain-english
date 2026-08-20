@@ -133,7 +133,14 @@ describe("explain reaches every collection", () => {
       ...set.readability.map((r) => r.id),
       ...set.structures.map((s) => s.id),
     ];
-    expect(ids.length).toBe(52);
+    // A floor, not the count. The exact number was 52 and became 62 the first
+    // time a rule was added, and bumping it taught nobody anything: the loop
+    // below is what asserts the property, and the assertion above it only ever
+    // guarded against `ids` arriving empty. A hardcoded total turns every new
+    // rule into a failing test that is fixed by editing the expectation, which
+    // is the shape of a check that gets edited without being read.
+    expect(ids.length).toBeGreaterThan(40);
+    expect(new Set(ids).size, "two rules share an id").toBe(ids.length);
     for (const id of ids) expect(out).toContain(id);
   });
 

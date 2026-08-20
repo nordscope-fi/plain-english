@@ -1007,3 +1007,118 @@ cases:
   - name: "chat tells do not fire on a document"
     expect: pass
     text: "Great question. The answer is four."
+
+  # ==========================================================================
+  # Vocabulary drawn from two published rulesets read on 2026-08-20: the
+  # `unslop` skill in cursor/plugins, and ClaudeFire's `readable.md`. Between
+  # them they name about fifty terms this ruleset had no rule for.
+  #
+  # Grouped rather than one rule per word, because every live rule needs a case
+  # here and forty-five rules would mean ninety cases saying the same thing.
+  #
+  # The split is by whether the word has a real sense to protect. Puffery
+  # blocks: there is no technical reading of "tapestry" to preserve. A metaphor
+  # borrowed into engineering warns, because the reader may be quoting somebody
+  # or writing about the literal thing.
+  # ==========================================================================
+
+  - name: "puffery nouns block"
+    expect: block
+    rule: puffery-nouns
+    text: "The result is a testament to the team and a rich tapestry of ideas."
+
+  - name: "a will and testament is the literal sense"
+    expect: pass
+    text: "The clause appears in his last will and testament."
+
+  - name: "the Old Testament is a proper noun"
+    expect: pass
+    text: "The quotation is from the Old Testament."
+
+  - name: "pivotal blocks"
+    expect: block
+    rule: pivotal
+    text: "This release was a pivotal moment for the project."
+
+  - name: "promotional adjectives block"
+    expect: block
+    rule: promotional-adjectives
+    text: "A vibrant community built this groundbreaking tool."
+
+  - name: "nestled blocks"
+    expect: block
+    rule: promotional-adjectives
+    text: "The config file is nestled inside the dot directory."
+
+  - name: "an evolving landscape blocks"
+    expect: block
+    rule: evolving-landscape
+    text: "Security is an ever-evolving landscape that teams must navigate."
+
+  - name: "the landscape as an abstract noun blocks"
+    expect: block
+    rule: abstract-landscape
+    text: "The competitive landscape has changed since the last release."
+
+  - name: "a literal landscape is fine"
+    expect: pass
+    text: "The photo is in landscape orientation."
+
+  - name: "deeply rooted blocks"
+    expect: block
+    rule: deeply-rooted
+    text: "The problem is deeply rooted in how the parser was written."
+
+  - name: "a rooted tree is not the tell"
+    expect: pass
+    text: "The tree is rooted at the repository directory."
+
+  - name: "abstract metaphor nouns warn"
+    expect: pass
+    warns: [abstract-metaphor-nouns]
+    text: "The cache is the substrate everything else is built on."
+
+  - name: "north star warns"
+    expect: pass
+    warns: [abstract-metaphor-nouns]
+    text: "Latency is our north star for this quarter."
+
+  - name: "a growth substrate is the literal sense"
+    expect: pass
+    text: "The sample is grown on a silicon substrate."
+
+  - name: "a vantage point is ordinary English"
+    expect: pass
+    text: "From that vantage point the whole valley is visible."
+
+  - name: "borrowed engineering metaphors warn"
+    expect: pass
+    warns: [borrowed-metaphors]
+    text: "That API is a footgun with a large blast radius."
+
+  - name: "cargo cult warns"
+    expect: pass
+    warns: [borrowed-metaphors]
+    text: "Copying the config without reading it is cargo cult engineering."
+
+  - name: "a sidecar container is the standard term"
+    expect: pass
+    text: "Logging runs in a sidecar container beside the app."
+
+  - name: "a fancy way to say is warns"
+    expect: pass
+    warns: [fancy-is]
+    text: "The adapter serves as a translation table between the two."
+
+  - name: "serving as a proxy is the literal sense"
+    expect: pass
+    text: "nginx serves as a reverse proxy in front of the app."
+
+  - name: "an unnamed authority warns"
+    expect: pass
+    warns: [vague-attribution]
+    text: "Experts believe the approach does not scale."
+
+  - name: "a named source is not a weasel"
+    expect: pass
+    text: "The Node maintainers say the approach does not scale."

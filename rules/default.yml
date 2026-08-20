@@ -335,6 +335,102 @@ rules:
 # nothing in it was ever explained. So `unglossed-term` is the rule that earns
 # its place here, and `long-sentence` is set generously enough to leave dense
 # but explained writing alone.
+  # ---------------------------------------------------------------- borrowed vocabulary
+  #
+  # Read on 2026-08-20 against two published rulesets: the `unslop` skill in
+  # cursor/plugins, and ClaudeFire's `readable.md`. Between them they name
+  # about fifty terms this file had no rule for.
+  #
+  # GROUPED, not one rule per word. `test/corpus.test.ts` requires a case
+  # naming every live rule, so forty-five ids would mean ninety corpus entries
+  # asserting the same thing in ninety ways.
+  #
+  # THE SPLIT is whether the word has a real sense worth protecting. Puffery
+  # blocks, because there is no technical reading of "tapestry" to preserve. A
+  # metaphor borrowed into engineering warns, because the writer may be quoting
+  # somebody, or writing about the literal thing, and no pattern can tell.
+  #
+  # Sixteen further candidates are deliberately absent: surface, vector,
+  # primitive, features, enhance, crucial, seam, spine, ratchet, interplay,
+  # intricate, garner, enduring, haunted, sidecar and grooves. Every one has a
+  # common literal sense in software prose, and shipping them tuned against no
+  # evidence is how this file acquired the false positives it has twice had to
+  # remove. They wait on `plain-english record` output over real documents.
+  - id: puffery-nouns
+    severity: error
+    match: "\\b(tapestry|testament|indelible mark)\\b"
+    unless:
+      # The book, and the legal phrase. Both are the literal noun.
+      - "\\b(old|new)\\s+testament\\b"
+      - "\\blast will and testament\\b"
+    message: "Say what happened. A result is not a testament to anything."
+
+  - id: pivotal
+    severity: error
+    match: "\\bpivotal\\b"
+    message: "Say what it changed."
+
+  - id: promotional-adjectives
+    severity: error
+    match: "\\b(vibrant|breathtaking|groundbreaking|stunning|nestled|must-visit)\\b"
+    message: "Describe it neutrally, or give the number."
+
+  - id: evolving-landscape
+    severity: error
+    match: "\\b(ever-)?(evolving|changing|shifting)\\s+(landscape|world|field|environment)\\b"
+    message: "Name what changed and when."
+
+  - id: abstract-landscape
+    severity: error
+    # The abstract sense only. A photograph, a garden and a monitor all have a
+    # literal landscape and none of them is the tell.
+    match: "\\b(technology|technological|competitive|digital|business|security|threat|regulatory|marketing)\\s+landscape\\b"
+    message: "Name the thing that changed, or the competitors."
+
+  - id: deeply-rooted
+    severity: error
+    match: "\\bdeeply[- ]rooted\\b"
+    message: "Say where it comes from."
+
+  - id: abstract-metaphor-nouns
+    # Warn. Each of these has a domain where it is the ordinary word, and the
+    # tell is only the metaphorical reach. Same tier as `silently` and
+    # `holistic`, and for the same reason.
+    severity: warn
+    match: "\\b(substrate|locus|vantage|nexus|bedrock|modality|north star|flywheel|gold[- ]plating)\\b"
+    unless:
+      - "\\b(silicon|growth|culture|glass|ceramic|sapphire)\\s+substrate\\b"
+      - "\\bsubstrate\\s+(concentration|binding|specificity)\\b"
+      - "\\bvantage\\s+point\\b"
+      - "\\blocus\\s+of\\s+control\\b"
+      - "\\b(imaging|treatment|sensory|input)\\s+modality\\b"
+      - "\\bmodality\\s+of\\s+(imaging|treatment)\\b"
+    message: "Pick the concrete word: a base, a place, a link, a goal."
+
+  - id: borrowed-metaphors
+    severity: warn
+    match: "\\b(footgun|blast radius|belt and suspenders|cargo[- ]cult|smoking gun|the quiet part out loud)\\b"
+    unless:
+      # The literal one, which is a real thing an explosives or safety document
+      # is entitled to describe.
+      - "\\bblast radius\\s+of\\s+(the\\s+)?(bomb|charge|explosion|blast|device)\\b"
+    message: "Say the plain thing: an easy mistake, how much it affects, a redundant second check."
+
+  - id: fancy-is
+    severity: warn
+    match: "\\b(serves|serve|stands|stand)\\s+as\\b"
+    unless:
+      # A process really can serve as a proxy or a cache. The tell is the verb
+      # standing in for "is" on something that is not serving anybody.
+      - "\\b(serves|serve)\\s+as\\s+(a|an|the)\\s+(reverse\\s+)?(proxy|cache|fallback|gateway|relay|load[- ]balancer|mirror|backup)\\b"
+      - "\\bstands?\\s+as\\s+(a\\s+)?(candidate|nominee|witness)\\b"
+    message: "Just say 'is' or 'has'."
+
+  - id: vague-attribution
+    severity: warn
+    match: "\\b(experts|analysts|critics|researchers|observers|industry reports|some critics|some experts)\\s+(believe|say|says|agree|argue|argues|suggest|suggests|note|notes|claim|claims)\\b"
+    message: "Name the source, or cut the claim."
+
 readability:
   - id: unglossed-term
     severity: warn

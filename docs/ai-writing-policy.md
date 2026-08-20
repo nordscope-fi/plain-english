@@ -21,7 +21,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-39 word and punctuation rules, 22 of them blocking, plus 9 sentence shapes judged by a model and 3 readability rules.
+49 word and punctuation rules, 28 of them blocking, plus 9 sentence shapes judged by a model and 3 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
@@ -64,6 +64,16 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |
 | prior to | `warn` | Use 'before'. |
 | with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |
+| (tapestry/testament/indelible mark) | `block` | Say what happened. A result is not a testament to anything. |
+| pivotal | `block` | Say what it changed. |
+| (vibrant/breathtaking/groundbreaking/stunning/nestled/must-visit) | `block` | Describe it neutrally, or give the number. |
+| [ever-](evolving/changing/shifting) (landscape/world/field/environment) | `block` | Name what changed and when. |
+| (technology/technological/competitive/digital/business/security/threat/regulatory/marketing) landscape | `block` | Name the thing that changed, or the competitors. |
+| deeply-rooted | `block` | Say where it comes from. |
+| (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |
+| (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |
+| (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |
+| (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |
 
 ## What this repository changed
 

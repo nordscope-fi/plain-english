@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with hooks for Claude Code, Copilot, Codex, Cursor and Mistral Vibe, plus pre-commit, CI and SARIF.",
   "keywords": [
     "linter",

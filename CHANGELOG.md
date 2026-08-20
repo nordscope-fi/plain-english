@@ -4,6 +4,24 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-20
+### Added
+
+- **Ten rules drawn from two published rulesets.** Read on 2026-08-20 against the `unslop` skill in cursor/plugins and ClaudeFire's `readable.md`. Between them they name about fifty terms this ruleset had no rule for, including `tapestry`, `testament`, `pivotal`, `vibrant`, `nestled`, `substrate`, `north star`, `flywheel`, `footgun`, `blast radius`, `cargo cult` and `serves as`.
+
+  Grouped rather than one rule per word. Every live rule needs a corpus case, so forty-five ids would have meant ninety entries asserting the same thing ninety ways.
+
+  The split is by whether the word has a real sense worth protecting. Puffery blocks, because there is no technical reading of `tapestry` to preserve. A metaphor borrowed into engineering warns, because the writer may be quoting somebody or describing the literal thing, and no pattern can tell those apart.
+
+  Checked against two corpora before shipping. Zero findings across this repository's 28 markdown files. Eleven across 399 documents written for other purposes, every one a metaphorical `substrate`, `footgun` or `blast radius`, and no false positive from any of the other eight rules.
+
+  Sixteen candidates are deliberately absent: `surface`, `vector`, `primitive`, `features`, `enhance`, `crucial`, `seam`, `spine`, `ratchet`, `interplay`, `intricate`, `garner`, `enduring`, `haunted`, `sidecar` and `grooves`. Every one has a common literal sense in software prose, and shipping them tuned against no evidence is how this file acquired the false positives it has twice had to remove.
+
+### Fixed
+
+- **`explain` no longer asserts a hardcoded rule count.** The test read `expect(ids.length).toBe(52)`, which failed the first time a rule was added and was fixed by editing the expectation. The loop beneath it is what asserts the property, and the number only ever guarded against an empty list. It is now a floor, plus a check that no two rules share an id.
+
+
 ## [0.18.0] - 2026-08-20
 ### Added
 
@@ -431,7 +449,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.19.0
 [0.18.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.18.0
 [0.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.17.0
 [0.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.16.0

@@ -114,6 +114,16 @@ Two severities:
 | not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |  |
 | prior to | `warn` | Use 'before'. |  |
 | with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |  |
+| (tapestry/testament/indelible mark) | `block` | Say what happened. A result is not a testament to anything. |  |
+| pivotal | `block` | Say what it changed. |  |
+| (vibrant/breathtaking/groundbreaking/stunning/nestled/must-visit) | `block` | Describe it neutrally, or give the number. |  |
+| [ever-](evolving/changing/shifting) (landscape/world/field/environment) | `block` | Name what changed and when. |  |
+| (technology/technological/competitive/digital/business/security/threat/regulatory/marketing) landscape | `block` | Name the thing that changed, or the competitors. |  |
+| deeply-rooted | `block` | Say where it comes from. |  |
+| (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |  |
+| (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |  |
+| (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |  |
+| (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |  |
 
 ## Exceptions
 
@@ -131,6 +141,10 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
 - **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
 - **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
+- **puffery-nouns**: `\b(old|new)\s+testament\b`, `\blast will and testament\b`
+- **abstract-metaphor-nouns**: `\b(silicon|growth|culture|glass|ceramic|sapphire)\s+substrate\b`, `\bsubstrate\s+(concentration|binding|specificity)\b`, `\bvantage\s+point\b`, `\blocus\s+of\s+control\b`, `\b(imaging|treatment|sensory|input)\s+modality\b`, `\bmodality\s+of\s+(imaging|treatment)\b`
+- **borrowed-metaphors**: `\bblast radius\s+of\s+(the\s+)?(bomb|charge|explosion|blast|device)\b`
+- **fancy-is**: `\b(serves|serve)\s+as\s+(a|an|the)\s+(reverse\s+)?(proxy|cache|fallback|gateway|relay|load[- ]balancer|mirror|backup)\b`, `\bstands?\s+as\s+(a\s+)?(candidate|nominee|witness)\b`
 
 ## Sentence shapes
 
