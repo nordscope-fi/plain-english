@@ -679,6 +679,12 @@ chat:
     - id: standard
       name: "Plain English"
       description: "Plain language, named decisions, and when to expand instead."
+      # Bullets here too, measured on 2026-08-20. Sections put this level at
+      # 1441 words once the shape and the worked examples arrived. Bullets take
+      # the same fourteen rules, both examples and the skeleton to 988, which
+      # is shorter than the 1093 it ran at carrying neither. `full` is where
+      # every rule still gets its paragraph.
+      form: bullets
     - id: full
       name: "Plain English (full)"
       description: "Typed problem cards, running state, and time estimates."
@@ -853,7 +859,7 @@ chat:
 
     - id: quote-the-decisive-line
       name: "Quote the line a claim rests on"
-      short: "Quote the line a claim rests on, then say what it means. This outranks brevity."
+      short: "Verbatim, then what it means in plain words. This outranks brevity."
       description: >-
         When a claim depends on real output, quote the decisive line verbatim,
         then say in plain words what it means. This outranks brevity: a short
@@ -870,7 +876,7 @@ chat:
 
     - id: raise-it-only-if-it-matters
       name: "Raise an objection only when it changes something"
-      short: "Raise an objection when it changes correctness, safety, cost or the ask. Otherwise it is noise."
+      short: "Only when it changes correctness, safety, cost or the ask. Otherwise it is noise."
       description: >-
         Say it when it affects correctness, safety, cost, or what the reader
         has asked for. A true point that changes nothing is noise, and a
@@ -887,7 +893,7 @@ chat:
 
     - id: one-thing-at-a-time
       name: "Finish one thing before raising the next"
-      short: "Finish the first issue, then offer the second as its own question."
+      short: "Answer the first, then offer the second as its own question."
       description: >-
         When a second issue turns up, finish the first and then offer the
         second as its own question. A question you can answer yourself is not

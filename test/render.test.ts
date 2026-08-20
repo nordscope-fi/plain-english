@@ -253,13 +253,70 @@ describe("output style", () => {
     expect(words).toBeGreaterThan(200);
   });
 
-  it("brief renders as one checklist, not one heading per rule", () => {
-    // The property the word count is a proxy for, asserted directly.
-    const headings = renderOutputStyle(set, "brief")
-      .split("\n")
-      .filter((l) => l.startsWith("## "));
-    expect(headings.length).toBeLessThan(7);
-    expect(renderOutputStyle(set, "standard")).toContain("## Open with what this is");
+  it("a bullets level renders one checklist, not one heading per rule", () => {
+    // The property the word count is a proxy for, asserted directly. Read off
+    // the ruleset rather than naming levels, so moving a level between forms
+    // changes one line of YAML and no test.
+    for (const level of levels) {
+      const form = set.chat.levels.find((l) => l.id === level)?.form ?? "sections";
+      const headings = renderOutputStyle(set, level)
+        .split("\n")
+        .filter((l) => l.startsWith("## "));
+      if (form === "bullets") {
+        expect(headings.length, `${level} still renders a heading per rule`).toBeLessThan(9);
+        expect(renderOutputStyle(set, level)).toContain("## The rules");
+      } else {
+        expect(renderOutputStyle(set, level)).toContain("## Open with what this is");
+      }
+    }
+  });
+
+  it("a checklist bullet does not restate its own label", () => {
+    // The inline-header tell: a bold label followed by a line that says the
+    // label again. The reader pays for the words twice and learns nothing the
+    // second time, and it is the failure mode a one-line summary falls into by
+    // default, because the name is the easiest sentence to write.
+    //
+    // Three of the sixteen shipped shorts did this on 2026-08-20.
+    const overlap = (label: string, line: string): number => {
+      const stop = new Set(["the", "a", "an", "and", "or", "it", "is", "to", "of", "in", "not"]);
+      const words = (t: string) =>
+        t.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter((w) => w && !stop.has(w));
+      const first = words(label);
+      const rest = new Set(words(line));
+      if (!first.length) return 0;
+      return first.filter((w) => rest.has(w)).length / first.length;
+    };
+
+    for (const level of levels) {
+      const form = set.chat.levels.find((l) => l.id === level)?.form ?? "sections";
+      if (form !== "bullets") continue;
+      for (const line of renderOutputStyle(set, level).split("\n")) {
+        const m = /^- \*\*(.+?)\.?\*\*\s*(.+)$/.exec(line);
+        if (!m) continue;
+        expect(overlap(m[1]!, m[2]!), `bullet restates its label: ${line}`).toBeLessThan(0.7);
+      }
+    }
+  });
+
+  it("standard carries more than it used to, in fewer words", () => {
+    // 1093 words before any of this, with no skeleton and no worked example.
+    // 1441 when those arrived and every rule still had its paragraph. Bullets
+    // fit both new sections inside the saving, which is the only reason the
+    // default level renders as a checklist at all.
+    const words = renderOutputStyle(set, "standard")
+      .replace(/^---[\s\S]*?^---/m, "")
+      .split(/\s+/)
+      .filter(Boolean).length;
+    expect(words).toBeLessThan(1093);
+    // Every rule `full` carries at standard is still here. Shorter has to mean
+    // fewer words, never fewer rules.
+    for (const g of set.chat.guidance) {
+      if (!inLevel(g, "standard")) continue;
+      expect(renderOutputStyle(set, "standard"), `standard drops ${g.id}`).toContain(
+        g.name ?? g.id,
+      );
+    }
   });
 
   it("every rule reaching a bullets level has a short line to render", () => {

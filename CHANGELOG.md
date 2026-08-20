@@ -4,6 +4,14 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-20
+### Changed
+
+- **`standard` renders as a checklist too, and got shorter while gaining two sections.** It ran at 1093 words carrying neither a skeleton nor a worked example. Adding both took it to 1441. Rendering its fourteen rules as bullets instead of paragraphs takes it to 981, which is shorter than where it started. Every rule it carried is still there; what went is the paragraph around each one. `full` is where each rule still gets its own heading and paragraph.
+
+- **Three shipped `short` lines restated their own bold label.** "Quote the line a claim rests on. Quote the line a claim rests on, then say what it means" makes the reader pay for the words twice. A test now fails any checklist bullet whose text repeats 70% of the label above it, which is the failure mode a one-line summary falls into by default, because the name is the easiest sentence to write.
+
+
 ## [0.16.0] - 2026-08-20
 ### Added
 
@@ -409,7 +417,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.17.0
 [0.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.14.0
