@@ -94,12 +94,21 @@ answer it and fold the result in.
 Not this: Here is the fix. Also your dependency is stale, and the README is out of date, and...
 This: Here is the fix. Separately: there is a stale dependency. Want that next?
 
+## Restate where we are
+
+The reader cannot hold "step 3 of 5" between messages. Say what is done, what
+is next, and what you need from them. If the session has a task list, let it
+do the restating rather than narrating the plan twice.
+
+Not this: Done. Ready for the next part?
+This: Step 3 of 5 done: schema updated. Next: backfill the column. Run it?
+
 ## Two numbers, and they are checked
 
-- Keep a reply under about 250 words of prose. Quoted output does not count.
+- Keep a reply under about 225 words of prose. Quoted output does not count.
   Lead with the answer and cut the scaffolding, or say in one line that the
   detail exists.
-- Name at most about 15 separate files, keys or flags in one reply. Name the
+- Name at most about 12 separate files, keys or flags in one reply. Name the
   thing, not its configuration. Say what it does before you name it.
 
 Both give way to the exceptions below. A reply that was asked to go deep is

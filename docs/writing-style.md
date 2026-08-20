@@ -162,15 +162,27 @@ These apply to a reply in the chat window and to nothing else. A document that r
 
 ### reply-length
 
-Fires past 250 words of prose in one reply. Quoted output, tables and code do not count, because quoting the line a claim rests on outranks brevity. The number is measured rather than chosen: across seven days of transcripts the 90th-percentile reply was 254 words, and the shortest reply a reader complained about was 264.
+Fires past 225 words of prose in one reply. Quoted output, tables and code do not count, because quoting the line a claim rests on outranks brevity. The number is measured rather than chosen: across seven days of transcripts the 90th-percentile reply was 254 words, and the shortest reply a reader complained about was 264.
 
 Instead: Lead with the answer and cut the scaffolding, or say in one line that the detail exists.
 
 ### reader-load
 
-Fires past 15 distinct backticked names in one reply: files, config keys, flags. Counted absolutely and never as a rate, because the rate points the wrong way. In the replies readers complained about, jargon density was lower than in long replies generally; what separated them was the total. Five terms in a sixty-word answer is over quickly. Eighteen across five hundred words is carried to the end.
+Fires past 12 distinct backticked names in one reply: files, config keys, flags. Counted absolutely and never as a rate, because the rate points the wrong way. In the replies readers complained about, jargon density was lower than in long replies generally; what separated them was the total. Five terms in a sixty-word answer is over quickly. Eighteen across five hundred words is carried to the end.
 
 Instead: Name the thing, not its configuration. Say what it does before you name it.
+
+### reply-pace
+
+Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. A project adds its own vocabulary through `known` in `.plain-english.yml`, or through an `allow` entry scoped to this rule.
+
+Instead: Let a short sentence land between the long ones.
+
+### unreadable-ask
+
+Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass. A project adds its own vocabulary through `known` in `.plain-english.yml`, or through an `allow` entry scoped to this rule.
+
+Instead: Ask for one thing, in one clause. Put the detail in the sentence before it.
 
 ## Suppressions
 

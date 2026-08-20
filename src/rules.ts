@@ -49,7 +49,9 @@ export type ReadabilityKind =
   // These two measure what one reply asks the reader to carry. A document has
   // no equivalent fault: length is how a document does its job.
   | "reply-length"
-  | "reader-load";
+  | "reader-load"
+  | "unreadable-ask"
+  | "reply-pace";
 
 /** A rule measured over sentence structure rather than matched at a point. */
 export interface ReadabilityRule {
@@ -64,6 +66,28 @@ export interface ReadabilityRule {
   maxWords?: number;
   /** reader-load only: distinct backticked names above which the rule fires. */
   maxTerms?: number;
+  /**
+   * reply-pace only: the average sentence length a whole reply may hold.
+   *
+   * Distinct from long-sentence's `maxWords`, which judges one sentence. A
+   * reply where every sentence is fifteen words breaks no single-sentence rule
+   * and is still exhausting, because nothing in it lets up.
+   */
+  maxMeanWords?: number;
+  /**
+   * reply-pace only: the shortest reply worth measuring.
+   *
+   * A two-sentence answer has no pace. Without a floor the rule would fire on
+   * a one-line answer that happened to need twenty words.
+   */
+  minWords?: number;
+  /**
+   * unreadable-ask only: subordinating clauses a closing question may carry.
+   *
+   * Separate from `maxWords` because the two faults are different. A long ask
+   * is tiring; a nested one cannot be answered without unpacking it first.
+   */
+  maxClauses?: number;
   /**
    * unglossed-term only: names a reader already knows.
    *
@@ -151,6 +175,20 @@ export interface ChatSection {
   avoid: ChatAvoid[];
   expand: string[];
   /**
+   * What the chat judge reads for, beyond whether the length was earned.
+   *
+   * Here rather than in `render` because a prompt carrying wording no config
+   * governs is wording a project cannot change and `render --check` cannot see
+   * drift in. Each entry becomes a bullet in the generated prompt.
+   *
+   * The reason there is a semantic check at all: a pattern finds an acronym
+   * and a camel-cased name, and the terms a reader actually stops on are
+   * ordinary words carrying a technical sense. Measured 2026-08-19,
+   * `unglossed-term` fired zero times on all five replies that drew a
+   * complaint.
+   */
+  judge: ChatJudgeCheck[];
+  /**
    * The tier at which a chat finding holds a turn.
    *
    * Separate from the global `failOn` because the two answer different
@@ -171,6 +209,11 @@ export interface ChatSection {
    * them to `readability` so the whole existing lint path runs unchanged.
    */
   limits: ReadabilityRule[];
+}
+
+export interface ChatJudgeCheck {
+  id: string;
+  description: string;
 }
 
 /** True when a levelled entry belongs in `level`. */
@@ -385,6 +428,8 @@ function readReadability(v: unknown): ReadabilityRule[] {
     "unexplained-suppression",
     "reply-length",
     "reader-load",
+    "unreadable-ask",
+    "reply-pace",
   ];
   return v.map((raw, i) => {
     const r = raw as Record<string, unknown>;
@@ -427,6 +472,25 @@ function readReadability(v: unknown): ReadabilityRule[] {
         );
       }
       out.maxTerms = n;
+    }
+    for (const key of ["maxMeanWords", "minWords"] as const) {
+      if (r[key] === undefined) continue;
+      const n = Number(r[key]);
+      if (!Number.isInteger(n) || n < 1) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): ${key} must be a positive integer`,
+        );
+      }
+      out[key] = n;
+    }
+    if (r["maxClauses"] !== undefined) {
+      const n = Number(r["maxClauses"]);
+      if (!Number.isInteger(n) || n < 0) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): maxClauses must be a whole number`,
+        );
+      }
+      out.maxClauses = n;
     }
     for (const field of ["known", "emphasis"] as const) {
       if (!Array.isArray(r[field])) continue;
@@ -473,6 +537,7 @@ const EMPTY_CHAT: ChatSection = {
   tells: [],
   avoid: [],
   expand: [],
+  judge: [],
   limits: [],
 };
 
@@ -489,6 +554,21 @@ function readLevels(v: unknown, where: string): string[] | undefined {
  * error. `merge` is what decides whether an overlay entry is allowed to name
  * an id the base does not have.
  */
+function readChatJudge(v: unknown): ChatJudgeCheck[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("chat.judge must be a list");
+  return v.map((raw, i) => {
+    const r = raw as Record<string, unknown>;
+    if (typeof r["id"] !== "string" || !r["id"]) {
+      throw new RuleError(`chat.judge[${i}].id must be a string`);
+    }
+    if (typeof r["description"] !== "string" || !r["description"].trim()) {
+      throw new RuleError(`chat.judge[${i}] (${r["id"]}): description must be a string`);
+    }
+    return { id: r["id"], description: r["description"].trim() };
+  });
+}
+
 function readChat(v: unknown): ChatSection {
   if (v === undefined || v === null) return { ...EMPTY_CHAT };
   if (typeof v !== "object" || Array.isArray(v)) throw new RuleError("chat must be a mapping");
@@ -578,6 +658,7 @@ function readChat(v: unknown): ChatSection {
   }
 
   out.expand = asStringArray(c["expand"], "chat.expand");
+  out.judge = readChatJudge(c["judge"]);
   if (c["failOn"] !== undefined) {
     const f = c["failOn"];
     if (f !== "error" && f !== "warn" && f !== "never") {
@@ -902,6 +983,9 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     existing.severity = l.severity;
     if (l.maxWords !== undefined) existing.maxWords = l.maxWords;
     if (l.maxTerms !== undefined) existing.maxTerms = l.maxTerms;
+    if (l.maxClauses !== undefined) existing.maxClauses = l.maxClauses;
+    if (l.maxMeanWords !== undefined) existing.maxMeanWords = l.maxMeanWords;
+    if (l.minWords !== undefined) existing.minWords = l.minWords;
     if (l.message) existing.message = l.message;
     if (l.reason) existing.reason = l.reason;
   }
@@ -914,6 +998,10 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     tells: [...tells.values()],
     avoid: overlay.avoid.length ? overlay.avoid : base.avoid,
     expand: overlay.expand.length ? overlay.expand : base.expand,
+    // Nullish, like `limits` above and for the same reason: a chat section
+    // hand-assembled by a consumer, or written before this key existed, reaches
+    // here without it. That is an older config, not a reason to throw.
+    judge: overlay.judge?.length ? overlay.judge : (base.judge ?? []),
     ...(overlay.failOn ?? base.failOn ? { failOn: overlay.failOn ?? base.failOn } : {}),
     limits: [...limits.values()],
   };

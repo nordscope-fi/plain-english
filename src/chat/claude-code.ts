@@ -114,6 +114,34 @@ function assistantText(record: Record<string, unknown>): string[] {
   return out;
 }
 
+/**
+ * The text of one record, when it is something a person typed.
+ *
+ * Three kinds of record carry `type: "user"` and only one of them is a
+ * question. A tool result is the transcript of a command, a sidechain record
+ * belongs to a subagent, and a meta record is the harness talking to itself.
+ * Returning any of those as "what the reader asked" would hand the judge a
+ * file listing and let it conclude the reader wanted depth.
+ */
+function typedUserText(record: Record<string, unknown>): string | undefined {
+  if (record["type"] !== "user") return undefined;
+  if (record["isSidechain"] === true || record["isMeta"] === true) return undefined;
+  if (record["toolUseResult"] !== undefined) return undefined;
+  const message = record["message"];
+  if (!message || typeof message !== "object") return undefined;
+  const content = (message as Record<string, unknown>)["content"];
+  if (typeof content === "string") return content.trim() || undefined;
+  if (!Array.isArray(content)) return undefined;
+  const out: string[] = [];
+  for (const block of content) {
+    if (!block || typeof block !== "object") continue;
+    const b = block as Record<string, unknown>;
+    if (b["type"] === "tool_result") return undefined;
+    if (b["type"] === "text" && typeof b["text"] === "string") out.push(b["text"]);
+  }
+  return out.join("\n").trim() || undefined;
+}
+
 export const claudeCodeChat: ChatReader = {
   id: "claude-code",
   label: "Claude Code",
@@ -181,5 +209,19 @@ export const claudeCodeChat: ChatReader = {
       line: 0,
     };
     return reply;
+  },
+
+  lastAsk(payload: Record<string, unknown>): string | undefined {
+    // The parent's transcript, never the subagent's: a subagent is answering
+    // an instruction from the model, and the exceptions the judge applies are
+    // about what a person asked for.
+    const path = field(payload, "transcript_path");
+    if (!path) return undefined;
+    let latest: string | undefined;
+    readJsonl(path, (record) => {
+      const text = typedUserText(record);
+      if (text) latest = text;
+    });
+    return latest;
   },
 };

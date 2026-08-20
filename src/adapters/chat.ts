@@ -84,36 +84,63 @@ export function sweepLegacyState(projectDir: string): string[] {
   return removed;
 }
 
-/** Whether this turn has already been blocked once. */
-function alreadyBlocked(path: string, promptId: string, now: number): boolean {
+/**
+ * What a turn's earlier block was about.
+ *
+ * Two fields, because "blocked already" is no longer the whole question. A
+ * block that asked for a substitution and a block that asked for a rewrite
+ * leave the turn in different places, and only one of them is worth a second
+ * look. The file is two lines: the prompt id, then the kind.
+ *
+ * `null` means no usable state: no file, an unreadable one, or one older than
+ * the ack window. All three mean "not blocked yet", which is the safe answer.
+ */
+type BlockKind = "punctuation" | "clarity" | "final";
+
+interface BlockState {
+  promptId: string;
+  kind: BlockKind;
+}
+
+function readBlockState(path: string, now: number): BlockState | null {
   try {
     const stat = statSync(path);
-    if (now - stat.mtimeMs > ACK_WINDOW_MS) return false;
-    // The prompt id distinguishes turns within one session. Without it, one
-    // block would silence the whole session for the ack window.
-    return readPromptId(path) === promptId;
+    if (now - stat.mtimeMs > ACK_WINDOW_MS) return null;
+    const [id = "", kind = ""] = readFileSync(path, "utf8").split("\n");
+    return {
+      promptId: id.trim(),
+      // A file written before 0.14.0 holds the prompt id alone. Reading that
+      // as a rewrite request is the old behaviour, which is the safe default.
+      kind: kind.trim() === "punctuation" ? "punctuation" : kind.trim() === "final" ? "final" : "clarity",
+    };
   } catch {
-    return false;
+    return null;
   }
 }
 
-function readPromptId(path: string): string {
+function rememberBlock(path: string, promptId: string, kind: BlockKind): void {
   try {
-    return readFileSync(path, "utf8").trim();
-  } catch {
-    return "";
-  }
-}
-
-function rememberBlock(path: string, promptId: string): void {
-  try {
-    writeFileSync(path, promptId, "utf8");
+    writeFileSync(path, `${promptId}\n${kind}`, "utf8");
     const now = new Date();
     utimesSync(path, now, now);
   } catch {
     // A state file we cannot write means we might block twice. That is worse
     // than not blocking, so the caller treats a write failure as "do not block".
   }
+}
+
+/**
+ * Rules a rewrite can satisfy without rethinking the reply.
+ *
+ * A dash becomes a comma and everything else about the reply is unchanged, so
+ * the text that comes back has never been judged on whether anyone could
+ * follow it. Measured over the three days to 2026-08-19: of 69 blocks, 38 said
+ * nothing but this.
+ */
+const SUBSTITUTION_ONLY = new Set(["em-dash", "em-dash-density", "en-dash-as-punctuation"]);
+
+function punctuationOnly(findings: Finding[]): boolean {
+  return findings.length > 0 && findings.every((f) => SUBSTITUTION_ONLY.has(f.ruleId));
 }
 
 export interface ChatDecisionOptions {
@@ -153,7 +180,7 @@ export interface ChatDecisionOptions {
  * amount of context makes acceptable: an em dash is an em dash. These two are
  * measurements whose meaning depends on what was asked.
  */
-const JUDGEABLE = new Set(["reply-length", "reader-load"]);
+const JUDGEABLE = new Set(["reply-length", "reader-load", "reply-pace"]);
 
 /**
  * What to do about one reply.
@@ -202,7 +229,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
       // The judge said what the reply should have led with. That is more use
       // than "over 250 words", so it replaces the count in the message.
       const reason = verdict.reason;
-      if (!shouldBlock(opts, now)) {
+      if (!shouldBlock(opts, now, failing)) {
         return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
       }
       return { allow: false, decision: "deny", reason, advisory: reason, findings, ...timedOut };
@@ -221,7 +248,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
   }
 
-  if (!shouldBlock(opts, now)) {
+  if (!shouldBlock(opts, now, failing)) {
     // Already blocked this turn, or the agent says this turn exists because we
     // blocked the last one. Say it once more as advice and let the turn end.
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
@@ -233,16 +260,34 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
 /**
  * Whether blocking is safe, and record it when it is.
  *
- * Two guards, both required. A blocked turn produces a new reply, which can
- * trip a different rule, which blocks again: without a stop condition that is
- * a model rewriting forever and a person watching it.
+ * The stop condition is what everything here is for. A blocked turn produces a
+ * new reply, which can trip a different rule, which blocks again: without a
+ * bound that is a model rewriting forever and a person watching it.
+ *
+ * One block a turn was that bound until 0.14.0, and it was too tight in one
+ * direction. A block that only ever said "no em dashes" spends the turn on a
+ * find-and-replace, and the reply that comes back is the same reply with
+ * different characters. So the bound is now two, and the second is available
+ * only when the first asked for a substitution and the rewrite turned out to
+ * be unreadable. A dash followed by another dash gets nothing, and neither
+ * does a clarity block followed by anything.
  */
-function shouldBlock(opts: ChatDecisionOptions, now: number): boolean {
-  if (opts.stopHookActive) return false;
+function shouldBlock(opts: ChatDecisionOptions, now: number, failing: Finding[]): boolean {
   const promptId = opts.promptId ?? "";
   const path = blockStatePath(opts.projectDir, promptId ? promptId : "session");
-  if (alreadyBlocked(path, promptId, now)) return false;
-  rememberBlock(path, promptId);
+  const prior = readBlockState(path, now);
+  const kind: BlockKind = punctuationOnly(failing) ? "punctuation" : "clarity";
+
+  const sameTurn = prior !== null && prior.promptId === promptId;
+  const retry = sameTurn && prior.kind === "punctuation" && kind === "clarity";
+
+  // `stop_hook_active` is the agent telling you this turn exists because you
+  // blocked the last one. Honouring it is not optional, and the one exception
+  // is the retry, which is bounded and records `final` so there is no third.
+  if (opts.stopHookActive && !retry) return false;
+  if (sameTurn && !retry) return false;
+
+  rememberBlock(path, promptId, retry ? "final" : kind);
   return true;
 }
 

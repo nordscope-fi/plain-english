@@ -124,6 +124,38 @@ describe("generated artifacts", () => {
     expect(lintText(doc, set).errorCount).toBe(0);
   });
 
+  /**
+   * What the judge reads for.
+   *
+   * A pattern finds an acronym and a camel-cased name. It cannot find "the
+   * JSON merge" or "by-name behaviour", which is what the reader stops on:
+   * measured 2026-08-19, `unglossed-term` fired zero times on all five replies
+   * that drew a complaint. The model is the only thing in the package that can
+   * see that class, so the ruleset states it and `render` puts it in the
+   * prompt rather than the prompt carrying wording nothing governs.
+   */
+  it("asks the chat judge about terms nobody explained", () => {
+    const prompts = renderPrompts(set);
+    expect(prompts["chat"]).toContain("by-name behaviour");
+    expect(prompts["chat"].replace(/\s+/g, " ")).toContain(
+      "nothing in the reply says what it is",
+    );
+  });
+
+  it("asks the chat judge whether the reply ever lets up", () => {
+    expect(renderPrompts(set)["chat"].replace(/\s+/g, " ")).toContain(
+      "breaking two or three of them in half would cost nothing",
+    );
+  });
+
+  it("keeps the judge's checks in the ruleset, not in render", () => {
+    // The failure this prevents: wording in a generated prompt that no config
+    // governs, so a project cannot change it and `render --check` cannot see
+    // it drift.
+    const ids = (set.chat.judge ?? []).map((j) => j.id);
+    expect(ids).toContain("unexplained-terms");
+  });
+
   it("commits no absolute path, only the placeholder", () => {
     const prompts = renderPrompts(set);
     expect(prompts["docs"]).toContain("{{PROJECT_DIR}}");

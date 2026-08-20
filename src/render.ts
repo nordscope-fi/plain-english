@@ -528,6 +528,17 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "about to do, it covers a second topic nobody asked about, or it names files, keys",
     "and flags where a plain description would do.",
     "",
+    // Stated in the ruleset, not here. A generated prompt carrying wording no
+    // config governs is wording a project cannot change and `render --check`
+    // cannot see drift in.
+    ...(set.chat.judge.length
+      ? [
+          "Refuse for these as well, and they outrank the calibration below. A count",
+          "brought the reply here; these are what the count cannot see.",
+          ...set.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
+          "",
+        ]
+      : []),
     "When you refuse, `reason` must say what the reply should have led with, in one",
     "sentence, quoting the line that should have been first.",
     "",

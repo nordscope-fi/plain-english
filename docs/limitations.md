@@ -95,7 +95,17 @@ Those rows were run against the live binaries on 2026-08-18, so they are `observ
 
 **One limitation is worth reading before you set `failOn: error`.** Claude Code runs the hook in print mode and does not act on the block: the turn ends anyway. Isolated with a minimal always-block hook that has nothing to do with this package, so it is not something in this adapter. Under `claude -p`, treat the chat channel as advisory whatever `failOn` says. Whether an interactive session honours the block is untested.
 
-Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A once-per-turn state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
+Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
+
+The bound is two blocks a turn, and the second one is narrow. A block that named nothing but a dash is asking for a substitution, so the reply that comes back is the same reply with different characters, and nothing has yet judged whether a reader could follow it. Across the 218 replies the gate judged in the three days to 2026-08-19 it blocked 69, and 38 of those said nothing but that. So the second block is available only after a punctuation-only first one, and only when the rewrite fails something else. The state file records that it has been used, which is what stops a third.
+
+### The gate sees one message a turn
+
+A stop event fires when a turn ends, and it carries the last message. Whatever the model said earlier in the same turn, in the gaps between tool calls, is not in the payload, and no hook fires on it.
+
+That is most of what a reader reads. Of the 301 replies `lint --chat` flagged for length or name load over the three days to 2026-08-19, 186 were said mid-turn and 115 were the last word of one.
+
+Nothing here can close that. There is no per-message hook, and `MessageDisplay` is display-only for the reasons just below. So the division of labour is real rather than tidy: the output style shapes what gets said mid-turn, the stop hook judges the last word, and `lint --chat` is the only thing that measures both.
 
 **`plain-english lint --chat`** reads what was already said. Every agent writes its sessions to local disk, so this is the one thing here that measures rather than instructs, and the number it produces is the reason the stop hook exists at all. It splits findings by main loop against subagent, because an output style never reaches a subagent and a single number across both hides exactly the gap worth knowing about.
 

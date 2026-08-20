@@ -26,7 +26,7 @@ import {
 } from "./adapters/hook.ts";
 import type { HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
-import { isJudge, judgeInput, runJudge, usableReason } from "./adapters/judge.ts";
+import { isJudge, judgeInput, lastAsked, runJudge, usableReason } from "./adapters/judge.ts";
 import type { Decision } from "./adapters/hook.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
@@ -674,23 +674,6 @@ function cmdExplain(args: Args): number {
  * chat hook that refused a turn because it could not find the text would be
  * worse than no chat hook.
  */
-/**
- * The reader's last message, for the judge.
- *
- * Every exception the ruleset grants ("the reader asked you to explain", "the
- * options are the answer") is a fact about the question rather than about the
- * reply, so a judge shown only the reply is being asked to guess. Each agent
- * names this differently and some send nothing, which is why the judge treats
- * an absent value as ordinary rather than as an error.
- */
-function lastUserMessage(payload: Record<string, unknown>): string | undefined {
-  for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
-    const v = payload[key];
-    if (typeof v === "string" && v.trim()) return v;
-  }
-  return undefined;
-}
-
 /** The ruleset a hook judges by, resolved from the directory it fired in. */
 function ruleSetFor(cwd: string): RuleSet {
   try {
@@ -725,7 +708,7 @@ function hookChat(
       if (isJudge()) return undefined;
       const prompt = renderPrompts(ruleSetFor(cwd))["chat"];
       if (!prompt) return undefined;
-      const verdict = runJudge(judgeInput(r, lastUserMessage(payload), findings), {
+      const verdict = runJudge(judgeInput(r, lastAsked(payload, reader), findings), {
         prompt,
         command: "claude",
         // No tools, no file reads, one turn. The judge answers a question
