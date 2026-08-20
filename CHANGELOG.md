@@ -4,6 +4,24 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-08-20
+### Added
+
+- **Whether a reply can be read is now asked on its own, before the length judge.** It used to be a clause inside the length prompt, and the two questions pull against each other: one is hunting for a reason to waive, the other for a reason to refuse, so a single prompt answers whichever it was framed around. Measured across five replies, three runs each: alone the check refused the unreadable reply every run, scoring 4, 3 and 7, and passed all four legitimate replies every run at 0 to 2. Folded into the length prompt the same model passed the unreadable reply twice.
+
+  It is a count, not a judgement, and that is the whole trick. Asked "could a reader follow this?" the judge says yes, because it knows every term in the reply and cannot simulate not knowing. Asked to list the terms nothing explains, it lists them. The prompt makes it enumerate first and derive the verdict from its own list; asked for the verdict directly it refused three replies out of five that were fine.
+
+  The extra call runs only when a count has already fired, which is roughly one reply in nine, and only its refusals short-circuit. `chat.readable` in the ruleset holds the threshold and the wording.
+
+### Fixed
+
+- **`reader-load` counts a name wherever the reply put it.** It read backticked spans only, so a reply could set fifteen unfamiliar names in a table and cost the counter nothing. Measured over 18,488 replies: the median load goes from 0 to 1 and the ninetieth percentile from 9 to 14. The limit stays at 12 rather than rising to the 20 that would restore the old firing rate, because the number was chosen to sit under the load a reader complains about and the counter is now closer to measuring that.
+
+  Not a complete answer, and the ruleset says so. The reply that prompted this scores 11 and still passes, because half of what it asked the reader to carry was ordinary-looking words used as names. No pattern reaches those.
+
+- **The judge no longer answers the reader's question instead of judging.** Given a short reply reading "Did the tests actually pass?", it replied "Yes, 735 passed". A fine answer and a dead gate. Both judge prompts now say they are not part of the conversation.
+
+
 ## [0.19.0] - 2026-08-20
 ### Added
 
@@ -449,7 +467,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.20.0
 [0.19.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.19.0
 [0.18.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.18.0
 [0.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.17.0

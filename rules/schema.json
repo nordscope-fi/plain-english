@@ -385,6 +385,26 @@
             "type": "string"
           }
         },
+        "readable": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The check that asks whether a reply can be read at all, run as its own call before the length judge. Separate because the two questions pull against each other: the length judge looks for a reason to waive, this one for a reason to refuse.",
+          "required": [
+            "maxUnexplained",
+            "description"
+          ],
+          "properties": {
+            "maxUnexplained": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Refuse above this many terms the reply names and never explains."
+            },
+            "description": {
+              "type": "string",
+              "description": "What the judge is told to look for. Phrased as a list-and-count instruction, because a judgement does not work: the judge knows every term and cannot simulate not knowing."
+            }
+          }
+        },
         "judge": {
           "description": "What the chat judge reads for beyond whether the length was earned. Each entry becomes a bullet in the generated prompt. Here rather than in the renderer because a prompt carrying wording no config governs is wording a project cannot change.",
           "type": "array",

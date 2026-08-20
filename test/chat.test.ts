@@ -1252,3 +1252,60 @@ describe("a refusal is held to the rules it enforces", () => {
     expect(usableReason('It should have led with "Yes."', set)).toBe(true);
   });
 });
+
+
+/**
+ * A name in a table is still a name.
+ *
+ * `reader-load` counted backticked spans only, so a reply could put fifteen
+ * unfamiliar names in a table and the counter saw none of them. That is not
+ * hypothetical: on 2026-08-20 a reply did exactly that and was answered with
+ * "I have no idea of anything you just wrote".
+ */
+describe("reader-load sees a name wherever the reply put it", () => {
+  const set = chatRuleSet(compile(loadDefault()), "standard");
+
+  const table = [
+    "Here is what I found.",
+    "",
+    "```",
+    "rule                     host-one   host-two",
+    "puffery-nouns            deny       deny",
+    "promotional-adjectives   deny       deny",
+    "evolving-landscape       deny       deny",
+    "abstract-landscape       deny       deny",
+    "deeply-rooted            deny       deny",
+    "reply-pace               deny       deny",
+    "reader-load              deny       deny",
+    "unreadable-ask           deny       deny",
+    "unglossed-term           deny       deny",
+    "binary-contrast          deny       deny",
+    "weasel-attribution       deny       deny",
+    "synonym-cycling          deny       deny",
+    "hedging-stacks           deny       deny",
+    "```",
+  ].join("\n");
+
+  it("counts the names in a fenced table", () => {
+    const findings = lintText(table, set).findings.filter((f) => f.ruleId === "reader-load");
+    expect(findings.length, "a table of fifteen names cost the counter nothing").toBe(1);
+  });
+
+  it("does not count ordinary English as a name", () => {
+    // The counter has to stay blind to prose or it fires on every reply. Only
+    // identifier-shaped text counts: an internal hyphen or underscore, a flag,
+    // a filename, a path.
+    const prose = Array.from(
+      { length: 40 },
+      (_, i) => `This sentence is about the thing and it is number ${i}.`,
+    ).join(" ");
+    const findings = lintText(prose, set).findings.filter((f) => f.ruleId === "reader-load");
+    expect(findings, "plain prose counted as names").toEqual([]);
+  });
+
+  it("still counts a backticked name, which is how it always worked", () => {
+    const ticked = Array.from({ length: 30 }, (_, i) => `\`name-${i}\``).join(" and ");
+    const findings = lintText(ticked, set).findings.filter((f) => f.ruleId === "reader-load");
+    expect(findings.length).toBe(1);
+  });
+});

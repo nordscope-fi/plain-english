@@ -1098,6 +1098,25 @@ chat:
       # 12 since 2026-08-19, down from 15. The three-day re-read put the
       # 90th-percentile reply at 15 names exactly, so the old number was
       # measuring the top tenth rather than the load a reader complains about.
+      #
+      # Held at 12 on 2026-08-20 while the counter changed under it. It read
+      # backticked spans only, so a reply could set fifteen names in a table
+      # and cost the counter nothing; it now reads identifier-shaped text
+      # anywhere in the reply. Measured over 18,488 replies: the median load
+      # goes 0 to 1, the 90th percentile 9 to 14, and 12 fires on 11.1% of
+      # replies where it used to fire on 7.2%.
+      #
+      # Not raised to 20, which would have restored the old rate. The number
+      # was chosen to sit under the 90th percentile of the load a reader
+      # complains about, and the counter is now closer to measuring that load
+      # rather than measuring how often somebody reached for backticks. The
+      # judge waives what was genuinely asked for, which is what makes the
+      # stricter reading affordable.
+      #
+      # A floor, not the whole load. The reply that prompted this scores 11 and
+      # would still pass, because half of what it asked the reader to carry was
+      # ordinary-looking words used as names. No pattern reaches those, which
+      # is why `judge` gained `reads-as-an-internal-note` in the same change.
       maxTerms: 12
       message: "Name the thing, not its configuration. Say what it does before you name it."
       link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
@@ -1266,6 +1285,44 @@ chat:
   # So this is asked of the model, which reads meaning, rather than added to a
   # word list. It runs on the replies a count has already stopped, which costs
   # no extra call.
+  # Can this reply be read by the person who asked?
+  #
+  # Its own call, before the length judge. The two questions pull against each
+  # other: the length judge is hunting for a reason to waive and this one for a
+  # reason to refuse, so a single prompt answers whichever it was framed
+  # around. Measured 2026-08-20 across four replies, two runs each. Alone, this
+  # separated them every time: the reply the reader answered with "I have no
+  # idea of anything you just wrote" scored 3 and 6, and the three replies that
+  # were fine scored 1, 0 and 0. Folded into the length prompt, the same model
+  # passed the unreadable reply twice and refused a good one.
+  #
+  # A COUNT, not a judgement, and that is the whole trick. Asked "could a
+  # reader follow this?" the judge says yes, because it knows every term in the
+  # reply and cannot simulate not knowing. Asked to LIST the terms nothing
+  # explains, it lists them.
+  readable:
+    # 2, and the gap around it is wide. Final measurement 2026-08-20, five
+    # replies, three runs each, on the prompt as shipped:
+    #
+    #   the reply that prompted this   4  3  7   refused every run
+    #   a short plain answer           0  0  0
+    #   a walkthrough that was asked for   0  0  0
+    #   a short answer quoting output  0  0  0
+    #   the reply explaining this fix  1  1  2
+    #
+    # Nothing legitimate came within two of the line and the unreadable reply
+    # never came close to it. A false refusal costs one rewrite and no more:
+    # `shouldBlock` holds a turn once and records it, so there is never a loop.
+    maxUnexplained: 2
+    description: >-
+      List every term the reply NAMES but never EXPLAINS. A term counts as
+      explained only if the reply says, in ordinary words, what that thing is.
+      Names of rules, tools, files, flags, commands and version numbers all
+      count, including ones inside a table or a fenced block. Do not credit a
+      term as explained because you happen to know what it means. Quoted
+      command output does not count: a number or a path inside quoted output is
+      evidence, not a name the reader has to carry.
+
   judge:
     - id: unexplained-terms
       description: >-
@@ -1277,6 +1334,22 @@ chat:
       description: >-
         Every sentence carries a full load for the whole reply. Refuse when
         breaking two or three of them in half would cost nothing.
+
+    # Added 2026-08-20, after a reply drew "I have no idea of anything you just
+    # wrote". Every check before this one asks whether the reply is too long.
+    # None of them asks whether it can be read, and length was not what went
+    # wrong: the reply was a grid of six rule names and five tool names, none
+    # of them explained.
+    #
+    # No count reaches it, and that is measured rather than assumed. Under the
+    # name counter the reply scores 11, below the limit of 12, because half the
+    # load was ordinary-looking words used as names. Only a reader can see this
+    # fault, so only the judge can hold it.
+    - id: answers-a-question-nobody-asked
+      description: >-
+        The reader asked something small and the reply answered something
+        large. Refuse when the first sentence does not answer the question as
+        it was put, and say what the one-sentence answer was.
 
   expand:
     - "The reader asked you to explain, or to walk them through it."
