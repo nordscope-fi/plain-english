@@ -466,6 +466,52 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     JSON_CONTRACT,
   ].join("\n");
 
+  /**
+   * Can this reply be read by the person who asked?
+   *
+   * A separate call from the length judge, because the two questions pull
+   * against each other and a single prompt answers whichever it was framed
+   * around. Runs first: a reply nobody can decode has no length worth earning.
+   */
+  const readable = set.chat.readable
+    ? [
+        TXT_BANNER,
+        "",
+        "A reply is about to be sent. You are checking one thing about it.",
+        "",
+        "You are not part of the conversation. Never answer the reader's question",
+        "yourself, never continue the reply, and output nothing but one JSON object.",
+        "",
+        "Hook input (the reader's last message, then the reply):",
+        "$ARGUMENTS",
+        "",
+        ...wrap(set.chat.readable.description),
+        "",
+        // The declared vocabulary matters more here than anywhere else: it is
+        // precisely the list of terms this project's readers already have, so
+        // counting one as unexplained would refuse a reply for being clear.
+        ...vocab,
+        // List first, verdict second, and that order is the finding.
+        //
+        // Asked for a verdict directly, this check refused replies that were
+        // fine: three of five cases on 2026-08-20, including a walkthrough the
+        // reader had asked for. Asked to enumerate and then derive the verdict
+        // from its own list, the same model on the same five separated them.
+        // Enumerating is a task it can do; judging readability is not, because
+        // it can read anything.
+        "First list them. Then set \"ok\" to false if and only if the list holds more than",
+        `${set.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
+        "one sentence what the reply should have led with.",
+        "",
+        "Your reason is shown to the reader and goes back to the model, so it is held to",
+        "the same rules as the reply. No em dashes: use a comma, parentheses, or a full",
+        "stop.",
+        "",
+        "Respond with ONLY JSON, nothing else, in this shape:",
+        '{"unexplained": ["...", "..."], "total": N, "ok": true or false, "reason": "..."}',
+      ].join("\n")
+    : "";
+
   const github = [
     TXT_BANNER,
     "",
@@ -541,12 +587,38 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
   const chat = [
     TXT_BANNER,
     "",
-    "A reply is about to be sent. A word count has already found it long, or found it",
-    "carrying many separate names. You decide only whether that was earned.",
+    // The framing decides the outcome, so it names both questions.
+    //
+    // This used to read "You decide only whether that was earned", which told
+    // the judge its job was length. Moving the readability checks above the
+    // waivers changed nothing while that sentence stood: tested on 2026-08-20
+    // against the reply that prompted this work, the judge still returned
+    // {"ok": true}. It was answering the question it had been given.
+    "A reply is about to be sent. A count found it long, or found it carrying many",
+    "separate names. You decide whether that length was earned.",
+    "",
+    // Hardening, not framing. A judge handed a short reply answered the
+    // reader's question instead of judging it: on 2026-08-20, given a reply
+    // reading \"Did the tests actually pass?\", it replied \"Yes, 735 passed\".
+    // A fine answer and a dead gate.
+    "You are not part of the conversation. Never answer the reader's question yourself,",
+    "never continue the reply, and output nothing but one JSON object.",
     "",
     "Hook input (the reader's last message, then the reply):",
     "$ARGUMENTS",
     "",
+    // FIRST, above the waivers, and that order is the whole point.
+    //
+    // These used to sit below and say they outranked "the calibration", which
+    // is the paragraph at the bottom and not the waiver list at the top. So a
+    // reply was waived for being mostly a table before anything asked whether
+    // the table could be followed, and one was: a grid of six rule names and
+    // five tool names, none of them explained, waived on the table clause and
+    // answered with "I have no idea of anything you just wrote".
+    //
+    // A waiver decides whether the LENGTH was earned. These decide whether the
+    // reply can be READ. A reply that cannot be read has no length worth
+    // earning, so the second question has to be asked first.
     'Return {"ok": true}, waiving the length, if ANY of these hold:',
     ...set.chat.expand.map((e) => `- ${e}`),
     "- The reader asked a question whose honest answer is genuinely this long.",
@@ -557,9 +629,6 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "about to do, it covers a second topic nobody asked about, or it names files, keys",
     "and flags where a plain description would do.",
     "",
-    // Stated in the ruleset, not here. A generated prompt carrying wording no
-    // config governs is wording a project cannot change and `render --check`
-    // cannot see drift in.
     ...(set.chat.judge.length
       ? [
           "Refuse for these as well, and they outrank the calibration below. A count",
@@ -576,15 +645,14 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "reason that breaks a rule is thrown away and replaced with a bare word count, which",
     "helps nobody.",
     "",
-    "CALIBRATION. Waiving is the normal answer and a complete job. The reader would",
-    "rather read one long reply they asked for than lose an answer they needed. Refuse",
-    "only when a much shorter reply would have served them better.",
     "",
     ...vocab,
     JSON_CONTRACT,
   ].join("\n");
 
-  return { docs, github, issue, chat };
+  const out: Record<string, string> = { docs, github, issue, chat };
+  if (readable) out["chat-readable"] = readable;
+  return out;
 }
 
 export interface RenderTarget {

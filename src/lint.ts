@@ -584,6 +584,18 @@ function subordinators(question: string): number {
   return (body.match(SUBORDINATORS) ?? []).length;
 }
 
+/**
+ * Text shaped like a name rather than like a word.
+ *
+ * One of: a flag (`--agent`), a word with an internal hyphen or underscore
+ * (`reader-load`, `max_words`), a dotted filename (`rules/default.yml`), or a
+ * path. Ordinary English matches none of these, which is the point: this runs
+ * over the whole reply including tables and fenced output, so anything looser
+ * would fire on every paragraph.
+ */
+const IDENTIFIER_NAME =
+  /(?:^|[\s"'(\[|`])((?:--?[a-z][a-z0-9-]{1,}|[a-z][a-z0-9]*(?:[-_][a-z0-9]+)+|[\w./~-]+\.[a-z]{2,4}|~?\/[\w./-]{3,}))(?=[\s"')\].,;:|`]|$)/gi;
+
 function readabilityFindings(
   text: string,
   ruleSet: RuleSet,
@@ -663,6 +675,23 @@ function readabilityFindings(
       for (const m of text.matchAll(/(?<!`)`([^`\n]{1,80})`(?!`)/g)) {
         const name = (m[1] ?? "").trim();
         if (name) names.add(name.toLowerCase());
+      }
+      // And every name the reply put anywhere else.
+      //
+      // Backticks alone counted only what the writer chose to mark up, so a
+      // reply could set fifteen unfamiliar names in a table or a fenced block
+      // and the counter saw none of them. On 2026-08-20 one did, and the
+      // answer was "I have no idea of anything you just wrote".
+      //
+      // Identifier-shaped only, so prose is never counted: an internal hyphen
+      // or underscore, a leading dash, a dotted filename, or a path. That is
+      // what `reader-load` and `--agent` have in common and what "the" does
+      // not. It is a floor rather than the whole load, and the ruleset says so:
+      // a tool called by an ordinary word is invisible to any pattern, which is
+      // why `chat.judge` carries `reads-as-an-internal-note` as well.
+      for (const m of text.matchAll(IDENTIFIER_NAME)) {
+        const name = (m[1] ?? "").trim().toLowerCase().replace(/[.,;:]+$/, "");
+        if (name.length > 2) names.add(name);
       }
       if (names.size > max) {
         add(

@@ -161,6 +161,28 @@ export type ChatGuidance = Levelled & {
 };
 
 /**
+ * The check that asks whether a reply can be read at all.
+ *
+ * Its own call, and separate from the length judge on purpose. The two
+ * questions pull against each other: the length judge is looking for a reason
+ * to waive, this one for a reason to refuse, and a single prompt holding both
+ * answers whichever it was framed around. Measured 2026-08-20 over four
+ * replies, two runs each: alone this check separated them every time, and
+ * inside the length prompt the same model passed an unreadable reply twice.
+ *
+ * `maxUnexplained` is a count rather than a judgement because a judgement did
+ * not work. Asked "could a reader follow this?" the model says yes, since it
+ * knows every term and cannot simulate not knowing. Asked to LIST the terms
+ * nothing explains, it lists them.
+ */
+export interface ChatReadable {
+  /** Refuse above this many terms the reply names and never explains. */
+  maxUnexplained: number;
+  /** What the judge is told to look for. */
+  description: string;
+}
+
+/**
  * The skeleton of a reply.
  *
  * Every other entry in this section is a rule about a reply. This is the shape
@@ -228,6 +250,8 @@ export interface ChatSection {
   expand: string[];
   /** The reply skeleton, when the ruleset carries one. */
   shape?: ChatShape;
+  /** The readability check, run as its own call before the length judge. */
+  readable?: ChatReadable;
   /** Worked replies, both halves. */
   examples: ChatExample[];
   /**
@@ -690,6 +714,22 @@ function readDocs(v: unknown): DocsSection {
   return out;
 }
 
+function readReadable(v: unknown): ChatReadable | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "object" || Array.isArray(v)) {
+    throw new RuleError("chat.readable must be a mapping");
+  }
+  const r = v as Record<string, unknown>;
+  if (typeof r["description"] !== "string") {
+    throw new RuleError("chat.readable.description must be a string");
+  }
+  const max = r["maxUnexplained"];
+  if (typeof max !== "number" || !Number.isInteger(max) || max < 0) {
+    throw new RuleError("chat.readable.maxUnexplained must be a whole number");
+  }
+  return { maxUnexplained: max, description: r["description"] };
+}
+
 function readShape(v: unknown): ChatShape | undefined {
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "object" || Array.isArray(v)) {
@@ -848,6 +888,7 @@ function readChat(v: unknown): ChatSection {
 
   out.expand = asStringArray(c["expand"], "chat.expand");
   out.shape = readShape(c["shape"]);
+  out.readable = readReadable(c["readable"]);
   out.examples = readExamples(c["examples"]);
   out.judge = readChatJudge(c["judge"]);
   if (c["failOn"] !== undefined) {
@@ -1233,6 +1274,7 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     // one is nonsense, and a skeleton a project half-overrode would render as
     // two shapes disagreeing with each other.
     shape: overlay.shape ?? base.shape,
+    readable: overlay.readable ?? base.readable,
     examples: overlay.examples?.length ? overlay.examples : (base.examples ?? []),
     judge: overlay.judge?.length ? overlay.judge : (base.judge ?? []),
     ...(overlay.failOn ?? base.failOn ? { failOn: overlay.failOn ?? base.failOn } : {}),

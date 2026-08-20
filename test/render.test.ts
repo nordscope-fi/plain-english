@@ -516,6 +516,61 @@ describe("a project adjusts chat without forking the ruleset", () => {
  * "everybody here knows what a Deal is" was still asked for a gloss by the
  * model. `semantic: true` is what closes that.
  */
+/**
+ * Whether a reply can be read is asked on its own.
+ *
+ * It used to be a clause inside the length prompt, and the two questions pull
+ * against each other: one is looking for a reason to waive, the other for a
+ * reason to refuse. Measured on 2026-08-20 over four replies, two runs each.
+ * Asked alone the check separated them every time, the unreadable reply
+ * scoring 3 and 6 against 1, 0 and 0 for the three that were fine. Asked
+ * inside the length prompt the same model passed the unreadable reply twice
+ * and failed a good one.
+ */
+describe("the readable check is its own prompt", () => {
+  const set = compile(loadDefault());
+  const prompts = renderPrompts(set);
+
+  it("renders as a separate prompt", () => {
+    expect(prompts["chat-readable"]).toBeDefined();
+    expect(prompts["chat-readable"]).toContain("$ARGUMENTS");
+  });
+
+  it("states the threshold from the ruleset, not a number in the renderer", () => {
+    expect(set.chat.readable).toBeDefined();
+    expect(prompts["chat-readable"]).toContain(String(set.chat.readable!.maxUnexplained));
+    const tweaked = {
+      ...set,
+      chat: { ...set.chat, readable: { ...set.chat.readable!, maxUnexplained: 9 } },
+    };
+    expect(renderPrompts(tweaked)["chat-readable"]).toContain("9");
+  });
+
+  it("asks it to list before it decides, which is what made it reliable", () => {
+    // Asked "could a reader follow this?" the judge said yes twice on a reply
+    // the reader could not follow, because the judge knows every term in it and
+    // cannot simulate not knowing. Asked to LIST the unexplained terms, the
+    // same model on the same reply returned five. Counting is a task it can do.
+    expect(prompts["chat-readable"]).toMatch(/list every term/i);
+  });
+
+  it("keeps the length prompt about length", () => {
+    // The two questions live in two prompts now, so neither has to hold both.
+    expect(prompts["chat"]).not.toMatch(/list every term/i);
+  });
+
+  it("tells both judges they are not in the conversation", () => {
+    // A judge handed a short reply answered the reader's question instead of
+    // judging it. Observed 2026-08-20 on a reply reading "Did the tests pass?",
+    // where the judge replied "Yes, 735 passed": a fine answer and a dead gate.
+    for (const id of ["chat", "chat-readable"]) {
+      expect(prompts[id], `${id} does not say it is not a participant`).toMatch(
+        /not part of the conversation/i,
+      );
+    }
+  });
+});
+
 describe("project vocabulary in the prompts", () => {
   const withVocabulary = (allow: unknown[]) =>
     renderPrompts(

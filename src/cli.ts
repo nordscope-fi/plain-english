@@ -706,9 +706,39 @@ function hookChat(
      */
     judge: (r, findings) => {
       if (isJudge()) return undefined;
-      const prompt = renderPrompts(ruleSetFor(cwd))["chat"];
+      const prompts = renderPrompts(ruleSetFor(cwd));
+      const input = judgeInput(r, lastAsked(payload, reader), findings);
+      const run = (prompt: string) =>
+        runJudge(input, {
+          prompt,
+          command: "claude",
+          args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
+          cwd: resolve(cwd),
+        });
+
+      /**
+       * Can this reply be read? Asked first, and asked on its own.
+       *
+       * Two questions in one prompt answer whichever the prompt was framed
+       * around, and this one lost: measured 2026-08-20, the combined judge
+       * passed an unreadable reply twice while the same check alone caught it
+       * both times. So it runs first and its refusal is final. A reply nobody
+       * can decode has no length worth earning, and no waiver rescues it.
+       *
+       * Only a refusal short-circuits. A pass falls through to the length
+       * judge, which is the question that was always being asked here.
+       */
+      const readablePrompt = prompts["chat-readable"];
+      if (readablePrompt) {
+        const readable = run(readablePrompt);
+        if (readable && !readable.ok && readable.reason) {
+          if (usableReason(readable.reason, chatRuleSet(ruleSetFor(cwd)))) return readable;
+        }
+      }
+
+      const prompt = prompts["chat"];
       if (!prompt) return undefined;
-      const verdict = runJudge(judgeInput(r, lastAsked(payload, reader), findings), {
+      const verdict = runJudge(input, {
         prompt,
         command: "claude",
         // No tools, no file reads, one turn. The judge answers a question
