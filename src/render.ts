@@ -158,6 +158,22 @@ export function renderWritingStyle(set: RuleSet): string {
   out.push(`# ${set.meta.title}`, "");
   if (set.meta.intro) out.push(set.meta.intro, "");
 
+  // Before the prohibitions, not after them. This document opened straight
+  // into a table of banned words, so a reader arriving with a blank page found
+  // forty things not to do and nothing to do.
+  if (set.docs.guidance.length) {
+    out.push("## Writing a document", "");
+    if (set.docs.scope) out.push(...wrap(set.docs.scope), "");
+    for (const g of set.docs.guidance) {
+      out.push(`### ${g.name ?? g.id}`, "");
+      if (g.description) out.push(...wrap(g.description), "");
+      if (g.bad) out.push(`Not this: ${g.bad}`);
+      if (g.good) out.push(`This: ${g.good}`);
+      if (g.bad || g.good) out.push("");
+    }
+    out.push("## What to cut", "");
+  }
+
   out.push("Two severities:", "");
   out.push("| Severity | Effect |");
   out.push("|---|---|");
@@ -412,6 +428,18 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
   /** The vocabulary paragraph, or nothing, without leaving a blank line. */
   const vocab = vocabulary ? [vocabulary, ""] : [];
 
+  // The docs channel is the only one that gets these. A commit message and an
+  // issue body are not documents, and a gate demanding a purpose paragraph
+  // from a one-line commit is a gate people switch off.
+  const shapeFaults = set.docs.guidance
+    .map((g) => g.flag)
+    .filter((f): f is string => Boolean(f));
+  const shapeLine = shapeFaults.length
+    ? [
+        `- Faults of shape. About what the document does, not which words it uses: ${shapeFaults.join(" ")}`,
+      ]
+    : [];
+
   const docs = [
     TXT_BANNER,
     "",
@@ -428,6 +456,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "Otherwise judge ONLY the content or new_string being written. Flag:",
     `- Banned terms: ${words}`,
     `- Sentence shapes: ${shapes}`,
+    ...shapeLine,
     "",
     ...vocab,
     CALIBRATION,
@@ -564,6 +593,23 @@ export interface RenderTarget {
 }
 
 /**
+ * One guidance item in a single line.
+ *
+ * `short` when the ruleset supplies one, otherwise the first sentence of the
+ * description. The fallback is what keeps `short` optional: a project overlay
+ * that adds a rule still renders at every level without writing the line twice.
+ */
+function shortOf(g: { short?: string; description?: string; name?: string; id: string }): string {
+  if (g.short) return g.short;
+  const d = (g.description ?? "").replace(/\s+/g, " ").trim();
+  if (!d) return g.name ?? g.id;
+  // Split on a full stop that ends a sentence, not on one inside `src/auth.ts`
+  // or an abbreviation, so the fallback does not truncate mid-path.
+  const end = d.search(/\.(\s|$)/);
+  return end === -1 ? d : d.slice(0, end + 1);
+}
+
+/**
  * The guidance itself, with no host's packaging around it.
  *
  * Shared by the Claude Code output style and the AGENTS.md fragment so the two
@@ -586,16 +632,45 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
 
-  for (const g of chat.guidance) {
-    if (!inLevel(g, level)) continue;
-    out.push(`## ${g.name ?? g.id}`, "");
-    if (g.description) out.push(...wrap(fill(g.description)), "");
-    // Quoted rather than paraphrased. A rule about how to write is easier to
-    // follow from one example of each than from another sentence describing
-    // the difference.
-    if (g.bad) out.push(`Not this: ${g.bad}`);
-    if (g.good) out.push(`This: ${g.good}`);
-    if (g.bad || g.good) out.push("");
+  // The skeleton, before the rules rather than after them. Everything below is
+  // a rule about a reply; this is the shape of one, and a model reproduces a
+  // shape it was shown far more reliably than one it has to derive from a
+  // list. The fence matters: the masking pass blanks a code node, so the
+  // placeholder text inside is never linted as prose.
+  const shape = chat.shape;
+  if (shape && inLevel(shape, level)) {
+    out.push(`## ${shape.name}`, "");
+    if (shape.description) out.push(...wrap(fill(shape.description)), "");
+    out.push("```text", ...shape.template.replace(/\n+$/, "").split("\n"), "```", "");
+  }
+
+  const guidance = chat.guidance.filter((g) => inLevel(g, level));
+
+  // A checklist, or a rule per heading. The level decides, not this function,
+  // so a project can shorten its own level without patching the renderer.
+  // Nine bullets need no grouping, so this stays one flat section rather than
+  // earning a group key.
+  const compact = chat.levels.find((l) => l.id === level)?.form === "bullets";
+
+  if (compact) {
+    if (guidance.length) {
+      out.push("## The rules", "");
+      for (const g of guidance) {
+        out.push(...wrap(`- **${g.name ?? g.id}.** ${fill(shortOf(g))}`, "  "));
+      }
+      out.push("");
+    }
+  } else {
+    for (const g of guidance) {
+      out.push(`## ${g.name ?? g.id}`, "");
+      if (g.description) out.push(...wrap(fill(g.description)), "");
+      // Quoted rather than paraphrased. A rule about how to write is easier to
+      // follow from one example of each than from another sentence describing
+      // the difference.
+      if (g.bad) out.push(`Not this: ${g.bad}`);
+      if (g.good) out.push(`This: ${g.good}`);
+      if (g.bad || g.good) out.push("");
+    }
   }
 
   // The two numbers a reply is measured against, printed with the values the
@@ -623,19 +698,33 @@ function styleBody(set: RuleSet, level: string): string[] {
         );
       }
     }
-    out.push(
-      "",
-      ...wrap(
-        "Both give way to the exceptions below. A reply that was asked to go deep is not too long, and a check that cannot tell the difference asks before it refuses.",
-      ),
-      "",
-    );
+    if (!compact) {
+      out.push(
+        "",
+        ...wrap(
+          "Both give way to the exceptions below. A reply that was asked to go deep is not too long, and a check that cannot tell the difference asks before it refuses.",
+        ),
+      );
+    }
+    out.push("");
   }
 
   const tells = chat.tells.filter((t) => t.severity !== "off" && inLevel(t, level));
   if (tells.length) {
     out.push("## Do not open or close with these", "");
     for (const t of tells) {
+      // Compact prints the instruction and one example, not the whole list.
+      // These are literal phrases matched deterministically, and `chat.failOn`
+      // is `error`, so the gate blocks every one of them whether or not the
+      // style spells them out. At full length the list teaches the shape; at
+      // this length it is the largest section in the file and teaches nothing
+      // the gate does not already enforce.
+      if (compact) {
+        const rest = t.phrases.length - 1;
+        const tail = rest > 0 ? ` (and ${rest} more like it)` : "";
+        out.push(...wrap(`- "${t.phrases[0]}"${tail}. ${t.message ?? ""}`.trim(), "  "));
+        continue;
+      }
       const phrases = t.phrases.map((p) => `"${p}"`).join(", ");
       out.push(...wrap(`- ${phrases}. ${t.message ?? ""}`.trim(), "  "));
     }
@@ -649,12 +738,34 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("");
   }
 
+  const examples = chat.examples.filter((e) => inLevel(e, level));
+  if (examples.length) {
+    out.push("## Worked examples", "");
+    for (const e of examples) {
+      out.push(`### ${e.name ?? e.id}`, "");
+      if (e.ask) out.push(...wrap(`They asked: ${e.ask}`), "");
+      // Blockquoted, and that is the mechanism rather than the styling. A bad
+      // example has to open with a phrase the ruleset bans or it is not an
+      // example of anything, and the masking pass skips a blockquote node, so
+      // the file still lints clean under the rules it is illustrating.
+      if (e.bad) out.push("Not this:", "", ...quote(e.bad), "");
+      if (e.good) out.push("This:", "", ...quote(e.good), "");
+      if (e.note) out.push(...wrap(e.note), "");
+    }
+  }
+
   if (chat.expand.length) {
     out.push("## When to expand instead", "");
+    // The precedence line stays at every form. Without it the level lists six
+    // reasons to go long next to a 225-word ceiling and never says which wins,
+    // which is the one thing a reader cannot work out for themselves. Compact
+    // drops the sentence that restates it, not the rule.
     out.push(
       ...wrap(
-        "These outrank everything above. A short reply that drops the answer is a " +
-          "worse failure than a long one.",
+        compact
+          ? "These outrank everything above."
+          : "These outrank everything above. A short reply that drops the answer is a " +
+              "worse failure than a long one.",
       ),
       "",
     );
@@ -675,6 +786,20 @@ function styleBody(set: RuleSet, level: string): string[] {
  * paragraph assembled from YAML arrives as one very long line. `continuation`
  * indents every line after the first, which is what a list item needs.
  */
+/**
+ * A block of example prose as a markdown blockquote.
+ *
+ * `src/mask.ts` skips a blockquote node, so everything here is invisible to
+ * the linter. That is what lets a worked example show the reply nobody should
+ * write without the style failing its own rules.
+ */
+function quote(text: string): string[] {
+  return text
+    .replace(/\n+$/, "")
+    .split("\n")
+    .flatMap((line) => (line.trim() ? wrap(line.trim(), "> ").map((l, i) => (i === 0 ? `> ${l}` : l)) : [">"]));
+}
+
 function wrap(text: string, continuation = "", width = 78): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -743,6 +868,63 @@ export function outputStylePath(set: RuleSet, level: string): string {
     : `integrations/claude-code/output-styles/plain-english-${level}.md`;
 }
 
+/**
+ * Where the generated document guidance is installed.
+ *
+ * A skill rather than a fourth output style, and that is a constraint of the
+ * host rather than a preference: an output style is session-global and there
+ * is one slot, which the chat style holds. A skill loads when somebody writes
+ * a document and costs nothing the rest of the time.
+ */
+export function docsSkillPath(set: RuleSet): string {
+  return `integrations/claude-code/skills/${set.docs.skill.name}/SKILL.md`;
+}
+
+/**
+ * The document guidance, as a skill.
+ *
+ * No `keep-coding-instructions`: that key tells an output style host to hold
+ * on to its own engineering instructions, and a skill is not an output style.
+ */
+export function renderDocsSkill(set: RuleSet): string {
+  const docs = set.docs;
+  const out: string[] = [
+    "---",
+    `name: ${docs.skill.name}`,
+    `description: ${docs.skill.description.replace(/\s+/g, " ").trim()}`,
+    "---",
+    "",
+    "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit. -->",
+    "",
+    "# Writing a document",
+    "",
+  ];
+
+  if (docs.scope) out.push(...wrap(docs.scope), "");
+
+  // The prohibitions stay where they are. `plain-english lint` owns every
+  // banned term and sentence shape already, and restating them here would give
+  // a reader two lists to keep in step.
+  out.push(
+    ...wrap(
+      "This is about the shape of a document. What not to write in one is already " +
+        "checked: run `npx plain-english lint <file>` and fix what it reports.",
+    ),
+    "",
+  );
+
+  for (const g of docs.guidance) {
+    out.push(`## ${g.name ?? g.id}`, "");
+    if (g.description) out.push(...wrap(g.description), "");
+    if (g.bad) out.push(`Not this: ${g.bad}`);
+    if (g.good) out.push(`This: ${g.good}`);
+    if (g.bad || g.good) out.push("");
+  }
+
+  while (out.length && out[out.length - 1] === "") out.pop();
+  return out.join("\n") + "\n";
+}
+
 /** Markers `init` splices between, so a re-run replaces only what it wrote. */
 export const AGENTS_MD_START = "<!-- plain-english:start -->";
 export const AGENTS_MD_END = "<!-- plain-english:end -->";
@@ -799,6 +981,16 @@ export function renderAll(set: RuleSet, root: string): RenderTarget[] {
       path: resolve(root, `integrations/claude-code/prompts/${name}.txt`),
       content,
     })),
+    // Guarded, so a ruleset with no `docs` key writes exactly the files it
+    // wrote before this section existed.
+    ...(set.docs.guidance.length
+      ? [
+          {
+            path: resolve(root, ...docsSkillPath(set).split("/")),
+            content: renderDocsSkill(set),
+          },
+        ]
+      : []),
   ];
 }
 

@@ -123,6 +123,15 @@ export interface ChatLevel {
   id: string;
   name: string;
   description?: string;
+  /**
+   * How this level renders.
+   *
+   * `sections` gives every rule its own heading and paragraph, which is right
+   * when the reader has room for it. `bullets` gives one checklist, which is
+   * the point of a level that exists to be short. Absent means `sections`, so
+   * a level written before this key keeps rendering the way it did.
+   */
+  form?: "sections" | "bullets";
 }
 
 /**
@@ -138,9 +147,52 @@ export type ChatGuidance = Levelled & {
   id: string;
   name?: string;
   description?: string;
+  /**
+   * The rule in one imperative line, for the checklist rendering.
+   *
+   * Optional. Without it the brief style falls back to the first sentence of
+   * `description`, so a project that adds guidance still renders at every
+   * level without having to write the line twice.
+   */
+  short?: string;
   bad?: string;
   good?: string;
   reason?: string;
+};
+
+/**
+ * The skeleton of a reply.
+ *
+ * Every other entry in this section is a rule about a reply. This is the shape
+ * of one, and it is here because a model reproduces a shape far more reliably
+ * than it weighs eighteen rules and derives one.
+ *
+ * `template` reaches the style inside a fenced block, which the masking pass
+ * blanks, so its placeholder text is never read as prose by the linter.
+ */
+export type ChatShape = Levelled & {
+  name: string;
+  description?: string;
+  template: string;
+};
+
+/**
+ * A complete reply, both halves.
+ *
+ * `bad` opens with the phrases `chat.tells` bans, which is the point: an
+ * example of the reply nobody should write has to contain one. It reaches the
+ * style inside a blockquote, which the masking pass skips, so the style still
+ * lints clean under the ruleset it illustrates.
+ */
+export type ChatExample = Levelled & {
+  id: string;
+  name?: string;
+  /** What the reader asked, so the reply has something to be a reply to. */
+  ask?: string;
+  bad?: string;
+  good?: string;
+  /** One line on what separates the two, when the difference is not obvious. */
+  note?: string;
 };
 
 /**
@@ -174,6 +226,10 @@ export interface ChatSection {
   tells: ChatTell[];
   avoid: ChatAvoid[];
   expand: string[];
+  /** The reply skeleton, when the ruleset carries one. */
+  shape?: ChatShape;
+  /** Worked replies, both halves. */
+  examples: ChatExample[];
   /**
    * What the chat judge reads for, beyond whether the length was earned.
    *
@@ -223,6 +279,39 @@ export function inLevel(entry: Levelled, level: string): boolean {
 
 export type FailOn = "error" | "warn" | "never";
 
+/**
+ * One rule about the shape of a document.
+ *
+ * The same fields a chat guidance entry carries, plus `flag`. Two readers need
+ * this list and they need it phrased two ways: the skill tells a writer what
+ * to do, and the gate prompt needs the fault to look for. Holding both here is
+ * what stops the two drifting into disagreeing about the same rule.
+ */
+export type DocsGuidance = ChatGuidance & {
+  /** The rule as the fault, for the judge prompt. */
+  flag?: string;
+};
+
+/**
+ * How to write a document, as opposed to what to cut from one.
+ *
+ * The word rules, the readability rules and the sentence shapes already say
+ * what not to write, and until this section existed that was the whole docs
+ * channel: a judge listing prohibitions, and a reference titled "AI-Tell
+ * Patterns to Cut". A document can obey every one of those and still bury what
+ * it is for.
+ *
+ * No `levels`, `tells` or `limits`. A document that runs long is doing its job,
+ * and one rendering is enough: unlike the chat channel there is no menu of
+ * lengths for a reader to pick from.
+ */
+export interface DocsSection {
+  scope: string;
+  /** Where the generated guidance is installed, and what it is called. */
+  skill: { name: string; description: string };
+  guidance: DocsGuidance[];
+}
+
 export interface RuleSet {
   version: 1;
   meta: { title: string; intro: string };
@@ -242,6 +331,12 @@ export interface RuleSet {
   rules: Rule[];
   readability: ReadabilityRule[];
   structures: Structure[];
+  /**
+   * How to write a document. Empty when the ruleset carries no `docs` key, and
+   * every consumer checks, so a config written before this section still
+   * renders every target it used to.
+   */
+  docs: DocsSection;
   /**
    * The chat channel.
    *
@@ -537,9 +632,97 @@ const EMPTY_CHAT: ChatSection = {
   tells: [],
   avoid: [],
   expand: [],
+  examples: [],
   judge: [],
   limits: [],
 };
+
+const EMPTY_DOCS: DocsSection = { scope: "", skill: { name: "", description: "" }, guidance: [] };
+
+/**
+ * The docs section.
+ *
+ * Absent in every config written before it existed, and absent in most project
+ * configs, so a missing key is the normal case and never an error.
+ */
+function readDocs(v: unknown): DocsSection {
+  if (v === undefined || v === null) return { ...EMPTY_DOCS, guidance: [] };
+  if (typeof v !== "object" || Array.isArray(v)) throw new RuleError("docs must be a mapping");
+  const d = v as Record<string, unknown>;
+
+  const out: DocsSection = { ...EMPTY_DOCS, skill: { ...EMPTY_DOCS.skill }, guidance: [] };
+  if (d["scope"] !== undefined) {
+    if (typeof d["scope"] !== "string") throw new RuleError("docs.scope must be a string");
+    out.scope = d["scope"];
+  }
+
+  if (d["skill"] !== undefined) {
+    if (typeof d["skill"] !== "object" || d["skill"] === null || Array.isArray(d["skill"])) {
+      throw new RuleError("docs.skill must be a mapping");
+    }
+    const k = d["skill"] as Record<string, unknown>;
+    for (const f of ["name", "description"] as const) {
+      if (typeof k[f] !== "string") throw new RuleError(`docs.skill.${f} must be a string`);
+    }
+    // The name becomes a directory on disk and a key a loader matches on, so
+    // it takes the same shape as every other id in this file.
+    if (!ID_RE.test(k["name"] as string)) {
+      throw new RuleError("docs.skill.name must be a kebab-case string");
+    }
+    out.skill = { name: k["name"] as string, description: k["description"] as string };
+  }
+
+  if (d["guidance"] !== undefined) {
+    if (!Array.isArray(d["guidance"])) throw new RuleError("docs.guidance must be a list");
+    out.guidance = d["guidance"].map((raw, i) => {
+      const g = raw as Record<string, unknown>;
+      if (typeof g["id"] !== "string" || !ID_RE.test(g["id"])) {
+        throw new RuleError(`docs.guidance[${i}].id must be a kebab-case string`);
+      }
+      const entry: DocsGuidance = { id: g["id"] };
+      for (const k of ["name", "description", "short", "flag", "bad", "good", "reason"] as const) {
+        if (typeof g[k] === "string") entry[k] = g[k] as string;
+      }
+      return entry;
+    });
+  }
+
+  return out;
+}
+
+function readShape(v: unknown): ChatShape | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "object" || Array.isArray(v)) {
+    throw new RuleError("chat.shape must be a mapping");
+  }
+  const r = v as Record<string, unknown>;
+  for (const k of ["name", "template"] as const) {
+    if (typeof r[k] !== "string") throw new RuleError(`chat.shape.${k} must be a string`);
+  }
+  const out: ChatShape = { name: r["name"] as string, template: r["template"] as string };
+  if (typeof r["description"] === "string") out.description = r["description"];
+  const levels = readLevels(r["levels"], "chat.shape.levels");
+  if (levels) out.levels = levels;
+  return out;
+}
+
+function readExamples(v: unknown): ChatExample[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("chat.examples must be a list");
+  return v.map((raw, i) => {
+    const e = raw as Record<string, unknown>;
+    if (typeof e["id"] !== "string" || !ID_RE.test(e["id"])) {
+      throw new RuleError(`chat.examples[${i}].id must be a kebab-case string`);
+    }
+    const out: ChatExample = { id: e["id"] };
+    for (const k of ["name", "ask", "bad", "good", "note"] as const) {
+      if (typeof e[k] === "string") out[k] = e[k] as string;
+    }
+    const levels = readLevels(e["levels"], `chat.examples[${i}].levels`);
+    if (levels) out.levels = levels;
+    return out;
+  });
+}
 
 function readLevels(v: unknown, where: string): string[] | undefined {
   if (v === undefined) return undefined;
@@ -593,6 +776,12 @@ function readChat(v: unknown): ChatSection {
       }
       const level: ChatLevel = { id: l["id"] as string, name: l["name"] as string };
       if (typeof l["description"] === "string") level.description = l["description"];
+      if (l["form"] !== undefined) {
+        if (l["form"] !== "sections" && l["form"] !== "bullets") {
+          throw new RuleError(`chat.levels[${i}].form must be 'sections' or 'bullets'`);
+        }
+        level.form = l["form"];
+      }
       return level;
     });
   }
@@ -605,7 +794,7 @@ function readChat(v: unknown): ChatSection {
         throw new RuleError(`chat.guidance[${i}].id must be a kebab-case string`);
       }
       const entry: ChatGuidance = { id: g["id"] };
-      for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+      for (const k of ["name", "description", "short", "bad", "good", "reason"] as const) {
         if (typeof g[k] === "string") entry[k] = g[k] as string;
       }
       const levels = readLevels(g["levels"], `chat.guidance[${i}].levels`);
@@ -658,6 +847,8 @@ function readChat(v: unknown): ChatSection {
   }
 
   out.expand = asStringArray(c["expand"], "chat.expand");
+  out.shape = readShape(c["shape"]);
+  out.examples = readExamples(c["examples"]);
   out.judge = readChatJudge(c["judge"]);
   if (c["failOn"] !== undefined) {
     const f = c["failOn"];
@@ -778,6 +969,7 @@ export const KNOWN_TOP_LEVEL = new Set([
   "readability",
   "structures",
   "chat",
+  "docs",
 ]);
 
 /** Levenshtein distance, used only to suggest the key the author meant. */
@@ -843,6 +1035,7 @@ function toRuleSet(raw: RawSet): RuleSet {
     readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
     chat: readChat(raw.chat),
+    docs: readDocs((raw as { docs?: unknown }).docs),
     allow: readAllow(raw.allow),
     exclude: asStringArray(raw.exclude, "exclude"),
   };
@@ -917,8 +1110,43 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
     readability: [...readability.values()],
     structures: [...structures.values()],
     chat: mergeChat(base.chat, overlay.chat),
+    docs: mergeDocs(base.docs, overlay.docs),
     allow: [...base.allow, ...overlay.allow],
     exclude: [...base.exclude, ...overlay.exclude],
+  };
+}
+
+/**
+ * Merge one docs section over another.
+ *
+ * By id, like `mergeChat` does for guidance, and deliberately not wholesale
+ * the way `avoid` and `expand` are merged. Replacing the list would mean
+ * restating all of it to change one rule, which is how a list stops tracking
+ * the one it was copied from.
+ */
+function mergeDocs(base: DocsSection | undefined, overlay: DocsSection | undefined): DocsSection {
+  const b = base ?? EMPTY_DOCS;
+  if (!overlay) return { ...b, skill: { ...b.skill }, guidance: b.guidance.map((g) => ({ ...g })) };
+
+  const guidance = new Map(b.guidance.map((g) => [g.id, { ...g }]));
+  for (const g of overlay.guidance) {
+    const existing = guidance.get(g.id);
+    if (!existing) {
+      guidance.set(g.id, { ...g });
+      continue;
+    }
+    for (const k of ["name", "description", "short", "flag", "bad", "good", "reason"] as const) {
+      if (g[k]) existing[k] = g[k];
+    }
+  }
+
+  return {
+    scope: overlay.scope || b.scope,
+    skill: {
+      name: overlay.skill.name || b.skill.name,
+      description: overlay.skill.description || b.skill.description,
+    },
+    guidance: [...guidance.values()],
   };
 }
 
@@ -938,7 +1166,7 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
       guidance.set(g.id, { ...g });
       continue;
     }
-    for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+    for (const k of ["name", "description", "short", "bad", "good", "reason"] as const) {
       if (g[k]) existing[k] = g[k];
     }
     if (g.levels !== undefined) existing.levels = g.levels;
@@ -1001,6 +1229,11 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     // Nullish, like `limits` above and for the same reason: a chat section
     // hand-assembled by a consumer, or written before this key existed, reaches
     // here without it. That is an older config, not a reason to throw.
+    // Wholesale, like `avoid` and `expand`. An example is one unit and half of
+    // one is nonsense, and a skeleton a project half-overrode would render as
+    // two shapes disagreeing with each other.
+    shape: overlay.shape ?? base.shape,
+    examples: overlay.examples?.length ? overlay.examples : (base.examples ?? []),
     judge: overlay.judge?.length ? overlay.judge : (base.judge ?? []),
     ...(overlay.failOn ?? base.failOn ? { failOn: overlay.failOn ?? base.failOn } : {}),
     limits: [...limits.values()],

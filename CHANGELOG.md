@@ -4,6 +4,69 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-20
+### Added
+
+- **Ten rules drawn from two published rulesets.** Read on 2026-08-20 against the `unslop` skill in cursor/plugins and ClaudeFire's `readable.md`. Between them they name about fifty terms this ruleset had no rule for, including `tapestry`, `testament`, `pivotal`, `vibrant`, `nestled`, `substrate`, `north star`, `flywheel`, `footgun`, `blast radius`, `cargo cult` and `serves as`.
+
+  Grouped rather than one rule per word. Every live rule needs a corpus case, so forty-five ids would have meant ninety entries asserting the same thing ninety ways.
+
+  The split is by whether the word has a real sense worth protecting. Puffery blocks, because there is no technical reading of `tapestry` to preserve. A metaphor borrowed into engineering warns, because the writer may be quoting somebody or describing the literal thing, and no pattern can tell those apart.
+
+  Checked against two corpora before shipping. Zero findings across this repository's 28 markdown files. Eleven across 399 documents written for other purposes, every one a metaphorical `substrate`, `footgun` or `blast radius`, and no false positive from any of the other eight rules.
+
+  Sixteen candidates are deliberately absent: `surface`, `vector`, `primitive`, `features`, `enhance`, `crucial`, `seam`, `spine`, `ratchet`, `interplay`, `intricate`, `garner`, `enduring`, `haunted`, `sidecar` and `grooves`. Every one has a common literal sense in software prose, and shipping them tuned against no evidence is how this file acquired the false positives it has twice had to remove.
+
+### Fixed
+
+- **`explain` no longer asserts a hardcoded rule count.** The test read `expect(ids.length).toBe(52)`, which failed the first time a rule was added and was fixed by editing the expectation. The loop beneath it is what asserts the property, and the number only ever guarded against an empty list. It is now a floor, plus a check that no two rules share an id.
+
+
+## [0.18.0] - 2026-08-20
+### Added
+
+- **A `docs` section, so the document channel says how to write one and not only what to cut.** Everything the channel had was a prohibition: the gate prompt listed banned terms and sentence shapes, and `docs/writing-style.md` is titled "AI-Tell Patterns to Cut". A document can obey every one of those and still bury what it is for on the third screen. The chat channel has carried both halves all along; this is the missing half for documents. Six rules to start, covering the first paragraph, what a heading promises, showing a command instead of describing it, writing for one reader, empty sections, and pricing a recommendation.
+
+- **`plain-english init` installs a `writing-a-document` skill.** Generated from the same six rules. A skill and not a fourth output style because an output style is session-global with one slot, which the chat style holds, and because a document is written occasionally while a reply happens every turn. `PlanContext.skills` is optional and no adapter is obliged to read it, so the other four hosts install exactly what they did before.
+
+- **The docs gate can flag a fault of shape.** Each rule carries a `flag`, which is the same rule phrased as the fault to look for, so one list feeds both the skill and the judge and the two cannot drift into disagreeing. Only the docs channel gets them: a commit message is not a document, and a gate demanding a purpose paragraph from a one-line commit is a gate people switch off.
+
+### Changed
+
+- **`docs/writing-style.md` says how before it says what to cut.** It opened straight into a table of banned words, so a reader arriving with a blank page found forty things not to do and nothing to do.
+
+
+## [0.17.0] - 2026-08-20
+### Changed
+
+- **`standard` renders as a checklist too, and got shorter while gaining two sections.** It ran at 1093 words carrying neither a skeleton nor a worked example. Adding both took it to 1441. Rendering its fourteen rules as bullets instead of paragraphs takes it to 981, which is shorter than where it started. Every rule it carried is still there; what went is the paragraph around each one. `full` is where each rule still gets its own heading and paragraph.
+
+- **Three shipped `short` lines restated their own bold label.** "Quote the line a claim rests on. Quote the line a claim rests on, then say what it means" makes the reader pay for the words twice. A test now fails any checklist bullet whose text repeats 70% of the label above it, which is the failure mode a one-line summary falls into by default, because the name is the easiest sentence to write.
+
+
+## [0.16.0] - 2026-08-20
+### Added
+
+- **`chat.shape`, the skeleton of a reply.** Every other entry in the chat section is a rule about a reply. This is the shape of one: what the first line carries, what the body carries, and what the last line carries when there is a choice. It renders into the output style inside a fenced block, which the masking pass blanks, so its placeholder text is never linted as prose.
+
+- **`chat.examples`, worked replies with both halves.** A guidance entry already carries a one-line `bad` and `good`, which shows a sentence. These show a whole reply, which is the unit the rules are about: ordering the answer before the caveats and capping a list are both invisible in a single sentence. A `bad` half opens with a phrase `tells` bans, because an example of the reply nobody should write has to contain one. `render` puts it in a blockquote and the masking pass skips a blockquote node, so the style still lints clean under the rules it illustrates.
+
+### Fixed
+
+- **The published schema mirrors the loader inside `chat`, not only at the top level.** `chat` declares `additionalProperties: false`, so a key the loader reads and the schema does not know makes an editor pointed at `rules/schema.json` reject the ruleset shipped beside it. The existing drift test only compared top-level keys, and passed throughout, because `chat` itself was always present. There is now a test one level down.
+
+
+## [0.15.0] - 2026-08-20
+### Added
+
+- **`form: bullets` on a chat level, and `short` on a guidance rule.** A level with `form: bullets` renders its rules as one checklist instead of one heading and one paragraph each. `short` carries the rule in a single imperative line for that rendering; without one the renderer falls back to the first sentence of the description, so a project that adds guidance still renders at every level. Absent means `sections`, which is what every level did before.
+
+### Changed
+
+- **`brief` is a checklist, not an abridged essay.** It dropped nine of eighteen sections and kept a paragraph for the other nine, which left it at 594 words. The same rules now render at 398. Nothing was cut from the level: the four rules, both thresholds, all three openers, the three prohibitions and all six overrides are still there. What went is the paragraph around each one, plus the seventeen banned phrases printed in full, which `chat.failOn: error` blocks deterministically whether or not the style spells them out.
+
+  "These outrank everything above" stays at both forms. It is the only line that says the six reasons to go long beat the 225-word ceiling, and a level that lists both without ranking them is worse than one that lists neither.
+
 ## [0.14.0] - 2026-08-20
 ### Added
 
@@ -386,7 +449,12 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.19.0
+[0.18.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.18.0
+[0.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.17.0
+[0.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.16.0
+[0.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.0

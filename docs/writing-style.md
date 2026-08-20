@@ -5,6 +5,65 @@
 
 Applies to everything written in or by this project: chat replies, docs, commit messages, PR descriptions, and issue text. Not just the channels a hook can check.
 
+## Writing a document
+
+Applies to markdown written into a repository: READMEs, guides, reference
+pages and architecture decision records. Not to chat, which has its own rules,
+and not to a commit message or an issue body, which are shorter than anything
+here would make sense of.
+
+### Say what the document is for before you explain anything
+
+A reader arrives at a document to find out whether it is the one they need.
+That decision is made in the first paragraph or by closing the tab, so it is
+the one place background cannot go. Name the reader and what they will be able
+to do, then start explaining.
+
+Not this: Configuration in this project has evolved over several releases. Originally settings lived in a single file.
+This: This page is for anyone adding a rule to the ruleset. By the end you will have one rule shipping with a test.
+
+### A heading is a promise about what follows
+
+Somebody scanning a document reads only the headings, so each one has to say
+what its section settles. A heading that names a topic rather than a question
+leaves the reader to open every section to find out which one they wanted.
+
+Not this: ## Configuration
+This: ## Where settings are read from, and which file wins
+
+### Show the command, do not describe it
+
+A reader can copy a command. They cannot copy a description of one, and they
+will get it wrong reconstructing it. The same holds for a file path, a config
+snippet and the output somebody should expect to see.
+
+Not this: Install the package globally and then run the lint subcommand against your documentation directory.
+This: `npx plain-english lint docs/`
+
+### Write for one reader, not for everybody
+
+What counts as too much detail is a fact about who is reading. A page that
+serves a first-time user and a maintainer at once explains what one of them
+already knows and skips what the other needs. Pick one, and link to the page
+that serves the other.
+
+### No heading with nothing under it
+
+A heading followed by one sentence saying the section is coming later reads as
+an outline somebody stopped filling in, and it teaches the reader that the
+other headings may be empty too. Cut it, or write it.
+
+### When you recommend something, say what it costs
+
+A recommendation with no cost attached reads as marketing, and a reader who
+later meets the cost stops trusting the page that hid it. Name the tradeoff
+and the case where the other choice is right.
+
+Not this: Use the blocking mode. It catches problems early.
+This: Use the blocking mode when the repository is yours. It fails a build on a finding, so on a shared repository start advisory.
+
+## What to cut
+
 Two severities:
 
 | Severity | Effect |
@@ -55,6 +114,16 @@ Two severities:
 | not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |  |
 | prior to | `warn` | Use 'before'. |  |
 | with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |  |
+| (tapestry/testament/indelible mark) | `block` | Say what happened. A result is not a testament to anything. |  |
+| pivotal | `block` | Say what it changed. |  |
+| (vibrant/breathtaking/groundbreaking/stunning/nestled/must-visit) | `block` | Describe it neutrally, or give the number. |  |
+| [ever-](evolving/changing/shifting) (landscape/world/field/environment) | `block` | Name what changed and when. |  |
+| (technology/technological/competitive/digital/business/security/threat/regulatory/marketing) landscape | `block` | Name the thing that changed, or the competitors. |  |
+| deeply-rooted | `block` | Say where it comes from. |  |
+| (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |  |
+| (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |  |
+| (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |  |
+| (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |  |
 
 ## Exceptions
 
@@ -72,6 +141,10 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
 - **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
 - **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
+- **puffery-nouns**: `\b(old|new)\s+testament\b`, `\blast will and testament\b`
+- **abstract-metaphor-nouns**: `\b(silicon|growth|culture|glass|ceramic|sapphire)\s+substrate\b`, `\bsubstrate\s+(concentration|binding|specificity)\b`, `\bvantage\s+point\b`, `\blocus\s+of\s+control\b`, `\b(imaging|treatment|sensory|input)\s+modality\b`, `\bmodality\s+of\s+(imaging|treatment)\b`
+- **borrowed-metaphors**: `\bblast radius\s+of\s+(the\s+)?(bomb|charge|explosion|blast|device)\b`
+- **fancy-is**: `\b(serves|serve)\s+as\s+(a|an|the)\s+(reverse\s+)?(proxy|cache|fallback|gateway|relay|load[- ]balancer|mirror|backup)\b`, `\bstands?\s+as\s+(a\s+)?(candidate|nominee|witness)\b`
 
 ## Sentence shapes
 

@@ -8,7 +8,7 @@ import {
   outputStylePath,
   vocabularyTerms,
 } from "../src/render.ts";
-import { chatRules, compile, loadDefault, merge } from "../src/rules.ts";
+import { chatRules, compile, inLevel, loadDefault, merge } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
 import { resolve } from "node:path";
@@ -217,21 +217,170 @@ describe("output style", () => {
     });
   }
 
+  // Was asserted by heading text until `brief` stopped rendering one heading
+  // per rule. Ids are the stronger check anyway: they test the ruleset, which
+  // is where nesting is decided, rather than one rendering of it.
   it("the levels are strictly nested, so switching up never loses a rule", () => {
-    const headings = (level: string) =>
-      renderOutputStyle(set, level)
-        .split("\n")
-        .filter((l) => l.startsWith("## "))
-        .map((l) => l.slice(3));
+    const at = (level: string) =>
+      set.chat.guidance.filter((g) => inLevel(g, level)).map((g) => g.id);
 
-    const [brief, standard, full] = [headings("brief"), headings("standard"), headings("full")];
+    const [brief, standard, full] = [at("brief"), at("standard"), at("full")];
     expect(brief.length).toBeGreaterThan(0);
-    for (const h of brief) expect(standard, `brief section missing from standard: ${h}`).toContain(h);
-    for (const h of standard) expect(full, `standard section missing from full: ${h}`).toContain(h);
+    for (const id of brief) expect(standard, `brief rule missing from standard: ${id}`).toContain(id);
+    for (const id of standard) expect(full, `standard rule missing from full: ${id}`).toContain(id);
     // And strictly, not merely equal: three identical files would pass the
     // subset checks above and defeat the point of having three.
     expect(brief.length).toBeLessThan(standard.length);
     expect(standard.length).toBeLessThan(full.length);
+  });
+
+  it("brief is a checklist, not an abridged essay", () => {
+    // 594 words on 2026-08-20, when every rule still rendered as its own
+    // heading and paragraph. The bullets form takes the same rules to 375.
+    //
+    // 420 rather than a rounder number, and it is a ceiling on the FORM, not a
+    // budget for the content. Every word left at 375 is a rule, a threshold or
+    // an override, so the only way back over this line is a level that has
+    // started rendering paragraphs again. Adding a rule to brief should raise
+    // this number; adding a paragraph to each rule should not be possible.
+    const words = renderOutputStyle(set, "brief")
+      .replace(/^---[\s\S]*?^---/m, "")
+      .split(/\s+/)
+      .filter(Boolean).length;
+    expect(words).toBeLessThan(420);
+    // And it still says something. A renderer that dropped every section would
+    // pass the ceiling above and fail the whole point of the level.
+    expect(words).toBeGreaterThan(200);
+  });
+
+  it("a bullets level renders one checklist, not one heading per rule", () => {
+    // The property the word count is a proxy for, asserted directly. Read off
+    // the ruleset rather than naming levels, so moving a level between forms
+    // changes one line of YAML and no test.
+    for (const level of levels) {
+      const form = set.chat.levels.find((l) => l.id === level)?.form ?? "sections";
+      const headings = renderOutputStyle(set, level)
+        .split("\n")
+        .filter((l) => l.startsWith("## "));
+      if (form === "bullets") {
+        expect(headings.length, `${level} still renders a heading per rule`).toBeLessThan(9);
+        expect(renderOutputStyle(set, level)).toContain("## The rules");
+      } else {
+        expect(renderOutputStyle(set, level)).toContain("## Open with what this is");
+      }
+    }
+  });
+
+  it("a checklist bullet does not restate its own label", () => {
+    // The inline-header tell: a bold label followed by a line that says the
+    // label again. The reader pays for the words twice and learns nothing the
+    // second time, and it is the failure mode a one-line summary falls into by
+    // default, because the name is the easiest sentence to write.
+    //
+    // Three of the sixteen shipped shorts did this on 2026-08-20.
+    const overlap = (label: string, line: string): number => {
+      const stop = new Set(["the", "a", "an", "and", "or", "it", "is", "to", "of", "in", "not"]);
+      const words = (t: string) =>
+        t.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter((w) => w && !stop.has(w));
+      const first = words(label);
+      const rest = new Set(words(line));
+      if (!first.length) return 0;
+      return first.filter((w) => rest.has(w)).length / first.length;
+    };
+
+    for (const level of levels) {
+      const form = set.chat.levels.find((l) => l.id === level)?.form ?? "sections";
+      if (form !== "bullets") continue;
+      for (const line of renderOutputStyle(set, level).split("\n")) {
+        const m = /^- \*\*(.+?)\.?\*\*\s*(.+)$/.exec(line);
+        if (!m) continue;
+        expect(overlap(m[1]!, m[2]!), `bullet restates its label: ${line}`).toBeLessThan(0.7);
+      }
+    }
+  });
+
+  it("standard carries more than it used to, in fewer words", () => {
+    // 1093 words before any of this, with no skeleton and no worked example.
+    // 1441 when those arrived and every rule still had its paragraph. Bullets
+    // fit both new sections inside the saving, which is the only reason the
+    // default level renders as a checklist at all.
+    const words = renderOutputStyle(set, "standard")
+      .replace(/^---[\s\S]*?^---/m, "")
+      .split(/\s+/)
+      .filter(Boolean).length;
+    expect(words).toBeLessThan(1093);
+    // Every rule `full` carries at standard is still here. Shorter has to mean
+    // fewer words, never fewer rules.
+    for (const g of set.chat.guidance) {
+      if (!inLevel(g, "standard")) continue;
+      expect(renderOutputStyle(set, "standard"), `standard drops ${g.id}`).toContain(
+        g.name ?? g.id,
+      );
+    }
+  });
+
+  it("every rule reaching a bullets level has a short line to render", () => {
+    // The description fallback exists so an overlay still renders, not as the
+    // shipped answer: truncating "Depth is welcome" at its first full stop
+    // dropped the sentence limit, which is the whole rule.
+    const bullets = new Set(
+      set.chat.levels.filter((l) => l.form === "bullets").map((l) => l.id),
+    );
+    for (const g of set.chat.guidance) {
+      for (const level of bullets) {
+        if (!inLevel(g, level)) continue;
+        expect(g.short, `${g.id} reaches ${level} with no short line`).toBeDefined();
+        expect(g.short!.split(/\s+/).length, `${g.id} short is not short`).toBeLessThan(22);
+      }
+    }
+  });
+
+  it("brief names every rule it carries", () => {
+    // The short form drops the paragraph, not the rule. Anything `inLevel`
+    // puts in brief has to be findable in the rendered file by name.
+    const style = renderOutputStyle(set, "brief");
+    for (const g of set.chat.guidance) {
+      if (!inLevel(g, "brief")) continue;
+      expect(style, `brief drops ${g.id}`).toContain(g.name ?? g.id);
+    }
+  });
+
+  it("shows the shape of a reply, not only rules about one", () => {
+    // Eighteen rules and no skeleton. A model copies a shape far more reliably
+    // than it weighs a list, and nothing in the style was a shape.
+    const style = renderOutputStyle(set, "standard");
+    expect(set.chat.shape).toBeDefined();
+    expect(style).toContain(set.chat.shape!.name);
+    for (const line of set.chat.shape!.template.split("\n").filter(Boolean)) {
+      expect(style, `template line missing: ${line}`).toContain(line.trim());
+    }
+  });
+
+  it("carries a worked example for each level that asks for one", () => {
+    expect(set.chat.examples.length).toBeGreaterThan(0);
+    for (const level of levels) {
+      const style = renderOutputStyle(set, level);
+      for (const e of set.chat.examples) {
+        const first = (e.good ?? "").split("\n").filter(Boolean)[0]?.trim() ?? "";
+        expect(first.length).toBeGreaterThan(0);
+        if (inLevel(e, level)) {
+          expect(style, `${level} drops example ${e.id}`).toContain(first);
+        } else {
+          expect(style, `${level} carries example ${e.id}`).not.toContain(first);
+        }
+      }
+    }
+  });
+
+  it("a bad example does not trip the ruleset it illustrates", () => {
+    // The point of a worked example is showing the reply nobody should write,
+    // and those open with the phrases `chat.tells` bans. They reach the model
+    // through a node the masking pass skips, so the style still lints clean.
+    const bad = set.chat.examples.map((e) => e.bad ?? "").join(" ");
+    expect(bad).toContain("Great question");
+    for (const level of levels) {
+      expect(lintText(renderOutputStyle(set, level), set).errorCount).toBe(0);
+    }
   });
 
   it("takes the sentence threshold from the ruleset, not a hardcoded number", () => {

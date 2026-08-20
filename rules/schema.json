@@ -201,7 +201,39 @@
               },
               "description": {
                 "type": "string"
+              },
+              "form": {
+                "enum": [
+                  "sections",
+                  "bullets"
+                ],
+                "default": "sections",
+                "description": "How this level renders. 'sections' gives every rule its own heading and paragraph. 'bullets' gives one checklist. Absent means 'sections'."
               }
+            }
+          }
+        },
+        "shape": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The skeleton of a reply, rendered into the output style inside a fenced block. Every other entry in this section is a rule about a reply; this is the shape of one.",
+          "required": [
+            "name",
+            "template"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string",
+              "description": "The skeleton itself. Rendered inside a fence, so placeholder text is never linted as prose."
+            },
+            "levels": {
+              "$ref": "#/$defs/levelList"
             }
           }
         },
@@ -224,6 +256,10 @@
               "description": {
                 "type": "string"
               },
+              "short": {
+                "type": "string",
+                "description": "The rule in one imperative line. Used by the brief style, which renders a checklist instead of one heading per rule. Falls back to the first sentence of description."
+              },
               "bad": {
                 "type": "string"
               },
@@ -235,6 +271,42 @@
               },
               "reason": {
                 "$ref": "#/$defs/reason"
+              }
+            }
+          }
+        },
+        "examples": {
+          "type": "array",
+          "description": "Worked replies, both halves. A `bad` half may contain a phrase `tells` bans, because an example of the reply nobody should write has to contain one. Rendered inside a blockquote, which the masking pass skips, so the style still lints clean under the rules it illustrates.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "name": {
+                "type": "string"
+              },
+              "ask": {
+                "type": "string",
+                "description": "What the reader asked, so the reply has something to be a reply to."
+              },
+              "bad": {
+                "type": "string"
+              },
+              "good": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string",
+                "description": "One line on what separates the two halves."
+              },
+              "levels": {
+                "$ref": "#/$defs/levelList"
               }
             }
           }
@@ -318,7 +390,10 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "description"],
+            "required": [
+              "id",
+              "description"
+            ],
             "additionalProperties": false,
             "properties": {
               "id": {
@@ -421,6 +496,71 @@
             "warn",
             "never"
           ]
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How to write a document, as opposed to what to cut from one. The word rules and sentence shapes are prohibitions; this section is the other half. Rendered to a skill, to the docs gate prompt, and to docs/writing-style.md. No levels and no limits: a document that runs long is doing its job.",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description"
+          ],
+          "description": "Where the generated guidance is installed, and what it is called.",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/id"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "guidance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "short": {
+                "type": "string",
+                "description": "The rule in one imperative line."
+              },
+              "flag": {
+                "type": "string",
+                "description": "The same rule phrased as the fault, for the docs gate prompt. Holding both phrasings on one entry is what stops the guidance and the judge disagreeing."
+              },
+              "bad": {
+                "type": "string"
+              },
+              "good": {
+                "type": "string"
+              },
+              "reason": {
+                "$ref": "#/$defs/reason"
+              }
+            }
+          }
         }
       }
     },

@@ -172,6 +172,22 @@ describe("the published schema mirrors the loader", () => {
     ) as Record<string, unknown>;
     for (const key of Object.keys(raw)) expect(schema.properties).toHaveProperty(key);
   });
+
+  // The same drift, one level down. `chat` also declares
+  // `additionalProperties: false`, so a key the loader reads and the schema
+  // does not know makes an editor pointed at this file reject the ruleset that
+  // ships beside it. That is how `shape` and `examples` were added: the
+  // top-level check above passed the whole time, because `chat` was already
+  // there.
+  it("covers every chat key the shipped ruleset uses", () => {
+    const raw = parse(
+      readFileSync(resolve(import.meta.dirname, "..", "rules", "default.yml"), "utf8"),
+    ) as { chat?: Record<string, unknown> };
+    const chat = (schema.properties as { chat: { properties: Record<string, unknown> } }).chat;
+    for (const key of Object.keys(raw.chat ?? {})) {
+      expect(chat.properties, `chat.${key} is read but not published`).toHaveProperty(key);
+    }
+  });
 });
 
 
