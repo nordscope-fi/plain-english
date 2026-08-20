@@ -26,6 +26,7 @@ import {
   outputStylePath,
   AGENTS_MD_START,
   AGENTS_MD_END,
+  renderDocsSkill,
 } from "./render.ts";
 import type { AgentProfile, ConfigFile } from "./agents/profile.ts";
 import { byId, DEFAULT_AGENT, PROFILES } from "./agents/registry.ts";
@@ -484,6 +485,17 @@ export function init(opts: InitOptions): number {
     path: outputStylePath(set, level.id).split("/").pop()!,
     body: renderOutputStyle(set, level.id),
   }));
+  // From the shipped set, for the same reason the styles are: this package's
+  // guidance on how a document is shaped, not the project's.
+  const skills = set.docs.guidance.length
+    ? [
+        {
+          name: set.docs.skill.name,
+          path: `${set.docs.skill.name}/SKILL.md`,
+          body: renderDocsSkill(set),
+        },
+      ]
+    : [];
   const defaultLevel = set.chat.levels.find((l) => l.id === set.chat.level);
   const defaultStyle = defaultLevel
     ? { level: defaultLevel.id, name: defaultLevel.name }
@@ -531,7 +543,14 @@ export function init(opts: InitOptions): number {
   };
 
   for (const agent of agents) {
-    const plan = agent.plan({ prompts, model, includeUser, styles, ...(defaultStyle ? { defaultStyle } : {}) });
+    const plan = agent.plan({
+      prompts,
+      model,
+      includeUser,
+      styles,
+      skills,
+      ...(defaultStyle ? { defaultStyle } : {}),
+    });
 
     // Retirement first, so a location this version has stopped writing to is
     // cleared before anything else in the same file is merged.

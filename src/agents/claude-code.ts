@@ -267,10 +267,20 @@ export const claudeCode: AgentProfile = {
       // One file per level, all three installed. Switching between them is a
       // menu choice in /config rather than a re-install, which is the whole
       // reason they ship together.
-      files: (ctx.styles ?? []).map((s) => ({
-        path: `.claude/output-styles/${s.path}`,
-        body: s.body,
-      })),
+      files: [
+        ...(ctx.styles ?? []).map((s) => ({
+          path: `.claude/output-styles/${s.path}`,
+          body: s.body,
+        })),
+        // A skill sits beside the styles rather than replacing one. It loads
+        // when the model reaches for it, so it costs nothing on the turns that
+        // are not writing a document, and it does not compete for the single
+        // output-style slot.
+        ...(ctx.skills ?? []).map((s) => ({
+          path: `.claude/skills/${s.path}`,
+          body: s.body,
+        })),
+      ],
       // The file Claude Code's own picker writes. Setting it here is what makes
       // the style active without anybody selecting it; `init` prints the
       // previous value when it replaces one.
@@ -284,6 +294,7 @@ export const claudeCode: AgentProfile = {
         : [],
       notes: [
         "The style takes effect on the next session. Run /clear, or start a new one.",
+        "The writing-a-document skill loads on demand, so it costs nothing until a markdown file is being written. It does not replace the output style.",
         "Switch level under /config > Output style. The standalone /output-style command was removed in v2.1.91.",
         "A style reaches the main conversation and a fork, which inherits the parent's system prompt. It does not reach a subagent, which runs its own.",
         "The Stop and SubagentStop hooks cover what a style cannot. They hold a turn and send the finding back to be written again. To have them report without holding anything up, put chat.failOn: never in .plain-english.yml.",

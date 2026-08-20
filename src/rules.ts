@@ -279,6 +279,39 @@ export function inLevel(entry: Levelled, level: string): boolean {
 
 export type FailOn = "error" | "warn" | "never";
 
+/**
+ * One rule about the shape of a document.
+ *
+ * The same fields a chat guidance entry carries, plus `flag`. Two readers need
+ * this list and they need it phrased two ways: the skill tells a writer what
+ * to do, and the gate prompt needs the fault to look for. Holding both here is
+ * what stops the two drifting into disagreeing about the same rule.
+ */
+export type DocsGuidance = ChatGuidance & {
+  /** The rule as the fault, for the judge prompt. */
+  flag?: string;
+};
+
+/**
+ * How to write a document, as opposed to what to cut from one.
+ *
+ * The word rules, the readability rules and the sentence shapes already say
+ * what not to write, and until this section existed that was the whole docs
+ * channel: a judge listing prohibitions, and a reference titled "AI-Tell
+ * Patterns to Cut". A document can obey every one of those and still bury what
+ * it is for.
+ *
+ * No `levels`, `tells` or `limits`. A document that runs long is doing its job,
+ * and one rendering is enough: unlike the chat channel there is no menu of
+ * lengths for a reader to pick from.
+ */
+export interface DocsSection {
+  scope: string;
+  /** Where the generated guidance is installed, and what it is called. */
+  skill: { name: string; description: string };
+  guidance: DocsGuidance[];
+}
+
 export interface RuleSet {
   version: 1;
   meta: { title: string; intro: string };
@@ -298,6 +331,12 @@ export interface RuleSet {
   rules: Rule[];
   readability: ReadabilityRule[];
   structures: Structure[];
+  /**
+   * How to write a document. Empty when the ruleset carries no `docs` key, and
+   * every consumer checks, so a config written before this section still
+   * renders every target it used to.
+   */
+  docs: DocsSection;
   /**
    * The chat channel.
    *
@@ -598,6 +637,59 @@ const EMPTY_CHAT: ChatSection = {
   limits: [],
 };
 
+const EMPTY_DOCS: DocsSection = { scope: "", skill: { name: "", description: "" }, guidance: [] };
+
+/**
+ * The docs section.
+ *
+ * Absent in every config written before it existed, and absent in most project
+ * configs, so a missing key is the normal case and never an error.
+ */
+function readDocs(v: unknown): DocsSection {
+  if (v === undefined || v === null) return { ...EMPTY_DOCS, guidance: [] };
+  if (typeof v !== "object" || Array.isArray(v)) throw new RuleError("docs must be a mapping");
+  const d = v as Record<string, unknown>;
+
+  const out: DocsSection = { ...EMPTY_DOCS, skill: { ...EMPTY_DOCS.skill }, guidance: [] };
+  if (d["scope"] !== undefined) {
+    if (typeof d["scope"] !== "string") throw new RuleError("docs.scope must be a string");
+    out.scope = d["scope"];
+  }
+
+  if (d["skill"] !== undefined) {
+    if (typeof d["skill"] !== "object" || d["skill"] === null || Array.isArray(d["skill"])) {
+      throw new RuleError("docs.skill must be a mapping");
+    }
+    const k = d["skill"] as Record<string, unknown>;
+    for (const f of ["name", "description"] as const) {
+      if (typeof k[f] !== "string") throw new RuleError(`docs.skill.${f} must be a string`);
+    }
+    // The name becomes a directory on disk and a key a loader matches on, so
+    // it takes the same shape as every other id in this file.
+    if (!ID_RE.test(k["name"] as string)) {
+      throw new RuleError("docs.skill.name must be a kebab-case string");
+    }
+    out.skill = { name: k["name"] as string, description: k["description"] as string };
+  }
+
+  if (d["guidance"] !== undefined) {
+    if (!Array.isArray(d["guidance"])) throw new RuleError("docs.guidance must be a list");
+    out.guidance = d["guidance"].map((raw, i) => {
+      const g = raw as Record<string, unknown>;
+      if (typeof g["id"] !== "string" || !ID_RE.test(g["id"])) {
+        throw new RuleError(`docs.guidance[${i}].id must be a kebab-case string`);
+      }
+      const entry: DocsGuidance = { id: g["id"] };
+      for (const k of ["name", "description", "short", "flag", "bad", "good", "reason"] as const) {
+        if (typeof g[k] === "string") entry[k] = g[k] as string;
+      }
+      return entry;
+    });
+  }
+
+  return out;
+}
+
 function readShape(v: unknown): ChatShape | undefined {
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "object" || Array.isArray(v)) {
@@ -877,6 +969,7 @@ export const KNOWN_TOP_LEVEL = new Set([
   "readability",
   "structures",
   "chat",
+  "docs",
 ]);
 
 /** Levenshtein distance, used only to suggest the key the author meant. */
@@ -942,6 +1035,7 @@ function toRuleSet(raw: RawSet): RuleSet {
     readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
     chat: readChat(raw.chat),
+    docs: readDocs((raw as { docs?: unknown }).docs),
     allow: readAllow(raw.allow),
     exclude: asStringArray(raw.exclude, "exclude"),
   };
@@ -1016,8 +1110,43 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
     readability: [...readability.values()],
     structures: [...structures.values()],
     chat: mergeChat(base.chat, overlay.chat),
+    docs: mergeDocs(base.docs, overlay.docs),
     allow: [...base.allow, ...overlay.allow],
     exclude: [...base.exclude, ...overlay.exclude],
+  };
+}
+
+/**
+ * Merge one docs section over another.
+ *
+ * By id, like `mergeChat` does for guidance, and deliberately not wholesale
+ * the way `avoid` and `expand` are merged. Replacing the list would mean
+ * restating all of it to change one rule, which is how a list stops tracking
+ * the one it was copied from.
+ */
+function mergeDocs(base: DocsSection | undefined, overlay: DocsSection | undefined): DocsSection {
+  const b = base ?? EMPTY_DOCS;
+  if (!overlay) return { ...b, skill: { ...b.skill }, guidance: b.guidance.map((g) => ({ ...g })) };
+
+  const guidance = new Map(b.guidance.map((g) => [g.id, { ...g }]));
+  for (const g of overlay.guidance) {
+    const existing = guidance.get(g.id);
+    if (!existing) {
+      guidance.set(g.id, { ...g });
+      continue;
+    }
+    for (const k of ["name", "description", "short", "flag", "bad", "good", "reason"] as const) {
+      if (g[k]) existing[k] = g[k];
+    }
+  }
+
+  return {
+    scope: overlay.scope || b.scope,
+    skill: {
+      name: overlay.skill.name || b.skill.name,
+      description: overlay.skill.description || b.skill.description,
+    },
+    guidance: [...guidance.values()],
   };
 }
 

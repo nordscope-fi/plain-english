@@ -499,6 +499,71 @@
         }
       }
     },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How to write a document, as opposed to what to cut from one. The word rules and sentence shapes are prohibitions; this section is the other half. Rendered to a skill, to the docs gate prompt, and to docs/writing-style.md. No levels and no limits: a document that runs long is doing its job.",
+      "properties": {
+        "scope": {
+          "type": "string"
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description"
+          ],
+          "description": "Where the generated guidance is installed, and what it is called.",
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/id"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "guidance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "short": {
+                "type": "string",
+                "description": "The rule in one imperative line."
+              },
+              "flag": {
+                "type": "string",
+                "description": "The same rule phrased as the fault, for the docs gate prompt. Holding both phrasings on one entry is what stops the guidance and the judge disagreeing."
+              },
+              "bad": {
+                "type": "string"
+              },
+              "good": {
+                "type": "string"
+              },
+              "reason": {
+                "$ref": "#/$defs/reason"
+              }
+            }
+          }
+        }
+      }
+    },
     "structures": {
       "description": "Sentence shapes no regex can reach. Consumed by the semantic layer and the docs generator.",
       "type": "array",

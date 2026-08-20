@@ -1189,3 +1189,107 @@ chat:
     - "A claim rests on real output. Quote the line, then say what it means."
     - "Three turns have ended in 'still broken'. Name the assumption that might be wrong."
     - "A rule would delete the answer. The answer wins and the shape stays."
+
+# ---------------------------------------------------------------------------
+# HOW TO WRITE A DOCUMENT
+#
+# Everything above this line says what to cut. The word rules, the readability
+# rules and the sentence shapes are all prohibitions, and until this section
+# existed they were the whole document channel: a judge listing terms to flag,
+# and a reference titled "AI-Tell Patterns to Cut". A document can obey every
+# one of them and still bury what it is for on the third screen.
+#
+# The chat channel has had both halves all along. `chat.guidance` says how to
+# write a reply and the tells say what not to write in one. This is the missing
+# half for documents.
+#
+# TWO READERS, ONE LIST. `render` sends each entry to a skill, which tells a
+# writer what to do, and to the `docs` gate prompt, which needs the same rule
+# phrased as the fault to look for. `flag` carries that second phrasing, so the
+# guidance and the gate cannot drift into disagreeing about the same rule.
+#
+# NO LEVELS AND NO LIMITS, unlike `chat`. A reply is read once, in a terminal,
+# by somebody waiting; a document is read when somebody needs it, and one that
+# runs long is doing its job. There is no menu of lengths to pick from here.
+docs:
+  scope: >-
+    Applies to markdown written into a repository: READMEs, guides, reference
+    pages and architecture decision records. Not to chat, which has its own
+    rules, and not to a commit message or an issue body, which are shorter than
+    anything here would make sense of.
+
+  # Loaded on demand rather than every turn. An output style is session-global
+  # and there is only one slot, which the chat style holds; a skill costs
+  # nothing until somebody writes a document.
+  skill:
+    name: writing-a-document
+    description: >-
+      How to shape a markdown document in this project: what the first
+      paragraph carries, what a heading promises, and when to show a command
+      instead of describing one. Use when writing or editing any .md file.
+
+  guidance:
+    - id: purpose-in-the-first-paragraph
+      name: "Say what the document is for before you explain anything"
+      short: "First paragraph: who this is for and what they will be able to do."
+      description: >-
+        A reader arrives at a document to find out whether it is the one they
+        need. That decision is made in the first paragraph or by closing the
+        tab, so it is the one place background cannot go. Name the reader and
+        what they will be able to do, then start explaining.
+      flag: "The document opens with background or history instead of saying what it is for and who it is for."
+      bad: "Configuration in this project has evolved over several releases. Originally settings lived in a single file."
+      good: "This page is for anyone adding a rule to the ruleset. By the end you will have one rule shipping with a test."
+
+    - id: a-heading-is-a-promise
+      name: "A heading is a promise about what follows"
+      short: "Name the question the section answers, and answer it there."
+      description: >-
+        Somebody scanning a document reads only the headings, so each one has
+        to say what its section settles. A heading that names a topic rather
+        than a question leaves the reader to open every section to find out
+        which one they wanted.
+      flag: "A heading names a topic rather than the question its section answers, or promises something the section does not deliver."
+      bad: "## Configuration"
+      good: "## Where settings are read from, and which file wins"
+
+    - id: show-the-command
+      name: "Show the command, do not describe it"
+      short: "A command, a path or real output beats a sentence about one."
+      description: >-
+        A reader can copy a command. They cannot copy a description of one, and
+        they will get it wrong reconstructing it. The same holds for a file
+        path, a config snippet and the output somebody should expect to see.
+      flag: "The document describes a command, path or config in prose where showing it would be shorter and unambiguous."
+      bad: "Install the package globally and then run the lint subcommand against your documentation directory."
+      good: "`npx plain-english lint docs/`"
+
+    - id: name-the-reader
+      name: "Write for one reader, not for everybody"
+      short: "Pick the reader. Assumed knowledge follows from that choice."
+      description: >-
+        What counts as too much detail is a fact about who is reading. A page
+        that serves a first-time user and a maintainer at once explains what
+        one of them already knows and skips what the other needs. Pick one, and
+        link to the page that serves the other.
+      flag: "The document serves two audiences at once, explaining basics one reader already has while skipping detail the other needs."
+
+    - id: no-heading-without-content
+      name: "No heading with nothing under it"
+      short: "Cut an empty section or a stub. A promise nobody kept costs trust."
+      description: >-
+        A heading followed by one sentence saying the section is coming later
+        reads as an outline somebody stopped filling in, and it teaches the
+        reader that the other headings may be empty too. Cut it, or write it.
+      flag: "A heading is followed by a placeholder, a stub, or a note that the section is not written yet."
+
+    - id: say-what-it-costs
+      name: "When you recommend something, say what it costs"
+      short: "Every recommendation carries its price and when to choose otherwise."
+      description: >-
+        A recommendation with no cost attached reads as marketing, and a reader
+        who later meets the cost stops trusting the page that hid it. Name the
+        tradeoff and the case where the other choice is right.
+      flag: "The document recommends an approach without naming its cost or the case where a different choice is better."
+      bad: "Use the blocking mode. It catches problems early."
+      good: "Use the blocking mode when the repository is yours. It fails a build on a finding, so on a shared repository start advisory."

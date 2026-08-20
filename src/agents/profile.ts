@@ -173,6 +173,18 @@ export interface PlanContext {
   styles?: { level: string; name: string; path: string; body: string }[];
   defaultStyle?: { level: string; name: string };
   /**
+   * Skills the host can install, rendered the same way styles are.
+   *
+   * Only the document guidance today. It is a skill and not a fourth output
+   * style because an output style is session-global with one slot, which the
+   * chat style holds, and because a document is written occasionally while a
+   * reply happens every turn.
+   *
+   * Optional, and no profile is obliged to consume it. A host with no notion
+   * of a skill ignores the field and installs exactly what it did before.
+   */
+  skills?: { name: string; path: string; body: string }[];
+  /**
    * Whether the caller has asked for files outside the repository.
    *
    * Off unless `init --user` was passed. Writing to somebody's home directory

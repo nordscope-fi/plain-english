@@ -4,6 +4,20 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-20
+### Added
+
+- **A `docs` section, so the document channel says how to write one and not only what to cut.** Everything the channel had was a prohibition: the gate prompt listed banned terms and sentence shapes, and `docs/writing-style.md` is titled "AI-Tell Patterns to Cut". A document can obey every one of those and still bury what it is for on the third screen. The chat channel has carried both halves all along; this is the missing half for documents. Six rules to start, covering the first paragraph, what a heading promises, showing a command instead of describing it, writing for one reader, empty sections, and pricing a recommendation.
+
+- **`plain-english init` installs a `writing-a-document` skill.** Generated from the same six rules. A skill and not a fourth output style because an output style is session-global with one slot, which the chat style holds, and because a document is written occasionally while a reply happens every turn. `PlanContext.skills` is optional and no adapter is obliged to read it, so the other four hosts install exactly what they did before.
+
+- **The docs gate can flag a fault of shape.** Each rule carries a `flag`, which is the same rule phrased as the fault to look for, so one list feeds both the skill and the judge and the two cannot drift into disagreeing. Only the docs channel gets them: a commit message is not a document, and a gate demanding a purpose paragraph from a one-line commit is a gate people switch off.
+
+### Changed
+
+- **`docs/writing-style.md` says how before it says what to cut.** It opened straight into a table of banned words, so a reader arriving with a blank page found forty things not to do and nothing to do.
+
+
 ## [0.17.0] - 2026-08-20
 ### Changed
 
@@ -417,7 +431,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.18.0
 [0.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.17.0
 [0.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.15.0
