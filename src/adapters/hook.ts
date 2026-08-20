@@ -519,13 +519,53 @@ export function hasAck(channel: Channel, projectDir: string, now = Date.now()): 
   return false;
 }
 
+/**
+ * What a chat block leads with.
+ *
+ * A block holds one turn and shows five findings, so order decides what gets
+ * fixed. Measured over the 218 replies the gate judged in the three days to
+ * 2026-08-19: it blocked 69, and 38 of those failed on nothing but an em dash.
+ * Sorting by position in the text put the dash first every time, and on a long
+ * reply pushed the reason the reader would have cared about past the fifth
+ * line and out of sight.
+ *
+ * Bands, not a full reordering. Inside a band the findings stay in the order
+ * they appear, because two dashes are still best fixed top to bottom.
+ *
+ * Chat only. In a document the findings are a list to work through, and a
+ * reader following one down the file is better served by file order.
+ */
+const CHAT_BANDS: readonly (readonly string[])[] = [
+  // What the reader could not follow.
+  ["reply-length", "reader-load", "reply-pace", "unreadable-ask"],
+  // What they could not follow because nobody explained it.
+  ["unglossed-term", "long-sentence"],
+];
+
+function chatBand(ruleId: string): number {
+  for (let i = 0; i < CHAT_BANDS.length; i++) {
+    if (CHAT_BANDS[i]!.includes(ruleId)) return i;
+  }
+  // Everything else, punctuation included. A dash is a substitution and the
+  // cheapest thing in the message to act on, so it costs nothing to read last.
+  return CHAT_BANDS.length;
+}
+
+export function orderForChat(findings: Finding[]): Finding[] {
+  return findings
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => chatBand(a.f.ruleId) - chatBand(b.f.ruleId) || a.i - b.i)
+    .map((x) => x.f);
+}
+
 export function formatReason(errors: Finding[], channel: Channel, label?: string): string {
-  const shown = errors.slice(0, 5);
+  const ordered = channel === "chat" ? orderForChat(errors) : errors;
+  const shown = ordered.slice(0, 5);
   const lines = shown.map((f) => {
     const hint = f.message ? ` ${f.message}` : "";
     return `  line ${f.line}: ${JSON.stringify(f.match)} (${f.ruleId})${hint}`;
   });
-  const more = errors.length > shown.length ? `\n  ...and ${errors.length - shown.length} more` : "";
+  const more = ordered.length > shown.length ? `\n  ...and ${ordered.length - shown.length} more` : "";
 
   return [
     `${label ?? CHANNEL_LABEL[channel]} contains writing that reads as machine-generated:`,

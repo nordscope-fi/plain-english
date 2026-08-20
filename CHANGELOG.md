@@ -4,6 +4,37 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-20
+### Added
+
+- **`reply-pace`, a chat rule for a reply that never lets up.** `long-sentence` judges one sentence and finds nothing wrong with a reply made entirely of fifteen-word sentences, which is the reply people put down: no single sentence is hard, and there is nowhere to rest. This one takes the average across the whole reply, above a floor of 80 words, and fires over 13.
+
+  The negative result is the more useful half. Of the four replies the reader stopped on and said so, every one ran above the corpus median of 11.6 words a sentence: 13.5, 14.5, 15.7 and 16.6. Three other readings of "too dense" were tested on the same four and all three went the wrong way. Those replies carried fewer nominalisations, fewer stacked modifiers and shorter words than the corpus. They were written in plainer words than average and were still the ones nobody could get through. It is the only rule that reaches one of them, a 157-word reply carrying five names.
+
+  Calibrated on four replies, which is not many. The number is a starting point to revise, not a constant.
+
+- **The chat judge is asked about terms nobody explained.** `unglossed-term` finds an acronym or a camel-cased name. It fired zero times on all five replies that drew a complaint, and its most frequent hits corpus-wide include `ROLES`, `SECURITY`, `HAS` and `FROM`. What stops a reader is "the JSON merge", "by-name behaviour", "the TOML path documents": ordinary words carrying a technical sense, which no pattern can see and a model can. The checks live in the ruleset under `chat.judge` and `render` puts them in the prompt, so a project can change them and `render --check` can see them drift. They run on the replies a count has already stopped, so they cost no extra call.
+
+- **`unreadable-ask`, a chat rule for the question a reply ends on.** `say-what-needs-a-decision` asks a reply with a choice in it to end by naming the choice. This is the other half: an ask the reader has to unpack before answering leaves them worse off than no ask at all, and it is the last thing they read. It fires when the closing question runs over 15 words or carries more than one subordinating clause. Over the three days to 2026-08-19, 64 replies ended in a question and 10 were long or nested, including one answered with "That last sentence: what does that mean?".
+
+- **The judge is shown what the reader asked.** `lastAsk` on `ChatReader` recovers the last typed question from the transcript when the stop event does not carry one, which for Claude Code is always. Every exception the ruleset grants ("the reader asked you to explain", "the options are the answer") is a fact about the question, so 32 of the 39 judge calls made in three days were deciding without the one thing that decides it. Tool results, subagent records and harness meta records are skipped: handing a judge a file listing as "what the reader asked" would let it conclude they wanted depth.
+
+### Changed
+
+- **A chat block leads with what the reader could not follow.** `formatReason` shows five findings, and ordering them by position in the text put an em dash on line 1 ahead of a length or name-load finding further down, and on a long reply pushed it out of sight entirely. On the chat channel the findings are now banded: what the reader could not follow, then what nobody explained, then everything else. Document channels keep file order, which is what somebody working down a file wants.
+
+- **A punctuation-only block no longer uses up the turn.** A turn could be held once. Across the 218 replies the gate judged in three days it blocked 69, and 38 of those named nothing but an em dash, which is a substitution: the reply that comes back is the same reply with different characters and nothing has judged whether a reader could follow it. The bound is now two, and the second is available only after a punctuation-only first block and only when the rewrite fails something else. `stop_hook_active` still ends it, and the state file records that the second was used so there is no third.
+
+- **`reply-pace` joins `reply-length` and `reader-load` as a count the judge may waive**, and all three lead a chat block ahead of punctuation.
+
+- **`reply-length` is 225 words and `reader-load` is 12 names**, down from 250 and 15. Re-measured on 2026-08-19 over the 218 replies the gate itself judged: 250 let through a 232-word reply the reader answered with "Eh?", and the 90th-percentile reply carried exactly 15 names, so the old number was measuring the top tenth rather than the load somebody complains about. The pair now fires on 24% of replies against 14%, and the judge waives what was asked for.
+
+- **"Restate where we are" is in the standard output style**, not `full` only. A four-word reply reading "Phase 3, question 4:" drew "I have NO idea what this is about, or what I am responding to", and no word count reaches a four-word reply.
+
+### Documented
+
+- **The chat gate sees one message a turn.** A stop event carries the last message; whatever was said mid-turn between tool calls reaches no hook. Of 301 replies flagged for length or name load over three days, 186 were mid-turn. `docs/limitations.md` says so, and says why the output style rather than the gate is what covers them.
+
 ## [0.13.1] - 2026-08-19
 ### Changed
 
@@ -355,7 +386,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.0
 [0.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.12.1

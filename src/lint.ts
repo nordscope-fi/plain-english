@@ -544,6 +544,46 @@ function firstLineEnd(text: string): number {
   return nl === -1 ? Math.min(text.length, 80) : Math.min(nl, 80);
 }
 
+/**
+ * The question a reply ends on, if it ends on one.
+ *
+ * The last sentence of the last paragraph, and only when it is a question put
+ * to the reader. A reply that quotes a question and then answers it is not
+ * asking anything, which is why this looks at the end rather than anywhere.
+ */
+function closingQuestion(masked: string): { text: string; start: number; end: number } | null {
+  const end = masked.replace(/\s+$/, "").length;
+  if (end === 0 || masked[end - 1] !== "?") return null;
+  // Back up to the start of the sentence: the previous sentence-ending mark,
+  // or the previous blank line, whichever is closer.
+  let start = 0;
+  for (let i = end - 2; i > 0; i--) {
+    const c = masked[i]!;
+    if (c === "." || c === "!" || c === "?" || c === "\n") {
+      start = i + 1;
+      break;
+    }
+  }
+  const text = masked.slice(start, end).trim();
+  if (!text) return null;
+  return { text, start: start + (masked.slice(start, end).length - masked.slice(start, end).trimStart().length), end };
+}
+
+/**
+ * Subordinating words in a question, not counting the one that opens it.
+ *
+ * "Which way do you want to go?" opens on its interrogative and carries no
+ * clause. "Want me to look at whether X has the same Y that Z documents?"
+ * carries two, and is the sentence this rule exists for.
+ */
+const SUBORDINATORS =
+  /\b(whether|which|that|because|while|unless|although|so that|rather than|instead of|the same|as the|when the)\b/gi;
+
+function subordinators(question: string): number {
+  const body = question.replace(/^(which|what|who|whose|how)\b/i, "");
+  return (body.match(SUBORDINATORS) ?? []).length;
+}
+
 function readabilityFindings(
   text: string,
   ruleSet: RuleSet,
@@ -632,6 +672,81 @@ function readabilityFindings(
           `${names.size} separate names, over ${max}.` +
             (rule.message ? ` ${rule.message}` : ""),
         );
+      }
+      continue;
+    }
+
+    /**
+     * Whether the reply ever lets up.
+     *
+     * The average sentence, across the whole reply. `long-sentence` judges one
+     * sentence and finds nothing wrong with a reply of fifteen-word sentences,
+     * which is exactly the reply that gets abandoned: no single sentence is
+     * hard and there is no gap to rest in.
+     *
+     * Measured on 2026-08-19 over the 218 replies the gate judged. The corpus
+     * median is 11.6 words a sentence. Of the four replies the reader stopped
+     * on and complained about, every one ran above it: 13.5, 14.5, 15.7, 16.6.
+     * Three other readings of "dense" went the other way. Those replies had
+     * FEWER nominalisations, FEWER stacked modifiers and SHORTER words than the
+     * corpus, so the vocabulary was not the load. The pace was.
+     */
+    if (rule.kind === "reply-pace") {
+      const floor = rule.minWords ?? 80;
+      const max = rule.maxMeanWords ?? 13;
+      let words = 0;
+      let count = 0;
+      for (const sentence of sentences(text)) {
+        words += sentence.words;
+        count++;
+      }
+      if (count > 0 && words >= floor) {
+        const mean = words / count;
+        if (mean > max) {
+          add(
+            rule,
+            0,
+            Math.min(text.length, firstLineEnd(text)),
+            `${mean.toFixed(1)} words a sentence on average, over ${max}.` +
+              (rule.message ? ` ${rule.message}` : ""),
+          );
+        }
+      }
+      continue;
+    }
+
+    /**
+     * The question a reply ends on.
+     *
+     * `say-what-needs-a-decision` asks every reply with a choice in it to end
+     * by naming the choice. This is the other half: an ask the reader has to
+     * unpack before answering leaves them worse off than no ask at all.
+     *
+     * Two measures, because the fault comes in two shapes. Read across three
+     * days of transcripts to 2026-08-19: of 64 replies that ended in a
+     * question, 10 were long or nested, and those included the one the reader
+     * answered with "That last sentence: what does that mean?".
+     *
+     * A leading "which" or "what" is the interrogative, not a clause. Counting
+     * it fired on "Which one, and which rec?", which is five words and clear.
+     */
+    if (rule.kind === "unreadable-ask") {
+      const max = rule.maxWords ?? 15;
+      const maxClauses = rule.maxClauses ?? 1;
+      // Masked, not raw: a reply that ends in a fenced block or a table has no
+      // closing question, and `maskNonProse` preserves offsets so the finding
+      // still lands on the right line.
+      const ask = closingQuestion(maskNonProse(text));
+      if (ask) {
+        const words = (ask.text.match(/\b[\p{L}\p{N}'-]+\b/gu) ?? []).length;
+        const clauses = subordinators(ask.text);
+        if (words > max || clauses > maxClauses) {
+          const why =
+            words > max
+              ? `${words} words, over ${max}.`
+              : `${clauses} clauses to unpack before it can be answered.`;
+          add(rule, ask.start, ask.end, why + (rule.message ? ` ${rule.message}` : ""));
+        }
       }
       continue;
     }

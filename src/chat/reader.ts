@@ -83,6 +83,16 @@ export interface ChatReader {
    * event or the payload names nothing readable.
    */
   current(payload: Record<string, unknown>): Reply | null;
+  /**
+   * What the reader last asked, for the judge.
+   *
+   * Optional, because not every agent writes a transcript this can be recovered
+   * from. Absent is ordinary: the judge already treats a missing question as
+   * unknown rather than as an error. Measured over three days on 2026-08-19,
+   * 32 of 39 judge calls ran without it, because the Stop payload carries the
+   * reply and not the question that prompted it.
+   */
+  lastAsk?(payload: Record<string, unknown>): string | undefined;
 }
 
 /** Read a string field, trying each name, since agents disagree on casing. */

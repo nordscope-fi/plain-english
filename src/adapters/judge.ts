@@ -22,7 +22,7 @@
 import { spawnSync } from "node:child_process";
 import { lintText, type Finding } from "../lint.ts";
 import type { RuleSet } from "../rules.ts";
-import type { Reply } from "../chat/reader.ts";
+import type { ChatReader, Reply } from "../chat/reader.ts";
 
 export interface Verdict {
   ok: boolean;
@@ -45,6 +45,32 @@ export const JUDGE_TIMEOUT_MS = 25_000;
 /** Whether this process is itself a judge, and must not start another. */
 export function isJudge(env: NodeJS.ProcessEnv = process.env): boolean {
   return env[JUDGE_MARKER] === "1";
+}
+
+/**
+ * What the reader last asked.
+ *
+ * The payload first, because an agent that sends the question is telling you
+ * the truth about the turn it is ending. Claude Code sends the reply and not
+ * the question, so the transcript is the fallback rather than the exception:
+ * measured over three days on 2026-08-19, 32 of 39 judge calls had nothing
+ * from the payload and ran on "(not available)".
+ */
+export function lastAsked(
+  payload: Record<string, unknown>,
+  reader?: { lastAsk?: ChatReader["lastAsk"] },
+): string | undefined {
+  for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
+    const v = payload[key];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  try {
+    return reader?.lastAsk?.(payload);
+  } catch {
+    // A transcript we cannot parse means the judge works from the reply alone,
+    // which is what it did before this existed.
+    return undefined;
+  }
 }
 
 /**

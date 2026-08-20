@@ -21,6 +21,15 @@ in there but arrives late, the reply restates the question, it explains what it 
 about to do, it covers a second topic nobody asked about, or it names files, keys
 and flags where a plain description would do.
 
+Refuse for these as well, and they outrank the calibration below. A count
+brought the reply here; these are what the count cannot see.
+- A term arrives doing work in the sentence and nothing in the reply says what
+  it is. Not an acronym only: "the JSON merge", "by-name behaviour" and "the
+  retry path" are the shape that stops a reader. Refuse when the reply cannot
+  be acted on without knowing one, and quote it.
+- Every sentence carries a full load for the whole reply. Refuse when breaking
+  two or three of them in half would cost nothing.
+
 When you refuse, `reason` must say what the reply should have led with, in one
 sentence, quoting the line that should have been first.
 

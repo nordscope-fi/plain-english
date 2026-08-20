@@ -10,10 +10,10 @@ import { READERS, readAll, readerFor, readerIds } from "../src/chat/registry.ts"
 import { hasSegment, inScope, withinDays } from "../src/chat/reader.ts";
 import { chatRuleSet, compile, loadDefault } from "../src/rules.ts";
 import { decideChat, blockStatePath, sweepLegacyState } from "../src/adapters/chat.ts";
-import { decide } from "../src/adapters/hook.ts";
+import { decide, formatReason } from "../src/adapters/hook.ts";
 import { byId } from "../src/agents/registry.ts";
 import { lintText } from "../src/lint.ts";
-import { JUDGE_MARKER, isJudge, judgeInput, parseVerdict, runJudge, usableReason } from "../src/adapters/judge.ts";
+import { JUDGE_MARKER, isJudge, judgeInput, lastAsked, parseVerdict, runJudge, usableReason } from "../src/adapters/judge.ts";
 
 /**
  * Fixtures are hand-authored in each agent's real record shape, never copied
@@ -148,6 +148,47 @@ describe("Claude Code transcripts", () => {
     });
     expect(reply?.text).toBe("Done. Two files changed.");
     expect(reply?.isSubagent).toBe(false);
+  });
+
+  it("reads the reader's last question off the transcript, which the stop event omits", () => {
+    const path = resolve(home, "s1.jsonl");
+    write(
+      path,
+      jsonl([
+        { type: "user", message: { role: "user", content: "Why is the release job slow?" } },
+        {
+          type: "assistant",
+          message: { role: "assistant", content: [{ type: "text", text: "Because it waits." }] },
+        },
+        { type: "user", message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+      ]),
+    );
+    expect(claudeCodeChat.lastAsk?.({ transcript_path: path })).toBe("Why is the release job slow?");
+  });
+
+  it("falls back to the transcript for the question, since Stop carries only the reply", () => {
+    const path = resolve(home, "s2.jsonl");
+    write(
+      path,
+      jsonl([
+        { type: "user", message: { role: "user", content: "Walk me through the release job." } },
+        { type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "ok" }] } },
+      ]),
+    );
+    expect(lastAsked({ transcript_path: path }, claudeCodeChat)).toBe(
+      "Walk me through the release job.",
+    );
+  });
+
+  it("prefers a question the payload carries over one read off disk", () => {
+    const path = resolve(home, "s3.jsonl");
+    write(
+      path,
+      jsonl([{ type: "user", message: { role: "user", content: "the stale one" } }]),
+    );
+    expect(lastAsked({ transcript_path: path, prompt: "the live one" }, claudeCodeChat)).toBe(
+      "the live one",
+    );
   });
 
   it("marks a SubagentStop reply as a subagent's", () => {
@@ -500,6 +541,54 @@ describe("the chat gate", () => {
       stopHookActive: true,
     });
     expect(d.allow).toBe(true);
+  });
+
+  /**
+   * The retry after a dash.
+   *
+   * Over the three days to 2026-08-19 the gate blocked 69 of the 218 replies
+   * it judged, and 38 of those failed on nothing but an em dash. A turn gets
+   * one block, so more than half of them were spent asking for a substitution,
+   * and the rewrite that came back was never judged on anything else.
+   */
+  describe("a punctuation-only block does not use up the turn", () => {
+    const dash = "We changed the release job \u2014 it merges now.";
+
+    it("blocks a second time when the rewrite turns out to be unreadable", () => {
+      const opts = { projectDir: home, ruleSet: strict, promptId: "d1" };
+      expect(decideChat(reply(dash), opts).allow).toBe(false);
+      const second = decideChat(reply("We leverage this."), {
+        ...opts,
+        stopHookActive: true,
+      });
+      expect(second.allow).toBe(false);
+      expect(second.reason).toContain("leverage");
+    });
+
+    it("stops at two, so a rewrite still cannot loop", () => {
+      const opts = { projectDir: home, ruleSet: strict, promptId: "d2" };
+      expect(decideChat(reply(dash), opts).allow).toBe(false);
+      expect(
+        decideChat(reply("We leverage this."), { ...opts, stopHookActive: true }).allow,
+      ).toBe(false);
+      expect(
+        decideChat(reply("We utilize this."), { ...opts, stopHookActive: true }).allow,
+      ).toBe(true);
+    });
+
+    it("does not retry a dash with another dash", () => {
+      const opts = { projectDir: home, ruleSet: strict, promptId: "d3" };
+      expect(decideChat(reply(dash), opts).allow).toBe(false);
+      expect(decideChat(reply(dash), { ...opts, stopHookActive: true }).allow).toBe(true);
+    });
+
+    it("does not retry a block that already named something else", () => {
+      const opts = { projectDir: home, ruleSet: strict, promptId: "d4" };
+      expect(decideChat(reply("We leverage this."), opts).allow).toBe(false);
+      expect(
+        decideChat(reply("We utilize this."), { ...opts, stopHookActive: true }).allow,
+      ).toBe(true);
+    });
   });
 
   it("is waived by the ack file, like every other channel", () => {
@@ -881,6 +970,128 @@ describe("reader load", () => {
   it("does not count a name against a document", () => {
     expect(lintText(many, base).findings.some((f) => f.ruleId === "reader-load")).toBe(false);
   });
+
+  /**
+   * Pace.
+   *
+   * Measured on 2026-08-19 over the 218 replies the gate judged. Of the four
+   * replies the reader stopped on that were long enough to measure, every one
+   * ran above the corpus median of 11.6 words a sentence, at 13.5, 14.5, 15.7
+   * and 16.6. Three other measures of density said the opposite: those replies
+   * carried fewer nominalisations, fewer noun stacks and shorter words than
+   * the corpus did. The load was the pace, not the vocabulary.
+   */
+  describe("pace", () => {
+    // Twelve sentences of fifteen words. No banned term, no sentence long
+    // enough for `long-sentence`, nothing to point at except that it never
+    // lets up.
+    const relentless = Array.from(
+      { length: 12 },
+      (_, i) => `Step ${i} is ` + Array.from({ length: 12 }, () => "done").join(" ") + ".",
+    ).join(" ");
+
+    // Twenty sentences of four words. The same subject, paced.
+    const paced = Array.from({ length: 20 }, (_, i) => `Step ${i} is done.`).join(" ");
+
+    it("fires on a reply that never lets up", () => {
+      expect(fired(relentless, "reply-pace")).toBe(true);
+    });
+
+    it("leaves a reply of short sentences alone", () => {
+      expect(fired(paced, "reply-pace")).toBe(false);
+    });
+
+    it("says nothing about a short reply, which has no pace to judge", () => {
+      // Two sentences of twenty words. Over the mean, under the floor, and a
+      // two-sentence answer that happens to run long is not a wall of text.
+      const brief = Array.from(
+        { length: 2 },
+        () => Array.from({ length: 20 }, () => "word").join(" ") + ".",
+      ).join(" ");
+      expect(fired(brief, "reply-pace")).toBe(false);
+    });
+
+    it("does not judge a document by its pace", () => {
+      expect(lintText(relentless, base).findings.some((f) => f.ruleId === "reply-pace")).toBe(
+        false,
+      );
+    });
+
+    it("names the number, so the finding can be checked", () => {
+      const f = lintText(relentless, set).findings.find((x) => x.ruleId === "reply-pace");
+      expect(f?.message).toMatch(/words a sentence/);
+    });
+
+    it("is a count the judge may waive, like the other two", () => {
+      const seen: string[] = [];
+      decideChat(
+        { text: relentless, isSubagent: false, session: "s", source: "t", line: 1 },
+        {
+          projectDir: home,
+          promptId: "pace-1",
+          judge: (_r, findings) => {
+            seen.push(...findings.map((x) => x.ruleId));
+            return { ok: true };
+          },
+        },
+      );
+      expect(seen).toContain("reply-pace");
+    });
+  });
+
+  /**
+   * The ask at the end.
+   *
+   * Every sentence here was said to a real reader in the three days to
+   * 2026-08-19. The first two drew "what does that mean?" and a request to
+   * start over; the last two were answered without comment.
+   */
+  describe("the closing ask", () => {
+    const asked = (text: string) => fired(text, "unreadable-ask");
+
+    it("fires on a closing question the reader has to unpack", () => {
+      expect(
+        asked(
+          "The merge code says otherwise.\n\nWant me to look at whether the JSON " +
+            "merge has the same by-name behaviour the TOML path documents?",
+        ),
+      ).toBe(true);
+    });
+
+    it("fires on a closing question that runs long", () => {
+      expect(
+        asked(
+          "Is your goal to make the reaction line show the custom emoji as something " +
+            "recognizable, or is there something broader you had in mind?",
+        ),
+      ).toBe(true);
+    });
+
+    it("leaves a short ask alone", () => {
+      expect(asked("Two files changed.\n\nWhich way do you want to go?")).toBe(false);
+      expect(
+        asked("Does this look right, or do you want to adjust before I save it?"),
+      ).toBe(false);
+    });
+
+    it("does not count a leading which or what as a clause", () => {
+      expect(asked("Which one, and which rec?")).toBe(false);
+    });
+
+    it("says nothing about a reply that ends in a statement", () => {
+      const q = "Should I rebase the branch onto main before the release goes out today?";
+      expect(asked(q + "\n\nNothing needs deciding.")).toBe(false);
+    });
+
+    it("does not judge a document by its closing question", () => {
+      const long =
+        "Want me to look at whether the JSON merge has the same by-name behaviour " +
+        "the TOML path documents?";
+      expect(lintText(long, base).findings.some((f) => f.ruleId === "unreadable-ask")).toBe(
+        false,
+      );
+    });
+  });
 });
 
 /**
@@ -968,6 +1179,52 @@ describe("the chat judge", () => {
       [],
     );
     expect(text).toContain("(not available)");
+  });
+});
+
+/**
+ * What a block leads with.
+ *
+ * A chat block holds one turn, and `formatReason` shows five findings. Over
+ * three days to 2026-08-19 the gate blocked 69 of the 218 replies it judged
+ * and 38 of those failed on nothing but an em dash, so ordering by line number
+ * put a dash first and pushed the reason the reader would have cared about out
+ * of the visible five.
+ */
+describe("a block leads with what the reader could not follow", () => {
+  const f = (ruleId: string, line: number) => ({
+    ruleId,
+    severity: "error" as const,
+    match: "x",
+    line,
+    column: 1,
+    lineText: "",
+  });
+
+  it("puts a whole-reply finding above a dash that came first in the text", () => {
+    const text = formatReason([f("em-dash", 1), f("reply-length", 12)], "chat");
+    expect(text.indexOf("reply-length")).toBeLessThan(text.indexOf("em-dash"));
+  });
+
+  it("keeps the dash visible when six findings would hide it", () => {
+    const text = formatReason(
+      [
+        f("em-dash", 1),
+        f("em-dash", 2),
+        f("em-dash", 3),
+        f("em-dash", 4),
+        f("em-dash", 5),
+        f("unreadable-ask", 20),
+      ],
+      "chat",
+    );
+    expect(text).toContain("unreadable-ask");
+    expect(text.indexOf("unreadable-ask")).toBeLessThan(text.indexOf("em-dash"));
+  });
+
+  it("leaves a document's findings in the order they appear", () => {
+    const text = formatReason([f("em-dash", 1), f("reply-length", 12)], "docs");
+    expect(text.indexOf("em-dash")).toBeLessThan(text.indexOf("reply-length"));
   });
 });
 

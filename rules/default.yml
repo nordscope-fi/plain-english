@@ -792,7 +792,12 @@ chat:
         task list, let it do the restating rather than narrating the plan twice.
       bad: "Done. Ready for the next part?"
       good: "Step 3 of 5 done: schema updated. Next: backfill the column. Run it?"
-      levels: [full]
+      # Standard since 2026-08-19. It was `full` only, so the rendered style
+      # this machine runs did not carry it, and a four-word reply reading
+      # "Phase 3, question 4:" drew "I have NO idea what this is about, or what
+      # I am responding to". No count reaches a four-word reply. This rule is
+      # the only thing that does.
+      levels: [standard, full]
 
     - id: time-estimates
       name: "Estimate in concrete units"
@@ -833,7 +838,7 @@ chat:
 
   # What one reply may ask the reader to carry.
   #
-  # Every other rule in this file judges words and sentences. These two judge
+  # Every other rule in this file judges words and sentences. These three judge
   # the reply as a whole, because that is where the complaints landed. Seven
   # days of transcripts, read 2026-08-18: thirteen replies drew an explicit
   # complaint, every one was 264 words or longer, four produced no finding at
@@ -842,18 +847,25 @@ chat:
   #
   # Chat only. A document that runs long is doing its job.
   #
-  # Both are `error` rather than `warn` because a warning cannot hold a turn,
-  # and a gate that reports after the reader has already read the reply is the
-  # thing this pair exists to replace. The semantic judge is what keeps that
-  # honest: it waives a reply whose depth was asked for.
+  # All three are `error` rather than `warn` because a warning cannot hold a
+  # turn, and a gate that reports after the reader has already read the reply
+  # is the thing this set exists to replace. The semantic judge is what keeps
+  # that honest: it waives a reply whose depth was asked for.
   limits:
     - id: reply-length
       kind: reply-length
       severity: error
-      # 250, and it is measured rather than chosen. Over those seven days the
-      # 90th-percentile reply was 254 words of prose, and the shortest reply
-      # that drew a complaint was 264. Fenced output does not count toward it.
-      maxWords: 250
+      # 225, and it is measured rather than chosen. Re-read on 2026-08-19 over
+      # the 218 replies the gate itself judged in three days: 250 let a
+      # 232-word reply through that the reader answered with "Eh?". At 225 the
+      # pair fires on 24% of replies against 14%, and the judge waives what was
+      # asked for. Fenced output does not count toward it.
+      #
+      # It does not reach a 157-word reply that also drew a complaint, and
+      # nothing sane does: that needs 150, which fires on 42% of everything and
+      # would get switched off. `restate-where-we-are` is the answer to that
+      # one, not a lower number here.
+      maxWords: 225
       message: "Lead with the answer and cut the scaffolding, or say in one line that the detail exists."
       link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
 
@@ -864,8 +876,66 @@ chat:
       # Density pointed the wrong way: in the replies that drew a complaint it
       # was LOWER than in long replies generally, 2.4 per 100 words against
       # 4.1. The total separated them, a median of 18 against 12.
-      maxTerms: 15
+      #
+      # 12 since 2026-08-19, down from 15. The three-day re-read put the
+      # 90th-percentile reply at 15 names exactly, so the old number was
+      # measuring the top tenth rather than the load a reader complains about.
+      maxTerms: 12
       message: "Name the thing, not its configuration. Say what it does before you name it."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    # Whether the reply ever lets up.
+    #
+    # `long-sentence` judges one sentence and finds nothing wrong with a reply
+    # made entirely of fifteen-word sentences. That is the reply people put
+    # down: no single sentence is hard, and there is nowhere to rest.
+    #
+    # Measured on 2026-08-19 over the 218 replies the gate itself judged. The
+    # corpus median is 11.6 words a sentence and the 90th percentile is 14.8.
+    # Of the four replies the reader stopped on and said so, every one ran
+    # above the median: 13.5, 14.5, 15.7 and 16.6.
+    #
+    # The negative result is the more useful half, and it is why this rule is
+    # about pace rather than vocabulary. Three other readings of "too dense"
+    # were tested on the same four replies and all three went the wrong way.
+    # Those replies carried FEWER nominalisations (words like "registration"
+    # and "validation"), FEWER stacked modifiers, and SHORTER words than the
+    # corpus. They were written in plainer words than average and were still
+    # the ones nobody could get through.
+    #
+    # Calibrated on four replies, which is not many. Revisit it against a
+    # fuller week before treating 13 as settled.
+    - id: reply-pace
+      kind: reply-pace
+      severity: error
+      maxMeanWords: 13
+      # A two-sentence answer has no pace. Without this the rule would fire on
+      # a one-line answer that happened to need twenty words.
+      minWords: 80
+      message: "Let a short sentence land between the long ones."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    # The ask at the end.
+    #
+    # `say-what-needs-a-decision` asks a reply with a choice in it to end by
+    # naming the choice. This is the other half. An ask the reader has to
+    # unpack before answering leaves them worse off than no ask at all, and it
+    # is the last thing they read, so it is what they answer.
+    #
+    # Two measures, because the fault comes in two shapes: one long, one
+    # nested. Over the three days to 2026-08-19, 64 replies ended in a
+    # question and 10 were long or nested. One of the ten was answered with
+    # "That last sentence: what does that mean?".
+    - id: unreadable-ask
+      kind: unreadable-ask
+      severity: error
+      # 15 words. The asks that were answered without comment ran 4 to 14.
+      maxWords: 15
+      # One subordinating clause. "Want me to look at whether the JSON merge
+      # has the same by-name behaviour the TOML path documents?" carries two,
+      # and the reader could not answer it.
+      maxClauses: 1
+      message: "Ask for one thing, in one clause. Put the detail in the sentence before it."
       link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
 
   # Deterministic and chat-only. Phrases rather than regexes on purpose: the
@@ -966,6 +1036,30 @@ chat:
   # earlier. A shaping prompt fails the same way in the other direction, by
   # clipping an answer that needed to be long. These are the cases where the
   # shape gives way and the answer wins.
+  # What the judge reads for, beyond whether the length was earned.
+  #
+  # A pattern can find an acronym and a camel-cased name. It cannot find "the
+  # JSON merge", "by-name behaviour" or "the TOML path documents", which are
+  # ordinary words carrying a technical sense, and those are what the reader
+  # actually stops on. Measured on 2026-08-19: `unglossed-term` fired zero
+  # times on all five replies that drew a complaint, and its most frequent hits
+  # corpus-wide included ROLES, SECURITY, HAS and FROM.
+  #
+  # So this is asked of the model, which reads meaning, rather than added to a
+  # word list. It runs on the replies a count has already stopped, which costs
+  # no extra call.
+  judge:
+    - id: unexplained-terms
+      description: >-
+        A term arrives doing work in the sentence and nothing in the reply says
+        what it is. Not an acronym only: "the JSON merge", "by-name behaviour"
+        and "the retry path" are the shape that stops a reader. Refuse when the
+        reply cannot be acted on without knowing one, and quote it.
+    - id: no-let-up
+      description: >-
+        Every sentence carries a full load for the whole reply. Refuse when
+        breaking two or three of them in half would cost nothing.
+
   expand:
     - "The reader asked you to explain, or to walk them through it."
     - "The action is hard to reverse. Confirm before acting."

@@ -113,7 +113,9 @@
               "long-sentence",
               "unexplained-suppression",
               "reply-length",
-              "reader-load"
+              "reader-load",
+              "unreadable-ask",
+              "reply-pace"
             ]
           },
           "maxWords": {
@@ -148,6 +150,21 @@
             "description": "reader-load only: the count of distinct backticked names above which the rule fires.",
             "type": "integer",
             "minimum": 1
+          },
+          "maxMeanWords": {
+            "description": "reply-pace only: the average sentence length a whole reply may hold. Distinct from long-sentence, which judges one sentence: a reply where every sentence runs long breaks no single-sentence rule and still never lets up.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "minWords": {
+            "description": "reply-pace only: the shortest reply worth measuring. A two-sentence answer has no pace.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "maxClauses": {
+            "description": "unreadable-ask only: the count of subordinating clauses a closing question may carry before the reader has to unpack it.",
+            "type": "integer",
+            "minimum": 0
           }
         }
       }
@@ -296,6 +313,23 @@
             "type": "string"
           }
         },
+        "judge": {
+          "description": "What the chat judge reads for beyond whether the length was earned. Each entry becomes a bullet in the generated prompt. Here rather than in the renderer because a prompt carrying wording no config governs is wording a project cannot change.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "description"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "limits": {
           "description": "Chat only: what one reply may ask the reader to carry. A document that runs long is doing its job, so these never apply outside a reply.",
           "type": "array",
@@ -324,7 +358,9 @@
                   "long-sentence",
                   "unexplained-suppression",
                   "reply-length",
-                  "reader-load"
+                  "reader-load",
+                  "unreadable-ask",
+                  "reply-pace"
                 ]
               },
               "maxWords": {
@@ -359,6 +395,21 @@
                 "description": "reader-load only: the count of distinct backticked names above which the rule fires.",
                 "type": "integer",
                 "minimum": 1
+              },
+              "maxMeanWords": {
+                "description": "reply-pace only: the average sentence length a whole reply may hold. Distinct from long-sentence, which judges one sentence: a reply where every sentence runs long breaks no single-sentence rule and still never lets up.",
+                "type": "integer",
+                "minimum": 1
+              },
+              "minWords": {
+                "description": "reply-pace only: the shortest reply worth measuring. A two-sentence answer has no pace.",
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxClauses": {
+                "description": "unreadable-ask only: the count of subordinating clauses a closing question may carry before the reader has to unpack it.",
+                "type": "integer",
+                "minimum": 0
               }
             }
           }
