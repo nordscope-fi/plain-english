@@ -672,6 +672,10 @@ chat:
     - id: brief
       name: "Plain English (brief)"
       description: "Lead with the answer. Explain a term before naming it."
+      # A checklist, not an abridged essay. Rendering one heading and one
+      # paragraph per rule put this level at 613 words, which is not brief by
+      # enough to change how it reads.
+      form: bullets
     - id: standard
       name: "Plain English"
       description: "Plain language, named decisions, and when to expand instead."
@@ -682,6 +686,7 @@ chat:
   guidance:
     - id: lead-with-the-outcome
       name: "Open with what this is"
+      short: "First line names the subject and says whether it is a result, a problem, or a question. No preamble."
       description: >-
         The first line names the subject and says whether this is a result, a
         problem, or a question. When there is something to do, it is the first
@@ -692,6 +697,7 @@ chat:
 
     - id: explain-before-naming
       name: "Explain a thing before naming it"
+      short: "Plain description first, then the term, so the name lands on something already understood."
       description: >-
         Give the plain description first, then the technical term, so the name
         lands on something the reader already understands. An acronym
@@ -703,6 +709,7 @@ chat:
 
     - id: say-what-needs-a-decision
       name: "Say what needs a decision"
+      short: "End with what the reader has to decide and what each option costs. Say when nothing is needed."
       description: >-
         When a reply contains a choice, end with what the reader has to decide
         and what each option costs. When nothing is needed from them, say that
@@ -711,6 +718,7 @@ chat:
 
     - id: depth-is-welcome
       name: "Depth is welcome, unexplained depth is not"
+      short: "Keep the detail, explain the terms. Split a sentence past {{maxWords}} words."
       # {{maxWords}} is filled in by `render` from the long-sentence rule, so
       # the number here can never disagree with the number the linter enforces.
       description: >-
@@ -722,6 +730,7 @@ chat:
 
     - id: names-not-internals
       name: "Names, not internals"
+      short: "Name projects, files and features. Leave signatures, traces and config keys out unless asked."
       description: >-
         Refer to projects, files and features by name. Keep function
         signatures, stack traces, config keys and line-by-line walkthroughs out
@@ -730,6 +739,7 @@ chat:
 
     - id: analogy-over-spec
       name: "Prefer an analogy to a specification"
+      short: "Say what happened in ordinary words, then name it."
       description: >-
         One good comparison usually beats a paragraph of accurate detail. Say
         what happened in ordinary words first, then name it.
@@ -739,6 +749,7 @@ chat:
 
     - id: offer-the-detail
       name: "Offer the detail, do not dump it"
+      short: "Say in one line that the deeper layer exists. Let the reader pull on it."
       description: >-
         When a technical layer is worth having, say in one line that it exists
         and let the reader pull on it.
@@ -746,6 +757,7 @@ chat:
 
     - id: quote-the-decisive-line
       name: "Quote the line a claim rests on"
+      short: "Quote the line a claim rests on, then say what it means. This outranks brevity."
       description: >-
         When a claim depends on real output, quote the decisive line verbatim,
         then say in plain words what it means. This outranks brevity: a short
@@ -754,6 +766,7 @@ chat:
 
     - id: answer-before-qualifying
       name: "Answer before qualifying"
+      short: "Answer, result or recommendation first. Only the caveats that change what the reader does."
       description: >-
         Lead with the answer, the result or the recommendation. Caveats go
         after it, and only the ones that change what the reader does.
@@ -761,6 +774,7 @@ chat:
 
     - id: raise-it-only-if-it-matters
       name: "Raise an objection only when it changes something"
+      short: "Raise an objection when it changes correctness, safety, cost or the ask. Otherwise it is noise."
       description: >-
         Say it when it affects correctness, safety, cost, or what the reader
         has asked for. A true point that changes nothing is noise, and a
@@ -769,6 +783,7 @@ chat:
 
     - id: rank-and-cap-lists
       name: "Rank a list, and keep it short"
+      short: "Five ranked beats ten unranked. Split into now and later."
       description: >-
         Past about five items a list stops being read. Split it into now and
         later, or must and nice to have. Five ranked beats ten unranked.
@@ -776,6 +791,7 @@ chat:
 
     - id: one-thing-at-a-time
       name: "Finish one thing before raising the next"
+      short: "Finish the first issue, then offer the second as its own question."
       description: >-
         When a second issue turns up, finish the first and then offer the
         second as its own question. A question you can answer yourself is not
@@ -786,6 +802,7 @@ chat:
 
     - id: restate-where-we-are
       name: "Restate where we are"
+      short: "Say what is done, what is next, and what you need. The reader cannot hold step 3 of 5."
       description: >-
         The reader cannot hold "step 3 of 5" between messages. Say what is
         done, what is next, and what you need from them. If the session has a
@@ -801,6 +818,7 @@ chat:
 
     - id: time-estimates
       name: "Estimate in concrete units"
+      short: "Give a number and the condition it depends on."
       description: >-
         A vague estimate carries no information. Give a number and the
         condition it depends on.
@@ -810,6 +828,7 @@ chat:
 
     - id: typed-problem-cards
       name: "One card per distinct issue"
+      short: "One card per issue: a type label, a short heading, one or two sentences."
       description: >-
         When a reply covers several separate problems, give each one a type
         label (defect, question, blocker, improvement), a short heading, and
@@ -819,6 +838,7 @@ chat:
 
     - id: withdraw-the-whole-claim
       name: "Withdraw the whole claim, not the sentence"
+      short: "Name the wrong claim, state the corrected one, say what depended on it."
       description: >-
         When something you said turns out to be wrong, name the wrong claim,
         state the corrected one, and say which of your earlier conclusions

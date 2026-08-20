@@ -123,6 +123,15 @@ export interface ChatLevel {
   id: string;
   name: string;
   description?: string;
+  /**
+   * How this level renders.
+   *
+   * `sections` gives every rule its own heading and paragraph, which is right
+   * when the reader has room for it. `bullets` gives one checklist, which is
+   * the point of a level that exists to be short. Absent means `sections`, so
+   * a level written before this key keeps rendering the way it did.
+   */
+  form?: "sections" | "bullets";
 }
 
 /**
@@ -138,6 +147,14 @@ export type ChatGuidance = Levelled & {
   id: string;
   name?: string;
   description?: string;
+  /**
+   * The rule in one imperative line, for the checklist rendering.
+   *
+   * Optional. Without it the brief style falls back to the first sentence of
+   * `description`, so a project that adds guidance still renders at every
+   * level without having to write the line twice.
+   */
+  short?: string;
   bad?: string;
   good?: string;
   reason?: string;
@@ -593,6 +610,12 @@ function readChat(v: unknown): ChatSection {
       }
       const level: ChatLevel = { id: l["id"] as string, name: l["name"] as string };
       if (typeof l["description"] === "string") level.description = l["description"];
+      if (l["form"] !== undefined) {
+        if (l["form"] !== "sections" && l["form"] !== "bullets") {
+          throw new RuleError(`chat.levels[${i}].form must be 'sections' or 'bullets'`);
+        }
+        level.form = l["form"];
+      }
       return level;
     });
   }
@@ -605,7 +628,7 @@ function readChat(v: unknown): ChatSection {
         throw new RuleError(`chat.guidance[${i}].id must be a kebab-case string`);
       }
       const entry: ChatGuidance = { id: g["id"] };
-      for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+      for (const k of ["name", "description", "short", "bad", "good", "reason"] as const) {
         if (typeof g[k] === "string") entry[k] = g[k] as string;
       }
       const levels = readLevels(g["levels"], `chat.guidance[${i}].levels`);
@@ -938,7 +961,7 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
       guidance.set(g.id, { ...g });
       continue;
     }
-    for (const k of ["name", "description", "bad", "good", "reason"] as const) {
+    for (const k of ["name", "description", "short", "bad", "good", "reason"] as const) {
       if (g[k]) existing[k] = g[k];
     }
     if (g.levels !== undefined) existing.levels = g.levels;

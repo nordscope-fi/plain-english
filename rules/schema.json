@@ -201,6 +201,14 @@
               },
               "description": {
                 "type": "string"
+              },
+              "form": {
+                "enum": [
+                  "sections",
+                  "bullets"
+                ],
+                "default": "sections",
+                "description": "How this level renders. 'sections' gives every rule its own heading and paragraph. 'bullets' gives one checklist. Absent means 'sections'."
               }
             }
           }
@@ -223,6 +231,10 @@
               },
               "description": {
                 "type": "string"
+              },
+              "short": {
+                "type": "string",
+                "description": "The rule in one imperative line. Used by the brief style, which renders a checklist instead of one heading per rule. Falls back to the first sentence of description."
               },
               "bad": {
                 "type": "string"
@@ -318,7 +330,10 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "description"],
+            "required": [
+              "id",
+              "description"
+            ],
             "additionalProperties": false,
             "properties": {
               "id": {

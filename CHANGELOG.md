@@ -4,6 +4,17 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-08-20
+### Added
+
+- **`form: bullets` on a chat level, and `short` on a guidance rule.** A level with `form: bullets` renders its rules as one checklist instead of one heading and one paragraph each. `short` carries the rule in a single imperative line for that rendering; without one the renderer falls back to the first sentence of the description, so a project that adds guidance still renders at every level. Absent means `sections`, which is what every level did before.
+
+### Changed
+
+- **`brief` is a checklist, not an abridged essay.** It dropped nine of eighteen sections and kept a paragraph for the other nine, which left it at 594 words. The same rules now render at 398. Nothing was cut from the level: the four rules, both thresholds, all three openers, the three prohibitions and all six overrides are still there. What went is the paragraph around each one, plus the seventeen banned phrases printed in full, which `chat.failOn: error` blocks deterministically whether or not the style spells them out.
+
+  "These outrank everything above" stays at both forms. It is the only line that says the six reasons to go long beat the 225-word ceiling, and a level that lists both without ranking them is worse than one that lists neither.
+
 ## [0.14.0] - 2026-08-20
 ### Added
 
@@ -386,7 +397,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.1
 [0.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.0

@@ -8,7 +8,7 @@ import {
   outputStylePath,
   vocabularyTerms,
 } from "../src/render.ts";
-import { chatRules, compile, loadDefault, merge } from "../src/rules.ts";
+import { chatRules, compile, inLevel, loadDefault, merge } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
 import { resolve } from "node:path";
@@ -217,21 +217,75 @@ describe("output style", () => {
     });
   }
 
+  // Was asserted by heading text until `brief` stopped rendering one heading
+  // per rule. Ids are the stronger check anyway: they test the ruleset, which
+  // is where nesting is decided, rather than one rendering of it.
   it("the levels are strictly nested, so switching up never loses a rule", () => {
-    const headings = (level: string) =>
-      renderOutputStyle(set, level)
-        .split("\n")
-        .filter((l) => l.startsWith("## "))
-        .map((l) => l.slice(3));
+    const at = (level: string) =>
+      set.chat.guidance.filter((g) => inLevel(g, level)).map((g) => g.id);
 
-    const [brief, standard, full] = [headings("brief"), headings("standard"), headings("full")];
+    const [brief, standard, full] = [at("brief"), at("standard"), at("full")];
     expect(brief.length).toBeGreaterThan(0);
-    for (const h of brief) expect(standard, `brief section missing from standard: ${h}`).toContain(h);
-    for (const h of standard) expect(full, `standard section missing from full: ${h}`).toContain(h);
+    for (const id of brief) expect(standard, `brief rule missing from standard: ${id}`).toContain(id);
+    for (const id of standard) expect(full, `standard rule missing from full: ${id}`).toContain(id);
     // And strictly, not merely equal: three identical files would pass the
     // subset checks above and defeat the point of having three.
     expect(brief.length).toBeLessThan(standard.length);
     expect(standard.length).toBeLessThan(full.length);
+  });
+
+  it("brief is a checklist, not an abridged essay", () => {
+    // 594 words on 2026-08-20, when every rule still rendered as its own
+    // heading and paragraph. The bullets form takes the same rules to 375.
+    //
+    // 420 rather than a rounder number, and it is a ceiling on the FORM, not a
+    // budget for the content. Every word left at 375 is a rule, a threshold or
+    // an override, so the only way back over this line is a level that has
+    // started rendering paragraphs again. Adding a rule to brief should raise
+    // this number; adding a paragraph to each rule should not be possible.
+    const words = renderOutputStyle(set, "brief")
+      .replace(/^---[\s\S]*?^---/m, "")
+      .split(/\s+/)
+      .filter(Boolean).length;
+    expect(words).toBeLessThan(420);
+    // And it still says something. A renderer that dropped every section would
+    // pass the ceiling above and fail the whole point of the level.
+    expect(words).toBeGreaterThan(200);
+  });
+
+  it("brief renders as one checklist, not one heading per rule", () => {
+    // The property the word count is a proxy for, asserted directly.
+    const headings = renderOutputStyle(set, "brief")
+      .split("\n")
+      .filter((l) => l.startsWith("## "));
+    expect(headings.length).toBeLessThan(7);
+    expect(renderOutputStyle(set, "standard")).toContain("## Open with what this is");
+  });
+
+  it("every rule reaching a bullets level has a short line to render", () => {
+    // The description fallback exists so an overlay still renders, not as the
+    // shipped answer: truncating "Depth is welcome" at its first full stop
+    // dropped the sentence limit, which is the whole rule.
+    const bullets = new Set(
+      set.chat.levels.filter((l) => l.form === "bullets").map((l) => l.id),
+    );
+    for (const g of set.chat.guidance) {
+      for (const level of bullets) {
+        if (!inLevel(g, level)) continue;
+        expect(g.short, `${g.id} reaches ${level} with no short line`).toBeDefined();
+        expect(g.short!.split(/\s+/).length, `${g.id} short is not short`).toBeLessThan(22);
+      }
+    }
+  });
+
+  it("brief names every rule it carries", () => {
+    // The short form drops the paragraph, not the rule. Anything `inLevel`
+    // puts in brief has to be findable in the rendered file by name.
+    const style = renderOutputStyle(set, "brief");
+    for (const g of set.chat.guidance) {
+      if (!inLevel(g, "brief")) continue;
+      expect(style, `brief drops ${g.id}`).toContain(g.name ?? g.id);
+    }
   });
 
   it("takes the sentence threshold from the ruleset, not a hardcoded number", () => {

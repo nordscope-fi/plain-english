@@ -564,6 +564,23 @@ export interface RenderTarget {
 }
 
 /**
+ * One guidance item in a single line.
+ *
+ * `short` when the ruleset supplies one, otherwise the first sentence of the
+ * description. The fallback is what keeps `short` optional: a project overlay
+ * that adds a rule still renders at every level without writing the line twice.
+ */
+function shortOf(g: { short?: string; description?: string; name?: string; id: string }): string {
+  if (g.short) return g.short;
+  const d = (g.description ?? "").replace(/\s+/g, " ").trim();
+  if (!d) return g.name ?? g.id;
+  // Split on a full stop that ends a sentence, not on one inside `src/auth.ts`
+  // or an abbreviation, so the fallback does not truncate mid-path.
+  const end = d.search(/\.(\s|$)/);
+  return end === -1 ? d : d.slice(0, end + 1);
+}
+
+/**
  * The guidance itself, with no host's packaging around it.
  *
  * Shared by the Claude Code output style and the AGENTS.md fragment so the two
@@ -586,16 +603,33 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
 
-  for (const g of chat.guidance) {
-    if (!inLevel(g, level)) continue;
-    out.push(`## ${g.name ?? g.id}`, "");
-    if (g.description) out.push(...wrap(fill(g.description)), "");
-    // Quoted rather than paraphrased. A rule about how to write is easier to
-    // follow from one example of each than from another sentence describing
-    // the difference.
-    if (g.bad) out.push(`Not this: ${g.bad}`);
-    if (g.good) out.push(`This: ${g.good}`);
-    if (g.bad || g.good) out.push("");
+  const guidance = chat.guidance.filter((g) => inLevel(g, level));
+
+  // A checklist, or a rule per heading. The level decides, not this function,
+  // so a project can shorten its own level without patching the renderer.
+  // Nine bullets need no grouping, so this stays one flat section rather than
+  // earning a group key.
+  const compact = chat.levels.find((l) => l.id === level)?.form === "bullets";
+
+  if (compact) {
+    if (guidance.length) {
+      out.push("## The rules", "");
+      for (const g of guidance) {
+        out.push(...wrap(`- **${g.name ?? g.id}.** ${fill(shortOf(g))}`, "  "));
+      }
+      out.push("");
+    }
+  } else {
+    for (const g of guidance) {
+      out.push(`## ${g.name ?? g.id}`, "");
+      if (g.description) out.push(...wrap(fill(g.description)), "");
+      // Quoted rather than paraphrased. A rule about how to write is easier to
+      // follow from one example of each than from another sentence describing
+      // the difference.
+      if (g.bad) out.push(`Not this: ${g.bad}`);
+      if (g.good) out.push(`This: ${g.good}`);
+      if (g.bad || g.good) out.push("");
+    }
   }
 
   // The two numbers a reply is measured against, printed with the values the
@@ -623,19 +657,33 @@ function styleBody(set: RuleSet, level: string): string[] {
         );
       }
     }
-    out.push(
-      "",
-      ...wrap(
-        "Both give way to the exceptions below. A reply that was asked to go deep is not too long, and a check that cannot tell the difference asks before it refuses.",
-      ),
-      "",
-    );
+    if (!compact) {
+      out.push(
+        "",
+        ...wrap(
+          "Both give way to the exceptions below. A reply that was asked to go deep is not too long, and a check that cannot tell the difference asks before it refuses.",
+        ),
+      );
+    }
+    out.push("");
   }
 
   const tells = chat.tells.filter((t) => t.severity !== "off" && inLevel(t, level));
   if (tells.length) {
     out.push("## Do not open or close with these", "");
     for (const t of tells) {
+      // Compact prints the instruction and one example, not the whole list.
+      // These are literal phrases matched deterministically, and `chat.failOn`
+      // is `error`, so the gate blocks every one of them whether or not the
+      // style spells them out. At full length the list teaches the shape; at
+      // this length it is the largest section in the file and teaches nothing
+      // the gate does not already enforce.
+      if (compact) {
+        const rest = t.phrases.length - 1;
+        const tail = rest > 0 ? ` (and ${rest} more like it)` : "";
+        out.push(...wrap(`- "${t.phrases[0]}"${tail}. ${t.message ?? ""}`.trim(), "  "));
+        continue;
+      }
       const phrases = t.phrases.map((p) => `"${p}"`).join(", ");
       out.push(...wrap(`- ${phrases}. ${t.message ?? ""}`.trim(), "  "));
     }
@@ -651,10 +699,16 @@ function styleBody(set: RuleSet, level: string): string[] {
 
   if (chat.expand.length) {
     out.push("## When to expand instead", "");
+    // The precedence line stays at every form. Without it the level lists six
+    // reasons to go long next to a 225-word ceiling and never says which wins,
+    // which is the one thing a reader cannot work out for themselves. Compact
+    // drops the sentence that restates it, not the rule.
     out.push(
       ...wrap(
-        "These outrank everything above. A short reply that drops the answer is a " +
-          "worse failure than a long one.",
+        compact
+          ? "These outrank everything above."
+          : "These outrank everything above. A short reply that drops the answer is a " +
+              "worse failure than a long one.",
       ),
       "",
     );
