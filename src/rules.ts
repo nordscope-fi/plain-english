@@ -161,6 +161,41 @@ export type ChatGuidance = Levelled & {
 };
 
 /**
+ * The skeleton of a reply.
+ *
+ * Every other entry in this section is a rule about a reply. This is the shape
+ * of one, and it is here because a model reproduces a shape far more reliably
+ * than it weighs eighteen rules and derives one.
+ *
+ * `template` reaches the style inside a fenced block, which the masking pass
+ * blanks, so its placeholder text is never read as prose by the linter.
+ */
+export type ChatShape = Levelled & {
+  name: string;
+  description?: string;
+  template: string;
+};
+
+/**
+ * A complete reply, both halves.
+ *
+ * `bad` opens with the phrases `chat.tells` bans, which is the point: an
+ * example of the reply nobody should write has to contain one. It reaches the
+ * style inside a blockquote, which the masking pass skips, so the style still
+ * lints clean under the ruleset it illustrates.
+ */
+export type ChatExample = Levelled & {
+  id: string;
+  name?: string;
+  /** What the reader asked, so the reply has something to be a reply to. */
+  ask?: string;
+  bad?: string;
+  good?: string;
+  /** One line on what separates the two, when the difference is not obvious. */
+  note?: string;
+};
+
+/**
  * A chat-only phrase, held as literal text rather than a regex.
  *
  * Every other rule in this file carries a pattern, because a pattern is what
@@ -191,6 +226,10 @@ export interface ChatSection {
   tells: ChatTell[];
   avoid: ChatAvoid[];
   expand: string[];
+  /** The reply skeleton, when the ruleset carries one. */
+  shape?: ChatShape;
+  /** Worked replies, both halves. */
+  examples: ChatExample[];
   /**
    * What the chat judge reads for, beyond whether the length was earned.
    *
@@ -554,9 +593,44 @@ const EMPTY_CHAT: ChatSection = {
   tells: [],
   avoid: [],
   expand: [],
+  examples: [],
   judge: [],
   limits: [],
 };
+
+function readShape(v: unknown): ChatShape | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "object" || Array.isArray(v)) {
+    throw new RuleError("chat.shape must be a mapping");
+  }
+  const r = v as Record<string, unknown>;
+  for (const k of ["name", "template"] as const) {
+    if (typeof r[k] !== "string") throw new RuleError(`chat.shape.${k} must be a string`);
+  }
+  const out: ChatShape = { name: r["name"] as string, template: r["template"] as string };
+  if (typeof r["description"] === "string") out.description = r["description"];
+  const levels = readLevels(r["levels"], "chat.shape.levels");
+  if (levels) out.levels = levels;
+  return out;
+}
+
+function readExamples(v: unknown): ChatExample[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("chat.examples must be a list");
+  return v.map((raw, i) => {
+    const e = raw as Record<string, unknown>;
+    if (typeof e["id"] !== "string" || !ID_RE.test(e["id"])) {
+      throw new RuleError(`chat.examples[${i}].id must be a kebab-case string`);
+    }
+    const out: ChatExample = { id: e["id"] };
+    for (const k of ["name", "ask", "bad", "good", "note"] as const) {
+      if (typeof e[k] === "string") out[k] = e[k] as string;
+    }
+    const levels = readLevels(e["levels"], `chat.examples[${i}].levels`);
+    if (levels) out.levels = levels;
+    return out;
+  });
+}
 
 function readLevels(v: unknown, where: string): string[] | undefined {
   if (v === undefined) return undefined;
@@ -681,6 +755,8 @@ function readChat(v: unknown): ChatSection {
   }
 
   out.expand = asStringArray(c["expand"], "chat.expand");
+  out.shape = readShape(c["shape"]);
+  out.examples = readExamples(c["examples"]);
   out.judge = readChatJudge(c["judge"]);
   if (c["failOn"] !== undefined) {
     const f = c["failOn"];
@@ -1024,6 +1100,11 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     // Nullish, like `limits` above and for the same reason: a chat section
     // hand-assembled by a consumer, or written before this key existed, reaches
     // here without it. That is an older config, not a reason to throw.
+    // Wholesale, like `avoid` and `expand`. An example is one unit and half of
+    // one is nonsense, and a skeleton a project half-overrode would render as
+    // two shapes disagreeing with each other.
+    shape: overlay.shape ?? base.shape,
+    examples: overlay.examples?.length ? overlay.examples : (base.examples ?? []),
     judge: overlay.judge?.length ? overlay.judge : (base.judge ?? []),
     ...(overlay.failOn ?? base.failOn ? { failOn: overlay.failOn ?? base.failOn } : {}),
     limits: [...limits.values()],

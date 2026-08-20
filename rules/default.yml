@@ -683,6 +683,102 @@ chat:
       name: "Plain English (full)"
       description: "Typed problem cards, running state, and time estimates."
 
+  # The skeleton, and the only entry in this section that is a shape rather
+  # than a rule about one. Everything else here tells a model what not to do
+  # with a reply it has already decided how to build. Measured against the
+  # published styles this ruleset was read alongside, the part they spend their
+  # length on is the shape and the worked examples, and this file had neither.
+  #
+  # Reaches the style inside a fenced block, which the masking pass blanks, so
+  # the placeholder text is never linted as prose.
+  shape:
+    name: "The shape of a reply"
+    description: >-
+      Three parts, and the third only when there is a choice. A reply that
+      needs nothing from the reader ends at the second.
+    template: |
+      <the result, the problem, or the thing to do>
+
+      <the detail that supports it, and the line any claim rests on>
+
+      <what you need decided, and what each option costs>
+    levels: [standard, full]
+
+  # Worked replies, both halves.
+  #
+  # Every guidance entry already carries a one-line `bad` and `good`, which
+  # shows a sentence. These show a whole reply, which is the unit the rules are
+  # actually about: `answer-before-qualifying` and `rank-and-cap-lists` are
+  # both invisible in a single sentence.
+  #
+  # A `bad` half opens with a phrase `tells` bans, because an example of the
+  # reply nobody should write has to contain one. `render` puts these in a
+  # blockquote and `mask.ts` skips a blockquote node, so the style still lints
+  # clean under the rules it illustrates. `test/render.test.ts` asserts both
+  # halves of that: the phrase is present, and every level lints clean.
+  examples:
+    - id: a-result
+      name: "A result, and nothing outstanding"
+      ask: "Why is my build slow?"
+      bad: |
+        Great question. Let me start by looking at how your build is
+        configured. There are a few pieces here: the CI cache, the dependency
+        install, and the compile step. Looking at the first of these, caching
+        is often where slowness comes from in projects like this one.
+      good: |
+        `node-sass` rebuilds from source on every CI run, because the
+        dependency cache misses. Replacing it with `sass` removes the native
+        build step.
+
+        Want me to make the swap and run the stylesheet tests?
+      note: >-
+        The first reply announces what it is about to do and arrives at no
+        answer. The second names the cause in its first clause and ends with
+        one thing to decide.
+      levels: [standard, full]
+
+    - id: a-choice
+      name: "A reply that needs a decision"
+      ask: "Should we cache the API responses?"
+      bad: |
+        There are pros and cons to consider here. Caching would improve
+        performance, though it introduces staleness. It depends on your
+        requirements and your tolerance for out-of-date data. Both approaches
+        are valid and it is worth thinking about which fits your case.
+      good: |
+        Yes, with a 60-second window. Your pricing endpoint is read 40 times
+        for every write, so almost every read is currently redundant.
+
+        The cost is that a price change takes up to a minute to appear. If
+        that is too long, cache only the catalogue and leave pricing live.
+
+        Which of the two?
+      note: >-
+        The first reply is even-handed and decides nothing, which leaves the
+        work with the reader. The second recommends, prices the recommendation,
+        and asks one question.
+      levels: [standard, full]
+
+    - id: length-that-was-asked-for
+      name: "Length the reader asked for"
+      ask: "Walk me through how the gate decides to hold a turn."
+      good: |
+        Three checks run in order, and any one of them can hold the turn.
+
+        First the deterministic pass reads the reply for banned phrases. It is
+        instant and it never asks anything.
+
+        Then the counts run: length, how many names the reply carries, and its
+        average sentence. A count that fires does not block on its own.
+
+        Last, a model reads the reply and the question that prompted it, and
+        decides whether the length was earned. Only then does the turn stop.
+      note: >-
+        No ceiling applies here. The reader asked to be walked through it, which
+        is the first of the overrides below, so the length is the answer rather
+        than padding around it.
+      levels: [full]
+
   guidance:
     - id: lead-with-the-outcome
       name: "Open with what this is"

@@ -4,6 +4,18 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-08-20
+### Added
+
+- **`chat.shape`, the skeleton of a reply.** Every other entry in the chat section is a rule about a reply. This is the shape of one: what the first line carries, what the body carries, and what the last line carries when there is a choice. It renders into the output style inside a fenced block, which the masking pass blanks, so its placeholder text is never linted as prose.
+
+- **`chat.examples`, worked replies with both halves.** A guidance entry already carries a one-line `bad` and `good`, which shows a sentence. These show a whole reply, which is the unit the rules are about: ordering the answer before the caveats and capping a list are both invisible in a single sentence. A `bad` half opens with a phrase `tells` bans, because an example of the reply nobody should write has to contain one. `render` puts it in a blockquote and the masking pass skips a blockquote node, so the style still lints clean under the rules it illustrates.
+
+### Fixed
+
+- **The published schema mirrors the loader inside `chat`, not only at the top level.** `chat` declares `additionalProperties: false`, so a key the loader reads and the schema does not know makes an editor pointed at `rules/schema.json` reject the ruleset shipped beside it. The existing drift test only compared top-level keys, and passed throughout, because `chat` itself was always present. There is now a test one level down.
+
+
 ## [0.15.0] - 2026-08-20
 ### Added
 
@@ -397,7 +409,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.16.0
 [0.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.15.0
 [0.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.14.0
 [0.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.13.1

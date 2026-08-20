@@ -603,6 +603,18 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
 
+  // The skeleton, before the rules rather than after them. Everything below is
+  // a rule about a reply; this is the shape of one, and a model reproduces a
+  // shape it was shown far more reliably than one it has to derive from a
+  // list. The fence matters: the masking pass blanks a code node, so the
+  // placeholder text inside is never linted as prose.
+  const shape = chat.shape;
+  if (shape && inLevel(shape, level)) {
+    out.push(`## ${shape.name}`, "");
+    if (shape.description) out.push(...wrap(fill(shape.description)), "");
+    out.push("```text", ...shape.template.replace(/\n+$/, "").split("\n"), "```", "");
+  }
+
   const guidance = chat.guidance.filter((g) => inLevel(g, level));
 
   // A checklist, or a rule per heading. The level decides, not this function,
@@ -697,6 +709,22 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("");
   }
 
+  const examples = chat.examples.filter((e) => inLevel(e, level));
+  if (examples.length) {
+    out.push("## Worked examples", "");
+    for (const e of examples) {
+      out.push(`### ${e.name ?? e.id}`, "");
+      if (e.ask) out.push(...wrap(`They asked: ${e.ask}`), "");
+      // Blockquoted, and that is the mechanism rather than the styling. A bad
+      // example has to open with a phrase the ruleset bans or it is not an
+      // example of anything, and the masking pass skips a blockquote node, so
+      // the file still lints clean under the rules it is illustrating.
+      if (e.bad) out.push("Not this:", "", ...quote(e.bad), "");
+      if (e.good) out.push("This:", "", ...quote(e.good), "");
+      if (e.note) out.push(...wrap(e.note), "");
+    }
+  }
+
   if (chat.expand.length) {
     out.push("## When to expand instead", "");
     // The precedence line stays at every form. Without it the level lists six
@@ -729,6 +757,20 @@ function styleBody(set: RuleSet, level: string): string[] {
  * paragraph assembled from YAML arrives as one very long line. `continuation`
  * indents every line after the first, which is what a list item needs.
  */
+/**
+ * A block of example prose as a markdown blockquote.
+ *
+ * `src/mask.ts` skips a blockquote node, so everything here is invisible to
+ * the linter. That is what lets a worked example show the reply nobody should
+ * write without the style failing its own rules.
+ */
+function quote(text: string): string[] {
+  return text
+    .replace(/\n+$/, "")
+    .split("\n")
+    .flatMap((line) => (line.trim() ? wrap(line.trim(), "> ").map((l, i) => (i === 0 ? `> ${l}` : l)) : [">"]));
+}
+
 function wrap(text: string, continuation = "", width = 78): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];

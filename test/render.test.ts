@@ -288,6 +288,44 @@ describe("output style", () => {
     }
   });
 
+  it("shows the shape of a reply, not only rules about one", () => {
+    // Eighteen rules and no skeleton. A model copies a shape far more reliably
+    // than it weighs a list, and nothing in the style was a shape.
+    const style = renderOutputStyle(set, "standard");
+    expect(set.chat.shape).toBeDefined();
+    expect(style).toContain(set.chat.shape!.name);
+    for (const line of set.chat.shape!.template.split("\n").filter(Boolean)) {
+      expect(style, `template line missing: ${line}`).toContain(line.trim());
+    }
+  });
+
+  it("carries a worked example for each level that asks for one", () => {
+    expect(set.chat.examples.length).toBeGreaterThan(0);
+    for (const level of levels) {
+      const style = renderOutputStyle(set, level);
+      for (const e of set.chat.examples) {
+        const first = (e.good ?? "").split("\n").filter(Boolean)[0]?.trim() ?? "";
+        expect(first.length).toBeGreaterThan(0);
+        if (inLevel(e, level)) {
+          expect(style, `${level} drops example ${e.id}`).toContain(first);
+        } else {
+          expect(style, `${level} carries example ${e.id}`).not.toContain(first);
+        }
+      }
+    }
+  });
+
+  it("a bad example does not trip the ruleset it illustrates", () => {
+    // The point of a worked example is showing the reply nobody should write,
+    // and those open with the phrases `chat.tells` bans. They reach the model
+    // through a node the masking pass skips, so the style still lints clean.
+    const bad = set.chat.examples.map((e) => e.bad ?? "").join(" ");
+    expect(bad).toContain("Great question");
+    for (const level of levels) {
+      expect(lintText(renderOutputStyle(set, level), set).errorCount).toBe(0);
+    }
+  });
+
   it("takes the sentence threshold from the ruleset, not a hardcoded number", () => {
     const max = set.readability.find((r) => r.kind === "long-sentence")?.maxWords;
     expect(max).toBeDefined();

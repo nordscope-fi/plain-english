@@ -213,6 +213,30 @@
             }
           }
         },
+        "shape": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The skeleton of a reply, rendered into the output style inside a fenced block. Every other entry in this section is a rule about a reply; this is the shape of one.",
+          "required": [
+            "name",
+            "template"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string",
+              "description": "The skeleton itself. Rendered inside a fence, so placeholder text is never linted as prose."
+            },
+            "levels": {
+              "$ref": "#/$defs/levelList"
+            }
+          }
+        },
         "guidance": {
           "description": "Prose sections. A project overrides `levels` on an id to move a section between levels, or sets it empty to drop the section.",
           "type": "array",
@@ -247,6 +271,42 @@
               },
               "reason": {
                 "$ref": "#/$defs/reason"
+              }
+            }
+          }
+        },
+        "examples": {
+          "type": "array",
+          "description": "Worked replies, both halves. A `bad` half may contain a phrase `tells` bans, because an example of the reply nobody should write has to contain one. Rendered inside a blockquote, which the masking pass skips, so the style still lints clean under the rules it illustrates.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/id"
+              },
+              "name": {
+                "type": "string"
+              },
+              "ask": {
+                "type": "string",
+                "description": "What the reader asked, so the reply has something to be a reply to."
+              },
+              "bad": {
+                "type": "string"
+              },
+              "good": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string",
+                "description": "One line on what separates the two halves."
+              },
+              "levels": {
+                "$ref": "#/$defs/levelList"
               }
             }
           }
