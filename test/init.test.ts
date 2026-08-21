@@ -139,12 +139,25 @@ describe("init", () => {
     expect(() => statSync(resolve(root, ".plain-english.yml"))).toThrow();
   });
 
-  it("resolves the prompt placeholder", () => {
+  it("gives the docs channel a command hook and no prompt hook", () => {
+    // The docs semantic pass moved into the command hook, behind a size guard,
+    // so a large file no longer overflows a prompt hook. The other channels
+    // keep their prompt hooks; the docs block is command-only.
     init({ root });
     const s = settings();
     const docs = s["hooks"].PreToolUse.find((b: any) => b.matcher.includes("Write"));
-    const prompt = docs.hooks.find((h: any) => h.type === "prompt").prompt;
-    expect(prompt).not.toContain("{{PROJECT_DIR}}");
+    expect(docs.hooks.some((h: any) => h.type === "command")).toBe(true);
+    expect(docs.hooks.some((h: any) => h.type === "prompt")).toBe(false);
+  });
+
+  it("leaks no prompt placeholder into any emitted prompt hook", () => {
+    init({ root });
+    const s = settings();
+    for (const block of s["hooks"].PreToolUse) {
+      for (const entry of block.hooks) {
+        if (entry.type === "prompt") expect(entry.prompt).not.toContain("{{PROJECT_DIR}}");
+      }
+    }
   });
 
   // .claude/settings.json is usually committed. Writing the machine's own

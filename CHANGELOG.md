@@ -3,6 +3,11 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+
+- **The Claude Code docs gate is one command hook now, not a command hook plus a prompt hook.** The prompt hook handed the whole file to a model before any package code ran, so a large markdown file failed with `Prompt is too long` and the write came back as a permission prompt. The command hook reads the payload first, runs the deterministic pass, then asks the same docs judge in `claude` print mode, exactly as the chat gate already does. A payload over 256 KB skips the model call and passes on its size alone; everything else fails towards allowing. The other pre-tool channels carry a commit message or an issue body, never a large file, and keep their prompt hooks. Mistral Vibe's own judge gained the matching size guard.
+
+  `init` no longer writes a `type: prompt` entry on `Write|Edit|MultiEdit` for Claude Code. A project that regenerates its settings drops that entry; nothing else about the gate changes.
 
 ## [0.20.0] - 2026-08-20
 ### Added
