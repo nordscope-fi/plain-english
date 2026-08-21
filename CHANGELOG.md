@@ -3,6 +3,8 @@
 Notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [semver](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.21.0] - 2026-08-21
 ### Changed
 
 - **The Claude Code docs gate is one command hook now, not a command hook plus a prompt hook.** The prompt hook handed the whole file to a model before any package code ran, so a large markdown file failed with `Prompt is too long` and the write came back as a permission prompt. The command hook reads the payload first, runs the deterministic pass, then asks the same docs judge in `claude` print mode, exactly as the chat gate already does. A payload over 256 KB skips the model call and passes on its size alone; everything else fails towards allowing. The other pre-tool channels carry a commit message or an issue body, never a large file, and keep their prompt hooks. Mistral Vibe's own judge gained the matching size guard.
@@ -472,7 +474,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.21.0
 [0.20.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.20.0
 [0.19.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.19.0
 [0.18.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.18.0
