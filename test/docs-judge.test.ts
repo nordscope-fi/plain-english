@@ -98,14 +98,20 @@ describe("the docs command hook judges below the size threshold and skips above 
     expect(stdout).toBe("");
   });
 
-  it("judges a small file, and a refusal reaches the write as a reason", () => {
+  // The judge spawns a bare-named `claude` with no shell, which Windows cannot
+  // resolve to a script. The real judge fails open there for the same reason,
+  // exactly as the chat judge does, so the cases that need the judge to have
+  // run are POSIX-only.
+  const judgeRuns = it.skipIf(process.platform === "win32");
+
+  judgeRuns("judges a small file, and a refusal reaches the write as a reason", () => {
     stubClaude('{"ok": false, "reason": "Lead with the point."}');
     const { stdout, called } = runHook(payload(CLEAN_LINE), { withClaude: true });
     expect(called).toBe(true);
     expect(stdout).toContain("Lead with the point.");
   });
 
-  it("lets a small file through when the judge passes it", () => {
+  judgeRuns("lets a small file through when the judge passes it", () => {
     stubClaude('{"ok": true}');
     const { stdout, called } = runHook(payload(CLEAN_LINE), { withClaude: true });
     expect(called).toBe(true);
