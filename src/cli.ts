@@ -19,6 +19,7 @@ import {
   decide,
   isChannel,
   projectDirFor,
+  hasAck,
   CHANNELS,
   HOOK_BUDGET_MS,
   POST_BUDGET_MS,
@@ -26,7 +27,14 @@ import {
 } from "./adapters/hook.ts";
 import type { HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
-import { isJudge, judgeInput, lastAsked, runJudge, usableReason } from "./adapters/judge.ts";
+import {
+  isJudge,
+  judgeInput,
+  lastAsked,
+  runJudge,
+  usableReason,
+  overDocsJudgeLimit,
+} from "./adapters/judge.ts";
 import type { Decision } from "./adapters/hook.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
@@ -826,7 +834,59 @@ async function cmdHook(args: Args): Promise<number> {
     // nothing there but an incomplete scan.
     const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
     const parsed = profile.parse(payload);
-    const decision = decide(parsed, channel, { budgetMs });
+    let decision = decide(parsed, channel, { budgetMs });
+
+    // Docs semantic pass. The deterministic gate above owns banned terms; this
+    // asks a model about faults of shape a count cannot see. It used to be a
+    // harness `prompt` hook that sent the whole file to a model and failed with
+    // `Prompt is too long` on a large one. Here the size guard runs first, in
+    // code: a payload over the limit passes on its size alone, and everything
+    // else fails towards allowing, exactly as the chat judge does. Only when
+    // the deterministic pass already allowed is there anything left to ask.
+    if (
+      channel === "docs" &&
+      event === "pre" &&
+      decision.allow &&
+      !isJudge() &&
+      !overDocsJudgeLimit(raw)
+    ) {
+      const projectDir = projectDirFor(parsed);
+      if (!hasAck("docs", projectDir)) {
+        const ruleSet = ruleSetFor(projectDir);
+        // The docs prompt carries a `{{PROJECT_DIR}}` placeholder so the model
+        // can tell an in-repo path from an outside one. The prompt-hook path
+        // filled it with "this repository" to keep an absolute path out of a
+        // committed settings file; here the substitution happens in the hook
+        // process, never on disk, so the real path is both safe and more useful.
+        const prompt = renderPrompts(ruleSet)["docs"]?.replaceAll(
+          "{{PROJECT_DIR}}",
+          resolve(projectDir),
+        );
+        if (prompt) {
+          const verdict = runJudge(raw, {
+            prompt,
+            // No tools, no file reads, one turn: the judge answers a question
+            // about text it was handed and has no business touching the repo.
+            command: "claude",
+            args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
+            cwd: resolve(projectDir),
+          });
+          // A refusal is honoured only when its reason is fit to show: the
+          // reason goes back to the model and to the reader, so it is held to
+          // this package's own rules. An unusable reason falls back to allowing.
+          if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
+            decision = {
+              allow: false,
+              decision: ruleSet.failOn === "never" ? "ask" : "deny",
+              reason: verdict.reason,
+              advisory: verdict.reason,
+              findings: decision.findings,
+            };
+          }
+        }
+      }
+    }
+
     const out = profile.emit(decision, event);
     if (out.stdout) process.stdout.write(out.stdout);
 

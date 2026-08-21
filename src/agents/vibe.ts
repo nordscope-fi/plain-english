@@ -31,6 +31,7 @@ import { resolve } from "node:path";
 import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick } from "./fields.ts";
+import { DOCS_MAX_JUDGE_BYTES } from "../adapters/judge.ts";
 
 /**
  * Vibe's matcher is fnmatch by default and a full-match regex behind `re:`.
@@ -326,6 +327,10 @@ const JUDGE = [
   "} catch {",
   "  quiet();",
   "}",
+  "",
+  "// Size guard, matching the Claude Code docs path. A large file overflows the",
+  "// model with `Prompt is too long`, so above this it passes on its size alone.",
+  `if (payload.length > ${DOCS_MAX_JUDGE_BYTES}) quiet();`,
   "",
   "// One question, not a session: a single turn with every tool switched off and",
   "// a price ceiling, so a runaway cannot bill anybody.",

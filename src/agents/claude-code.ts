@@ -182,27 +182,38 @@ export const claudeCode: AgentProfile = {
                 command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${c.script}`,
                 ...(c.ifRule ? { if: c.ifRule } : {}),
               },
-              {
-                type: "prompt",
-                // Deliberately NOT the absolute path.
-                //
-                // .claude/settings.json is usually committed, so writing the
-                // machine's own directory layout into it breaks the file for
-                // every other contributor and leaks a local path into what may
-                // be a public repo. That is the same fault this package was
-                // built to remove.
-                //
-                // The prompt does not need the path anyway: the command hook
-                // scopes by path, and its `if` rule scopes by file type, both
-                // before the prompt is ever reached.
-                prompt: (ctx.prompts[c.channel] ?? "").replaceAll(
-                  "{{PROJECT_DIR}}",
-                  "this repository",
-                ),
-                model: ctx.model,
-                timeout: 30,
-                continueOnBlock: true,
-              },
+              // The docs channel runs its semantic pass inside the command hook
+              // above, behind a size guard, so it no longer needs a prompt hook.
+              // A prompt hook hands the whole file to a model before any package
+              // code runs, and a large one failed with `Prompt is too long`; the
+              // command hook reads the payload first and declines the model call
+              // when it is too large. The other channels carry a commit message
+              // or an issue body, never a large file, and keep the prompt hook.
+              ...(c.channel === "docs"
+                ? []
+                : [
+                    {
+                      type: "prompt" as const,
+                      // Deliberately NOT the absolute path.
+                      //
+                      // .claude/settings.json is usually committed, so writing
+                      // the machine's own directory layout into it breaks the
+                      // file for every other contributor and leaks a local path
+                      // into what may be a public repo. That is the same fault
+                      // this package was built to remove.
+                      //
+                      // The prompt does not need the path anyway: the command
+                      // hook scopes by path, and its `if` rule scopes by file
+                      // type, both before the prompt is ever reached.
+                      prompt: (ctx.prompts[c.channel] ?? "").replaceAll(
+                        "{{PROJECT_DIR}}",
+                        "this repository",
+                      ),
+                      model: ctx.model,
+                      timeout: 30,
+                      continueOnBlock: true,
+                    },
+                  ]),
             ],
           })),
         },

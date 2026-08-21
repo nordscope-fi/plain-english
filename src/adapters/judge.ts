@@ -95,6 +95,26 @@ export function judgeInput(reply: Reply, ask: string | undefined, findings: Find
 }
 
 /**
+ * Above this, a docs write skips the semantic judge entirely and the
+ * deterministic pass is the whole gate.
+ *
+ * The docs semantic gate used to be a harness `prompt` hook: the runner built
+ * the payload from the whole file and sent it to a model before any package
+ * code ran, so a large file failed with `Prompt is too long` and the write
+ * surfaced as a permission prompt. The command hook reads the payload first, so
+ * it can decline the model call instead. Named and sized to match
+ * `MAX_COMMAND_BYTES` in `hook.ts`, and compared the same way, against
+ * `.length`. A payload under this is well within the model's context, so a
+ * single threshold is the whole guard: no truncation, judged or skipped whole.
+ */
+export const DOCS_MAX_JUDGE_BYTES = 256 * 1024;
+
+/** Whether a docs payload is too large to judge, and passes on its size alone. */
+export function overDocsJudgeLimit(payload: string): boolean {
+  return payload.length > DOCS_MAX_JUDGE_BYTES;
+}
+
+/**
  * Read a verdict out of whatever the model wrote.
  *
  * Deliberately strict about the failure case and forgiving about the shape.
