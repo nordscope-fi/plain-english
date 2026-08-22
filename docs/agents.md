@@ -34,8 +34,8 @@ The deterministic rules, which are the ones that can fail a build, run everywher
 
 ## What the advisory default means on each agent
 
-`failOn: never` is the default, and it means "tell me, do not stop me". Two of
-the four have no way to express that on a pre-tool-call hook. Cursor's docs say
+`failOn: never` is the default, and it means "tell me, do not stop me". Three of
+the five have no way to express that on a pre-tool-call hook. Cursor's docs say
 `ask` "is accepted by the schema but not enforced for preToolUse today", so it
 accepts the value and allows the write. Codex is worse: 0.147.0 reports the hook
 run as **Failed** and the reason reaches neither the model nor the user. Either
@@ -50,8 +50,9 @@ So the advisory finding is fed back to the model as text instead:
 | GitHub Copilot | `PreToolUse` → `ask` | `PreToolUse` → `deny` |
 | OpenAI Codex CLI | `PreToolUse` → `additionalContext` | `PreToolUse` → `deny` |
 | Cursor | `preToolUse` → `allow` plus `additional_context` | `preToolUse` → `deny` |
+| Mistral Vibe | `pre_tool` → `allow` plus `system_message` | `pre_tool` → `deny` |
 
-Neither needs a second hook. Cursor's `additional_context` works on `preToolUse`
+All three put the advisory on the pre event, so none needs a second hook. Cursor's `additional_context` works on `preToolUse`
 itself, which Cursor staff confirmed in July 2026, and its `postToolUse`
 equivalent has been a known-broken ticket since March. Codex accepts
 `additionalContext` on the pre event too, verified against 0.147.0: the text
@@ -66,14 +67,14 @@ A `touch`ed acknowledgement file silences the advisory as well as the refusal.
 An agent that can only be told things would otherwise keep being told this one
 for the whole ten minutes.
 
-## Why this took four adapters and not four linters
+## Why this takes one linter, not one per agent
 
 Claude Code's hook contract became the shape everyone copied. Copilot ships an explicit
 compatibility mode that reads `tool_name` and `tool_input`; Codex uses the same field
 names and the same `permissionDecision` reply; Cursor uses the same event with different
 words. So a profile in `src/agents/` is a translation table, and the deciding is shared.
 
-The four wire formats, which is all that genuinely differs:
+The wire formats, which are all that genuinely differ:
 
 ```jsonc
 // claude-code, codex
@@ -86,9 +87,13 @@ The four wire formats, which is all that genuinely differs:
 
 // cursor
 { "permission": "ask", "user_message": "...", "agent_message": "..." }
+
+// vibe
+{ "system_message": "..." }              // advisory, on an allow
+{ "decision": "deny", "reason": "..." } // refuse
 ```
 
-An allow writes nothing at all and exits 0, in every profile.
+An allow with nothing to say writes nothing and exits 0, in every profile.
 
 ## Per-agent notes
 
@@ -621,7 +626,7 @@ is missing, the profile is picked in this order:
 4. an agent-specific environment variable
 5. Claude Code
 
-Detection is deliberately weak, because four agents send the same field names. Guessing
+Detection is deliberately weak, because four of the five agents send the same field names. Guessing
 wrong is not fatal: every profile parses the shared envelope, so a misdetected agent still
 reads the text correctly and only the reply envelope would be wrong. An agent that cannot
 parse the reply treats the call as unhandled and carries on.

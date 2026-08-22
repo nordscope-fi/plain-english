@@ -54,24 +54,9 @@ Needs Node 20 or newer. No config needed to start: `.plain-english.yml` is optio
 
 ## What a finding actually does
 
-Nothing, by default. The run above exits 0.
-
-Three settings decide the outcome, and they are easy to confuse because two of them use
-different words for the same thing:
-
-| | Values | Meaning |
-|---|---|---|
-| Rule severity, in config | `error`, `warn`, `off` | how seriously the rule takes itself |
-| Label, in the output | `block`, `warn` | the same two levels, printed |
-| `failOn`, in config | `never`, `error`, `warn` | what happens as a result |
-
-`failOn` defaults to `never`, so a finding labelled `block` reports and exits 0. The label
-names the rule's tier. What happens as a result is `failOn`'s job. Set `failOn: error` to
-make blocking findings fail the build and refuse a write, or `failOn: warn` to fail on
-everything.
-
-Blocking is opt-in on purpose. A gate that fires on day one, before anyone has tuned the
-config for their vocabulary, is a gate people learn to route around.
+Nothing, by default. The run above exits 0. Blocking is opt-in: a gate that fires on day
+one, before anyone has tuned the config for their vocabulary, is a gate people learn to
+route around. How to turn it on is in [Config](#config).
 
 ## What makes this different from a grep
 
@@ -166,6 +151,7 @@ npx plain-english init --agent claude-code   # default
 npx plain-english init --agent copilot
 npx plain-english init --agent codex
 npx plain-english init --agent cursor
+npx plain-english init --agent vibe
 npx plain-english init --agent all
 ```
 
@@ -178,8 +164,8 @@ passed with `-F` or `--body-file`), and Linear-shaped `save_issue` / `save_comme
 Only the inserted side of an edit is judged, so you can still edit a file that already
 contains a banned term.
 
-Claude Code's hook contract became the shape everyone copied. That is why four agents
-cost four translation tables and not four linters.
+Claude Code's hook contract became the shape everyone copied. That is why five agents
+cost five translation tables and not five linters.
 
 [`docs/agents.md`](docs/agents.md) has the per-agent detail. Three caveats are worth
 knowing before you rely on a hook:
@@ -358,6 +344,22 @@ readability:
       - SHIPPED
 ```
 
+### Severity, label, and `failOn`
+
+Three settings decide the outcome, and they are easy to confuse because two of them use
+different words for the same thing:
+
+| | Values | Meaning |
+|---|---|---|
+| Rule severity, in config | `error`, `warn`, `off` | how seriously the rule takes itself |
+| Label, in the output | `block`, `warn` | the same two levels, printed |
+| `failOn`, in config | `never`, `error`, `warn` | what happens as a result |
+
+`failOn` defaults to `never`, so a finding labelled `block` reports and exits 0. The label
+names the rule's tier. What happens as a result is `failOn`'s job. Set `failOn: error` to
+make blocking findings fail the build and refuse a write, or `failOn: warn` to fail on
+everything.
+
 `reason` is optional and nothing validates it. Turning a rule off in config silences it
 in every file, which is broader than any comment, so `plain-english policy` prints the
 reason next to the change.
@@ -401,7 +403,7 @@ LINT OPTIONS
                                      per rule, and which hid nothing
 
 LINT --chat OPTIONS
-  --agent ID|all                     claude-code, codex, copilot, cursor
+  --agent ID|all                     claude-code, codex, copilot, cursor, vibe
   --since DAYS                       how far back to look (default: 30)
   --all-projects                     every project, not just this repository
   --summary                          rate per 1,000 words, main loop against
@@ -413,7 +415,7 @@ RENDER OPTIONS
 
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, or all
+                                     cursor, vibe, or all
   --user                             also write outside the repo, under ~.
                                      Copilot's CLI needs this; nothing else does.
   --dry-run                          print what would change

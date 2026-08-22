@@ -25,7 +25,7 @@ Start with the [README](../README.md). These go deeper.
 |---|---|
 | [design-rationale.md](design-rationale.md) | You are adapting the idea, or want the reasoning behind the shape. |
 | [architecture/adr/](architecture/adr/README.md) | You want one decision, its status, the alternatives that lost, and what would make it worth revisiting. |
-| [verifying-an-adapter.md](verifying-an-adapter.md) | Adding a fifth agent, or checking an existing one against a live binary. Read it first: four adapters were written from vendor documentation and four defects were later found in them. |
+| [verifying-an-adapter.md](verifying-an-adapter.md) | Adding another agent, or checking an existing one against a live binary. Read it first: four adapters were written from vendor documentation and four defects were later found in them. |
 | [releasing.md](releasing.md) | Maintainers, cutting a release. |
 
 Contributor rules live in [`AGENTS.md`](../AGENTS.md) at the repository root.
