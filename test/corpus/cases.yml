@@ -1122,3 +1122,58 @@ cases:
   - name: "a named source is not a weasel"
     expect: pass
     text: "The Node maintainers say the approach does not scale."
+
+  # ==========================================================================
+  # Figurative placement, and the mic-drop ending.
+  #
+  # Ported from tbhb/vale-ai-tells (MIT): FigurativeHolds, FigurativeSits and
+  # MicDrop. That project's finding is that a figurative verb has to be gated
+  # on its complement rather than on the verb, because the literal sense is
+  # everywhere. The `layer` and `is where` alternatives are this project's own.
+  # ==========================================================================
+
+  - name: "layer used for spatial position warns"
+    expect: pass
+    warns: [figurative-placement]
+    text: "Check the layer underneath the reporting."
+
+  - name: "an abstract process given a location warns"
+    expect: pass
+    warns: [figurative-placement]
+    text: "Enrichment is where stacks go bad."
+
+  - name: "a claim graded like a beam warns"
+    expect: pass
+    warns: [figurative-placement]
+    text: "The attribution only holds up under scrutiny."
+
+  - name: "an idea placed at an intersection warns"
+    expect: pass
+    warns: [figurative-placement]
+    text: "The proposal sits at the core of the migration."
+
+  - name: "layer as an ordinary architecture noun passes"
+    expect: pass
+    text: "The adapter layer normalises the payload."
+
+  - name: "the semantic layer is this project's own usage"
+    expect: pass
+    text: "The semantic layer judges what a regex cannot reach."
+
+  - name: "a real location after is-where passes"
+    expect: pass
+    text: "Line 40 is where the parse fails."
+
+  - name: "a mic-drop verdict warns"
+    expect: pass
+    warns: [mic-drop]
+    text: "The cache was stale on every run. It matters."
+
+  - name: "a mic-drop copula verdict warns"
+    expect: pass
+    warns: [mic-drop]
+    text: "The retry runs twice on a 429. That is by design."
+
+  - name: "the same words mid-sentence pass"
+    expect: pass
+    text: "It matters more than the cache size, which is why the retry runs twice."

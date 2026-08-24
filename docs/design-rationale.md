@@ -103,3 +103,29 @@ The acknowledgement file survives as the sixth and last, still ten minutes and s
 - Scope the file-path check to the target repo. An unscoped check fires on unrelated files elsewhere on disk that the same session happens to touch.
 - Put standard domain vocabulary on the `allow` list from the start, scoped to the rule you mean and marked `semantic: true`. The semantic layer otherwise flags normal working vocabulary as unexplained jargon, and an unscoped entry hides everything else on the line while it is at it.
 - Watch the escape hatches. If people reach for the whole-file directive routinely, a rule is miscalibrated and should be a warning.
+
+## Prior art
+
+Two rules in the shipped set are ported rather than invented, and one dataset was looked at and left alone.
+
+[`tbhb/vale-ai-tells`](https://github.com/tbhb/vale-ai-tells) is a Vale package under the MIT licence covering the same ground. It carries 111 prose rules, 15 for commit messages, and 18 experimental rules that measure a document rather than matching a word. `figurative-placement` and `mic-drop` here take alternatives from its `FigurativeHolds`, `FigurativeSits` and `MicDrop` rules.
+
+Its finding, tested over a large Go and Python corpus, is that a figurative verb has to be gated on what follows it. Gating on the verb alone floods, because literal sitting and holding are everywhere.
+
+Its experimental package measures what no word list reaches. Sentence lengths in machine-written prose cluster near one value where human prose swings widely, and the same holds for paragraph sizes and for how often a sentence starts with the same word. That is unfinished business here. `reply-pace` measures the average sentence length, and its own comment records that the number was calibrated on four replies.
+
+[`amperser/proselint`](https://github.com/amperser/proselint) is BSD-3 and much older. Its mixed-metaphor check turned out to be a short list of malapropisms and was not worth taking. Its cliche and pretension word lists are worth reading against `puffery-nouns` at some point.
+
+The Brysbaert concreteness norms rate 37,058 English words for how concrete they are, which is the missing piece for any rule that wants to ask whether a sentence names a real object. Every copy found carries no licence, so nothing here uses it.
+
+## A rule that was measured and not built
+
+The first theory about machine-written prose here was rhetorical position. A paragraph ends on a general truth where the specific fact belongs, and the last sentence is the one a reader keeps. The proposed test was a paragraph-final sentence carrying no proper noun, no number and no concrete object.
+
+It was measured on 2026-08-24 before anything was built, and the numbers point the wrong way.
+
+Across `docs/`, `README.md` and `CONTRIBUTING.md`, 362 paragraphs hold more than one sentence, and 172 of them end on a sentence matching that test. That is 47.5%. The machine-written cover letter the rule was designed around scored 10.0%.
+
+The examples show why. "Open an issue with the sentence, since that is a complete bug report." carries no name and no figure, and there is nothing wrong with it. Ending a paragraph on a plain sentence is what ordinary prose does. The test measures a property of English, not a property of generated text.
+
+Position may still be a real signal. This way of reading it is not, and a rule shipped on the theory alone would have fired on nearly half of this repository's own paragraphs.

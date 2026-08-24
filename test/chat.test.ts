@@ -930,9 +930,21 @@ describe("reader load", () => {
   const fired = (text: string, id: string) =>
     lintText(text, set).findings.some((f) => f.ruleId === id);
 
-  // 260 words of unobjectionable prose: no banned term, no em dash, every
+  // Over 250 words of unobjectionable prose: no banned term, no em dash, every
   // sentence short. The only thing wrong with it is that there is too much.
-  const long = Array.from({ length: 65 }, (_, i) => `Point ${i} is settled.`).join(" ");
+  //
+  // The lengths vary, and they have to. Sixty-five copies of one four-word
+  // sentence is uniform prose, which `sentence-spread` reports, and this case
+  // asserts that nothing but `reply-length` fires.
+  // Four, fifteen and seven words: mean 8.67, spread 0.54. Thirty of them is
+  // 260 words, the same budget this case has always used.
+  const long = Array.from({ length: 30 }, (_, i) =>
+    i % 3 === 0
+      ? `Point ${i} is settled.`
+      : i % 3 === 1
+        ? `Point ${i} is settled and the owner signed it off last week after the review.`
+        : `Point ${i} was raised, discussed, and settled.`,
+  ).join(" ");
 
   it("counts the words in a reply", () => {
     expect(long.split(/\s+/).length).toBeGreaterThan(250);

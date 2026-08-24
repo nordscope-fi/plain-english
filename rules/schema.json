@@ -115,6 +115,7 @@
               "reply-length",
               "reader-load",
               "unreadable-ask",
+              "sentence-spread",
               "reply-pace"
             ]
           },
@@ -122,6 +123,17 @@
             "description": "long-sentence and reply-length: the word count above which the rule fires.",
             "type": "integer",
             "minimum": 1
+          },
+          "minSpread": {
+            "description": "sentence-spread only: the standard deviation of the sentence word counts divided by their mean, below which the rule fires. A fraction, not an integer. The shipped value is 0.45.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1
+          },
+          "minSentences": {
+            "description": "sentence-spread only: the fewest sentences worth measuring. A short page has no spread to speak of. The shipped value is 20.",
+            "type": "integer",
+            "minimum": 2
           },
           "known": {
             "description": "unglossed-term only: names a reader already has. A project's entries add to the defaults rather than replacing them. Distinct from `allow`, which suppresses every rule on a matching line.",
@@ -455,6 +467,7 @@
                   "reply-length",
                   "reader-load",
                   "unreadable-ask",
+                  "sentence-spread",
                   "reply-pace"
                 ]
               },
@@ -462,6 +475,17 @@
                 "description": "long-sentence and reply-length: the word count above which the rule fires.",
                 "type": "integer",
                 "minimum": 1
+              },
+              "minSpread": {
+                "description": "sentence-spread only: the standard deviation of the sentence word counts divided by their mean, below which the rule fires. A fraction, not an integer. The shipped value is 0.45.",
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "exclusiveMaximum": 1
+              },
+              "minSentences": {
+                "description": "sentence-spread only: the fewest sentences worth measuring. A short page has no spread to speak of. The shipped value is 20.",
+                "type": "integer",
+                "minimum": 2
               },
               "known": {
                 "description": "unglossed-term only: names a reader already has. A project's entries add to the defaults rather than replacing them. Distinct from `allow`, which suppresses every rule on a matching line.",

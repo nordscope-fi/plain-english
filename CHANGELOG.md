@@ -4,6 +4,36 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-08-24
+### Added
+
+- **Two rules for prose that passes every word check and still reads as machine-written.** `figurative-placement` catches an abstract thing given a property only a physical object has: a position ("the layer underneath the reporting"), a location ("enrichment is where stacks go bad"), a load it bears ("only holds up under scrutiny"). `mic-drop` catches the short verdict dropped in after the sentence that already made the point ("It matters.", "That is by design."). Both warn.
+
+  Two of the four `figurative-placement` alternatives are ported from [`tbhb/vale-ai-tells`](https://github.com/tbhb/vale-ai-tells) (MIT), as is `mic-drop`. That project's finding is that a figurative verb has to be gated on what follows it rather than on the verb, because literal sitting and holding are everywhere. The same constraint decides `layer` here: this repository writes "the semantic layer" and "the adapter layer" throughout, so only the spatial reach is matched and the bare word is left alone.
+
+  `mic-drop` is anchored to a sentence start, which the corpus forced. Without the anchor it fired on "We shipped v0.1.3 today and it works.", where the clause ends the sentence but is not a verdict dropped after one.
+
+- **`sentence-spread`, a rule that judges the whole document rather than one sentence.** Prose a person edited swings between short sentences and long ones. Generated prose clusters near a single length, and it keeps clustering after the giveaway words are edited out. The rule measures the standard deviation of the sentence word counts over their mean, and warns below 0.45. Documents under 20 sentences are skipped.
+
+  Measured 2026-08-24 on a cover letter written by a model and then revised by hand until every word-level tell was gone. It still scored 0.414 across 43 sentences, while the 21 documents in this repository with 20 or more sentences all score 0.492 or above.
+
+  The threshold was nearly set wrong. Aggregated, `docs/` scores 0.567, which suggested 0.50 with room to spare. Per file the range is 0.391 to 0.745, and 0.50 fires on six documents here including a 292-sentence hand-written page at 0.495. `test/spread.test.ts` carries that page as a case so a later change cannot lose it.
+
+  Provisional, and the rule says so in its own comment and in the generated docs. Every other threshold in the ruleset was set on hundreds of samples; the machine-written side of this one is a single letter. It warns and never blocks.
+
+  `.plain-english.yml` gains `minSpread` and `minSentences` on a readability rule, both documented in the schema.
+
+- **`abstract-physical-metaphor`**, a sentence shape for the same fault where no pattern reaches it. Renders into the docs, GitHub and issue judge prompts and into `docs/writing-style.md`.
+
+### Not built
+
+- **A paragraph-position rule was measured and rejected.** The theory was that generated prose ends a paragraph on a general truth where the specific fact belongs, detectable as a paragraph-final sentence with no proper noun, number or name. Across `docs/`, `README.md` and `CONTRIBUTING.md`, 172 of 362 multi-sentence paragraphs match that test, which is 47.5%. The machine-written letter it was designed around scores 10.0%. The signal runs backwards. Written up in `docs/design-rationale.md`.
+
+### Fixed
+
+- **The generated rule table no longer prints raw regex for a rule using a lookbehind.** `humanise` stripped lookaheads and non-capturing groups but not lookbehinds, so `mic-drop` would have reached the published table as `(<=^/[.!] /n)(It/This/That)...`.
+
+
 ## [0.21.0] - 2026-08-21
 ### Changed
 
@@ -474,7 +504,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.22.0
 [0.21.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.21.0
 [0.20.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.20.0
 [0.19.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.19.0

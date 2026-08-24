@@ -122,6 +122,8 @@ Two severities:
 | deeply-rooted | `block` | Say where it comes from. |  |
 | (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |  |
 | (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |  |
+| (the/a) layer (underneath/beneath/below/under/behind), hold[s/ing] up (well/under/to scrutiny/against), sit[s/ting] at the (intersection/core/centre/center/crux) of, (is/are) where ... (go/goes/get/gets/break/breaks/fail/fails) | `warn` | Name the thing and say where it actually is. |  |
+| (It/This/That) (key/crucial/critical/intentional/deliberate/elegant/subtle/telling/striking/by design/no accident)., (It/This/That) (matters/works/compounds/adds up/pays off). | `warn` | Fold the point into the sentence before it, or cut it. |  |
 | (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |  |
 | (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |  |
 
@@ -178,6 +180,13 @@ Manufactured suspense before a plain fact.
 Bad: What nobody tells you about churn is...
 Good: State the fact directly.
 
+### Physical metaphor on an abstract thing
+
+Giving a process, a claim or a system a property only a physical object has: a position, a location, a weight it carries. The metaphor sounds like an explanation and names nothing. `figurative-placement` reaches a few fixed shapes of this; the rest needs a reader.
+
+Bad: Enrichment is where stacks go bad, and attribution only holds up if the layer underneath the reporting is clean.
+Good: Their enrichment step drops 12% of records before scoring, so the attribution report counts fewer leads than the CRM does.
+
 ### Weasel attribution
 
 A claim backed by an unnamed authority.
@@ -228,6 +237,12 @@ Instead: Say what it does, then name it.
 Fires past 35 words. Set generously: a long sentence carrying one idea is fine, and the usual fault at that length is three ideas in one.
 
 Instead: Split this. One idea per sentence.
+
+### sentence-spread
+
+Fires when sentence lengths in a document vary less than 0.45, measured as their standard deviation over their mean. Documents under 20 sentences are skipped, having no spread to speak of. Every other readability rule judges one sentence; this judges the set, and catches the document where no single sentence is hard and the short one that lets a reader rest never arrives. Provisional: the figure clears every document in this repository, and the machine-written side of the comparison is one sample.
+
+Instead: Let a short sentence land between the long ones.
 
 ## Chat
 

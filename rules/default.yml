@@ -416,6 +416,46 @@ rules:
       - "\\bblast radius\\s+of\\s+(the\\s+)?(bomb|charge|explosion|blast|device)\\b"
     message: "Say the plain thing: an easy mistake, how much it affects, a redundant second check."
 
+  # An abstract thing given a property only a physical object has: a position,
+  # a location, a load it bears. Two of the alternatives are ported from
+  # tbhb/vale-ai-tells (MIT), FigurativeHolds and FigurativeSits. That project
+  # gates all 28 of its figurative-verb rules on the COMPLEMENT rather than on
+  # the verb, because the literal sense is everywhere ("the cat sits on the
+  # mat"), and a bare verb rule would flood.
+  #
+  # The same constraint decides `layer`, which is this project's own
+  # alternative: this file writes "the semantic layer" and "the adapter layer"
+  # throughout, so a bare word would fire on `npm run lint:self`. Only the
+  # spatial reach is matched. The "X is where Y goes wrong" alternative is also
+  # this project's own and appears in none of vale-ai-tells' 111 rules; the
+  # subject slot is a bare word because "line 40 is where the parse fails"
+  # names a real place.
+  #
+  # Warn, not error, for the reason `abstract-metaphor-nouns` gives: each verb
+  # has a domain where it is the ordinary word.
+  - id: figurative-placement
+    severity: warn
+    match: "\\b(the|a)\\s+layer\\s+(underneath|beneath|below|under|behind)\\b|\\bhold(s|ing)?\\s+up\\s+(well|under|to\\s+scrutiny|against)\\b|\\bsit(s|ting)?\\s+at\\s+the\\s+(intersection|core|centre|center|crux)\\s+of\\b|\\b(is|are)\\s+where\\s+[\\w-]+\\s+(go|goes|get|gets|break|breaks|fail|fails)\\b"
+    message: "Name the thing and say where it actually is."
+
+  # The short declarative verdict dropped in for effect, after the sentence
+  # that already made the point. Ported from tbhb/vale-ai-tells (MIT),
+  # MicDrop.yml. The trailing full stop is what makes it a verdict rather than
+  # a clause, which is why "it matters more than the cache size" is untouched.
+  #
+  # Pronoun and copula families only. The original also carries a
+  # "The <noun> is <adjective>." family, which is the highest-yield and the
+  # highest-risk half: it fires on ordinary technical assertions. That one
+  # waits on a rule that can read where the sentence sits in its paragraph.
+  #
+  # Anchored to a sentence start, which the corpus forced: without it the
+  # rule fired on "We shipped v0.1.3 today and it works.", where the clause
+  # ends the sentence but is not a verdict dropped after one.
+  - id: mic-drop
+    severity: warn
+    match: "(?<=^|[.!?]\\s|\\n)(It|This|That)(?:'s| is| was)\\s+(key|crucial|critical|intentional|deliberate|elegant|subtle|telling|striking|by design|no accident)\\.|(?<=^|[.!?]\\s|\\n)(It|This|That)\\s+(matters|works|compounds|adds up|pays off)\\."
+    message: "Fold the point into the sentence before it, or cut it."
+
   - id: fancy-is
     severity: warn
     match: "\\b(serves|serve|stands|stand)\\s+as\\b"
@@ -658,6 +698,49 @@ readability:
     message: "Split this. One idea per sentence."
     link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
 
+  # How widely the sentence lengths vary, across a whole document.
+  #
+  # `long-sentence` judges one sentence and finds nothing wrong with a document
+  # made entirely of twenty-word sentences. That is the document people put
+  # down without being able to say why: no single sentence is hard, and the
+  # short one that lets a reader rest never arrives.
+  #
+  # The figure is the standard deviation of the sentence word counts over their
+  # mean, so it compares a short page with a long one. Sentences under three
+  # words are dropped, since a heading fragment would widen the spread for
+  # free.
+  #
+  # WHY THIS EXISTS AND NO WORD LIST WOULD DO. Measured 2026-08-24 on a cover
+  # letter written by a model and then edited by hand until every word-level
+  # tell was gone. It still scored 0.414 across 43 sentences. The uniformity
+  # survived the edit that removed the giveaway phrases.
+  #
+  # THE NUMBER, and how it was nearly set wrong. Aggregated, this repository's
+  # own prose scores 0.567 across `docs/`, which suggested a threshold of 0.50
+  # with room to spare. Per file the range is 0.391 to 0.745, and 0.50 fires on
+  # six documents here, including `docs/agents.md`, a 292-sentence page written
+  # by hand that scores 0.495. The aggregate hid it.
+  #
+  # 0.45 is what the per-file numbers allow. Of the 21 documents here with 20
+  # or more sentences, the lowest scores 0.492, so the rule clears every one of
+  # them by 0.042 and fires on the letter by 0.036. Symmetric, and thin on both
+  # sides.
+  #
+  # CALIBRATED ON ONE MACHINE-WRITTEN SAMPLE, which is not enough. Every other
+  # threshold in this file was set on hundreds. Treat 0.45 as provisional. What
+  # settles it is a handful more documents of the same kind, measured the same
+  # way; until then this warns and never blocks.
+  - id: sentence-spread
+    severity: warn
+    kind: sentence-spread
+    minSpread: 0.45
+    # The two shortest files here score 0.403 on five sentences and 0.391 on
+    # eight. Neither is uniform prose, they are too short to have a spread at
+    # all, and the floor is what keeps them out.
+    minSentences: 20
+    message: "Let a short sentence land between the long ones."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+
   # A waiver records that somebody silenced a rule, and nothing about why. The
   # reader who meets it later cannot tell a considered exception from a rule
   # somebody found annoying, so the waiver cannot be reviewed or removed.
@@ -701,6 +784,16 @@ structures:
     description: "Manufactured suspense before a plain fact."
     bad: "What nobody tells you about churn is..."
     good: "State the fact directly."
+
+  - id: abstract-physical-metaphor
+    name: "Physical metaphor on an abstract thing"
+    description: >-
+      Giving a process, a claim or a system a property only a physical object
+      has: a position, a location, a weight it carries. The metaphor sounds
+      like an explanation and names nothing. `figurative-placement` reaches a
+      few fixed shapes of this; the rest needs a reader.
+    bad: "Enrichment is where stacks go bad, and attribution only holds up if the layer underneath the reporting is clean."
+    good: "Their enrichment step drops 12% of records before scoring, so the attribution report counts fewer leads than the CRM does."
 
   - id: weasel-attribution
     name: "Weasel attribution"
