@@ -140,7 +140,9 @@ function readabilityDescription(r: ReadabilityRule): string {
       "judges the set, and catches the document where no single sentence is hard " +
       "and the short one that lets a reader rest never arrives. Provisional: the " +
       "figure clears every document in this repository, and the machine-written " +
-      "side of the comparison is one sample."
+      "side of the comparison is one letter, measured at three stages of its own " +
+      "revision. The spread barely moved across those stages while the giveaway " +
+      "words were being taken out."
     );
   }
   const known = r.known?.length

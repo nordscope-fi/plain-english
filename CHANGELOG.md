@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [Unreleased]
+### Changed
+
+- **`sentence-spread` states its evidence accurately.** The rule and the generated docs said the machine-written side of the comparison was one sample. It is one letter measured at three stages of its own revision, scoring 0.390, 0.414 and 0.414. Three files were measured and they share 95% of their words, so they are not three samples. Recorded because the revision finding is the useful half: across those stages the word-level tells were removed and the spread moved 0.024, while the gap to the nearest hand-written document here stayed at 0.078. No behaviour change.
+
 ## [0.22.0] - 2026-08-24
 ### Added
 
