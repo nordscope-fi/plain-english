@@ -710,10 +710,13 @@ readability:
   # words are dropped, since a heading fragment would widen the spread for
   # free.
   #
-  # WHY THIS EXISTS AND NO WORD LIST WOULD DO. Measured 2026-08-24 on a cover
-  # letter written by a model and then edited by hand until every word-level
-  # tell was gone. It still scored 0.414 across 43 sentences. The uniformity
-  # survived the edit that removed the giveaway phrases.
+  # WHY THIS EXISTS AND NO WORD LIST WOULD DO. Measured 2026-08-24 on one cover
+  # letter written by a model, at three revision stages: 0.390, 0.414 and
+  # 0.414, all across 43 sentences. Between the first and the last, a model and
+  # then a person went through it removing word-level tells. The spread moved
+  # 0.024. The gap to the nearest hand-written document here is 0.078. Revision
+  # fixes the words and leaves the shape alone, which is the whole case for
+  # measuring shape.
   #
   # THE NUMBER, and how it was nearly set wrong. Aggregated, this repository's
   # own prose scores 0.567 across `docs/`, which suggested a threshold of 0.50
@@ -726,10 +729,15 @@ readability:
   # them by 0.042 and fires on the letter by 0.036. Symmetric, and thin on both
   # sides.
   #
-  # CALIBRATED ON ONE MACHINE-WRITTEN SAMPLE, which is not enough. Every other
-  # threshold in this file was set on hundreds. Treat 0.45 as provisional. What
-  # settles it is a handful more documents of the same kind, measured the same
-  # way; until then this warns and never blocks.
+  # CALIBRATED ON ONE DOCUMENT, which is not enough. Three files were measured
+  # and they share 95% of their words, so they are one letter revised, not
+  # three samples. Every other threshold in this file was set on hundreds.
+  # Treat 0.45 as provisional. What settles it is letters somebody else wrote,
+  # on other subjects; until then this warns and never blocks.
+  #
+  # For what it is worth, 0.45 sits almost exactly in the middle of the gap the
+  # measurement found: 0.414 at the top of the machine-written side, 0.492 at
+  # the bottom of the hand-written side.
   - id: sentence-spread
     severity: warn
     kind: sentence-spread
