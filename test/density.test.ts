@@ -15,17 +15,28 @@ function densityRuleSet(): RuleSet {
 }
 
 /**
- * `n` words of filler, broken into sentences of ten.
+ * `n` words of filler, broken into sentences of varying length.
  *
  * One unbroken run of a thousand words is a single sentence, which the
  * readability rules correctly report as too long. That made these density
  * assertions fail for a reason that had nothing to do with density.
+ *
+ * The lengths cycle rather than repeat, for the same class of reason. Every
+ * sentence being exactly ten words is what `sentence-spread` exists to report,
+ * so uniform filler failed these assertions on a second count that again had
+ * nothing to do with density. The cycle averages ten, so the word budget each
+ * test depends on is unchanged.
  */
+// Mean ten, spread 0.54, which clears `sentence-spread`'s 0.45 with room.
+const CHUNKS = [3, 18, 6, 14, 9];
+
 function words(n: number): string {
   const all = Array.from({ length: n }, (_, i) => `word${i}`);
   const out: string[] = [];
-  for (let i = 0; i < all.length; i += 10) {
-    const chunk = all.slice(i, i + 10);
+  for (let i = 0, c = 0; i < all.length; c++) {
+    const size = CHUNKS[c % CHUNKS.length]!;
+    const chunk = all.slice(i, i + size);
+    i += size;
     // Capitalise the first word. A full stop followed by a lowercase word
     // reads as an abbreviation to the sentence parser, which is the same
     // heuristic that stops it splitting "e.g. Vale" in two, so lowercase

@@ -21,7 +21,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-49 word and punctuation rules, 28 of them blocking, plus 9 sentence shapes judged by a model and 3 readability rules.
+51 word and punctuation rules, 28 of them blocking, plus 10 sentence shapes judged by a model and 4 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
@@ -72,6 +72,8 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | deeply-rooted | `block` | Say where it comes from. |
 | (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |
 | (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |
+| (the/a) layer (underneath/beneath/below/under/behind), hold[s/ing] up (well/under/to scrutiny/against), sit[s/ting] at the (intersection/core/centre/center/crux) of, (is/are) where ... (go/goes/get/gets/break/breaks/fail/fails) | `warn` | Name the thing and say where it actually is. |
+| (It/This/That) (key/crucial/critical/intentional/deliberate/elegant/subtle/telling/striking/by design/no accident)., (It/This/That) (matters/works/compounds/adds up/pays off). | `warn` | Fold the point into the sentence before it, or cut it. |
 | (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |
 | (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |
 
@@ -103,6 +105,6 @@ A style reaches the main conversation and a fork, which inherits the parent's sy
 
 `plain-english lint --chat` reads what was actually said, from the transcripts each agent writes locally, and splits the rate by main loop against subagent. It is local only: a transcript holds whatever passed through a tool.
 
-The 9 sentence shapes need a model to judge them, so they are covered only where a prompt hook exists. Everywhere else they are guidance in `AGENTS.md` and nothing that runs.
+The 10 sentence shapes need a model to judge them, so they are covered only where a prompt hook exists. Everywhere else they are guidance in `AGENTS.md` and nothing that runs.
 
 The rules describe how models wrote in 2024 and 2025. Vendors suppress known tells, so this list decays and needs maintenance.

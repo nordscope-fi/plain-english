@@ -64,7 +64,7 @@ export function humanise(rule: Rule): string {
 
   const render = (alt: string): string =>
     alt
-      .replace(/\(\?[=!:][^)]*\)/g, "") // lookarounds carry no reader value
+      .replace(/\(\?<?[=!:][^)]*\)/g, "") // lookarounds carry no reader value
       .replace(/\(([^()]*)\)\?/g, (_, inner: string) => `[${inner.split("|").join("/")}]`)
       .replace(/\(([^()]*)\)/g, (_, inner: string) => {
         const opts = inner.split("|").filter(Boolean);
@@ -129,6 +129,18 @@ function readabilityDescription(r: ReadabilityRule): string {
       "in long replies generally; what separated them was the total. Five terms in a " +
       "sixty-word answer is over quickly. Eighteen across five hundred words is carried " +
       "to the end."
+    );
+  }
+  if (r.kind === "sentence-spread") {
+    return (
+      "Fires when sentence lengths in a document vary less than " +
+      `${r.minSpread}, measured as their standard deviation over their mean. ` +
+      `Documents under ${r.minSentences ?? 20} sentences are skipped, having no ` +
+      "spread to speak of. Every other readability rule judges one sentence; this " +
+      "judges the set, and catches the document where no single sentence is hard " +
+      "and the short one that lets a reader rest never arrives. Provisional: the " +
+      "figure clears every document in this repository, and the machine-written " +
+      "side of the comparison is one sample."
     );
   }
   const known = r.known?.length

@@ -51,7 +51,8 @@ export type ReadabilityKind =
   | "reply-length"
   | "reader-load"
   | "unreadable-ask"
-  | "reply-pace";
+  | "reply-pace"
+  | "sentence-spread";
 
 /** A rule measured over sentence structure rather than matched at a point. */
 export interface ReadabilityRule {
@@ -66,6 +67,22 @@ export interface ReadabilityRule {
   maxWords?: number;
   /** reader-load only: distinct backticked names above which the rule fires. */
   maxTerms?: number;
+  /**
+   * sentence-spread only: how widely sentence lengths must vary.
+   *
+   * The standard deviation of the sentence word counts divided by their
+   * mean, so the figure is a ratio and comparable between a short document
+   * and a long one. Below this, the rule fires. A fraction, not an integer.
+   */
+  minSpread?: number;
+  /**
+   * sentence-spread only: the fewest sentences worth measuring.
+   *
+   * A five-sentence page has no spread to speak of, and the two shortest
+   * files in this repository score below the threshold on eight sentences
+   * and five. The floor is what keeps them out.
+   */
+  minSentences?: number;
   /**
    * reply-pace only: the average sentence length a whole reply may hold.
    *
@@ -548,6 +565,7 @@ function readReadability(v: unknown): ReadabilityRule[] {
     "reply-length",
     "reader-load",
     "unreadable-ask",
+    "sentence-spread",
     "reply-pace",
   ];
   return v.map((raw, i) => {
@@ -591,6 +609,24 @@ function readReadability(v: unknown): ReadabilityRule[] {
         );
       }
       out.maxTerms = n;
+    }
+    if (r["minSpread"] !== undefined) {
+      const n = Number(r["minSpread"]);
+      if (!Number.isFinite(n) || n <= 0 || n >= 1) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): minSpread must be a fraction between 0 and 1`,
+        );
+      }
+      out.minSpread = n;
+    }
+    if (r["minSentences"] !== undefined) {
+      const n = Number(r["minSentences"]);
+      if (!Number.isInteger(n) || n < 2) {
+        throw new RuleError(
+          `readability[${i}] (${r["id"]}): minSentences must be an integer of 2 or more`,
+        );
+      }
+      out.minSentences = n;
     }
     for (const key of ["maxMeanWords", "minWords"] as const) {
       if (r[key] === undefined) continue;
@@ -1123,6 +1159,8 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
     if (existing) {
       existing.severity = r.severity;
       if (r.maxWords !== undefined) existing.maxWords = r.maxWords;
+      if (r.minSpread !== undefined) existing.minSpread = r.minSpread;
+      if (r.minSentences !== undefined) existing.minSentences = r.minSentences;
       // A project's `known` list adds to the defaults instead of replacing
       // them, so nobody has to restate "GitHub" to add their own terms.
       if (r.known?.length) existing.known = [...(existing.known ?? []), ...r.known];
@@ -1138,6 +1176,9 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       }
       if (r.kind === "long-sentence" && r.maxWords === undefined) {
         throw new RuleError(`readability rule '${r.id}': long-sentence needs maxWords`);
+      }
+      if (r.kind === "sentence-spread" && r.minSpread === undefined) {
+        throw new RuleError(`readability rule '${r.id}': sentence-spread needs minSpread`);
       }
       readability.set(r.id, { ...r });
     }

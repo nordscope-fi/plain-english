@@ -794,6 +794,43 @@ function readabilityFindings(
       continue;
     }
 
+    /**
+     * How widely the sentence lengths vary.
+     *
+     * Every other rule here judges one sentence. This judges the set. Prose a
+     * person edited swings between short and long; generated prose clusters
+     * near one length, and it goes on clustering after the giveaway words are
+     * taken out, which is the whole reason this exists.
+     *
+     * The figure is the standard deviation over the mean, so it compares a
+     * short document with a long one. Sentences under three words are dropped:
+     * a heading fragment or a one-word list item is not prose and would widen
+     * the spread for free.
+     */
+    if (rule.kind === "sentence-spread") {
+      const floor = rule.minSentences ?? 20;
+      const min = rule.minSpread ?? 0.45;
+      const words = sentences(text)
+        .map((s) => s.words)
+        .filter((n) => n >= 3);
+      if (words.length < floor) continue;
+      const mean = words.reduce((a, b) => a + b, 0) / words.length;
+      if (mean <= 0) continue;
+      const sd = Math.sqrt(
+        words.reduce((a, b) => a + (b - mean) ** 2, 0) / words.length,
+      );
+      const spread = sd / mean;
+      if (spread >= min) continue;
+      add(
+        rule,
+        0,
+        Math.min(text.length, firstLineEnd(text)),
+        `sentence spread ${spread.toFixed(2)}, under ${min}.` +
+          (rule.message ? ` ${rule.message}` : ""),
+      );
+      continue;
+    }
+
     if (rule.kind === "unglossed-term") {
       // A term counts as explained once it has appeared before, so only the
       // FIRST use is ever reported. Repeating an acronym is not the problem;
