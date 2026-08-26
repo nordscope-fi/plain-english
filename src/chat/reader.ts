@@ -3,9 +3,9 @@
  *
  * Every other channel in this package sits in front of a write. This one sits
  * behind a reply, for a reason worth stating: until recently a chat reply was
- * genuinely unreachable, and the documentation said so. Three of the four
- * agents now carry the final assistant message on a stop event, and all four
- * write their sessions to local disk.
+ * genuinely unreachable, and the documentation said so. Supported agents now
+ * carry the final assistant message or a transcript path on a stop event, and
+ * all write their sessions to local disk.
  *
  * So a reader answers two questions with one body of knowledge:
  *
@@ -16,7 +16,7 @@
  * and Codex's is documented as possibly incomplete, so both have to fall back
  * to the transcript to answer a stop event. Building the hook and the scan
  * apart would give this package two ways to find the same text, which is the
- * shape `docs/design-rationale.md` says four agents cost one linter to avoid.
+ * shape `docs/design-rationale.md` says shared adapters cost one linter to avoid.
  *
  * Format evidence, per `docs/verifying-an-adapter.md`, is recorded on each
  * reader. None of it is guesswork from vendor prose alone: every location was

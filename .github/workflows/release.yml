@@ -7,9 +7,9 @@ name: Release
 # replaces them: npm verifies the workflow identity directly from GitHub's OIDC
 # token, and attaches provenance automatically.
 #
-# ONE-TIME SETUP, in this order. The order matters and is not obvious:
+# BOOTSTRAP RECORD. This setup is complete; do not repeat it for a normal release:
 #
-#   1. Publish 0.1.0 by hand from a terminal (`npm login && npm publish`).
+#   1. Version 0.1.0 was published by hand (`npm login && npm publish`).
 #      A trusted publisher cannot be configured for a package name that does
 #      not exist yet, so the first release cannot use this workflow.
 #   2. npmjs.com -> the package -> Settings -> Trusted Publisher. Register:

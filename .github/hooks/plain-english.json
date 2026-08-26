@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "matcher": "Write|Edit|MultiEdit",
+        "bash": "node .github/hooks/plain-english.mjs hook docs --agent copilot",
+        "powershell": "node .github/hooks/plain-english.mjs hook docs --agent copilot",
+        "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "matcher": "Bash",
+        "bash": "node .github/hooks/plain-english.mjs hook github --agent copilot",
+        "powershell": "node .github/hooks/plain-english.mjs hook github --agent copilot",
+        "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "matcher": "mcp__linear__save_issue|mcp__linear__save_comment",
+        "bash": "node .github/hooks/plain-english.mjs hook issue --agent copilot",
+        "powershell": "node .github/hooks/plain-english.mjs hook issue --agent copilot",
+        "timeoutSec": 30
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "bash": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
+        "powershell": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
+        "timeoutSec": 10
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "bash": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
+        "powershell": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

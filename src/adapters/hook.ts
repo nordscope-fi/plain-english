@@ -85,9 +85,9 @@ export interface Decision {
    *
    * Nothing sets this today, and that is deliberate: replacing a reply means
    * generating prose, and nothing in this package generates prose. It is here
-   * now because `Decision` is the contract all four profiles implement, and
+   * now because `Decision` is the contract every profile implements, and
    * Copilot's `SubagentStop` already accepts a `modifiedResponse`. Adding the
-   * field later would mean changing a type four profiles and their tests
+   * field later would mean changing a shared type and all its tests
    * depend on; adding it now costs one line.
    */
   replacement?: string;

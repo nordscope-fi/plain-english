@@ -5,17 +5,12 @@ coverage/
 .DS_Store
 .plain-english-cache/
 
-# Claude Code state.
-# Project content — rules, skills, shared hooks, output styles, and the
-# committed settings.json that references them — is tracked. Per-operator
-# state (permissions, release notes) is not.
+# Claude Code session state.
 .claude-session-lock
 
-# The operator's own agent setup, and not this project's business. It lives on
-# each machine and is backed up in the private claude-setup repository. A public
-# repository publishes a tool, not the way one person happens to drive it.
+# This checkout's private Claude Code setup. The public, reusable Claude Code
+# files ship under integrations/claude-code/ instead.
 .claude/
-AGENTS.md
 CLAUDE.md
 VIBE.md
 .playwright-mcp/

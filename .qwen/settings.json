@@ -1,0 +1,66 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "write_file|edit",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-docs",
+            "command": "node .qwen/hooks/plain-english.mjs hook docs --agent qwen",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-github",
+            "command": "node .qwen/hooks/plain-english.mjs hook github --agent qwen",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp_.*_save_(issue|comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-issue",
+            "command": "node .qwen/hooks/plain-english.mjs hook issue --agent qwen",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-chat",
+            "command": "node .qwen/hooks/plain-english.mjs hook chat --agent qwen",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-chat",
+            "command": "node .qwen/hooks/plain-english.mjs hook chat --agent qwen",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  },
+  "$version": 4
+}

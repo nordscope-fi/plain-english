@@ -2,15 +2,16 @@
  * Every chat reader, keyed the same way `src/agents/registry.ts` keys profiles.
  *
  * Two registries rather than one field on `AgentProfile`, because they answer
- * different questions and one of the four has an entry in only one of them.
- * Cursor has a reader and no gate; a profile with a null reader would say the
- * opposite of what is true.
+ * different questions. Keeping transcript storage out of a hook protocol also
+ * makes each side independently testable.
  */
 
 import { claudeCodeChat } from "./claude-code.ts";
 import { codexChat } from "./codex.ts";
 import { copilotChat } from "./copilot.ts";
 import { cursorChat } from "./cursor.ts";
+import { geminiChat } from "./gemini.ts";
+import { qwenChat } from "./qwen.ts";
 import { vibeChat } from "./vibe.ts";
 import type { ChatReader, ReadOptions, Reply } from "./reader.ts";
 
@@ -20,6 +21,8 @@ export const READERS: readonly ChatReader[] = [
   copilotChat,
   cursorChat,
   vibeChat,
+  geminiChat,
+  qwenChat,
 ];
 
 export function readerFor(id: string): ChatReader | undefined {

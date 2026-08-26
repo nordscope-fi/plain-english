@@ -15,9 +15,10 @@
  *   reply       exit 0 plus a JSON object on stdout (`hooks/_handler.py`)
  *   vocabulary  allow / deny. There is no `ask`.
  *
- * Two consequences shape this file. Without `ask` the advisory tier has to
- * travel as `system_message` on an allow, which puts Vibe alongside Codex and
- * Cursor. And `post_agent` is a real stop event: a denial there is injected
+ * Two consequences shape this file. Without `ask` or a pre-tool context field,
+ * the advisory tier has to travel as `additional_context` on `post_tool`, which
+ * puts Vibe alongside Cursor and Gemini. And `post_agent` is a real stop event:
+ * a denial there is injected
  * back as a retry user message, capped at three per hook per user turn
  * (`hooks/_post_agent.py`), which is what gives Vibe a chat gate at all.
  *
@@ -32,6 +33,9 @@ import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick } from "./fields.ts";
 import { DOCS_MAX_JUDGE_BYTES } from "../adapters/judge.ts";
+import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
+
+const RUNNER = runnerPath(".vibe");
 
 /**
  * Vibe's matcher is fnmatch by default and a full-match regex behind `re:`.
@@ -146,15 +150,22 @@ export const vibe: AgentProfile = {
   supportsAsk: false,
 
   emit(decision: Decision, event: HookEvent) {
-    // post_tool fires after the file is already written. Repeating the finding
-    // there would report it twice and unwrite nothing.
-    if (event === "post") return { stdout: "", exitCode: 0 };
+    // Vibe documents `system_message` as UI-only. `post_tool` is the event that
+    // can add context to what the model sees, so advisory findings travel here.
+    if (event === "post") {
+      if (!decision.advisory) return { stdout: "", exitCode: 0 };
+      return {
+        stdout: JSON.stringify({
+          hook_specific_output: { additional_context: decision.advisory },
+        }),
+        exitCode: 0,
+      };
+    }
     if (decision.allow) return { stdout: "", exitCode: 0 };
 
     if (decision.decision === "ask") {
-      // Allowed, and the human is told. Vibe shows `system_message` on the
-      // hook-end event, which is the only way an advisory reaches anybody here.
-      return { stdout: JSON.stringify({ system_message: decision.advisory }), exitCode: 0 };
+      // Let the tool run. Its post event carries the advisory to the model.
+      return { stdout: "", exitCode: 0 };
     }
 
     // Vibe wraps this as `Tool 'X' was denied by hook 'Y': {reason}` before the
@@ -230,9 +241,17 @@ export const vibe: AgentProfile = {
               name: `plain-english-${c.channel}`,
               type: "pre_tool",
               match: c.match,
-              command: `npx --no-install plain-english hook ${c.channel} --agent vibe`,
+              command: runnerCommand(RUNNER, c.channel, "vibe"),
               timeout: c.timeout,
               description: `plain-english ${c.channel} channel`,
+            })),
+            ...CHANNELS.map((c) => ({
+              name: `plain-english-${c.channel}-advisory`,
+              type: "post_tool",
+              match: c.match,
+              command: runnerCommand(RUNNER, c.channel, "vibe") + " --event post",
+              timeout: c.timeout,
+              description: `plain-english ${c.channel} advisory context`,
             })),
             // The semantic tier, one per channel that has a prompt to run.
             ...judged.map((c) => ({
@@ -250,14 +269,17 @@ export const vibe: AgentProfile = {
             {
               name: "plain-english-chat",
               type: "post_agent",
-              command: "npx --no-install plain-english hook chat --agent vibe",
+              command: runnerCommand(RUNNER, "chat", "vibe"),
               timeout: 10,
               description: "plain-english chat channel",
             },
           ],
         },
       ],
-      shims: judged.length ? [{ path: ".vibe/hooks/plain-english-judge.mjs", body: JUDGE }] : [],
+      shims: [
+        { path: RUNNER, body: HOOK_RUNNER },
+        ...(judged.length ? [{ path: ".vibe/hooks/plain-english-judge.mjs", body: JUDGE }] : []),
+      ],
       // The prompts travel as plain files rather than being pasted into the
       // shim. A rendered ruleset is markdown full of quotes and newlines, and a
       // generated script that embeds one is a quoting bug waiting to happen.

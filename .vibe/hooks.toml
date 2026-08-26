@@ -1,0 +1,78 @@
+[[hooks]]
+name = "plain-english-docs"
+type = "pre_tool"
+match = "re:(write_file|edit)"
+command = "node .vibe/hooks/plain-english.mjs hook docs --agent vibe"
+timeout = 30
+description = "plain-english docs channel"
+
+[[hooks]]
+name = "plain-english-github"
+type = "pre_tool"
+match = "bash"
+command = "node .vibe/hooks/plain-english.mjs hook github --agent vibe"
+timeout = 30
+description = "plain-english github channel"
+
+[[hooks]]
+name = "plain-english-issue"
+type = "pre_tool"
+match = "re:.*_save_(issue|comment)"
+command = "node .vibe/hooks/plain-english.mjs hook issue --agent vibe"
+timeout = 30
+description = "plain-english issue channel"
+
+[[hooks]]
+name = "plain-english-docs-advisory"
+type = "post_tool"
+match = "re:(write_file|edit)"
+command = "node .vibe/hooks/plain-english.mjs hook docs --agent vibe --event post"
+timeout = 30
+description = "plain-english docs advisory context"
+
+[[hooks]]
+name = "plain-english-github-advisory"
+type = "post_tool"
+match = "bash"
+command = "node .vibe/hooks/plain-english.mjs hook github --agent vibe --event post"
+timeout = 30
+description = "plain-english github advisory context"
+
+[[hooks]]
+name = "plain-english-issue-advisory"
+type = "post_tool"
+match = "re:.*_save_(issue|comment)"
+command = "node .vibe/hooks/plain-english.mjs hook issue --agent vibe --event post"
+timeout = 30
+description = "plain-english issue advisory context"
+
+[[hooks]]
+name = "plain-english-docs-judge"
+type = "pre_tool"
+match = "re:(write_file|edit)"
+command = "node .vibe/hooks/plain-english-judge.mjs docs"
+timeout = 60
+description = "plain-english docs judge, opt-in"
+
+[[hooks]]
+name = "plain-english-github-judge"
+type = "pre_tool"
+match = "bash"
+command = "node .vibe/hooks/plain-english-judge.mjs github"
+timeout = 60
+description = "plain-english github judge, opt-in"
+
+[[hooks]]
+name = "plain-english-issue-judge"
+type = "pre_tool"
+match = "re:.*_save_(issue|comment)"
+command = "node .vibe/hooks/plain-english-judge.mjs issue"
+timeout = 60
+description = "plain-english issue judge, opt-in"
+
+[[hooks]]
+name = "plain-english-chat"
+type = "post_agent"
+command = "node .vibe/hooks/plain-english.mjs hook chat --agent vibe"
+timeout = 10
+description = "plain-english chat channel"

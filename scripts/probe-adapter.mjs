@@ -97,14 +97,20 @@ probe("patch old_string is not judged", {
 
 console.log("\n-- per agent --");
 
-// Every profile has to see the same text in the same payload. Most read the
-// snake_case envelope Claude Code established; Cursor and Vibe use it too, with
-// different tool names.
+const profileWrite = (id) => ({
+  ...(id === "gemini" || id === "qwen" || id === "vibe"
+    ? {
+        hook_event_name: id === "gemini" ? "BeforeTool" : id === "qwen" ? "PreToolUse" : "pre_tool",
+        tool_name: "write_file",
+      }
+    : { tool_name: "Write" }),
+  tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
+  cwd: T,
+});
+
 for (const profile of PROFILES) {
-  probe(`${profile.id}: reads a markdown Write`, {
-    tool_name: "Write",
-    tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
-  }, "docs", "deny", "em-dash", profile.id);
+  probe(`${profile.id}: reads its native markdown write`, profileWrite(profile.id),
+    "docs", "deny", "em-dash", profile.id);
 }
 
 probe("vibe: reads a markdown write_file", {
@@ -129,13 +135,8 @@ probe("codex: a patch touching only source is not prose", {
 
 console.log("\n-- wire formats --");
 
-// The four places the protocols genuinely differ. A vendor changing one of
-// these should show up here as well as in the unit tests.
-const denyEvent = (id) =>
-  byId(id).parse({
-    tool_name: "Write",
-    tool_input: { file_path: `${T}/x.md`, content: `a ${EM} b` },
-  });
+// A vendor changing one of these should show up here as well as in the unit tests.
+const denyEvent = (id) => byId(id).parse(profileWrite(id));
 const emit = (id, event) =>
   byId(id).emit(decide(denyEvent(id), "docs", { projectDir: T, ruleSet }), event).stdout;
 const wire = (id, event = "pre") => {
@@ -145,13 +146,11 @@ const wire = (id, event = "pre") => {
 
 check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
   "claude-code nests permissionDecision under hookSpecificOutput");
-// Vibe's schema is Literal["allow", "deny"]. Sending `ask` is not ignored, it
-// fails validation, and a pre_tool reply that fails validation is a hook
-// failure. So the advisory tier has to be a system_message on an allow.
-check(wire("vibe").system_message?.includes("em-dash") &&
-      wire("vibe").decision === undefined &&
-      wire("vibe").hookSpecificOutput === undefined,
-  "vibe advises with a flat system_message and never says ask");
+// Vibe's pre_tool schema accepts only allow or deny. Advisory findings let the
+// write run, then post_tool adds context that the model can act on.
+check(emit("vibe", "pre") === "" &&
+      wire("vibe", "post").hook_specific_output?.additional_context?.includes("em-dash"),
+  "vibe advises through post_tool additional_context");
 check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
   "copilot puts permissionDecision at the top level");
 // Codex fails the hook run outright on `ask`, so its advisory travels as
@@ -162,10 +161,11 @@ check(codexPre.hookSpecificOutput?.hookEventName === "PreToolUse" &&
       codexPre.hookSpecificOutput?.permissionDecision === undefined,
   "codex tells the model on the pre event and never sends ask");
 
-// Cursor parses `ask` and then allows, so its advisory has to reach the model
-// as text or it reaches nobody.
-check(wire("cursor").permission === "allow" && !!wire("cursor").additional_context,
-  "cursor allows and attaches additional_context");
+check(emit("cursor", "pre") === "" && !!wire("cursor", "post").additional_context,
+  "cursor advises through postToolUse additional_context");
+check(emit("gemini", "pre") === "" &&
+      wire("gemini", "post").hookSpecificOutput?.hookEventName === "AfterTool",
+  "gemini advises through AfterTool additionalContext");
 
 // Both Codex hook output schemas set additionalProperties: false, so a stray
 // key throws the whole reply away rather than being ignored.
@@ -173,8 +173,9 @@ check(JSON.stringify(Object.keys(codexPre)) === '["hookSpecificOutput"]' &&
       JSON.stringify(Object.keys(codexPre.hookSpecificOutput).sort()) ===
         '["additionalContext","hookEventName"]',
   "codex pre output carries no key Codex would reject");
-check(PROFILES.every((p) => emit(p.id, "post") === ""),
-  "nothing is said after the write, on any agent");
+check(PROFILES.filter((p) => !["cursor", "vibe", "gemini"].includes(p.id))
+      .every((p) => emit(p.id, "post") === ""),
+  "only Cursor, Vibe and Gemini speak after the write");
 
 console.log("\n-- refusal message --");
 

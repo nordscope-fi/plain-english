@@ -3,8 +3,8 @@
  *
  * `init` writes a shim that passes `--agent` explicitly, so in normal use this
  * is a lookup and nothing more. Detection exists for a config somebody wrote by
- * hand, and it is deliberately weak: four agents send a payload with the same
- * field names, so nothing in the JSON alone tells three of them apart. What
+ * hand, and it is deliberately weak: several agents send a payload with the same
+ * field names, so the JSON alone does not always distinguish them. What
  * separates them is the environment they run in.
  *
  * Guessing wrong is not fatal. Every profile parses the shared snake_case
@@ -18,10 +18,20 @@ import { claudeCode } from "./claude-code.ts";
 import { codex } from "./codex.ts";
 import { copilot } from "./copilot.ts";
 import { cursor } from "./cursor.ts";
+import { gemini } from "./gemini.ts";
+import { qwen } from "./qwen.ts";
 import { vibe } from "./vibe.ts";
 
 /** Registration order is also the order `--help` lists them in. */
-export const PROFILES: readonly AgentProfile[] = [claudeCode, copilot, codex, cursor, vibe];
+export const PROFILES: readonly AgentProfile[] = [
+  claudeCode,
+  copilot,
+  codex,
+  cursor,
+  vibe,
+  gemini,
+  qwen,
+];
 
 export const DEFAULT_AGENT = claudeCode.id;
 

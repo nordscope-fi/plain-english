@@ -21,10 +21,10 @@
  * for documentation after the disk had already answered. Disk beat prose on
  * three agents here; prose beat disk on this one.
  *
- * There is no `current()`. Cursor documents `stop` and `afterAgentResponse`
- * hooks, and several reports say its CLI dispatches only the two shell events.
- * Until the tracer pass says otherwise, chat on Cursor is ungated, and the
- * word for that is ungated.
+ * Current Cursor hooks carry `transcript_path` on every agent event, and its
+ * `stop` hook accepts `followup_message`. That gives this reader both sides of
+ * the chat gate: the transcript supplies the reply and the stop response asks
+ * the agent to rewrite it.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -38,6 +38,7 @@ import {
   type ChatReader,
   type ReadOptions,
   type Reply,
+  field,
 } from "./reader.ts";
 
 export function cursorHome(): string {
@@ -174,9 +175,28 @@ export const cursorChat: ChatReader = {
     return out;
   },
 
-  // No stop event this package trusts. See the header.
-  current(): Reply | null {
-    return null;
+  current(payload: Record<string, unknown>): Reply | null {
+    const path = field(payload, "agent_transcript_path", "transcript_path");
+    if (!path) return null;
+    const session = field(payload, "conversation_id", "subagent_id") ?? basename(path, ".jsonl");
+    const isSubagent = payload["hook_event_name"] === "subagentStop";
+    let found: Reply | null = null;
+    readJsonl(path, (record, line) => {
+      if (record["role"] !== "assistant") return;
+      const message = record["message"];
+      if (!message || typeof message !== "object") return;
+      const content = (message as Record<string, unknown>)["content"];
+      if (!Array.isArray(content)) return;
+      const text = content
+        .flatMap((block) => {
+          if (!block || typeof block !== "object") return [];
+          const part = block as Record<string, unknown>;
+          return part["type"] === "text" && typeof part["text"] === "string" ? [part["text"]] : [];
+        })
+        .join("");
+      if (text.trim()) found = { text, isSubagent, session, source: path, line };
+    });
+    return found;
   },
 };
 

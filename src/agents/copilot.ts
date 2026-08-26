@@ -14,9 +14,16 @@
  * Docs: https://docs.github.com/en/copilot/reference/hooks-reference
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { isAbsolute, relative, resolve } from "node:path";
+
 import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
+
+const RUNNER = runnerPath(".github");
 
 const MATCHERS = {
   docs: "Write|Edit|MultiEdit",
@@ -24,8 +31,30 @@ const MATCHERS = {
   issue: "mcp__linear__save_issue|mcp__linear__save_comment",
 } as const;
 
+function copilotHome(): string {
+  const override = process.env["COPILOT_HOME"];
+  return override && override.length ? resolve(override) : resolve(homedir(), ".copilot");
+}
+
+/** Whether Copilot's generated JSON-with-comments state trusts this folder. */
+function trustedFolder(configPath: string, root: string): boolean {
+  try {
+    const source = readFileSync(configPath, "utf8").replace(/^\s*\/\/.*$/gm, "");
+    const parsed = JSON.parse(source) as { trustedFolders?: unknown };
+    if (!Array.isArray(parsed.trustedFolders)) return false;
+    return parsed.trustedFolders.some((entry) => {
+      if (typeof entry !== "string") return false;
+      const folder = resolve(entry);
+      const child = relative(folder, resolve(root));
+      return child === "" || (!child.startsWith("..") && !isAbsolute(child));
+    });
+  } catch {
+    return false;
+  }
+}
+
 function command(channel: string): string {
-  return `npx --no-install plain-english hook ${channel} --agent copilot`;
+  return runnerCommand(RUNNER, channel, "copilot");
 }
 
 export const copilot: AgentProfile = {
@@ -56,7 +85,12 @@ export const copilot: AgentProfile = {
     switch (name.toLowerCase()) {
       case "write":
       case "create":
-        return { tool: "write", cwd, input: { filePath, content: pick(input, "content", "text") } };
+        return {
+          tool: "write",
+          cwd,
+          // Copilot's live PascalCase Write payload calls this `file_text`.
+          input: { filePath, content: pick(input, "content", "text", "file_text") },
+        };
       case "edit":
       case "str_replace":
       case "str_replace_editor":
@@ -87,6 +121,17 @@ export const copilot: AgentProfile = {
   },
 
   supportsAsk: true,
+
+  diagnose(root: string): string[] {
+    if (!existsSync(resolve(root, ".github", "hooks", "plain-english.json"))) return [];
+    const config = resolve(copilotHome(), "config.json");
+    if (trustedFolder(config, root)) return [];
+    return [
+      "this project is not in Copilot's trusted folders. An interactive session will ask " +
+        "for trust; prompt mode skips repository hooks unless " +
+        "GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true is set",
+    ];
+  },
 
   emit(decision: Decision, event: HookEvent) {
     if (event === "post") return { stdout: "", exitCode: 0 };
@@ -141,6 +186,13 @@ export const copilot: AgentProfile = {
       powershell: command(channel),
       timeoutSec: 30,
     }));
+    const userEntries = Object.entries(MATCHERS).map(([channel, matcher]) => ({
+      type: "command",
+      matcher,
+      bash: `plain-english hook ${channel} --agent copilot`,
+      powershell: `plain-english hook ${channel} --agent copilot`,
+      timeoutSec: 30,
+    }));
 
     return {
       config: [
@@ -174,11 +226,10 @@ export const copilot: AgentProfile = {
             { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: 10 },
           ],
         },
-        // The location the CLI actually reads. Its own `copilot help config`
-        // documents the repository file above, and 1.0.78 does not load it:
-        // an identical hook fires from here and not from there. Reported as
-        // github/copilot-cli#1730. Only written when `init --user` asks,
-        // because this is outside the project.
+        // Compatibility fallback for Copilot CLI 1.0.78 and older. Current
+        // releases load and merge project and user hooks, so installing both
+        // can make the same check run twice. Only written when explicitly
+        // requested because this path is outside the project.
         ...(ctx.includeUser
           ? [
               {
@@ -187,26 +238,27 @@ export const copilot: AgentProfile = {
                 at: ["hooks", "PreToolUse"],
                 shape: "flat" as const,
                 defaults: { version: 1 },
-                entries,
+                entries: userEntries,
               },
             ]
           : []),
       ],
-      shims: [],
+      shims: [{ path: RUNNER, body: HOOK_RUNNER }],
       notes: [
         ...(ctx.includeUser
           ? [
-              "Wrote ~/.copilot/hooks/plain-english.json as well, which is what the CLI " +
-                "reads. The repository copy stays for the cloud agent.",
+              "Wrote the legacy user-level Copilot hook as explicitly requested. Copilot " +
+                "1.0.80 merges it with the repository hook, so findings may appear twice.",
             ]
           : [
-              "The CLI does not read .github/hooks/ as of 1.0.78, though its own config " +
-                "help says it does. An identical hook fires from ~/.copilot/hooks/ and not " +
-                "from here (github/copilot-cli#1730). Re-run with --user to write both, or: " +
-                "mkdir -p ~/.copilot/hooks && cp .github/hooks/plain-english.json ~/.copilot/hooks/",
+              "Copilot CLI 1.0.80 and the cloud coding agent both read .github/hooks/. " +
+                "Use --user only as a compatibility fallback for an older CLI; current " +
+                "releases merge both locations and would run the same hook twice.",
             ]),
-        "The cloud coding agent does read .github/hooks/, from the default branch only, " +
-          "so this takes effect there once it is merged.",
+        "Copilot prompt mode skips repository hooks until this folder is trusted. For a " +
+          "vetted non-interactive run, set GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true.",
+        "The cloud coding agent reads .github/hooks/ from the default branch, so this " +
+          "takes effect there once it is merged.",
         "Copilot often writes files through the shell rather than a write tool. Since " +
           "0.6.0 a redirect into a markdown file is read on the github channel, so those " +
           "writes are checked too.",

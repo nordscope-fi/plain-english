@@ -6,6 +6,8 @@ import { claudeCodeChat } from "../src/chat/claude-code.ts";
 import { codexChat } from "../src/chat/codex.ts";
 import { cursorChat } from "../src/chat/cursor.ts";
 import { copilotChat } from "../src/chat/copilot.ts";
+import { geminiChat } from "../src/chat/gemini.ts";
+import { qwenChat } from "../src/chat/qwen.ts";
 import { READERS, readAll, readerFor, readerIds } from "../src/chat/registry.ts";
 import { hasSegment, inScope, withinDays } from "../src/chat/reader.ts";
 import { chatRuleSet, compile, loadDefault } from "../src/rules.ts";
@@ -273,11 +275,14 @@ describe("Cursor agent transcripts", () => {
     expect(cursorChat.read().map((r) => r.text)).toEqual(["Cursor replied here."]);
   });
 
-  it("gates nothing, and says so by returning null", () => {
-    // Cursor documents stop and afterAgentResponse hooks; several reports say
-    // its CLI dispatches only the two shell events. Until that is verified
-    // against a running agent, chat on Cursor is ungated.
-    expect(cursorChat.current({ last_assistant_message: "anything" })).toBeNull();
+  it("reads the reply named by a stop event", () => {
+    setEnv("CURSOR_HOME", home);
+    const session = "86bba682";
+    const transcript = resolve(home, "projects", "-work-repo", "agent-transcripts", session, `${session}.jsonl`);
+    write(transcript, jsonl([
+      { role: "assistant", message: { content: [{ type: "text", text: "Cursor replied here." }] } },
+    ]));
+    expect(cursorChat.current({ transcript_path: transcript })?.text).toBe("Cursor replied here.");
   });
 });
 
@@ -301,7 +306,7 @@ describe("Copilot session store", () => {
 
 describe("the reader registry", () => {
   it("covers every agent this package supports", () => {
-    expect(readerIds().sort()).toEqual(["claude-code", "codex", "copilot", "cursor", "vibe"]);
+    expect(readerIds().sort()).toEqual(["claude-code", "codex", "copilot", "cursor", "gemini", "qwen", "vibe"]);
     for (const id of readerIds()) expect(readerFor(id)?.id).toBe(id);
   });
 
@@ -313,9 +318,11 @@ describe("the reader registry", () => {
     setEnv("CODEX_HOME", resolve(home, "absent"));
     setEnv("COPILOT_HOME", resolve(home, "absent"));
     setEnv("CURSOR_HOME", resolve(home, "absent"));
+    setEnv("GEMINI_CLI_HOME", resolve(home, "absent"));
+    setEnv("QWEN_HOME", resolve(home, "absent"));
     setEnv("VIBE_HOME", resolve(home, "absent"));
     const results = readAll(READERS, {});
-    expect(results).toHaveLength(5);
+    expect(results).toHaveLength(7);
     for (const r of results) {
       expect(r.replies).toEqual([]);
       expect(r.unavailable, `${r.id} should say why it found nothing`).toBeTruthy();
@@ -783,12 +790,44 @@ describe("shapes observed against live agents on 2026-08-18", () => {
     expect(reply?.isSubagent).toBe(true);
   });
 
-  it("cursor installs no stop hook, because its CLI dispatches none", () => {
-    // Observed: with 12 events registered, including `stop` and
-    // `afterAgentResponse`, only sessionStart and sessionEnd fired.
+  it("cursor installs the current documented stop hooks", () => {
     const events = byId("cursor")!.plan({ prompts: {}, model: "" }).config.map((c) => c.at.join("."));
-    expect(events.some((e) => /stop|agentresponse/i.test(e))).toBe(false);
-    expect(byId("cursor")!.emitChat).toBeUndefined();
+    expect(events).toContain("hooks.stop");
+    expect(events).toContain("hooks.subagentStop");
+    expect(byId("cursor")!.emitChat).toBeTypeOf("function");
+  });
+});
+
+describe("Gemini CLI transcripts", () => {
+  it("reads project chats and the AfterAgent response", () => {
+    setEnv("GEMINI_CLI_HOME", home);
+    write(resolve(home, ".gemini/projects.json"), JSON.stringify({ projects: { "/work/repo": "repo-id" } }));
+    const transcript = resolve(home, ".gemini/tmp/repo-id/chats/session.jsonl");
+    write(transcript, jsonl([
+      { type: "gemini", sessionId: "s1", content: [{ text: "Gemini replied." }] },
+      { type: "gemini", sessionId: "s1", content: [{ thought: true, text: "hidden" }] },
+    ]));
+    expect(geminiChat.read({ cwd: "/work/repo" }).map((r) => r.text)).toEqual(["Gemini replied."]);
+    expect(geminiChat.current({ prompt_response: "Current Gemini reply.", session_id: "s1" })?.text)
+      .toBe("Current Gemini reply.");
+  });
+});
+
+describe("Qwen Code transcripts", () => {
+  it("reads main and subagent chats and takes the stop message", () => {
+    setEnv("QWEN_HOME", home);
+    const project = resolve(home, "projects/work-repo");
+    write(resolve(project, "chats/main.jsonl"), jsonl([
+      { type: "assistant", sessionId: "s1", message: { parts: [{ text: "Qwen replied." }] } },
+    ]));
+    write(resolve(project, "subagents/child.jsonl"), jsonl([
+      { type: "assistant", sessionId: "s1", message: { parts: [{ text: "Child replied." }] } },
+    ]));
+    const replies = qwenChat.read({ cwd: "/work/repo" });
+    expect(replies.map((r) => r.text).sort()).toEqual(["Child replied.", "Qwen replied."]);
+    expect(replies.find((r) => r.text === "Child replied.")?.isSubagent).toBe(true);
+    expect(qwenChat.current({ hook_event_name: "Stop", last_assistant_message: "Current Qwen reply." })?.text)
+      .toBe("Current Qwen reply.");
   });
 });
 

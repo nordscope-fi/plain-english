@@ -1073,6 +1073,50 @@ cases:
     expect: pass
     text: "The tree is rooted at the repository directory."
 
+  # A Reddit list of 100 phrases supplied on 2026-08-26 mixes strong tells,
+  # ordinary prose and malformed fragments. These cases cover the closed,
+  # high-signal subset added to the default ruleset.
+  - name: "inflated significance blocks"
+    expect: block
+    rule: inflated-significance
+    text: "This launch is a significant step forward and a testament to our unwavering commitment."
+
+  - name: "an actual reminder can be stated plainly"
+    expect: pass
+    text: "The alert reminds the operator to close the valve."
+
+  - name: "formulaic importance warns"
+    expect: pass
+    warns: [formulaic-importance]
+    text: "The study provides a valuable insight and highlights the importance of caching."
+
+  - name: "a concrete finding needs no importance frame"
+    expect: pass
+    text: "The study found that caching cut median latency by 40 milliseconds."
+
+  - name: "staged progress warns"
+    expect: pass
+    warns: [staged-progress]
+    text: "This milestone laid the groundwork for the path ahead."
+
+  - name: "a concrete next step needs no journey frame"
+    expect: pass
+    text: "Next, add the index and rerun the latency test."
+
+  - name: "academic fog warns"
+    expect: pass
+    warns: [academic-fog]
+    text: "The study sheds light on the complex interplay between cost and latency."
+
+  - name: "a specific relationship needs no academic frame"
+    expect: pass
+    text: "Each extra replica cuts latency by 8 milliseconds and adds $40 a month."
+
+  - name: "bare underscore warns too"
+    expect: pass
+    warns: [underscores-verb]
+    text: "These failures underscore the need for a second check."
+
   - name: "abstract metaphor nouns warn"
     expect: pass
     warns: [abstract-metaphor-nouns]

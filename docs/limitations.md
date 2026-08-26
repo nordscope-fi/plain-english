@@ -84,16 +84,25 @@ A style reaches the main conversation and a **fork**, which inherits the parent'
 
 **A stop hook** reads the finished reply and can hand a finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. `plain-english init` installs it on the events below. Under the default `failOn: never` it reports and holds up nothing; `failOn: error` makes a finding block the turn.
 
-| Agent | Event carrying the reply | Main loop | Subagents |
-|---|---|---|---|
-| Claude Code | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes |
-| Codex | `Stop` (`last_assistant_message`) | yes | yes |
-| GitHub Copilot | `Stop` names an event stream that holds it; `subagentStop` carries it directly | yes | yes |
-| Cursor | dispatches neither `stop` nor `afterAgentResponse` | **no** | **no** |
+| Agent | Completed-turn source | Main loop | Subagents | Evidence |
+|---|---|---|---|---|
+| Claude Code | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes | observed |
+| Codex | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes | main loop observed; subagent docs |
+| GitHub Copilot | `Stop` names an event stream; `subagentStop` carries the reply | yes | yes | main loop observed; subagent docs |
+| Cursor | `stop`, `subagentStop` name `transcript_path` | yes | yes | current docs |
+| Mistral Vibe | `post_agent` names `transcript_path` | yes | agent-wide event | observed |
+| Gemini CLI | `AfterAgent` carries `prompt_response` | yes | vendor event | docs |
+| Qwen Code | `Stop`, `SubagentStop` carry or name the reply | yes | yes | docs |
 
-Those rows were run against the live binaries on 2026-08-18, so they are `observed` by the ranking in [`verifying-an-adapter.md`](verifying-an-adapter.md). [`agents.md`](agents.md#the-chat-channel) carries the per-agent detail and the three things that pass changed.
+The distinction in the last column matters. A documented event can still be missing from
+a particular build, as Cursor's older command-line tool demonstrated.
+[`agents.md`](agents.md#the-chat-channel) carries versions, payload details and the
+remaining live-verification gaps.
 
-**One limitation is worth reading before you set `failOn: error`.** Claude Code runs the hook in print mode and does not act on the block: the turn ends anyway. Isolated with a minimal always-block hook that has nothing to do with this package, so it is not something in this adapter. Under `claude -p`, treat the chat channel as advisory whatever `failOn` says. Whether an interactive session honours the block is untested.
+**One limitation is worth reading before you set `failOn: error`.** Claude Code runs the
+hook in print mode and does not act on the block: the turn ends anyway. An interactive
+session does retry when the hook returns the documented flat block body. Under
+`claude -p`, treat the chat channel as advisory whatever `failOn` says.
 
 Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
 
@@ -121,11 +130,22 @@ It is a monitoring event, and a monitoring event that fires per streamed chunk i
 
 The deterministic rules run identically everywhere. The rest does not.
 
-The semantic layer, which judges the nine sentence shapes a regex cannot, rides on a prompt hook. Claude Code has one. Copilot documents an equivalent this package does not yet use. Codex and Cursor have none, so on those two the sentence shapes are covered by the prompt in `AGENTS.md` and by nothing that runs.
+The semantic layer judges the ten sentence shapes a pattern cannot reach. Claude Code
+runs it through prompt hooks. Vibe has an optional local judge, disabled unless
+`PLAIN_ENGLISH_VIBE_JUDGE=1` is set. Copilot's prompt hooks submit text at session start;
+they are not a model judge. Codex, Cursor, Gemini and Qwen have none wired here. On those six
+default paths, the sentence shapes are guidance in `AGENTS.md` and nothing measures them
+during a write.
 
-Chat is covered on three of the four, per the table above. Cursor is the exception, and the word for that is ungated: `lint --chat` reports what it said afterwards and gates nothing.
+All seven profiles install a completed-turn hook, but the table above is deliberately not
+a claim that every retry has been observed. `lint --chat` is the reliable after-the-fact
+measurement when a vendor event is absent or changes shape.
 
-Two vendor behaviours are worth knowing before you rely on a refusal. Copilot's cloud coding agent treats `ask` as `deny`, so the advisory default is blocking there. And Codex needs two separate approvals before it runs a hook at all, one for the folder and one for the hook itself; [`agents.md`](agents.md#openai-codex-cli) says what each does and how to grant them. That file also records which claims here were verified against a running agent and which were taken from a vendor's documentation.
+Two kinds of vendor gate matter before you rely on a refusal. Copilot's cloud coding
+agent treats `ask` as `deny`, so the advisory default is blocking there. Project hooks
+also require vendor trust in Copilot, Codex, Cursor, Vibe, Gemini and Qwen. Codex adds a
+second approval for the exact hook definition. [`agents.md`](agents.md) explains each
+gate and records whether the supporting evidence is observed, source or documentation.
 
 ## The semantic layer has a false-positive floor
 

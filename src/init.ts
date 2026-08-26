@@ -6,16 +6,23 @@
  * step most likely to be done wrong, and the one where an existing unrelated
  * hook gets clobbered.
  *
- * Every agent keeps its hooks in a JSON file, in one of two shapes: a flat list
- * of entries, or a list of `{ matcher, hooks: [...] }` groups. So the merge is
- * shared and only the entries differ, which is what makes a fourth agent a
+ * Agent configs use a flat list or `{ matcher, hooks: [...] }` groups. The
+ * merge is shared and only the entries differ, which makes another agent a
  * table rather than a rewrite.
  *
  * Merging preserves every entry it did not add, and is idempotent: running it
  * twice changes nothing the second time.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, relative, resolve } from "node:path";
 import { compile, loadDefault, resolveRuleSet, type RuleSet } from "./rules.ts";
@@ -441,8 +448,8 @@ export interface InitOptions {
    * `init` writes lands in the project, where it is committed, reviewed and
    * removed with the checkout. A user-level file is none of those things.
    *
-   * Copilot needs it: its CLI does not read the repository location its own
-   * documentation gives (github/copilot-cli#1730).
+   * Current Copilot reads the repository location. This option remains an
+   * explicit compatibility fallback for older CLI releases.
    */
   includeUser?: boolean;
 }
@@ -588,6 +595,7 @@ export function init(opts: InitOptions): number {
         const before = splitHooksToml(text).blocks.length;
         const next = mergeHooksToml(text, file.entries);
         tomlDocs.set(path, next);
+        if (next === text) continue;
         const preserved = splitHooksToml(next).blocks.length - file.entries.length;
         planned.push(
           `${existed ? "update" : "create"} ${relative(root, path)} ${file.at.join(".")}` +
@@ -601,6 +609,7 @@ export function init(opts: InitOptions): number {
       if (doc === null) return 2;
       const result = applyConfig(docs.get(path)!, file);
       docs.set(path, result.doc);
+      if (JSON.stringify(result.doc) === JSON.stringify(doc)) continue;
       const shown = file.scope === "user" ? path : relative(root, path);
       planned.push(
         `${existed ? "update" : "create"} ${shown} ${file.at.join(".")}` +
@@ -613,7 +622,16 @@ export function init(opts: InitOptions): number {
 
     for (const s of plan.shims) {
       const path = resolve(root, s.path);
-      planned.push(`create ${relative(root, path)}`);
+      let unchanged = false;
+      try {
+        const bodyMatches = readFileSync(path, "utf8") === s.body;
+        const modeMatches = process.platform === "win32" || (statSync(path).mode & 0o777) === 0o755;
+        unchanged = bodyMatches && modeMatches;
+      } catch {
+        unchanged = false;
+      }
+      if (unchanged) continue;
+      planned.push(`${existsSync(path) ? "update" : "create"} ${relative(root, path)}`);
       writes.push({ path, body: s.body, mode: 0o755 });
     }
 
@@ -666,10 +684,13 @@ export function init(opts: InitOptions): number {
   }
 
   for (const [path, doc] of docs) {
-    writes.push({ path, body: JSON.stringify(doc, null, 2) + "\n" });
+    const body = JSON.stringify(doc, null, 2) + "\n";
+    if (existsSync(path) && readFileSync(path, "utf8") === body) continue;
+    writes.push({ path, body });
   }
 
   for (const [path, body] of tomlDocs) {
+    if (existsSync(path) && readFileSync(path, "utf8") === body) continue;
     writes.push({ path, body });
   }
 

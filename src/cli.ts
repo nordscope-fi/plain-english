@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { extname, relative, resolve, dirname } from "node:path";
+import { delimiter, extname, relative, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
@@ -931,7 +931,7 @@ USAGE
   plain-english explain [RULE]       show a rule, or list them all
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
-  plain-english hook <CHANNEL>       pre-tool-call adapter (docs|github|issue)
+  plain-english hook <CHANNEL>       hook adapter (docs|github|issue|chat)
 
 LINT OPTIONS
   --format text|json|unix|github|sarif
@@ -947,7 +947,8 @@ LINT --chat OPTIONS
   a transcript holds whatever passed through a tool, so this is never a CI
   step and the GitHub Action takes no --chat input.
 
-  --agent ID|all                     claude-code, codex, copilot, cursor, vibe
+  --agent ID|all                     claude-code, copilot, codex, cursor, vibe,
+                                     gemini, qwen
                                      (default: all)
   --since DAYS                       how far back to look (default: 30).
                                      Bounded by the agent's own retention.
@@ -970,9 +971,9 @@ POLICY OPTIONS
 
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, vibe, or all
+                                     cursor, vibe, gemini, qwen, or all
   --user                             also write outside the repo, under ~.
-                                     Copilot's CLI needs this; nothing else does.
+                                     Copilot compatibility fallback only.
   --dry-run                          print what would change
   --root PATH                        repo root (default: cwd)
 
@@ -1082,8 +1083,8 @@ function agentReport(root: string): string[] {
     }
     lines.push(`  ${profile.id.padEnd(12)} ${seen.length ? seen.join("; ") : "not installed"}`);
     // Whatever this machine would do to a hook that is installed correctly.
-    // Codex is the one profile with an answer: its repository file is read only
-    // in a trusted folder, and until then nothing runs and nothing is said.
+    // Repository trust is deliberately kept outside init, so doctor names the
+    // vendor gate instead of silently changing a security decision.
     for (const problem of profile.diagnose?.(root) ?? []) {
       lines.push(`  ${" ".repeat(12)} ! ${problem}`);
     }
@@ -1092,17 +1093,24 @@ function agentReport(root: string): string[] {
 }
 
 /**
- * Whether the command every installed hook runs would find anything.
- *
- * Each hook is `npx --no-install plain-english …`, which resolves from the
- * project's own `node_modules`. A global install with no local one makes every
- * one of them a silent no-op while the config still reads correctly, and that
- * is indistinguishable from a linter that found nothing to say.
+ * Whether the generated hook launcher can find the package without a download.
  */
 function resolvesLocally(root: string): string {
+  try {
+    const own = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as { name?: string };
+    if (own.name === "plain-english" && existsSync(resolve(root, "dist", "cli.js"))) {
+      return "generated launcher finds this repository build";
+    }
+  } catch {
+    /* not the package checkout */
+  }
   const local = resolve(root, "node_modules", "plain-english", "package.json");
-  if (existsSync(local)) return "npx --no-install finds a local install";
-  return "NO local install; `npx --no-install plain-english` will do nothing in hooks";
+  if (existsSync(local)) return "generated launcher finds the local dependency";
+  const binary = process.platform === "win32" ? "plain-english.cmd" : "plain-english";
+  if ((process.env["PATH"] ?? "").split(delimiter).some((dir) => dir && existsSync(resolve(dir, binary)))) {
+    return "generated launcher finds the global command";
+  }
+  return "NO repository, local, or global install available to generated hooks";
 }
 
 function resolveRuleSetSafe(root: string): string {

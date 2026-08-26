@@ -7,7 +7,7 @@ Start with the [README](../README.md). These go deeper.
 | Doc | Read it when |
 |---|---|
 | [adopting.md](adopting.md) | Putting this in front of a repo that already has writing in it. An eight-step rollout that does not annoy everyone on day one. |
-| [agents.md](agents.md) | Wiring up Claude Code, Copilot, Codex or Cursor, or working out why a hook is not firing. Per-agent detail, and which claims were checked against a running binary. |
+| [agents.md](agents.md) | Wiring up Claude Code, Copilot, Codex, Cursor, Vibe, Gemini or Qwen, or working out why a hook is not firing. Per-agent detail, trust requirements and evidence level. |
 | [post-edit-lint.md](post-edit-lint.md) | Your agent has no adapter here. Tell it to run the linter after it edits instead. |
 | [editors.md](editors.md) | Getting findings into your editor's Problems list, as plain text or as a findings file GitHub can read. |
 | [writing-style.md](writing-style.md) | You want the full rule list. Generated from `rules/default.yml`; never edited by hand. |
@@ -25,7 +25,7 @@ Start with the [README](../README.md). These go deeper.
 |---|---|
 | [design-rationale.md](design-rationale.md) | You are adapting the idea, or want the reasoning behind the shape. |
 | [architecture/adr/](architecture/adr/README.md) | You want one decision, its status, the alternatives that lost, and what would make it worth revisiting. |
-| [verifying-an-adapter.md](verifying-an-adapter.md) | Adding another agent, or checking an existing one against a live binary. Read it first: four adapters were written from vendor documentation and four defects were later found in them. |
+| [verifying-an-adapter.md](verifying-an-adapter.md) | Adding another agent, or checking an existing one against a live binary. It covers safe captures, vendor loaders, trust gates and isolated live probes. |
 | [releasing.md](releasing.md) | Maintainers, cutting a release. |
 
 Contributor rules live in [`AGENTS.md`](../AGENTS.md) at the repository root.

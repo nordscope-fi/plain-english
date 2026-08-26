@@ -88,6 +88,11 @@ export function humanise(rule: Rule): string {
   return alternatives.map(render).filter(Boolean).join(", ");
 }
 
+/** A rule label inside a GFM table cell, protected from links and cell splits. */
+export function markdownTableCode(value: string): string {
+  return `\`${value.replaceAll("|", "\\|")}\``;
+}
+
 function severityMark(rule: Rule): string {
   return rule.severity === "warn" ? "warn" : "block";
 }
@@ -204,7 +209,7 @@ export function renderWritingStyle(set: RuleSet): string {
     if (rule.severity === "off") continue;
     const why = rule.link ? `[notes](${rule.link})` : "";
     out.push(
-      `| ${humanise(rule)} | \`${severityMark(rule)}\` | ${rule.message ?? ""} | ${why} |`,
+      `| ${markdownTableCode(humanise(rule))} | \`${severityMark(rule)}\` | ${rule.message ?? ""} | ${why} |`,
     );
   }
   out.push("");
@@ -468,7 +473,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "banned terms on purpose as a reference list).",
     "",
     "Otherwise judge ONLY the content or new_string being written. Flag:",
-    `- Banned terms: ${words}`,
+    `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     ...shapeLine,
     "",
@@ -543,7 +548,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "Otherwise judge ONLY the message text the command introduces: the -m/--message value, the",
     "--title/--body value, a heredoc body, or the contents of a file passed with -F/--file/",
     "--body-file/--notes-file. Ignore branch names, flags, file paths and commit hashes. Flag:",
-    `- Banned terms: ${words}`,
+    `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     "",
     ...vocab,
@@ -574,7 +579,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "not need expanding. Only genuinely obscure internal shorthand (project-specific codenames, and",
     "acronyms that are not standard industry or product terms) needs a gloss. Flag:",
     "- Unglossed internal shorthand",
-    `- Banned terms: ${words}`,
+    `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     "",
     ...vocab,

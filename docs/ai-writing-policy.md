@@ -14,68 +14,74 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | Agent | Hook | Notes |
 |---|---|---|
 | claude-code | not installed | no hook runs |
-| copilot | not installed | no hook runs |
-| codex | not installed | no hook runs |
-| cursor | not installed | no hook runs |
-| vibe | not installed | no hook runs |
+| copilot | `.github/hooks/plain-english.json` | repository hooks require folder trust in prompt mode |
+| codex | `.codex/hooks.json` | requires project trust and review of the current hook definition |
+| cursor | `.cursor/hooks.json` | requires a trusted workspace |
+| vibe | `.vibe/hooks.toml` | requires a trusted folder |
+| gemini | `.gemini/settings.json` | requires project hook trust |
+| qwen | `.qwen/settings.json` | requires project hook trust |
 
 ## The rules in force
 
-51 word and punctuation rules, 28 of them blocking, plus 10 sentence shapes judged by a model and 4 readability rules.
+55 word and punctuation rules, 29 of them blocking, plus 10 sentence shapes judged by a model and 4 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
-| em dash (—) | `block` | No em dashes. Use a comma, parentheses, or a full stop. |
-| en dash used as a sentence break | `warn` | An en dash used as a sentence break is the same tell as an em dash. |
-| furthermore | `block` | Start the sentence with its own point. |
-| moreover | `block` | Start the sentence with its own point. |
-| in conclusion | `block` | State the conclusion. Do not announce it. |
-| it( is/'s) worth (noting/mentioning), it( is/'s) important to (note/understand/remember/consider/mention/highlight/realise/realize/recognise/recognize/emphasise/emphasize/point out/keep in mind/bear in mind) | `block` | If it is worth noting, note it. |
-| at the end of the day, | `block` | Cut the phrase and state the point. |
-| let's dive in | `block` | Start with the content. |
-| div(e/es/ing) into | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |
-| leverag(e/es/ed/ing) | `block` | Use 'use'. |
-| utiliz(e/es/ed/ing), utilis(e/es/ed/ing) | `block` | Use 'use'. |
-| delv(e/es/ed/ing) | `block` | Use 'look at', 'read', or 'go through'. |
-| showcas(e/es/ed/ing) | `block` | Use 'show'. |
-| boasts | `block` | State the number without the verb: 'uptime is 99.9%'. |
-| underscor(es/ed/ing) (the/that/this/these/those/a/an/how/why/just/again/its/our/their/his/her) | `warn` | Use 'shows', 'proves', or drop the sentence. |
-| seamless[ly] | `block` | Say what actually happens, or cut the word. |
-| cutting-edge | `block` | Name the thing that is new. |
-| holistic[ally] | `warn` | Say which parts you mean. |
-| synerg(y/ies/istic/istically) | `block` | Name the actual benefit. |
-| paradigm shift | `block` | Say what changed. |
-| game-chang(er/ing) | `block` | Say what it changes. |
-| unlock (the/your) (potential/power/value/secret/secrets/full) | `block` | Say what becomes possible. |
-| elevate your | `block` | Say what improves. |
-| in today's (fast-paced/digital/business/competitive/modern) | `block` | Cut the opener and start with the point. |
-| as an AI, as a large language model | `block` | Cut it. |
-| silent[ly] | `warn` | Say what happened and what it affected. |
-| quietly | `warn` | Say what happened and what it affected. |
-| mechanical[ly] | `warn` | Say what the process actually does. |
-| load-bearing | `block` | Say what depends on it. |
-| the fact that | `warn` | Cut it: 'despite the fact that' is 'though'. |
-| in order to | `warn` | Use 'to'. |
-| in terms of | `warn` | Name the relation, or use 'in' or 'for'. |
-| (is/are/was/were/be/been/being) able to, ha(s/ve/d) the ability to | `warn` | Use 'can'. |
-| a (number/variety) of | `warn` | Say how many, or cut the phrase. |
-| in (a/an) ... (manner/fashion) | `warn` | Use the adverb: 'in a hasty manner' is 'hastily'. |
-| [the question ]as to whether | `warn` | Use 'whether'. |
-| not un... | `warn` | Say what it is: 'not uncommon' is 'common'. |
-| prior to | `warn` | Use 'before'. |
-| with (respect/regard/regards) to | `warn` | Use 'about', or name the relation. |
-| (tapestry/testament/indelible mark) | `block` | Say what happened. A result is not a testament to anything. |
-| pivotal | `block` | Say what it changed. |
-| (vibrant/breathtaking/groundbreaking/stunning/nestled/must-visit) | `block` | Describe it neutrally, or give the number. |
-| [ever-](evolving/changing/shifting) (landscape/world/field/environment) | `block` | Name what changed and when. |
-| (technology/technological/competitive/digital/business/security/threat/regulatory/marketing) landscape | `block` | Name the thing that changed, or the competitors. |
-| deeply-rooted | `block` | Say where it comes from. |
-| (substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating) | `warn` | Pick the concrete word: a base, a place, a link, a goal. |
-| (footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud) | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |
-| (the/a) layer (underneath/beneath/below/under/behind), hold[s/ing] up (well/under/to scrutiny/against), sit[s/ting] at the (intersection/core/centre/center/crux) of, (is/are) where ... (go/goes/get/gets/break/breaks/fail/fails) | `warn` | Name the thing and say where it actually is. |
-| (It/This/That) (key/crucial/critical/intentional/deliberate/elegant/subtle/telling/striking/by design/no accident)., (It/This/That) (matters/works/compounds/adds up/pays off). | `warn` | Fold the point into the sentence before it, or cut it. |
-| (serves/serve/stands/stand) as | `warn` | Just say 'is' or 'has'. |
-| (experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims) | `warn` | Name the source, or cut the claim. |
+| `em dash (—)` | `block` | No em dashes. Use a comma, parentheses, or a full stop. |
+| `en dash used as a sentence break` | `warn` | An en dash used as a sentence break is the same tell as an em dash. |
+| `furthermore` | `block` | Start the sentence with its own point. |
+| `moreover` | `block` | Start the sentence with its own point. |
+| `in conclusion` | `block` | State the conclusion. Do not announce it. |
+| `it( is/'s) worth (noting/mentioning), it( is/'s) important to (note/understand/remember/consider/mention/highlight/realise/realize/recognise/recognize/emphasise/emphasize/point out/keep in mind/bear in mind)` | `block` | If it is worth noting, note it. |
+| `at the end of the day,` | `block` | Cut the phrase and state the point. |
+| `let's dive in` | `block` | Start with the content. |
+| `div(e/es/ing) into` | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |
+| `leverag(e/es/ed/ing)` | `block` | Use 'use'. |
+| `utiliz(e/es/ed/ing), utilis(e/es/ed/ing)` | `block` | Use 'use'. |
+| `delv(e/es/ed/ing)` | `block` | Use 'look at', 'read', or 'go through'. |
+| `showcas(e/es/ed/ing)` | `block` | Use 'show'. |
+| `boasts` | `block` | State the number without the verb: 'uptime is 99.9%'. |
+| `underscor(e/es/ed/ing) (the/that/this/these/those/a/an/how/why/just/again/its/our/their/his/her)` | `warn` | Use 'shows', 'proves', or drop the sentence. |
+| `seamless[ly]` | `block` | Say what actually happens, or cut the word. |
+| `cutting-edge` | `block` | Name the thing that is new. |
+| `holistic[ally]` | `warn` | Say which parts you mean. |
+| `synerg(y/ies/istic/istically)` | `block` | Name the actual benefit. |
+| `paradigm shift` | `block` | Say what changed. |
+| `game-chang(er/ing)` | `block` | Say what it changes. |
+| `unlock (the/your) (potential/power/value/secret/secrets/full)` | `block` | Say what becomes possible. |
+| `elevate your` | `block` | Say what improves. |
+| `in today's (fast-paced/digital/business/competitive/modern)` | `block` | Cut the opener and start with the point. |
+| `as an AI, as a large language model` | `block` | Cut it. |
+| `silent[ly]` | `warn` | Say what happened and what it affected. |
+| `quietly` | `warn` | Say what happened and what it affected. |
+| `mechanical[ly]` | `warn` | Say what the process actually does. |
+| `load-bearing` | `block` | Say what depends on it. |
+| `the fact that` | `warn` | Cut it: 'despite the fact that' is 'though'. |
+| `in order to` | `warn` | Use 'to'. |
+| `in terms of` | `warn` | Name the relation, or use 'in' or 'for'. |
+| `(is/are/was/were/be/been/being) able to, ha(s/ve/d) the ability to` | `warn` | Use 'can'. |
+| `a (number/variety) of` | `warn` | Say how many, or cut the phrase. |
+| `in (a/an) ... (manner/fashion)` | `warn` | Use the adverb: 'in a hasty manner' is 'hastily'. |
+| `[the question ]as to whether` | `warn` | Use 'whether'. |
+| `not un...` | `warn` | Say what it is: 'not uncommon' is 'common'. |
+| `prior to` | `warn` | Use 'before'. |
+| `with (respect/regard/regards) to` | `warn` | Use 'about', or name the relation. |
+| `(tapestry/testament/indelible mark)` | `block` | Say what happened. A result is not a testament to anything. |
+| `pivotal` | `block` | Say what it changed. |
+| `(vibrant/breathtaking/groundbreaking/stunning/nestled/must-visit)` | `block` | Describe it neutrally, or give the number. |
+| `[ever-](evolving/changing/shifting) (landscape/world/field/environment)` | `block` | Name what changed and when. |
+| `(technology/technological/competitive/digital/business/security/threat/regulatory/marketing) landscape` | `block` | Name the thing that changed, or the competitors. |
+| `deeply-rooted` | `block` | Say where it comes from. |
+| `(a stark reminder\|unwavering commitment\|transformative power\|relentless pursuit\|pav(e/es/ed/ing) the way for [the ]future\|a significant step forward)` | `block` | State what changed or what the evidence shows. |
+| `(provid(e/es/ed/ing)\|offer(s/ed/ing)) [a ]valuable insights, (significant role in shaping\|play[s/ed/ing] [a ](crucial/significant) role), (emphasi(s/z)(e/es/ed/ing)\|highlight[s/ed/ing]) [the ](importance/need/potential)` | `warn` | Name the fact or consequence instead of announcing its importance. |
+| `(the journey begins\|the path ahead\|la(y/id/ys/ying) the groundwork\|mark(s/ed/ing) a turning point\|a significant milestone\|open(s/ed/ing) [up ][a ]new avenues)` | `warn` | Name the next step or the change without turning it into a journey. |
+| `[a ](nuanced/deeper/broad/comprehensive) understanding, [the ]complex interplay, [a ]delicate balance, (shed/sheds/shedding) light on, (particularly noteworthy\|far-reaching implications\|profound implications\|a comprehensive (overview/framework)\|an ongoing dialogue\|stand[s/ing] in stark contrast)` | `warn` | Replace the frame with the specific relationship, finding, or difference. |
+| `(substrate/locus/vantage/nexus/bedrock/modality/north star/flywheel/gold-plating)` | `warn` | Pick the concrete word: a base, a place, a link, a goal. |
+| `(footgun/blast radius/belt and suspenders/cargo-cult/smoking gun/the quiet part out loud)` | `warn` | Say the plain thing: an easy mistake, how much it affects, a redundant second check. |
+| `(the/a) layer (underneath/beneath/below/under/behind), hold[s/ing] up (well/under/to scrutiny/against), sit[s/ting] at the (intersection/core/centre/center/crux) of, (is/are) where ... (go/goes/get/gets/break/breaks/fail/fails)` | `warn` | Name the thing and say where it actually is. |
+| `(It/This/That) (key/crucial/critical/intentional/deliberate/elegant/subtle/telling/striking/by design/no accident)., (It/This/That) (matters/works/compounds/adds up/pays off).` | `warn` | Fold the point into the sentence before it, or cut it. |
+| `(serves/serve/stands/stand) as` | `warn` | Just say 'is' or 'has'. |
+| `(experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims)` | `warn` | Name the source, or cut the claim. |
 
 ## What this repository changed
 
@@ -94,10 +100,12 @@ This section used to say that a chat reply is not a tool call, so nothing sees o
 | Agent | Chat gate | Reaches subagents |
 |---|---|---|
 | claude-code | not installed | no |
-| copilot | not installed | no |
-| codex | not installed | no |
-| cursor | not installed | no |
-| vibe | not installed | no |
+| copilot | on the stop events | yes |
+| codex | on the stop events | yes |
+| cursor | on the stop events | yes |
+| vibe | on the stop events | yes |
+| gemini | on the stop events | yes |
+| qwen | on the stop events | yes |
 
 An output style shapes a reply before it exists and cannot be measured. A stop hook reads the finished reply and can hand a finding back to the model, which is the closest thing to a gate this channel has. Under `failOn: never` it reports and holds up nothing.
 
@@ -105,6 +113,6 @@ A style reaches the main conversation and a fork, which inherits the parent's sy
 
 `plain-english lint --chat` reads what was actually said, from the transcripts each agent writes locally, and splits the rate by main loop against subagent. It is local only: a transcript holds whatever passed through a tool.
 
-The 10 sentence shapes need a model to judge them, so they are covered only where a prompt hook exists. Everywhere else they are guidance in `AGENTS.md` and nothing that runs.
+The 10 sentence shapes need a model to judge them, so they are checked by Claude Code's prompt hooks and by Vibe's optional local judge. For Copilot, Codex, Cursor, Gemini and Qwen they are guidance in `AGENTS.md`; no runtime model judge is installed.
 
 The rules describe how models wrote in 2024 and 2025. Vendors suppress known tells, so this list decays and needs maintenance.

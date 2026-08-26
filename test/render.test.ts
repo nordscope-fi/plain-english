@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   humanise,
+  markdownTableCode,
   renderWritingStyle,
   renderPrompts,
   renderOutputStyle,
@@ -76,8 +77,17 @@ describe("generated artifacts", () => {
     const doc = renderWritingStyle(set);
     for (const r of set.rules) {
       if (r.severity === "off") continue;
-      expect(doc, `rule ${r.id} missing from the generated doc`).toContain(humanise(r));
+      expect(doc, `rule ${r.id} missing from the generated doc`).toContain(
+        markdownTableCode(humanise(r)),
+      );
     }
+  });
+
+  it("renders patterns as code so GitHub does not turn them into links", () => {
+    const doc = renderWritingStyle(set);
+    expect(doc).toContain("`[ever-](evolving/changing/shifting)");
+    expect(doc).not.toContain("| [ever-](evolving/changing/shifting)");
+    expect(doc).toContain("stark reminder\\|unwavering commitment");
   });
 
   it("carries the do-not-edit banner", () => {

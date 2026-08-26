@@ -4,7 +4,9 @@
 
 Do not report security vulnerabilities through public GitHub issues or pull requests.
 
-Use [GitHub private vulnerability reporting](https://github.com/nordscope-fi/plain-english/security/advisories/new). You should get an acknowledgement within a week.
+Email [peter@nordscope.fi](mailto:peter@nordscope.fi). GitHub private vulnerability
+reporting is not enabled for this repository, so the public issue tracker is not a safe
+fallback. You should get an acknowledgement within a week.
 
 ## Scope
 

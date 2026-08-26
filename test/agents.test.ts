@@ -31,11 +31,82 @@ function write(dir: string, content = BAD) {
   return { tool_name: "Write", tool_input: { file_path: resolve(dir, "x.md"), content } };
 }
 
+function nativeWrite(id: string, dir: string, content = BAD) {
+  if (id === "gemini" || id === "qwen" || id === "vibe") {
+    return {
+      hook_event_name: id === "gemini" ? "BeforeTool" : id === "qwen" ? "PreToolUse" : "pre_tool",
+      tool_name: "write_file",
+      tool_input: { file_path: resolve(dir, "x.md"), content },
+      cwd: dir,
+    };
+  }
+  return write(dir, content);
+}
+
+describe("Copilot's live Write envelope", () => {
+  it("reads file_text from the PascalCase compatibility payload", () => {
+    inTmp((dir) => {
+      const event = byId("copilot")!.parse({
+        hook_event_name: "PreToolUse",
+        cwd: dir,
+        tool_name: "Write",
+        tool_input: { path: resolve(dir, "x.md"), file_text: BAD },
+      });
+      const decision = decide(event, "docs", { projectDir: dir, ruleSet: advisory });
+      expect(decision.allow).toBe(false);
+      expect(decision.findings.map((finding) => finding.ruleId)).toContain("leverage");
+    });
+  });
+});
+
+describe("Copilot project trust diagnostics", () => {
+  const withHome = <T>(home: string, fn: () => T): T => {
+    const before = process.env["COPILOT_HOME"];
+    process.env["COPILOT_HOME"] = home;
+    try {
+      return fn();
+    } finally {
+      if (before === undefined) delete process.env["COPILOT_HOME"];
+      else process.env["COPILOT_HOME"] = before;
+    }
+  };
+
+  const install = (dir: string) => {
+    mkdirSync(resolve(dir, ".github", "hooks"), { recursive: true });
+    writeFileSync(resolve(dir, ".github", "hooks", "plain-english.json"), "{}");
+  };
+
+  it("names the prompt-mode opt-in when the folder is not trusted", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "copilot-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(resolve(home, "config.json"), "// User settings\n{}\n");
+      const output = withHome(home, () => byId("copilot")!.diagnose!(dir)).join(" ");
+      expect(output).toContain("not in Copilot's trusted folders");
+      expect(output).toContain("GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true");
+    });
+  });
+
+  it("accepts a trusted parent folder in Copilot's commented config", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "copilot-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(
+        resolve(home, "config.json"),
+        `// Copilot manages this file\n{\n  "trustedFolders": [${JSON.stringify(resolve(dir, ".."))}]\n}\n`,
+      );
+      expect(withHome(home, () => byId("copilot")!.diagnose!(dir))).toEqual([]);
+    });
+  });
+});
+
 describe("every profile reads a file write", () => {
   for (const profile of PROFILES) {
     it(`${profile.id} finds the prose in a Write`, () => {
       inTmp((dir) => {
-        const event = profile.parse(write(dir));
+        const event = profile.parse(nativeWrite(profile.id, dir));
         expect(event.tool).toBe("write");
         const d = decide(event, "docs", { projectDir: dir, ruleSet: advisory });
         expect(d.allow, `${profile.id} did not see the text`).toBe(false);
@@ -45,7 +116,7 @@ describe("every profile reads a file write", () => {
 
     it(`${profile.id} lets clean prose through with no output`, () => {
       inTmp((dir) => {
-        const d = decide(profile.parse(write(dir, "The cache holds parsed results.")), "docs", {
+        const d = decide(profile.parse(nativeWrite(profile.id, dir, "The cache holds parsed results.")), "docs", {
           projectDir: dir,
           ruleSet: advisory,
         });
@@ -59,7 +130,7 @@ describe("every profile reads a file write", () => {
       // linter that can stop a write by crashing is wrong on every agent.
       inTmp((dir) => {
         for (const content of [BAD, "clean text", ""]) {
-          const d = decide(profile.parse(write(dir, content)), "docs", {
+          const d = decide(profile.parse(nativeWrite(profile.id, dir, content)), "docs", {
             projectDir: dir,
             ruleSet: advisory,
           });
@@ -129,16 +200,13 @@ describe("each profile speaks its own wire format", () => {
     });
   });
 
-  it("cursor allows and tells the model, because it discards `ask`", () => {
-    // "`ask` is accepted by the schema but not enforced for preToolUse today",
-    // per Cursor's own docs. Emitting it would allow the write and report
-    // nothing. `additional_context` on preToolUse is staff-confirmed, so the
-    // advisory tier goes there rather than to the broken postToolUse one.
+  it("cursor allows first and tells the model after the tool runs", () => {
     inTmp((dir) => {
-      const out = refusal(dir, "cursor");
-      expect(out.permission).toBe("allow");
+      const cursor = byId("cursor")!;
+      const d = decide(cursor.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(cursor.emit(d, "pre").stdout).toBe("");
+      const out = JSON.parse(cursor.emit(d, "post").stdout);
       expect(out.additional_context).toContain("leverage");
-      expect(out.permissionDecision).toBeUndefined();
     });
   });
 
@@ -169,6 +237,8 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     expect(byId("copilot")!.supportsAsk).toBe(true);
     expect(byId("codex")!.supportsAsk).toBe(false);
     expect(byId("cursor")!.supportsAsk).toBe(false);
+    expect(byId("gemini")!.supportsAsk).toBe(false);
+    expect(byId("qwen")!.supportsAsk).toBe(false);
   });
 
   it("codex sends nothing Codex would reject", () => {
@@ -197,17 +267,19 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     });
   });
 
-  it("installs no post-tool event, now that the pre event can speak", () => {
+  it("installs post-tool advice only where the documented protocol needs it", () => {
     // The point of this assertion is what is absent. The advisory moved onto
     // the pre event in 0.7.0, and a leftover PostToolUse hook would spawn a
     // process per tool call to say nothing.
     const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
     const events = (id: string) =>
       byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
-    for (const id of ["codex", "cursor", "claude-code", "copilot"]) {
+    for (const id of ["codex", "claude-code", "copilot", "qwen"]) {
       expect(events(id).some((e) => /post/i.test(e)), `${id} installs a post hook`).toBe(false);
       expect(events(id).some((e) => /pretooluse/i.test(e)), `${id} has no pre hook`).toBe(true);
     }
+    expect(events("cursor")).toContain("hooks.postToolUse");
+    expect(events("gemini")).toContain("hooks.AfterTool");
   });
 
   it("puts the chat gate on the stop events, and only where one carries the reply", () => {
@@ -215,19 +287,16 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     const events = (id: string) =>
       byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
 
-    // Three agents document an event carrying the assistant's final message.
-    for (const id of ["claude-code", "codex", "copilot"]) {
+    for (const id of ["claude-code", "codex", "copilot", "qwen"]) {
       expect(events(id), `${id} should gate chat`).toContain("hooks.Stop");
       expect(events(id), `${id} should gate subagent chat`).toContain("hooks.SubagentStop");
       expect(byId(id)!.emitChat, `${id} should speak the stop format`).toBeTypeOf("function");
     }
-
-    // Cursor documents `stop` and `afterAgentResponse`, and its CLI is reported
-    // to dispatch only the two shell events. Installing a hook that never fires
-    // is the failure docs/verifying-an-adapter.md exists to prevent, so chat on
-    // Cursor is ungated and says so.
-    expect(events("cursor").some((e) => /stop/i.test(e))).toBe(false);
-    expect(byId("cursor")!.emitChat).toBeUndefined();
+    expect(events("cursor")).toContain("hooks.stop");
+    expect(events("cursor")).toContain("hooks.subagentStop");
+    expect(events("gemini")).toContain("hooks.AfterAgent");
+    expect(byId("cursor")!.emitChat).toBeTypeOf("function");
+    expect(byId("gemini")!.emitChat).toBeTypeOf("function");
   });
 
   it("codex asks for the timeout under the key Codex actually reads", () => {
@@ -323,9 +392,23 @@ describe("doctor can name the two ways a Codex hook does nothing", () => {
       mkdirSync(home, { recursive: true });
       writeFileSync(
         resolve(home, "config.toml"),
-        `[projects."${dir}"]\ntrust_level = "trusted"\n`,
+        `[projects."${dir}"]\ntrust_level = "trusted"\n\n` +
+          `[hooks.state."${resolve(dir, ".codex/hooks.json")}:pre_tool_use:0:0"]\n` +
+          `trusted_hash = "sha256:test"\n`,
       );
       expect(withHome(home, () => byId("codex")!.diagnose!(dir))).toEqual([]);
+    });
+  });
+
+  it("reports when the folder is trusted but its hooks are not", () => {
+    inTmp((dir) => {
+      install(dir);
+      const home = resolve(dir, "codex-home");
+      mkdirSync(home, { recursive: true });
+      writeFileSync(resolve(home, "config.toml"), `[projects."${dir}"]\ntrust_level = "trusted"\n`);
+      expect(withHome(home, () => byId("codex")!.diagnose!(dir)).join(" ")).toContain(
+        "no trust record",
+      );
     });
   });
 
@@ -489,6 +572,59 @@ describe("the registry stays consistent with itself", () => {
   });
 });
 
+describe("Gemini CLI", () => {
+  it("uses the documented BeforeTool and AfterTool replies", () => {
+    inTmp((dir) => {
+      const profile = byId("gemini")!;
+      const d = decide(profile.parse(nativeWrite("gemini", dir)), "docs", {
+        projectDir: dir,
+        ruleSet: advisory,
+      });
+      expect(profile.emit(d, "pre").stdout).toBe("");
+      const after = JSON.parse(profile.emit(d, "post").stdout);
+      expect(after.hookSpecificOutput.hookEventName).toBe("AfterTool");
+      expect(after.hookSpecificOutput.additionalContext).toContain("leverage");
+    });
+  });
+
+  it("writes native project hook events with millisecond timeouts", () => {
+    const plan = byId("gemini")!.plan({ prompts: {}, model: "m" });
+    expect(plan.config.map((c) => c.at.join("."))).toEqual([
+      "hooks.BeforeTool",
+      "hooks.AfterTool",
+      "hooks.AfterAgent",
+    ]);
+    expect(JSON.stringify(plan.config)).toContain('"timeout":30000');
+    expect(plan.shims.map((s) => s.path)).toContain(".gemini/hooks/plain-english.mjs");
+  });
+});
+
+describe("Qwen Code", () => {
+  it("turns advisory ask into an explicit allow for headless safety", () => {
+    inTmp((dir) => {
+      const profile = byId("qwen")!;
+      const d = decide(profile.parse(nativeWrite("qwen", dir)), "docs", {
+        projectDir: dir,
+        ruleSet: advisory,
+      });
+      const out = JSON.parse(profile.emit(d, "pre").stdout).hookSpecificOutput;
+      expect(out.hookEventName).toBe("PreToolUse");
+      expect(out.permissionDecision).toBe("allow");
+      expect(out.additionalContext).toContain("leverage");
+    });
+  });
+
+  it("writes the documented tool and chat events", () => {
+    const plan = byId("qwen")!.plan({ prompts: {}, model: "m" });
+    expect(plan.config.map((c) => c.at.join("."))).toEqual([
+      "hooks.PreToolUse",
+      "hooks.Stop",
+      "hooks.SubagentStop",
+    ]);
+    expect(plan.shims.map((s) => s.path)).toContain(".qwen/hooks/plain-english.mjs");
+  });
+});
+
 /**
  * Mistral Vibe.
  *
@@ -545,14 +681,15 @@ describe("mistral vibe", () => {
     expect(resolveProfile(undefined, { hook_event_name: "post_agent" }).id).toBe("vibe");
   });
 
-  it("advises with system_message, because pre_tool has no ask", () => {
+  it("allows the pre event and advises through post_tool context", () => {
     inTmp((dir) => {
       const vibe = byId("vibe")!;
       expect(vibe.supportsAsk).toBe(false);
       const d = decide(vibe.parse(vibeWrite(dir)), "docs", { projectDir: dir, ruleSet: advisory });
-      const out = JSON.parse(vibe.emit(d, "pre").stdout);
-      expect(out.system_message).toContain("leverage");
-      expect(out.decision).toBeUndefined();
+      expect(vibe.emit(d, "pre").stdout).toBe("");
+      const out = JSON.parse(vibe.emit(d, "post").stdout);
+      expect(out.hook_specific_output.additional_context).toContain("leverage");
+      expect(out.system_message).toBeUndefined();
     });
   });
 
@@ -599,10 +736,13 @@ describe("mistral vibe", () => {
     });
   });
 
-  it("says nothing after the fact, since post_tool cannot unwrite a file", () => {
+  it("says nothing after the fact when there is no advisory", () => {
     inTmp((dir) => {
       const vibe = byId("vibe")!;
-      const d = decide(vibe.parse(vibeWrite(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      const d = decide(vibe.parse(vibeWrite(dir, "The cache stores parsed results.")), "docs", {
+        projectDir: dir,
+        ruleSet: advisory,
+      });
       expect(vibe.emit(d, "post").stdout).toBe("");
     });
   });

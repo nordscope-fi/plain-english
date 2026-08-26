@@ -4,7 +4,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
-import { renderPolicy, scanRepo, toPosix, type PolicyScan } from "../src/policy.ts";
+import {
+  detectAgents,
+  renderPolicy,
+  scanRepo,
+  toPosix,
+  type PolicyScan,
+} from "../src/policy.ts";
 
 /**
  * The policy document restates the config for people rather than for the
@@ -235,6 +241,53 @@ describe("scanning a repository", () => {
     const second = renderPolicy(defaults(), scanRepo(root, defaults(), skip));
 
     expect(second).toBe(first);
+  });
+});
+
+describe("agent installation summary", () => {
+  it("deduplicates one config file that carries several hook events", () => {
+    const doc = renderPolicy(defaults(), {
+      ...emptyScan(),
+      agents: [
+        {
+          id: "cursor",
+          installed: true,
+          files: [".cursor/hooks.json"],
+          problems: [],
+        },
+      ],
+    });
+    expect(doc.match(/`\.cursor\/hooks\.json`/g)).toHaveLength(1);
+  });
+
+  it("detects one config once when it carries several of our hook events", () => {
+    const root = mkdtempSync(resolve(tmpdir(), "pe-policy-agents-"));
+    mkdirSync(resolve(root, ".cursor"));
+    writeFileSync(
+      resolve(root, ".cursor", "hooks.json"),
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          preToolUse: [
+            {
+              type: "command",
+              matcher: "Write",
+              command: "node .cursor/hooks/plain-english.mjs hook docs --agent cursor",
+            },
+          ],
+          stop: [
+            {
+              type: "command",
+              command: "node .cursor/hooks/plain-english.mjs hook chat --agent cursor",
+            },
+          ],
+        },
+      }),
+    );
+
+    const cursor = detectAgents(root).find((agent) => agent.id === "cursor")!;
+    expect(cursor.installed).toBe(true);
+    expect(cursor.files).toEqual([".cursor/hooks.json"]);
   });
 });
 

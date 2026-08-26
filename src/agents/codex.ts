@@ -24,6 +24,11 @@ import { resolve } from "node:path";
 import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
+import { HOOK_RUNNER, runnerPath } from "./runner.ts";
+
+const RUNNER = runnerPath(".codex");
+const command = (channel: string) =>
+  `node "$(git rev-parse --show-toplevel)/${RUNNER}" hook ${channel} --agent codex`;
 
 const CHANNELS = [
   { channel: "docs", matcher: "apply_patch|Write|Edit|MultiEdit" },
@@ -60,6 +65,16 @@ function trustedProject(configPath: string, root: string): boolean {
     if (trust) return trust[1] === "trusted";
   }
   return false;
+}
+
+function hasHookTrustRecord(configPath: string, hooksPath: string): boolean {
+  try {
+    const escaped = hooksPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const text = readFileSync(configPath, "utf8");
+    return [escaped, hooksPath].some((path) => text.includes(`[hooks.state."${path}:`));
+  } catch {
+    return false;
+  }
 }
 
 /** A linked worktree has a `.git` file pointing elsewhere, not a directory. */
@@ -166,11 +181,12 @@ export const codex: AgentProfile = {
   },
 
   /**
-   * The two ways an installed Codex hook does nothing on this machine.
+   * The ways an installed Codex hook does nothing on this machine.
    *
-   * Both were measured against 0.147.0, both are silent, and both look exactly
-   * like a linter with nothing to say. Quiet when the hooks are not installed
-   * here, because then there is nothing to be wrong about.
+   * Both were measured against 0.147.0. Current Codex documentation says a
+   * hook awaiting review produces a startup warning, while an untrusted
+   * project layer is not loaded. Quiet when hooks are not installed here,
+   * because then there is nothing to be wrong about.
    */
   diagnose(root: string): string[] {
     if (!existsSync(resolve(root, ".codex", "hooks.json"))) return [];
@@ -184,6 +200,12 @@ export const codex: AgentProfile = {
         `this project is not trusted in ${config}, so Codex reads no hooks from ` +
           `.codex/hooks.json. Start a session here and answer yes, or add ` +
           `[projects."${root}"] trust_level = "trusted"`,
+      );
+    }
+    if (!hasHookTrustRecord(config, resolve(root, ".codex", "hooks.json"))) {
+      out.push(
+        "the installed Codex hooks have no trust record, so non-interactive runs skip " +
+          "them. Start an interactive session and choose 'Trust all and continue', or use /hooks",
       );
     }
     if (isLinkedWorktree(root)) {
@@ -230,7 +252,7 @@ export const codex: AgentProfile = {
             hooks: [
               {
                 type: "command",
-                command: `npx --no-install plain-english hook ${c.channel} --agent codex`,
+                command: command(c.channel),
                 timeout: 30,
               },
             ],
@@ -248,7 +270,7 @@ export const codex: AgentProfile = {
               hooks: [
                 {
                   type: "command",
-                  command: "npx --no-install plain-english hook chat --agent codex",
+                  command: command("chat"),
                   timeout: 10,
                 },
               ],
@@ -265,7 +287,7 @@ export const codex: AgentProfile = {
               hooks: [
                 {
                   type: "command",
-                  command: "npx --no-install plain-english hook chat --agent codex",
+                  command: command("chat"),
                   timeout: 10,
                 },
               ],
@@ -277,18 +299,18 @@ export const codex: AgentProfile = {
       // event. Left alone it survives every re-install and spawns a process
       // per tool call to say nothing.
       retire: [{ path: ".codex/hooks.json", at: ["hooks", "PostToolUse"] }],
-      shims: [],
+      shims: [{ path: RUNNER, body: HOOK_RUNNER }],
       notes: [
         "Codex reads .codex/hooks.json only in a folder you have trusted. Start a session " +
           "here and answer yes, or add [projects.\"<absolute path>\"] trust_level = " +
-          '"trusted" to ~/.codex/config.toml. Untrusted, it finds no hooks and says nothing.',
+          '"trusted" to ~/.codex/config.toml. An untrusted project layer is not loaded.',
         "Then trust the hooks themselves. Starting a session offers this at once: answer " +
           "'Trust all and continue', or use /hooks. Trust is recorded against the command " +
-          "string, so it is asked again whenever this package's version is pinned anew.",
-        "Do that before any `codex exec` run. Non-interactive mode cannot offer the prompt " +
-          "and skips an untrusted hook with nothing printed. Once trusted it runs them, " +
-          "verified on 0.147.0. --dangerously-bypass-hook-trust skips the trust step " +
-          "entirely, for machines with no one to ask.",
+          "definition's current hash, so a changed definition needs another review.",
+        "Do that before any `codex exec` run. Non-interactive mode cannot open the review " +
+          "screen and skips an untrusted hook. Once trusted it runs them, verified on " +
+          "0.147.0. For vetted one-off automation, --dangerously-bypass-hook-trust " +
+          "bypasses hook trust for that invocation.",
         "In a git worktree, Codex reads the main working tree's .codex/hooks.json and not " +
           "the worktree's own copy (openai/codex#27133). Install in the main checkout.",
       ],

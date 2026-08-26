@@ -9,8 +9,8 @@ reads. It reads finished text and reports the giveaways, the way a spell checker
 misspellings. A tool shaped like that is called a linter.
 
 It also plugs into your coding agent, so the check runs before the write happens. Agents
-call that plug-in point a hook, and Claude Code, Copilot, Codex, Cursor and Mistral Vibe
-all have one.
+call that plug-in point a hook. This package speaks the native hook formats used by
+Claude Code, Copilot, Codex, Cursor, Mistral Vibe, Gemini CLI and Qwen Code.
 Everywhere else, it runs as a plain command.
 
 ## Two problems, one tool
@@ -95,12 +95,12 @@ report. Turn it off in config if you do not want it.
 `plain-english explain` lists all of them. `plain-english explain <id>` shows one, with
 its pattern, its exceptions and its rewrite hint.
 
-### Words and punctuation (30)
+### Words and punctuation (55 active)
 
 Stock transitions, corporate verbs, buzzwords, AI self-reference, and three punctuation
 rules. Deterministic, tested, and the only tier that can fail a build.
 
-### Sentence shapes (9)
+### Sentence shapes (10)
 
 A regex cannot reach these. The optional semantic layer asks a model, using prompts
 generated from the same ruleset.
@@ -112,7 +112,7 @@ generated from the same ruleset.
 | Weasel attribution | "Experts agree this is best practice." | Name the source, or drop the claim. |
 | Fake-strong verbs | "This property serves as a centralized hub for deal stage." | "This property stores the deal stage." |
 
-### Readability (2)
+### Readability and suppressions (4)
 
 These read the shape of a sentence, so there is no term to match. Both are warnings.
 
@@ -123,6 +123,9 @@ These read the shape of a sentence, so there is no term to match. Both are warni
   names a reader already has, such as JSON and GitHub, are exempt by default.
 - `long-sentence` fires past 35 words. Set generously, so that dense but explained
   writing is left alone.
+- `sentence-spread` warns when a document of at least 20 sentences has almost no
+  variation in sentence length. Its threshold is provisional and documented as such.
+- `unexplained-suppression` warns when a waiver does not say why it exists.
 
 Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the ruleset.
 
@@ -130,19 +133,21 @@ Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the 
 
 | Channel | Deterministic | Semantic |
 |---|---|---|
-| Markdown files | `plain-english lint`, or a hook in your agent | agent prompt hook |
-| Commit messages | pre-commit hook, or an agent hook | agent prompt hook |
-| PR and issue bodies | GitHub Action, or an agent hook | agent prompt hook |
-| Issue tracker (Linear-shaped tool calls) | agent hook | agent prompt hook |
+| Markdown files | `plain-english lint`, or an agent hook | Claude prompt hook; optional Vibe judge |
+| Commit messages | pre-commit hook, or an agent hook | Claude prompt hook; optional Vibe judge |
+| PR and issue bodies | GitHub Action, or an agent hook | Claude prompt hook; optional Vibe judge |
+| Issue tracker (Linear-shaped tool calls) | agent hook | Claude prompt hook; optional Vibe judge |
 | Editor diagnostics | `--format unix` or `--format sarif` | none |
 | A chat reply | an output style, a stop hook, and `lint --chat` after the fact | none |
 
-The findings file in that table, the one editors and GitHub code scanning both read, is
+The findings file in that table, which editors and GitHub code scanning both read, is
 called SARIF (Static Analysis Results Interchange Format).
 
 Under the default `failOn: never`, an agent hook surfaces a finding and lets you decide.
 Under `failOn: error` it refuses the write outright. The semantic layer rides on a prompt
-hook, which today only Claude Code provides.
+hook in Claude Code. Vibe can run the same model-judged pass through its optional local
+judge. The other five agents receive the generated guidance through `AGENTS.md`, but no
+model checks those ten shapes during a write.
 
 ### Coding agents
 
@@ -152,11 +157,14 @@ npx plain-english init --agent copilot
 npx plain-english init --agent codex
 npx plain-english init --agent cursor
 npx plain-english init --agent vibe
+npx plain-english init --agent gemini
+npx plain-english init --agent qwen
 npx plain-english init --agent all
 ```
 
-Each writes that agent's hook config, merging into whatever is already there without
-disturbing it, plus a generated `AGENTS.md` section and a starter `.plain-english.yml`.
+Each writes that agent's hook config and an offline launcher, merging into whatever is
+already there without disturbing it. It also writes a generated `AGENTS.md` section and
+a starter `.plain-english.yml`.
 Run it twice and nothing changes the second time. Add `--dry-run` to see first.
 
 The hooks cover file writes, `Bash` (commit and `gh` invocations, including message files
@@ -164,27 +172,27 @@ passed with `-F` or `--body-file`), and Linear-shaped `save_issue` / `save_comme
 Only the inserted side of an edit is judged, so you can still edit a file that already
 contains a banned term.
 
-Claude Code's hook contract became the shape everyone copied. That is why five agents
-cost five translation tables and not five linters.
+The hook protocols overlap enough that seven agents need seven translation tables, not
+seven linters.
 
-[`docs/agents.md`](docs/agents.md) has the per-agent detail. Three caveats are worth
+[`docs/agents.md`](docs/agents.md) has the per-agent detail. Four caveats are worth
 knowing before you rely on a hook:
 
-- **Copilot's command-line tool does not read the repository hook file**, so
-  `init --agent copilot` on its own leaves it with nothing installed. Run
-  `init --agent copilot --user` as well, which writes to `~/.copilot/hooks/`. Seen on CLI
-  1.0.78 and filed as
-  [github/copilot-cli#1730](https://github.com/github/copilot-cli/issues/1730). The
-  repository file stays: it is the right one for Copilot's cloud agent.
+- **Current Copilot reads repository hooks from `.github/hooks/`.** Trust the folder in
+  an interactive session first. Prompt mode skips repository hooks until then unless
+  `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` is set. The `--user` flag is retained only
+  as an explicit fallback for Copilot CLI 1.0.78 and older.
 - **Copilot's cloud agent turns an `ask` into a `deny`**, so the advisory default blocks
   there.
 - **Codex needs two approvals before any hook runs**, one for the folder and one for the
   hook itself. Starting an interactive session offers both.
   [`plain-english doctor`](docs/agents.md#openai-codex-cli) says which one is missing.
+- **Cursor, Vibe, Gemini and Qwen protect project hooks with their own trust prompts.**
+  Review the generated files before approving them.
 
-Under the default `failOn: never` the finding is advisory. Claude Code and Copilot can say
-that on the wire and let you decide. Codex, Cursor and Vibe have no way to express it, so
-on those three the finding is fed back to the model or shown to you as text.
+Under the default `failOn: never` the finding is advisory. Claude Code and Copilot can ask
+before the call. Other agents receive advisory context through the event each vendor
+documents for that purpose; strict mode still refuses before a write where supported.
 [`docs/agents.md`](docs/agents.md#what-the-advisory-default-means-on-each-agent) has the
 table.
 
@@ -203,8 +211,8 @@ work regardless:
 - **`AGENTS.md`**, written by `init`. Roughly twenty agents read it. It shapes behaviour
   and enforces nothing.
 - **A post-edit lint command.** Most agents can be told to run a command after editing and
-  act on the output. [`docs/post-edit-lint.md`](docs/post-edit-lint.md) has the config for
-  aider, Claude Code, Cursor and Codex.
+  act on the output. [`docs/post-edit-lint.md`](docs/post-edit-lint.md) shows the portable
+  loop and an aider configuration.
 - **Editor diagnostics.** Several agents read their editor's Problems list. Findings
   reach it as `path:line:col` text, or as SARIF.
   [`docs/editors.md`](docs/editors.md) covers both.
@@ -236,8 +244,8 @@ repository's own, generated the same way and checked in CI.
 
 ### Chat
 
-The channel this tool could not reach, until recently. Three things cover it now, and
-`init` installs all of them.
+Three things cover chat, with different strength. `init` installs the pieces supported
+by the selected agent.
 
 **An output style**, generated from the ruleset, at three levels. `init` writes all three
 and selects one, so there is nothing to copy and no menu to find:
@@ -252,11 +260,12 @@ Switch between them under `/config` > **Output style**. A style is part of the s
 prompt, which is read once at session start, so a change takes effect after `/clear`.
 Elsewhere the portable equivalent is the `AGENTS.md` section, at the default level.
 
-**A stop hook.** Claude Code, Codex and Copilot all document an event carrying the
-assistant's final message, so a finished reply can be judged and the finding handed back
-to the model. Vibe fires one too, `post_agent`, which carries no message but names the
-transcript. Under the default `failOn: never` it reports and holds up nothing. Cursor
-has no such event that its command-line tool dispatches, so chat there is ungated.
+**A completed-turn hook.** All seven profiles install the current vendor event for a
+finished main-loop or subagent reply. Some events carry the reply; others name the local
+transcript. Under the default `failOn: never` a finding is only reported. Strict retry
+behaviour is documented for every profile, but live verification is not equally strong
+on all seven. [`docs/agents.md`](docs/agents.md#the-chat-channel) separates observed
+behaviour from documented behaviour.
 
 **A scan of what was actually said:**
 
@@ -281,7 +290,7 @@ before a commit is made. If your repo already uses it, add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.22.0
+    rev: v0.24.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -290,7 +299,7 @@ repos:
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.22.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.24.0
   with:
     paths: docs README.md    # default: .
     fail-on: warn            # default: error
@@ -389,6 +398,7 @@ See [`examples/revops.yml`](examples/revops.yml) for a filled-in config, and
 plain-english lint [PATH...]       lint files or directories (default: stdin)
 plain-english lint --chat          lint what agents said in the chat window
 plain-english render               regenerate docs/ and prompt templates
+plain-english policy               generate this repository's effective policy
 plain-english explain [RULE]       show a rule, or list them all
 plain-english doctor               environment dump for bug reports
 plain-english init                 wire this repo up
@@ -403,7 +413,12 @@ LINT OPTIONS
                                      per rule, and which hid nothing
 
 LINT --chat OPTIONS
-  --agent ID|all                     claude-code, codex, copilot, cursor, vibe
+  Reads local agent transcripts. Never run this in CI: transcripts can contain
+  file contents, command output and pasted text.
+
+  --agent ID|all                     claude-code, copilot, codex, cursor, vibe,
+                                     gemini, qwen
+                                     (default: all)
   --since DAYS                       how far back to look (default: 30)
   --all-projects                     every project, not just this repository
   --summary                          rate per 1,000 words, main loop against
@@ -413,11 +428,17 @@ RENDER OPTIONS
   --check                            exit 1 if generated files are stale
   --root PATH                        repo root (default: cwd)
 
+POLICY OPTIONS
+  --out PATH                         where to write it
+                                     (default: docs/ai-writing-policy.md)
+  --check                            exit 1 if the policy is stale
+  --root PATH                        repo root (default: cwd)
+
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, vibe, or all
+                                     cursor, vibe, gemini, qwen, or all
   --user                             also write outside the repo, under ~.
-                                     Copilot's CLI needs this; nothing else does.
+                                     Copilot compatibility fallback only.
   --dry-run                          print what would change
   --root PATH                        repo root (default: cwd)
 
@@ -443,12 +464,13 @@ config error.
 
 ## One hand-written source
 
-`rules/default.yml` is edited by hand. `plain-english render` generates eight files from it:
+`rules/default.yml` is edited by hand. `plain-english render` generates nine files from it:
 
 - `docs/writing-style.md`
 - `integrations/agents-md/plain-english.md`
 - `integrations/claude-code/output-styles/plain-english{,-brief,-full}.md`
 - `integrations/claude-code/prompts/{docs,github,issue}.txt`
+- `integrations/claude-code/skills/writing-a-document/SKILL.md`
 
 The build fails if any of them drift, which keeps the docs, the regexes, the prompt text
 and the output style saying the same thing. Never edit a generated file; edit the ruleset
@@ -482,10 +504,10 @@ Every bug that reaches a user becomes a permanent fixture in
 `test/corpus/regressions.yml`. A case in `test/corpus/cases.yml` is a complete bug report
 for a false positive.
 
-Adding a fifth agent, or checking an existing one against a live binary, is
+Adding another agent, or checking an existing one against a live binary, is
 [`docs/verifying-an-adapter.md`](docs/verifying-an-adapter.md). It is worth
-reading first: four adapters were written from vendor documentation, and four
-defects were later found in them.
+reading first: several defects survived schema and documentation review and
+appeared only in a real session.
 
 ```bash
 npm ci
