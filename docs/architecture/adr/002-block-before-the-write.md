@@ -16,9 +16,11 @@ mid-task, arguing with a gate.
 
 ## Decision
 
-Every adapter fires the linter on that event, against the text
-about to be written (markdown content, commit message, PR/issue body,
-Linear comment). If the linter blocks, the write does not happen.
+Every adapter checks the text about to be written: markdown content,
+commit message, pull-request or issue body, or issue-tracker comment.
+Strict mode refuses on the pre-tool event. Advisory mode uses either an
+interactive question or the vendor's context field, which may arrive after
+the tool where the pre event cannot carry advice.
 
 ## Consequences
 
@@ -46,7 +48,8 @@ Linear comment). If the linter blocks, the write does not happen.
 
 ## Re-evaluation triggers
 
-- Adapter maintenance burden grows past what four adapters can support.
+- Adapter maintenance burden grows faster than the shared translation layer
+  and live-verification process can support.
 - A future host provides a native prose-quality gate we can defer to.
 - False-positive rate on the semantic layer exceeds an acceptable
   threshold and the mitigations in

@@ -1,0 +1,87 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-docs-pre",
+            "command": "node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event pre",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-github-pre",
+            "command": "node .gemini/hooks/plain-english.mjs hook github --agent gemini --event pre",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp_.*_save_(issue|comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-issue-pre",
+            "command": "node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event pre",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-docs-post",
+            "command": "node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event post",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "run_shell_command",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-github-post",
+            "command": "node .gemini/hooks/plain-english.mjs hook github --agent gemini --event post",
+            "timeout": 30000
+          }
+        ]
+      },
+      {
+        "matcher": "mcp_.*_save_(issue|comment)",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-issue-post",
+            "command": "node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event post",
+            "timeout": 30000
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "plain-english-chat",
+            "command": "node .gemini/hooks/plain-english.mjs hook chat --agent gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ]
+  }
+}

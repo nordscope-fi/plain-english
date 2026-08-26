@@ -4,7 +4,33 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
-## [Unreleased]
+## [0.24.0] - 2026-08-26
+### Added
+
+- **Native Gemini CLI and Qwen Code adapters.** `init`, hook decisions, chat gates and local transcript scans now use each CLI's documented project configuration and event protocol.
+
+### Changed
+
+- **Every generated project hook now calls a small offline launcher.** It finds the repository build, a local dependency or the installed global command without asking npm to download anything during a hook.
+- **Copilot installs repository hooks by default on current releases.** `--user` remains an explicit fallback for older CLI versions and warns that using both scopes can duplicate calls.
+- **Copilot can no longer bypass the prose check by retrying a blocked shell write through its file tool.** A live 1.0.80 session showed that the PascalCase `Write` event calls the inserted text `file_text`; the adapter now reads that field. `doctor` also names the prompt-mode trust gate and its documented opt-in.
+- **Cursor follows the current hook reference.** Advisory findings use `postToolUse`; strict chat findings use `stop` and `subagentStop` with a retry message.
+- **The public documentation now describes all seven adapters from their current vendor references.** It names each event, project file, trust gate, strict limit and advisory limit, and checks every local Markdown link in the test suite.
+
+### Fixed
+
+- **`doctor` now reports a Codex project whose folder is trusted but whose hooks are not.** Codex skips those hooks in non-interactive runs, so a clean diagnostic was misleading.
+- **Vibe advisory findings now reach the model through documented `post_tool` additional context.** The old `system_message` response was visible in the interface but did not guide the model after a write.
+- **Generated policy tables no longer turn rule patterns containing a pipe into broken links.** Policy generation also deduplicates shared config files, ignores operator-local agent setup, and distinguishes a Claude compatibility shim from an installed hook.
+- **`init` no longer rewrites or reports unchanged launchers and agent configuration.** A second run now matches its documented no-change behavior.
+
+## [0.23.0] - 2026-08-26
+### Added
+
+- **Four rules for the stock phrases in a [reader-supplied list of 100 AI tells](https://www.reddit.com/r/claude/comments/1vyr3oc/setting_to_stop_claude_over_using_aiobvious/).** `inflated-significance` blocks empty grandeur such as `a stark reminder`, `unwavering commitment` and `a significant step forward`. Three warning rules cover formulaic claims of importance, progress written as a journey, and academic framing that hides the actual relationship or result. The existing `underscores-verb` rule now catches the base form in `underscore the need`, which its pattern accidentally omitted.
+
+  The source list also contains malformed fragments and ordinary phrases such as `make accessible`, `potentially lead to` and `address the root cause`. Those remain legal. The rules use the closed, high-signal phrases rather than treating all 100 entries as equally safe to enforce.
+
 ### Changed
 
 - **`sentence-spread` states its evidence accurately.** The rule and the generated docs said the machine-written side of the comparison was one sample. It is one letter measured at three stages of its own revision, scoring 0.390, 0.414 and 0.414. Three files were measured and they share 95% of their words, so they are not three samples. Recorded because the revision finding is the useful half: across those stages the word-level tells were removed and the spread moved 0.024, while the gap to the nearest hand-written document here stayed at 0.078. No behaviour change.
@@ -509,7 +535,9 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.0
+[0.23.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.23.0
 [0.22.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.22.0
 [0.21.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.21.0
 [0.20.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.20.0

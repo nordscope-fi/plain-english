@@ -110,6 +110,19 @@ describe("init", () => {
     expect(second).toBe(first);
   });
 
+  it("reports no file changes on a second run", () => {
+    init({ root });
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    (process.stdout as any).write = (s: string) => (lines.push(String(s)), true);
+    try {
+      init({ root });
+    } finally {
+      (process.stdout as any).write = write;
+    }
+    expect(lines.join("\n")).not.toMatch(/^\s+(?:create|update) /m);
+  });
+
   it("replaces its own entries on re-run instead of stacking them", () => {
     init({ root });
     init({ root });
@@ -515,10 +528,8 @@ describe("merging across versions", () => {
 });
 
 /**
- * Copilot's CLI does not read `.github/hooks/`, although its own
- * `copilot help config` says repo-level hooks live there. Confirmed against
- * 1.0.78 with an identical hook firing from `~/.copilot/hooks/` and not from
- * the repository, and reported as github/copilot-cli#1730.
+ * Copilot CLI 1.0.78 did not read `.github/hooks/`, although current releases
+ * do. The user scope remains an explicit compatibility fallback.
  *
  * So `init` can write there, but only when asked. Everything else it writes
  * lands in the project, where it is committed, reviewed and removed with the
@@ -540,10 +551,12 @@ describe("init --user", () => {
     expect(user).toHaveLength(1);
     expect(repo.length).toBeGreaterThan(0);
     expect(user[0]!.path).toBe(".copilot/hooks/plain-english.json");
-    // Same entries as the repository file for the same event, so the two
-    // copies cannot drift.
+    // The user-scoped copy is an explicit compatibility fallback for older
+    // Copilot builds. It calls the global binary because it cannot rely on a
+    // repository-relative launcher from a home-directory hook.
     const sameEvent = repo.find((c) => c.at.join(".") === user[0]!.at.join("."))!;
-    expect(JSON.stringify(user[0]!.entries)).toBe(JSON.stringify(sameEvent.entries));
+    expect(JSON.stringify(user[0]!.entries)).toContain("plain-english hook");
+    expect(JSON.stringify(sameEvent.entries)).toContain(".github/hooks/plain-english.mjs");
   });
 
   it("no other agent asks for a file outside the repo, with or without the flag", () => {
@@ -775,6 +788,9 @@ describe("init --agent vibe", () => {
     expect(text).toContain("[[hooks]]");
     expect(text).toContain('name = "plain-english-docs"');
     expect(text).toContain('type = "pre_tool"');
+    expect(text).toContain('name = "plain-english-docs-advisory"');
+    expect(text).toContain('type = "post_tool"');
+    expect(text).toContain("--event post");
   });
 
   it("wires the chat channel to post_agent, the only stop event Vibe has", () => {

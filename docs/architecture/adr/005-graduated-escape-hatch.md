@@ -25,8 +25,9 @@ cheapest correct fix is the first thing the human sees.
 4. Add a path glob to `.plain-english.yml` (per-repo exclude)
 5. Downgrade severity in `.plain-english.yml` (per-repo tuning)
 6. Ten-minute acknowledgement file at the repo root
-   (`.plain-english-lint-ack` etc.), the sixth option, marked as the
-   human's call
+   (`.plain-english-ack-docs`, `.plain-english-ack-github`,
+   `.plain-english-ack-issue` or `.plain-english-ack-chat`), marked as
+   the human's call
 
 Option 6 stays because 1-5 all need a permanent decision, and somebody
 mid-task does not always have one. It is not the first thing reached

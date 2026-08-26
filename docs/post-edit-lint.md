@@ -28,79 +28,26 @@ Or for one run: `aider --lint-cmd "markdown: npx plain-english lint --fail-on er
 Aider does not load a conventions file on its own. Add `read: AGENTS.md` to the same file
 if you want the style guide in front of it as well.
 
-## Claude Code
+## Agents without a native profile here
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "if": "Write(*.md) or Edit(*.md) or MultiEdit(*.md)",
-            "command": "npx --no-install plain-english lint --fail-on error"
-          }
-        ]
-      }
-    ]
-  }
-}
+Put the loop in that agent's repository instructions:
+
+```markdown
+After editing Markdown, run:
+
+npx --no-install plain-english lint <changed-markdown-files> --fail-on error
+
+Fix every blocking finding before finishing. Do not use `--no-verify` or a whole-file
+waiver to make the command pass.
 ```
 
-Exit 2 blocks and returns stderr to the model. The `if` rule keeps the hook off source
-files, so it never runs where it has nothing to say.
+The changed paths matter. Calling `plain-english lint` with no path reads standard input;
+it does not discover the files an agent just edited. Calling it on the whole repository
+works, but makes the agent repair unrelated existing text.
 
-This is a complement to `plain-english init`, which installs the `PreToolUse` hooks. Run
-both if you want the write refused and the result checked.
-
-## Cursor
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "afterFileEdit": [
-      {
-        "type": "command",
-        "command": "npx --no-install plain-english lint --fail-on error",
-        "timeout": 30
-      }
-    ]
-  }
-}
-```
-
-Goes in `.cursor/hooks.json`, the same file `init --agent cursor` writes, so merge rather
-than replace.
-
-## OpenAI Codex CLI
-
-```toml
-# .codex/config.toml
-[[hooks.PostToolUse]]
-matcher = "apply_patch|Write|Edit"
-
-[[hooks.PostToolUse.hooks]]
-type = "command"
-command = "npx --no-install plain-english lint --fail-on error"
-timeout = 30
-```
-
-`apply_patch` fires both `PreToolUse` and `PostToolUse`, so this catches the same writes
-the pre-hook does. Codex caps the text it feeds back at roughly 2,500 tokens by default
-(`additionalContextLimit`); a run with many findings spills the rest to a temporary file
-rather than truncating in place.
-
-Note the file. This is `.codex/config.toml`, a second documented route with an open bug of
-its own ([openai/codex#17532](https://github.com/openai/codex/issues/17532)), and not the
-`.codex/hooks.json` that `init --agent codex` writes. Keeping them separate means a
-re-run of `init` cannot touch this block. If you would rather have one file, the same hook
-goes in `.codex/hooks.json` under a `PostToolUse` key, which `init` leaves alone.
-
-Codex needs two approvals before it runs any hook, one for the folder and one for the hook
-itself. [`agents.md`](agents.md#openai-codex-cli) says what each does.
+Claude Code, Copilot, Codex, Cursor, Vibe, Gemini and Qwen already have native profiles.
+Use `plain-english init --agent <id>` for them; hand-written post-tool examples duplicate
+the generated hooks and are more likely to drift from a vendor's current event format.
 
 ## Git, for everything else
 
@@ -109,7 +56,7 @@ An agent that has none of the above still commits. `pre-commit` catches that:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.22.0
+    rev: v0.24.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -126,5 +73,5 @@ It runs after the text exists. On a file write that is fine, since the fix is an
 edit. On a `git commit` it is too late: the commit is already made, and the agent has to
 amend. Use the pre-tool-call hook for commit messages where you have one.
 
-It also depends on the agent choosing to act on a failing command. Every agent listed here
-documents that it does, and all of them do it most of the time. None of them guarantees it.
+It also depends on the agent choosing to act on a failing command. That is an instruction,
+not enforcement. The required server-side status check remains the final gate.

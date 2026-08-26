@@ -1,7 +1,7 @@
 /**
  * Recording what an agent actually sent.
  *
- * Three of the four adapters were written from vendor documentation, and the
+ * Several adapters were written from vendor documentation, and the
  * documentation was wrong twice: Copilot's PascalCase mode does not rename
  * `tool_input` the way its camelCase rule implies, and a widely-cited claim
  * that Codex routes file edits through `Bash` described a bug fixed months

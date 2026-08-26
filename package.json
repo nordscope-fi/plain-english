@@ -1,7 +1,7 @@
 {
   "name": "plain-english",
-  "version": "0.22.0",
-  "description": "Catch AI writing tells and unexplained jargon before they land in a commit, a doc, or an issue. Prose linter with hooks for Claude Code, Copilot, Codex, Cursor and Mistral Vibe, plus pre-commit, CI and SARIF.",
+  "version": "0.24.0",
+  "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI and Qwen Code.",
   "keywords": [
     "linter",
     "lint",
@@ -22,6 +22,8 @@
     "cursor",
     "vibe",
     "mistral",
+    "gemini-cli",
+    "qwen-code",
     "agents-md",
     "sarif",
     "coding-agent"
@@ -63,7 +65,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "render": "node dist/cli.js render",
-    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md",
+    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md AGENTS.md",
     "policy": "node dist/cli.js policy",
     "policy:check": "node dist/cli.js policy --check",
     "check:refs": "bash scripts/check-no-private-refs.sh",

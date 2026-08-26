@@ -5,8 +5,16 @@ adapter that found nothing to say. That is the failure this page exists to
 prevent, and it has happened here more than once.
 
 Four agents were added in 0.4.0 from vendor documentation. By 0.7.0, five
-separate defects had been found in them, and **only one was findable by
-reading**. This is what the other four took.
+separate defects had been found in them, and only one was findable by reading.
+The 0.24.0 sweep found another in a live Copilot retry: its `Write` payload calls
+the inserted prose `file_text`. This is what those sessions took.
+
+The current source sweep uses the vendors' own references: [Claude Code](https://code.claude.com/docs/en/hooks),
+[GitHub Copilot](https://docs.github.com/en/copilot/reference/hooks-reference),
+[OpenAI Codex](https://learn.chatgpt.com/docs/hooks), [Cursor](https://cursor.com/docs/hooks),
+[Mistral Vibe](https://docs.mistral.ai/vibe/code/cli/hooks),
+[Gemini CLI](https://geminicli.com/docs/hooks/reference/) and
+[Qwen Code](https://qwenlm.github.io/qwen-code-docs/).
 
 ## Vendor prose is the weakest evidence available
 
@@ -96,47 +104,77 @@ false "the hook is dead".
 
 ```bash
 npm install -g @github/copilot
-copilot -p "…" --allow-all-tools --no-ask-user --log-level debug --log-dir ./logs
+GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true \
+  copilot -p "…" --allow-all-tools --no-ask-user --log-level debug --log-dir ./logs
 ```
 
 The Free plan covers the CLI. Two traps:
 
-- **The CLI does not read `.github/hooks/*.json`**, although its own
-  configuration help says repo-level hooks live there. Install to
-  `~/.copilot/hooks/` for the CLI. Use `COPILOT_HOME` to point at a throwaway
-  directory rather than touching the real one while testing.
+- **Scope changed across releases.** CLI 1.0.78 ignored `.github/hooks/*.json`;
+  current documentation says repository and user hooks are both loaded and
+  merged. Test the repository scope first. Use `COPILOT_HOME` and `--user` only
+  when reproducing the older fallback.
+- **Prompt mode protects repository code.** It skips repository hooks until the
+  folder is trusted. The environment variable above is the documented opt-in
+  for a vetted non-interactive test.
 - **Copilot writes files through the shell**, so a write-tool matcher may never
   fire. Watch for `Bash` in the trace before concluding the hook is broken.
+- **A denied shell write may be retried through `Write`.** On 1.0.80 that
+  capitalized event carries the prose under `tool_input.file_text`; keep both
+  calls in the capture.
 
 ### OpenAI Codex CLI
 
 ```bash
 npm install -g @openai/codex
 codex login                    # opens a browser
-CODEX_HOME=$TW codex exec --approve-for-me --skip-git-repo-check \
+codex exec --approve-for-me --skip-git-repo-check \
   --dangerously-bypass-hook-trust "…" < /dev/null
 ```
 
-Four traps, all of which make a correct configuration do nothing:
+Four traps, all of which can make a correct configuration do nothing:
 
 - **Folder trust.** `<repo>/.codex/hooks.json` is read only when
   `$CODEX_HOME/config.toml` marks the project `trust_level = "trusted"`.
-- **Hook trust**, separate, hashed against the command string, and skipped by
-  `--dangerously-bypass-hook-trust`.
-- **`codex exec` runs no hooks at all** without that flag, even when everything
-  is trusted.
+- **Hook trust**, separate and hashed against the exact hook definition. Review it in
+  an interactive `/hooks` screen, or bypass only that check for a vetted probe
+  with `--dangerously-bypass-hook-trust`.
+- **Non-interactive review.** `codex exec` cannot open `/hooks`, so it skips an
+  untrusted hook. Current documentation says startup prints a review warning.
+  A hook whose trust is recorded runs without the bypass flag.
 - **Worktrees** resolve to the main working tree's file.
 
-`CODEX_HOME` moves the whole user-level directory somewhere disposable, which is
-the same trick `COPILOT_HOME` allows. Authentication lives in there, so symlink
-`auth.json` into it rather than copying credentials around.
+Use a throwaway `CODEX_HOME` only when the probe also performs its own login.
+Do not copy or link a real authentication file into a fixture directory.
 
 Two more things to know. Close stdin with `< /dev/null` or `codex exec` waits on
 it forever. And `--sandbox` cannot be combined with `--approve-for-me`.
 
+### Google Gemini CLI
+
+Use a throwaway `GEMINI_CLI_HOME`, trust the project hook fingerprint, and
+register tracers on `BeforeTool`, `AfterTool` and `AfterAgent`. The first two
+events use nested matcher groups. Timeouts are milliseconds. An advisory test
+must confirm that `AfterTool.additionalContext` reaches the next model turn.
+
+### Qwen Code
+
+Use a throwaway `QWEN_HOME`, trust the project hook fingerprint, and trace
+`PreToolUse`, `Stop` and `SubagentStop`. Test advisory mode in a headless run:
+Qwen converts `ask` to denial there, so the adapter must return an explicit
+`allow` plus `additionalContext`.
+
+### Mistral Vibe
+
+Run `vibe --trust` once in a disposable project, then load `.vibe/hooks.toml`
+through Vibe's own hook loader before spending a model turn. Trace `pre_tool`,
+`post_tool` and `post_agent`. The last event names a transcript rather than
+carrying the reply, so verify that the final assistant record is already on
+disk when the hook fires.
+
 ### Ask the agent what it loaded
 
-Codex has the most useful verification tool found on any of the four, and it
+Codex has the most useful verification tool found on any supported agent, and it
 costs no model tokens. `codex app-server` speaks JSON-RPC (JSON Remote Procedure
 Call) over stdin. Its `hooks/list` call returns Codex's own view of the
 configuration: every hook it discovered, the file each came from, the scope it
@@ -172,8 +210,9 @@ somebody's real one.
 
 ### Claude Code
 
-`init` writes it, and it is the reference implementation for the other three,
-since its hook contract is the shape they all copied.
+`init` writes it, and its hook contract is the ancestor of several compatibility
+formats. Do not assume that ancestry makes current payload fields identical;
+Copilot's `file_text` retry is the counterexample.
 
 ## Chat transcripts
 
@@ -234,10 +273,11 @@ npm install "/path/to/$TARBALL"
 npx --no-install plain-english init --agent <id>
 ```
 
-Every installed hook runs `npx --no-install plain-english`, which resolves from
-the project's own `node_modules`. A global install with no local one makes every
-hook do nothing while the config still reads correctly. `plain-english doctor`
-reports this, and testing against a shortcut would hide it.
+Every installed hook runs a generated offline launcher. The launcher tries the
+plain-english source checkout, then the project's local dependency, then a global
+installation. It never asks npm to download a package during a hook. Test all
+three resolution paths, and use `plain-english doctor` to see which one the
+current project will take.
 
 ## Turn the capture into a test
 
@@ -269,9 +309,9 @@ redundant.
 2. Read the vendor's source or schema. A shipped binary often embeds the schema.
    Codex's carries the JSON Schema for every hook event, and the error strings
    its runtime prints. That beats the source of a version you are not running.
-3. Read the vendor's issue tracker. Codex has open reports on trust prompts,
-   worktrees and `codex exec`. Each one leaves an installed hook running zero
-   times with nothing said, and none of them appears in any documentation.
+3. Read the vendor's issue tracker. Reports on trust prompts, worktrees and
+   missing events explain version-specific silence that a current reference
+   may no longer mention.
 4. Have someone attack the plan. A critique pass found five blockers in a plan
    that had already been researched, plus a shipped hang in code nobody had
    changed.

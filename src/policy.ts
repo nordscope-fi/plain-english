@@ -12,13 +12,15 @@
  * hand-written policy omits the second one every time.
  */
 
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, relative, resolve } from "node:path";
 import { directivesIn, type WaiverScope } from "./lint.ts";
 import { matchesAny } from "./glob.ts";
-import { humanise } from "./render.ts";
+import { humanise, markdownTableCode } from "./render.ts";
 import { loadDefault, type ReadabilityRule, type Rule, type RuleSet } from "./rules.ts";
 import { PROFILES } from "./agents/registry.ts";
+import { hasOurEntries } from "./init.ts";
 
 /** One suppression directive, located in the tree. */
 export interface Waiver {
@@ -78,6 +80,25 @@ const BANNER = [
   "<!-- plain-english-disable-file: policy document, quotes every banned term -->",
 ].join("\n");
 
+/**
+ * A checked-in policy describes the repository, not one contributor's private
+ * agent setup. Git-ignored hook files can exist on one machine and disappear
+ * in CI, which would otherwise make `policy --check` impossible to satisfy in
+ * both places. Outside a git worktree there is no ignored set, so count the
+ * file normally.
+ */
+function isGitIgnored(root: string, file: string): boolean {
+  try {
+    execFileSync("git", ["check-ignore", "-q", "--", file], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (SKIP.has(entry.name)) continue;
@@ -97,21 +118,22 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 export function detectAgents(root: string): DetectedAgent[] {
   return PROFILES.map((profile) => {
-    const files: string[] = [];
+    const files = new Set<string>();
     for (const file of profile.plan({ prompts: {}, model: "" }).config) {
+      if (file.scope !== "user" && isGitIgnored(root, file.path)) continue;
       const path = resolve(root, file.path);
       let ours = false;
       try {
-        ours = readFileSync(path, "utf8").includes("--agent " + profile.id);
+        ours = hasOurEntries(readFileSync(path, "utf8"), file);
       } catch {
         continue; // missing or unreadable counts as not installed
       }
-      if (ours) files.push(file.path);
+      if (ours) files.add(file.path);
     }
     return {
       id: profile.id,
-      installed: files.length > 0,
-      files,
+      installed: files.size > 0,
+      files: [...files],
       problems: profile.diagnose?.(root) ?? [],
     };
   });
@@ -257,7 +279,7 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   out.push("| Term | Tier | Instead |");
   out.push("|---|---|---|");
   for (const rule of live) {
-    out.push(`| ${humanise(rule)} | \`${tier(rule)}\` | ${rule.message ?? ""} |`);
+    out.push(`| ${markdownTableCode(humanise(rule))} | \`${tier(rule)}\` | ${rule.message ?? ""} |`);
   }
   out.push("");
 
@@ -377,12 +399,11 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
       "local only: a transcript holds whatever passed through a tool.",
     "",
   );
-  const semantic = scan.agents.filter((a) => a.installed).map((a) => a.id);
   out.push(
     `The ${set.structures.length} sentence shapes need a model to judge them, so they are ` +
-      "covered only where a prompt hook exists. Everywhere else they are guidance in " +
-      "`AGENTS.md` and nothing that runs" +
-      (semantic.length ? `, including for: ${semantic.join(", ")}.` : "."),
+      "checked by Claude Code's prompt hooks and by Vibe's optional local judge. For " +
+      "Copilot, Codex, Cursor, Gemini and Qwen they are guidance in `AGENTS.md`; no " +
+      "runtime model judge is installed.",
     "",
   );
   out.push(

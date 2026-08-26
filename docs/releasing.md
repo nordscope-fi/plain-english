@@ -1,16 +1,17 @@
 # Releasing
 
-## Why the first release is different
+## The one-time publisher setup is already complete
 
 npm revoked all classic tokens on 2025-12-09, so there is no `NPM_TOKEN` to store. Instead, npm verifies the GitHub workflow's identity directly and attaches a signed record of where the package was built. The identity check is called OIDC trusted publishing, and the signed record is called provenance.
 
-Trusted publishing has an ordering constraint that catches people out: **a trusted publisher cannot be configured for a package name that does not exist on npm yet.** The first release therefore has to go out by hand, and every release after that runs from CI.
+Trusted publishing has an ordering constraint that mattered during bootstrap: **a trusted publisher cannot be configured for a package name that does not exist on npm yet.** Version 0.1.0 was therefore published by hand. Do not repeat that step for a normal release; current releases run from CI.
 
-## One-time setup
+### Bootstrap record
 
-Do these in order.
+These steps record the setup already applied to npm and GitHub. They are recovery notes,
+not the current release procedure.
 
-**1. Publish `0.1.0` from a terminal.**
+**1. The package was created with `0.1.0` from a terminal.**
 
 ```bash
 npm login
@@ -48,7 +49,7 @@ A release is a merge. Put the bump in the pull request:
 
 ```bash
 npm version minor --no-git-tag-version    # or patch, or major
-git commit -am "chore(release): 0.14.0"
+git commit -am "chore(release): bump package version"
 ```
 
 `--no-git-tag-version` matters. It bumps `package.json` and runs the changelog and pin script, and it makes no commit and no tag, so the release commit is yours and the tag is CI's.
@@ -83,7 +84,7 @@ The tag is made after the gates rather than before them, so it means "this passe
 The last step of the publish job creates it, titled with the tag. Its body is that version's changelog section, pulled out by `scripts/changelog-section.mjs`. Read what a release note will say before tagging:
 
 ```bash
-node scripts/changelog-section.mjs v0.7.3
+node scripts/changelog-section.mjs v0.24.0
 ```
 
 It runs after `npm publish` on purpose, so a failure creating the release cannot cost a publish that already went out. Releases before v0.7.0 have no notes: this step did not exist, and backfilling ten thin entries was not worth it.

@@ -32,11 +32,18 @@ npx plain-english init --agent claude-code --dry-run
 npx plain-english init --agent claude-code
 ```
 
-Swap the id for `copilot`, `codex` or `cursor`, or pass `all`. `claude-code` is the default if you leave the flag off.
+Swap the id for `copilot`, `codex`, `cursor`, `vibe`, `gemini` or `qwen`, or pass `all`. `claude-code` is the default if you leave the flag off.
 
-`init` wires up the whole repo in one step: that agent's hook config merged into whatever is already there, a generated `AGENTS.md` section, and a starter `.plain-english.yml` if you have none. Claude Code additionally gets three shims under `.claude/hooks/`. The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to change that.
+`init` wires up the whole repo in one step: that agent's hook config merged into whatever
+is already there, an offline launcher, a generated `AGENTS.md` section, and a starter
+`.plain-english.yml` if you have none. Claude Code also gets its output styles and skill.
+The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to
+change that.
 
-[`docs/agents.md`](agents.md) has the per-agent detail. Three caveats are worth reading before you rely on a hook. Copilot's CLI does not read the repository file, so it needs `init --agent copilot --user` as well ([why](agents.md#what-a-live-copilot-session-showed)). Copilot's cloud agent turns an `ask` into a `deny`. And Codex needs two separate approvals before a hook runs ([which two](agents.md#openai-codex-cli)).
+[`docs/agents.md`](agents.md) has the per-agent detail. Trust is separate from
+installation: Copilot, Codex, Cursor, Vibe, Gemini and Qwen protect repository hooks with
+vendor approval. Codex also asks you to approve the exact hook command. Copilot's cloud
+agent turns an advisory `ask` into a denial.
 
 Fill in the vocabulary your readers already use daily:
 
@@ -79,7 +86,7 @@ See `examples/revops.yml` for a filled-in example.
 ## 4. Turn it on in CI before turning it on locally
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v0.22.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v0.24.0
   with:
     paths: docs README.md
     fail-on: warn      # start loud, tighten later
@@ -100,7 +107,7 @@ For git, whatever your agent:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v0.22.0
+    rev: v0.24.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -129,7 +136,12 @@ Step 3 already installed all of this. This step is about which part does what, b
 
 This one is Claude Code only. Elsewhere the same guidance arrives through the `AGENTS.md` section from step 6, loaded once per session rather than restated each turn, and weaker for it.
 
-**A stop hook** reads the finished reply and hands any finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. Claude Code, Codex and Copilot all fire an event carrying the final message, and Vibe fires one naming the transcript instead. Cursor fires none, so chat there is ungated.
+**A completed-turn hook** reads the finished reply and hands any finding back to the
+model, which then writes again. That is weaker than a refused write, since the words
+already exist, and much stronger than a prompt, since something measures them. Each
+profile uses the vendor's current reply field or transcript path. The evidence ranges
+from live observation to documentation; [`docs/agents.md`](agents.md#the-chat-channel)
+marks the difference.
 
 **A scan of what was actually said:**
 
@@ -174,7 +186,11 @@ rules:
 
 **Someone is running the whole-file directive routinely.** Treat that as a calibration signal, not a discipline problem.
 
-**A hook is refusing a write you need to land now.** `touch .plain-english-ack-docs` waives that channel for ten minutes, then expires on its own. The channels are `docs`, `github` and `issue`. Reach for it when the finding is wrong and you are mid-task; fix the config afterwards, since a hatch nobody follows up on is a rule nobody trusts.
+**A hook is refusing a write or reply you need to send now.** `touch .plain-english-ack-docs`
+waives that channel for ten minutes, then expires on its own. The four channels are
+`docs`, `github`, `issue` and `chat`; replace the suffix to choose one. Reach for it when
+the finding is wrong and you are mid-task. Fix the config afterwards, since a hatch nobody
+follows up on is a rule nobody trusts.
 
 **Your agent has no hook here.** Two fallbacks, in `docs/post-edit-lint.md` and `docs/editors.md`: tell it to run `plain-english lint` after it edits, or feed findings into your editor's Problems list, which several agents read.
 

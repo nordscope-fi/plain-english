@@ -141,7 +141,7 @@ rules:
     # The AI tell is always the transitive verb ("this underscores the need").
     # Requiring a following determiner keeps the plural noun ("the filename
     # underscores are significant") out of scope without needing an exception.
-    match: "\\bunderscor(es|ed|ing)\\s+(the|that|this|these|those|a|an|how|why|just|again|its|our|their|his|her)\\b"
+    match: "\\bunderscor(e|es|ed|ing)\\s+(the|that|this|these|those|a|an|how|why|just|again|its|our|their|his|her)\\b"
     unless:
       # Identifier context, where the word is a literal character name.
       - "_"
@@ -350,9 +350,9 @@ rules:
   # metaphor borrowed into engineering warns, because the writer may be quoting
   # somebody, or writing about the literal thing, and no pattern can tell.
   #
-  # Sixteen further candidates are deliberately absent: surface, vector,
-  # primitive, features, enhance, crucial, seam, spine, ratchet, interplay,
-  # intricate, garner, enduring, haunted, sidecar and grooves. Every one has a
+  # Fifteen further candidates are deliberately absent: surface, vector,
+  # primitive, features, enhance, crucial, seam, spine, ratchet, intricate,
+  # garner, enduring, haunted, sidecar and grooves. Every one has a
   # common literal sense in software prose, and shipping them tuned against no
   # evidence is how this file acquired the false positives it has twice had to
   # remove. They wait on `plain-english record` output over real documents.
@@ -391,6 +391,34 @@ rules:
     severity: error
     match: "\\bdeeply[- ]rooted\\b"
     message: "Say where it comes from."
+
+  # Drawn on 2026-08-26 from a list of 100 phrases collected by a Claude user:
+  # https://www.reddit.com/r/claude/comments/1vyr3oc/
+  #
+  # The list mixes strong tells with ordinary prose and several malformed
+  # fragments. These rules keep the closed phrases that say nothing on their
+  # own. Broad fragments such as "potentially lead to", "make accessible" and
+  # "address the root cause" stay legal. Matching those would punish the fact
+  # they describe rather than the way it is written.
+  - id: inflated-significance
+    severity: error
+    match: "\\b(a stark reminder|unwavering commitment|transformative power|relentless pursuit|pav(e|es|ed|ing) the way for (the )?future|a significant step forward)\\b"
+    message: "State what changed or what the evidence shows."
+
+  - id: formulaic-importance
+    severity: warn
+    match: "\\b(provid(e|es|ed|ing)|offer(s|ed|ing)) (a )?valuable insights?\\b|\\b(significant role in shaping|play(s|ed|ing)? (a )?(crucial|significant) role)\\b|\\b(emphasi(s|z)(e|es|ed|ing)|highlight(s|ed|ing)?) (the )?(importance|need|potential)\\b"
+    message: "Name the fact or consequence instead of announcing its importance."
+
+  - id: staged-progress
+    severity: warn
+    match: "\\b(the journey begins|the path ahead|la(y|id|ys|ying) the groundwork|mark(s|ed|ing) a turning point|a significant milestone|open(s|ed|ing) (up )?(a )?new avenues?)\\b"
+    message: "Name the next step or the change without turning it into a journey."
+
+  - id: academic-fog
+    severity: warn
+    match: "\\b(a )?(nuanced|deeper|broad|comprehensive) understanding\\b|\\b(the )?complex interplay\\b|\\b(a )?delicate balance\\b|\\b(shed|sheds|shedding) light on\\b|\\b(particularly noteworthy|far[- ]reaching implications?|profound implications?|a comprehensive (overview|framework)|an ongoing dialogue|stand(s|ing)? in stark contrast)\\b"
+    message: "Replace the frame with the specific relationship, finding, or difference."
 
   - id: abstract-metaphor-nouns
     # Warn. Each of these has a domain where it is the ordinary word, and the

@@ -9,7 +9,7 @@
  * So a profile is a translation table, not a strategy. It maps one agent's
  * payload onto the canonical event below, and one `Decision` back onto that
  * agent's wire format. Everything between those two points is shared, which is
- * the only reason supporting four agents is not four linters.
+ * why supporting several agents does not require several linters.
  */
 
 import type { Decision } from "../adapters/hook.ts";
@@ -59,9 +59,8 @@ export interface ConfigFile {
   /**
    * How the file on disk is encoded.
    *
-   * JSON everywhere except Vibe, which reads `.vibe/hooks.toml`. Optional so
-   * that four existing profiles say nothing and keep working; a profile that
-   * wants TOML asks for it.
+   * JSON everywhere except Vibe, which reads `.vibe/hooks.toml`. A profile
+   * that wants TOML asks for it.
    *
    * The two are not interchangeable at the `at` level. TOML here means one
    * array of tables named by `at`, so `at` is a single key and `shape` is
@@ -74,9 +73,7 @@ export interface ConfigFile {
    * `repo` is the default and the only one `init` writes without being asked.
    * `user` resolves against the home directory, which is outside the project,
    * so a profile that wants one only emits it when `ctx.includeUser` is set.
-   * Copilot needs this: its CLI does not read the repository location its own
-   * documentation gives, verified against 1.0.78 and reported upstream as
-   * github/copilot-cli#1730.
+   * Copilot uses this only as an explicit fallback for older CLI releases.
    */
   scope?: "repo" | "user";
   /** Where in the parsed document our array lives, e.g. ["hooks", "preToolUse"]. */
@@ -235,10 +232,10 @@ export interface AgentProfile {
   /**
    * Anything about this machine that would stop an installed hook from running.
    *
-   * Optional, and only Codex has one: its repository hook file is read solely
-   * in a folder the user has trusted, and until then it finds no hooks and
-   * reports no error. That is this project's recurring failure, a configuration
-   * that reads correctly and never runs, so `doctor` should be able to name it.
+   * Optional. Several agents protect repository hooks behind project trust,
+   * and non-interactive modes can skip those hooks without reporting an error.
+   * That is this project's recurring failure, a configuration that reads
+   * correctly and never runs, so `doctor` should be able to name it.
    *
    * Returns one line per problem, empty when there is nothing to say.
    */

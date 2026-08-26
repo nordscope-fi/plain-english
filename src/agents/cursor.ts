@@ -23,6 +23,9 @@
 import type { Decision } from "../adapters/hook.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
+
+const RUNNER = runnerPath(".cursor");
 
 const CHANNELS = [
   { channel: "docs", matcher: "Write|Edit|MultiEdit" },
@@ -85,23 +88,20 @@ export const cursor: AgentProfile = {
   supportsAsk: false,
 
   emit(decision: Decision, event: HookEvent) {
-    // Cursor needs no second hook. `additional_context` is supported on
-    // `preToolUse` itself, confirmed by Cursor staff in July 2026, and its
-    // `postToolUse` equivalent has been a known-broken ticket since March.
-    if (event === "post") return { stdout: "", exitCode: 0 };
+    // Current Cursor documents additional_context on postToolUse, not on the
+    // generic pre event. That makes the post event the advisory channel.
+    if (event === "post") {
+      if (!decision.advisory) return { stdout: "", exitCode: 0 };
+      return {
+        stdout: JSON.stringify({ additional_context: decision.advisory }),
+        exitCode: 0,
+      };
+    }
     if (decision.allow) return { stdout: "", exitCode: 0 };
 
     if (decision.decision === "ask") {
-      // Allow the write and tell the model, because refusing here would make
-      // `failOn: never` blocking on this one agent, and saying `ask` would
-      // make it silent.
-      return {
-        stdout: JSON.stringify({
-          permission: "allow",
-          additional_context: decision.advisory,
-        }),
-        exitCode: 0,
-      };
+      // Let the tool run. Its post event carries the advisory to the model.
+      return { stdout: "", exitCode: 0 };
     }
 
     return {
@@ -117,7 +117,15 @@ export const cursor: AgentProfile = {
     };
   },
 
+  emitChat(decision: Decision, _eventName: string) {
+    void _eventName;
+    if (decision.allow || decision.decision === "ask") return { stdout: "", exitCode: 0 };
+    return { stdout: JSON.stringify({ followup_message: decision.reason }), exitCode: 0 };
+  },
+
   plan(_ctx: PlanContext) {
+    const command = (channel: string, event: HookEvent = "pre") =>
+      runnerCommand(RUNNER, channel, "cursor") + ` --event ${event}`;
     return {
       config: [
         {
@@ -128,16 +136,41 @@ export const cursor: AgentProfile = {
           entries: CHANNELS.map((c) => ({
             type: "command",
             matcher: c.matcher,
-            command: `npx --no-install plain-english hook ${c.channel} --agent cursor`,
+            command: command(c.channel),
             timeout: 30,
           })),
         },
+        {
+          path: ".cursor/hooks.json",
+          at: ["hooks", "postToolUse"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: CHANNELS.map((c) => ({
+            type: "command",
+            matcher: c.matcher,
+            command: command(c.channel, "post"),
+            timeout: 30,
+          })),
+        },
+        {
+          path: ".cursor/hooks.json",
+          at: ["hooks", "stop"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: [{ type: "command", command: command("chat"), timeout: 10, loop_limit: 5 }],
+        },
+        {
+          path: ".cursor/hooks.json",
+          at: ["hooks", "subagentStop"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: [{ type: "command", command: command("chat"), timeout: 10, loop_limit: 5 }],
+        },
       ],
-      shims: [],
+      shims: [{ path: RUNNER, body: HOOK_RUNNER }],
       notes: [
-        "Cursor's own docs disagree about whether a file write can be blocked before it " +
-          "happens. Write a markdown file containing a banned term and confirm the hook " +
-          "fires before you rely on it.",
+        "Cursor project hooks run only in a trusted workspace. The stop hook can retry a " +
+          "strictly rejected reply up to five times.",
         "Rules live in .cursor/rules/*.mdc. Cursor also reads AGENTS.md, which init writes.",
       ],
     };

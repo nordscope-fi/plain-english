@@ -25,9 +25,11 @@ meant to catch.
 
 Three mechanisms per rule, in order of preference:
 
-1. **Severity gradient**: `block`, `ask`, `warn`, `never`. Terms
-   with legitimate technical senses default to `warn` unless the
-   surrounding context resolves the ambiguity.
+1. **Severity gradient**: `error`, `warn`, `off`. Output labels an
+   `error` rule as `block`; the separate `failOn` setting decides
+   whether that finding changes the exit code or refuses a write.
+   Terms with legitimate technical senses default to `warn` unless
+   the surrounding context resolves the ambiguity.
 2. **Per-rule `unless` clauses**: a rule can whitelist specific
    contexts (regex or sentence-shape) where a match should be dropped.
 3. **Masking pass** (see ADR-004's twin): code blocks, inline code,
@@ -44,9 +46,9 @@ and why.
   not pick `block` as a default.
 - CI includes a test that every term in the corpus produces its
   expected verdict; a mis-set severity fails a specific corpus case.
-- The `warn` severity implies a UI mechanism at the adapter layer.
-  Adapters that only support pass/fail lose warn-level information,
-  documented in `docs/verifying-an-adapter.md`.
+- Advisory delivery differs at the adapter layer. Some agents ask a
+  human before the tool; others receive a context message before or
+  after it. The mapping is documented in `docs/agents.md`.
 
 ## Alternatives considered
 

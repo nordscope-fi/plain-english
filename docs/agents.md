@@ -9,6 +9,8 @@ npx plain-english init --agent copilot
 npx plain-english init --agent codex
 npx plain-english init --agent cursor
 npx plain-english init --agent vibe
+npx plain-english init --agent gemini
+npx plain-english init --agent qwen
 npx plain-english init --agent all
 npx plain-english init --agent cursor --dry-run   # see what would change
 ```
@@ -20,27 +22,26 @@ twice and nothing changes the second time.
 
 | Agent | Config written | Can refuse a write | Honours `ask` | Semantic layer |
 |---|---|---|---|---|
-| Claude Code | `.claude/settings.json` + three shims in `.claude/hooks/` | yes | yes | yes, prompt hooks |
+| Claude Code | `.claude/settings.json` + generated launchers in `.claude/hooks/` | yes | yes | yes, prompt hooks |
 | GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
 | OpenAI Codex CLI | `.codex/hooks.json` | yes, in a trusted folder you have approved | no | no |
 | Cursor | `.cursor/hooks.json` | yes | no | no |
 | Mistral Vibe | `.vibe/hooks.toml` + a judge in `.vibe/hooks/`, in a folder you have trusted | yes | no | yes, opt-in |
+| Google Gemini CLI | `.gemini/settings.json` | yes | no | no |
+| Qwen Code | `.qwen/settings.json` | yes | no | no |
 
-The semantic layer is the model-judged pass over the nine sentence shapes a regex cannot
-reach. It rides on Claude Code's `prompt` hook type. Copilot documents an equivalent that
-this package does not yet use; Codex and Cursor have none. Vibe has no prompt hook either,
-so its judge is a shell command that asks Vibe, off unless `PLAIN_ENGLISH_VIBE_JUDGE=1`.
+The semantic layer is the model-judged pass over the ten sentence shapes a regex cannot
+reach. It rides on Claude Code's `prompt` hook type. Copilot's prompt hooks submit text at
+session start; they are not a model judge. Vibe has no prompt hook either, so its judge is
+a shell command that asks Vibe, off unless `PLAIN_ENGLISH_VIBE_JUDGE=1`.
 The deterministic rules, which are the ones that can fail a build, run everywhere.
 
 ## What the advisory default means on each agent
 
-`failOn: never` is the default, and it means "tell me, do not stop me". Three of
-the five have no way to express that on a pre-tool-call hook. Cursor's docs say
-`ask` "is accepted by the schema but not enforced for preToolUse today", so it
-accepts the value and allows the write. Codex is worse: 0.147.0 reports the hook
-run as **Failed** and the reason reaches neither the model nor the user. Either
-way, an adapter that emits `ask` and stops there looks installed and reports
-nothing.
+`failOn: never` is the default, and it means "tell me, do not stop me". Five of
+the seven agents have no reliable interactive `ask` reply. An adapter that emits
+an unsupported value can look installed and report nothing, or can turn advice
+into a refusal in a headless run.
 
 So the advisory finding is fed back to the model as text instead:
 
@@ -49,14 +50,15 @@ So the advisory finding is fed back to the model as text instead:
 | Claude Code | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
 | GitHub Copilot | `PreToolUse` → `ask` | `PreToolUse` → `deny` |
 | OpenAI Codex CLI | `PreToolUse` → `additionalContext` | `PreToolUse` → `deny` |
-| Cursor | `preToolUse` → `allow` plus `additional_context` | `preToolUse` → `deny` |
-| Mistral Vibe | `pre_tool` → `allow` plus `system_message` | `pre_tool` → `deny` |
+| Cursor | `postToolUse` → `additional_context` | `preToolUse` → `deny` |
+| Mistral Vibe | `post_tool` → `additional_context` | `pre_tool` → `deny` |
+| Google Gemini CLI | `AfterTool` → `additionalContext` | `BeforeTool` → `deny` |
+| Qwen Code | `PreToolUse` → `allow` plus `additionalContext` | `PreToolUse` → `deny` |
 
-All three put the advisory on the pre event, so none needs a second hook. Cursor's `additional_context` works on `preToolUse`
-itself, which Cursor staff confirmed in July 2026, and its `postToolUse`
-equivalent has been a known-broken ticket since March. Codex accepts
-`additionalContext` on the pre event too, verified against 0.147.0: the text
-arrives as a developer message before the write, and the run reports Completed.
+Codex and Qwen can attach advice to the pre event. Cursor, Vibe and Gemini use
+their documented post-tool context field, so `init` installs both halves for
+them. Codex accepts `additionalContext` on the pre event too, verified against
+0.147.0: the text arrives as a developer message before the write.
 
 Until 0.7.0 the Codex advisory rode on a second `PostToolUse` hook, because the
 pre event was believed unable to speak. Re-running `init` deletes that entry.
@@ -69,10 +71,9 @@ for the whole ten minutes.
 
 ## Why this takes one linter, not one per agent
 
-Claude Code's hook contract became the shape everyone copied. Copilot ships an explicit
-compatibility mode that reads `tool_name` and `tool_input`; Codex uses the same field
-names and the same `permissionDecision` reply; Cursor uses the same event with different
-words. So a profile in `src/agents/` is a translation table, and the deciding is shared.
+The agents share enough concepts to use one decision engine, but their event names,
+tool names and reply envelopes differ. A profile in `src/agents/` is the translation
+table between one native protocol and the shared linter.
 
 The wire formats, which are all that genuinely differ:
 
@@ -89,8 +90,17 @@ The wire formats, which are all that genuinely differ:
 { "permission": "ask", "user_message": "...", "agent_message": "..." }
 
 // vibe
-{ "system_message": "..." }              // advisory, on an allow
+{ "hook_specific_output": { "additional_context": "..." } } // advisory, post-tool
 { "decision": "deny", "reason": "..." } // refuse
+
+// gemini
+{ "hookSpecificOutput": { "hookEventName": "AfterTool",
+                          "additionalContext": "..." } }
+
+// qwen
+{ "hookSpecificOutput": { "hookEventName": "PreToolUse",
+                          "permissionDecision": "allow",
+                          "additionalContext": "..." } }
 ```
 
 An allow with nothing to say writes nothing and exits 0, in every profile.
@@ -101,6 +111,8 @@ An allow with nothing to say writes nothing and exits 0, in every profile.
 
 ### Claude Code
 
+Reference: [Claude Code hooks](https://code.claude.com/docs/en/hooks).
+
 Select the output style with `/config`, then **Output style**. The standalone
 `/output-style` command was deprecated in v2.1.73 and removed in v2.1.91.
 
@@ -109,8 +121,17 @@ do not see it.
 
 ### GitHub Copilot
 
-The cloud coding agent reads `.github/hooks/` from the default branch only, so the hook
-starts working there once the config is merged, not when you install it.
+Reference: [GitHub Copilot hooks](https://docs.github.com/en/copilot/reference/hooks-reference).
+
+Copilot CLI 1.0.80 reads `.github/hooks/*.json` and merges repository hooks with
+user hooks. The cloud coding agent reads that directory from the default branch.
+Its hook starts working once the config is merged. `--user` remains an explicit
+fallback for older CLI releases and can duplicate calls on current releases.
+
+Repository hooks in prompt mode need one more opt-in. Trust the folder in an
+interactive session, or set `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` for a
+non-interactive run whose hook files you have already reviewed. Without either,
+Copilot skips the repository hook. `plain-english doctor` reports that state.
 
 **The cloud agent treats `ask` as `deny`.** Under the default `failOn: never` a finding is
 advisory in the CLI and blocking in the cloud. If that is not what you want, exclude the
@@ -122,13 +143,16 @@ on that path, which matters more here than anywhere else.
 
 ### OpenAI Codex CLI
 
+Reference: [OpenAI Codex hooks](https://learn.chatgpt.com/docs/hooks).
+
 Two separate approvals stand between an installed hook and a running one. Miss either and
-Codex runs the hook zero times, prints no warning and writes no log line.
+Codex skips the project hook. Current Codex releases warn when an individual hook needs
+review and direct you to `/hooks`; an untrusted project layer is not loaded.
 
 **Folder trust decides whether the file is read at all.** Codex loads
 `<repo>/.codex/hooks.json` only when `~/.codex/config.toml` marks the project trusted.
-Until then it finds no hooks, reports no warning and logs no error. Start a session in the
-repository and answer yes, or write the entry yourself:
+Until then the project layer is not loaded. Start a session in the repository and answer
+yes, or write the entry yourself:
 
 ```toml
 [projects."/absolute/path/to/repo"]
@@ -140,13 +164,14 @@ indistinguishable from a linter with nothing to say.
 
 **Hook trust decides whether it runs.** Starting an interactive session offers this
 straight away, with a "Trust all and continue" option, and `/hooks` does the same later.
-Trust is recorded against the command string, so it is asked again whenever a new version
-of this package is pinned.
+Trust is recorded against the exact hook definition's current hash. A changed definition
+therefore needs another review; updating the package alone does not necessarily change it.
 
-Do that once before any `codex exec` run. Non-interactive mode has nobody to ask, so it
-skips an untrusted hook with nothing printed at all. Once trusted it runs them, verified
-on 0.147.0 for both `PreToolUse` and `UserPromptSubmit`. For a machine with no one at the
-keyboard, `--dangerously-bypass-hook-trust` skips the trust step instead.
+Do that once before any `codex exec` run. Non-interactive mode cannot open the review
+screen, so review the definitions interactively first. Once trusted it runs them, verified
+on 0.147.0 for both `PreToolUse` and `UserPromptSubmit`. For one-off automation that has
+already reviewed the hook source, `--dangerously-bypass-hook-trust` bypasses only hook
+trust for that invocation.
 
 Inside a git worktree, Codex reads the **main** working tree's `.codex/hooks.json` and
 ignores the worktree's own copy. Install in the main checkout;
@@ -157,6 +182,8 @@ inserted lines out of the patch envelope. Added lines are kept per file, so a pa
 touches a README and a source file has only the README judged.
 
 ### Cursor
+
+Reference: [Cursor hooks](https://cursor.com/docs/hooks).
 
 Cursor's documentation contradicts itself about which hook can block a file
 write. One page says only `beforeReadFile` can; another documents `preToolUse`
@@ -172,7 +199,39 @@ The adapter still accepts several spellings for each argument. The captured
 names go first, and the rest cost nothing: a wrong guess falls through, while a
 missing one means reading nothing and allowing the write.
 
+Current Cursor documentation puts advisory context on `postToolUse`, so the
+project config installs both `preToolUse` and `postToolUse`. It also installs
+`stop` and `subagentStop`; a strict chat finding returns `followup_message`,
+which asks Cursor to rewrite the reply.
+
+### Google Gemini CLI
+
+Reference: [Gemini CLI hooks](https://geminicli.com/docs/hooks/reference/).
+
+Gemini reads repository hooks from `.gemini/settings.json`. It asks for trust
+when a project hook is first seen and when the command fingerprint changes.
+The generated config uses `BeforeTool` to refuse strict findings, `AfterTool`
+to add advisory context, and `AfterAgent` to check the completed reply.
+
+Gemini's native file tools are `write_file` and `replace`; shell work uses
+`run_shell_command`. Hook timeouts are milliseconds, unlike the seconds used
+by Codex, Cursor and Vibe.
+
+### Qwen Code
+
+Reference: [Qwen Code hooks](https://qwenlm.github.io/qwen-code-docs/).
+
+Qwen reads repository hooks from `.qwen/settings.json` after the project hook
+fingerprint is trusted. Its native tools are `write_file`, `edit` and
+`run_shell_command`. Chat replies use `Stop` and `SubagentStop`.
+
+Qwen documents `ask`, but a headless run or background subagent converts it to
+a denial. The advisory path therefore returns an explicit `allow` with
+`additionalContext`; strict mode returns `deny`.
+
 ### Mistral Vibe
+
+Reference: [Mistral Vibe hooks](https://docs.mistral.ai/vibe/code/cli/hooks).
 
 Config is `.vibe/hooks.toml`, a TOML array of tables rather than the JSON every other agent
 reads, and this is the only place `init` writes TOML. Vibe reads it only in a folder you
@@ -182,7 +241,9 @@ that case.
 Three events exist and no more: `pre_tool`, `post_tool` and `post_agent`. The vocabulary is
 `allow` and `deny`, with no `ask` in it at all. Sending one is not ignored the way Cursor
 ignores it: the schema is `Literal["allow", "deny"]`, and a reply that fails validation is
-treated as a hook failure. So the advisory tier travels as `system_message` on an allow.
+treated as a hook failure. `system_message` is UI-only, so the advisory tier travels as
+`hook_specific_output.additional_context` on `post_tool`. Strict mode can still deny on
+`pre_tool` before the tool runs.
 
 Two things here are better than on Claude Code, and one is worse.
 
@@ -213,18 +274,21 @@ Two mechanisms, and they do not reach equally far.
 | OpenAI Codex CLI 0.147.0 | `Stop` | yes, `last_assistant_message`, complete | yes | observed |
 | GitHub Copilot CLI 1.0.78 | `Stop` | **no** | yes, in `events.jsonl` | observed |
 | GitHub Copilot CLI 1.0.78 | `subagentStop` | yes, `response` | not applicable | docs |
-| Cursor CLI 2026.08.04 | none | not applicable | not applicable | observed |
+| Cursor CLI 2026.08.04 | no dispatched stop event | not applicable | not applicable | observed, historical |
+| Cursor current | `stop`, `subagentStop` | no, names `transcript_path` | documented | docs, installed by 0.24.0 |
+| Gemini CLI | `AfterAgent` | yes, `prompt_response` | yes | docs |
+| Qwen Code | `Stop`, `SubagentStop` | yes, `last_assistant_message` | documented fallback | docs |
+| Mistral Vibe 2.24.1 | `post_agent` | no, names `transcript_path` | yes | observed |
 
-All five rows were run against the live binary on 2026-08-18 with a tracer registered on
-every event each agent has. What that pass found, in the order it hurt:
+The rows marked observed were run against live binaries with a tracer registered on
+every available event. The newer rows marked docs were checked against each vendor's
+current reference and are kept distinct from a live result.
 
-**Claude Code rejects the flat `Stop` shape, and says nothing.** The documentation shows
-`Stop` as a bare `{ type, command }` in the event array. Written that way, the settings
-file fails validation, and `claude --help` gives the rest: in print mode a settings file
-that fails validation is "silently ignored (no error dialog is shown)". One bad entry
-takes every other hook in the file with it. Nested `{ matcher, hooks }` fires; flat fires
-nothing. Every event in a working settings file on the test machine used the nested shape,
-including the ones documented flat. `init` writes nested, and a test pins it.
+**Claude Code rejects a flat `Stop` registration.** When this was tested, an older version
+of the reference showed `Stop` as a bare `{ type, command }` in the event array. Written
+that way, the settings file failed validation and print mode ignored it. Current Claude
+Code documentation now describes the same three nested levels for every event. `init`
+writes `{ matcher, hooks }`, and a test pins that shape.
 
 **Claude Code does not act on a `Stop` block in print mode.** The hook runs, the block is
 emitted and read, and the turn ends anyway. Isolated with a hook that has nothing to do
@@ -266,12 +330,14 @@ block key.
 reader prefers that over the SQLite store, which can lag the event asking about it.
 Registering both `Stop` and `agentStop` runs the hook twice, so pick one casing.
 
-**Cursor dispatches neither `stop` nor `afterAgentResponse`.** With twelve events
-registered, only `sessionStart` and `sessionEnd` fired. The community reports are right,
-chat on Cursor is ungated, and `lint --chat` is the only thing that reaches it.
+**Cursor's current contract differs from the older live result.** The 2026.08.04
+binary dispatched neither `stop` nor `afterAgentResponse`; current documentation
+defines `stop` and `subagentStop`, with `followup_message` as the retry response.
+The adapter follows the current contract and reads the named JSONL transcript.
 
 Still unverified, and worth saying rather than leaving implied: Claude Code and Codex
-`SubagentStop` blocking, and Copilot's `subagentStop` payload.
+`SubagentStop` blocking, Copilot's `subagentStop` payload, Cursor's current stop events,
+and Gemini and Qwen completed-turn retries.
 
 **Copilot's `modifiedResponse` is deliberately unused.** It would replace a subagent's
 output before the parent sees it, which is a stronger tool than anything else here.
@@ -301,6 +367,8 @@ session write one.
 | Cursor | `~/.cursor/projects/<project>/agent-transcripts/<uuid>/<uuid>.jsonl` | `{role:"assistant", message.content[].text}` | observed, only after docs pointed at the path |
 | GitHub Copilot | `$COPILOT_HOME/session-store.db`, SQLite | `turns.assistant_response`, scoped by `sessions.cwd` | observed, and docs |
 | Mistral Vibe | `$VIBE_HOME/logs/session/session_*/messages.jsonl`, and subagents at `<session>/agents/*/` | `{role:"assistant", content}` as a string, skipping `injected` | observed, and source |
+| Google Gemini CLI | `$GEMINI_CLI_HOME/.gemini/tmp/<project>/chats/*.jsonl` | `type=gemini`, string or text parts, skipping thoughts | docs |
+| Qwen Code | `$QWEN_HOME/projects/<project>/chats/*.jsonl`, with subagents beside it | `type=assistant`, `message.parts[].text`, skipping thoughts | docs |
 
 Four things about that table are worth carrying:
 
@@ -338,13 +406,17 @@ different things get three different names:
 | Claude Code | observed | observed | observed |
 | Cursor | observed | observed | observed |
 | OpenAI Codex CLI | observed | observed, **with two gates, see below** | observed |
-| GitHub Copilot | observed | **observed wrong, see below** | observed |
+| GitHub Copilot | observed, including 1.0.80 `file_text` | observed on 1.0.80 with prompt-mode opt-in | observed |
 | Mistral Vibe | observed | observed, **needs a trusted folder, see below** | observed |
+| Google Gemini CLI | docs | docs, **needs project hook trust** | not yet observed |
+| Qwen Code | docs | docs, **needs project hook trust** | not yet observed |
 
-Cursor was verified against `cursor-agent 2026.08.04-aaa8809` on 2026-08-09.
-`preToolUse` does fire for a `Write` in the CLI, which no source settled either
-way, and the payloads are in `test/corpus/regressions.yml` so a change breaks a
-test rather than going unnoticed. What that session established:
+Cursor's write path was verified against `cursor-agent 2026.08.04-aaa8809` on
+2026-08-09. Its pre/post hooks were checked again on 2026.08.11-e8db854 on
+2026-08-26.
+`preToolUse` does fire for a `Write` in the CLI. No source settled that either
+way. The payloads are in `test/corpus/regressions.yml`, so a change breaks a test
+rather than going unnoticed. What that session established:
 
 - The `Write` arguments are `file_path` and `content`. The adapter had been
   guessing among four spellings because nobody had published them.
@@ -386,7 +458,7 @@ What the live session settled:
 
 - **`post_agent` fires with five keys and no message.** `session_id`,
   `parent_session_id`, `transcript_path`, `cwd`, `hook_event_name`. Three of the
-  four other agents put the reply on the event; Vibe does not, so the transcript
+  several other agents put the reply on the event; Vibe does not, so the transcript
   is the only source there is.
 - **The transcript has caught up by the time the hook runs.** This was the open
   question, because reading a reply that is not written yet would look exactly
@@ -449,9 +521,10 @@ would mean inventing a write, and under `failOn: error` an invented write
 refuses somebody's edit. So on Codex a refusal can be routed around within the
 same turn, and this package does not pretend otherwise.
 
-**Two gates.** Folder trust says nothing at all when it stops a hook. Hook trust
-announces itself properly in an interactive session, and not at all in
-`codex exec`, which has nobody to ask.
+**Two gates.** In the 0.147.0 probe, folder trust stopped discovery without a message and
+hook trust announced itself only in an interactive session. Current Codex documentation
+now promises a startup warning when a hook definition needs review and directs the user
+to `/hooks`. `codex exec` still cannot perform that interactive review.
 
 **A trusted hook does run in `codex exec`.**
 [openai/codex#32491](https://github.com/openai/codex/issues/32491) reports
@@ -471,6 +544,11 @@ the 600 second default. `SessionEnd` is clamped to three seconds with a warning.
 
 ### What a live Copilot session showed
 
+Verified again against GitHub Copilot CLI 1.0.80 on 2026-08-26. The supported
+prompt-mode opt-in loaded `.github/hooks/plain-english.json`. A shell write was
+stopped, then Copilot retried through `Write`; that event named the inserted text
+`file_text`. The adapter now reads that live field, so the retry is checked too.
+
 Verified against `GitHub Copilot CLI 1.0.78` on 2026-08-09, on a Copilot Free
 plan, which does cover the CLI. Two useful confirmations and two problems.
 
@@ -484,34 +562,26 @@ register both:
 
 `asArgs` handles both, which is what it was written for.
 
-**`.github/hooks/*.json` is not read by the CLI.** Copilot's own configuration
-help says repo-level hooks live there, and an identical `sessionStart` hook
-fired from `~/.copilot/hooks/` and did not fire from `.github/hooks/`. Inline
-`hooks` in `.github/copilot/settings.json`, the other documented repo-level
-route, did not fire either. So `init --agent copilot` writes a file the local
-CLI ignores. It is still the right place for the **cloud** coding agent, which
-the documentation says reads it from the default branch and which was not
-tested here.
+**Copilot CLI 1.0.78 did not read `.github/hooks/*.json`.** An identical
+`sessionStart` hook fired from `~/.copilot/hooks/` and did not fire from the
+repository. Current 1.0.80 documentation now states that repository and user
+hooks are both loaded and merged, so the default install follows the current
+contract. The old user location remains available through `--user`.
 
 Reported upstream as
 [github/copilot-cli#1730](https://github.com/github/copilot-cli/issues/1730),
 with a controlled run: one session, the same `sessionStart` hook in all three
 documented locations, and only the user-level one fires.
 
-Until it changes, ask `init` for the location the CLI reads:
+For an older CLI, ask `init` for the compatibility location:
 
 ```bash
 npx plain-english init --agent copilot --user
 ```
 
 `--user` is the only thing that makes `init` write outside the project, and it
-is opt-in for that reason. Without it you get the repository file, which is
-still correct for the cloud agent, plus the manual one-liner:
-
-```bash
-mkdir -p ~/.copilot/hooks
-cp .github/hooks/plain-english.json ~/.copilot/hooks/
-```
+is opt-in for that reason. Do not use both scopes on a current CLI unless you
+intend the same hook to run twice.
 
 **Copilot writes files through the shell.** Asked to edit a markdown file, it
 did not use a write tool. It ran:
@@ -554,9 +624,8 @@ directory after all that is not written at all.
 `--record-verbatim` keeps the prose, and is for a payload you wrote yourself.
 
 `plain-english doctor` reports which agent configs exist, which carry our entry,
-and whether `npx --no-install plain-english` resolves from the project root. A
-global install with no local one makes every hook do nothing, while the config
-still reads correctly.
+and whether the generated launcher can find a repository build, local dependency
+or global install. The launcher never downloads a package while a hook is running.
 
 The linter also says something on its own when a write-shaped call yields no
 path and no text, which is what a renamed field looks like from inside. That
@@ -586,12 +655,12 @@ did not reproduce there: `deny` is enforced for `apply_patch` (`#27833`), and
 `codex exec` does dispatch hooks whose trust has been recorded (`#32491`).
 
 **Cursor.** `updated_input` is silently dropped for the Write tool, so a hook can
-refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely.
-`postToolUse` with `additional_context` has been broken since March (T-C20310),
-which is why the advisory tier uses `preToolUse` instead.
+refuse but cannot rewrite. The `AskQuestion` tool skips hooks entirely. Older
+builds also failed to dispatch some events that current documentation defines;
+capture a payload if `postToolUse` or `stop` is absent on a particular build.
 
 [`verifying-an-adapter.md`](verifying-an-adapter.md) is how each of these was
-checked, and what to do when you add a fifth agent.
+checked, and what to do when you add another agent.
 
 If you run one of these and it behaves differently, that is a bug report worth filing.
 Attach `plain-english doctor` output and the agent's version.
@@ -611,7 +680,7 @@ file and read the output. See [`post-edit-lint.md`](post-edit-lint.md).
 **Editor diagnostics.** See [`editors.md`](editors.md). Several agents read their editor's
 Problems list and treat what they find there as work to do.
 
-Windsurf, Gemini CLI, Antigravity, Cline, opencode and Amp all have real interception
+Windsurf, Antigravity, Cline, opencode and Amp all have real interception
 points and no profile here yet. Adding one is a file in `src/agents/` plus a row in the
 registry; the deciding does not change.
 
@@ -626,7 +695,7 @@ is missing, the profile is picked in this order:
 4. an agent-specific environment variable
 5. Claude Code
 
-Detection is deliberately weak, because four of the five agents send the same field names. Guessing
+Detection is deliberately weak, because several agents send the same field names. Guessing
 wrong is not fatal: every profile parses the shared envelope, so a misdetected agent still
 reads the text correctly and only the reply envelope would be wrong. An agent that cannot
 parse the reply treats the call as unhandled and carries on.

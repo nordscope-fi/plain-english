@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "Write|Edit|MultiEdit",
+        "command": "node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event pre",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "matcher": "Shell",
+        "command": "node .cursor/hooks/plain-english.mjs hook github --agent cursor --event pre",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "matcher": "mcp__linear__save_issue|mcp__linear__save_comment",
+        "command": "node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event pre",
+        "timeout": 30
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "Write|Edit|MultiEdit",
+        "command": "node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event post",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "matcher": "Shell",
+        "command": "node .cursor/hooks/plain-english.mjs hook github --agent cursor --event post",
+        "timeout": 30
+      },
+      {
+        "type": "command",
+        "matcher": "mcp__linear__save_issue|mcp__linear__save_comment",
+        "command": "node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event post",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre",
+        "timeout": 10,
+        "loop_limit": 5
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "command": "node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre",
+        "timeout": 10,
+        "loop_limit": 5
+      }
+    ]
+  }
+}

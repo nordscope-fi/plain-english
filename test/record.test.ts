@@ -8,7 +8,7 @@ import { byId } from "../src/agents/registry.ts";
 import { compile, loadDefault } from "../src/rules.ts";
 
 /**
- * Three of the four adapters were written from vendor documentation, and the
+ * Several adapters were written from vendor documentation, and the
  * documentation was wrong twice. Capturing one real payload settles what
  * reading harder cannot.
  *
@@ -32,11 +32,11 @@ function capture(dir: string, content: string, verbatim = false) {
   const raw = { tool_name: "Write", tool_input: { file_path: resolve(dir, "x.md"), content } };
   const parsed = cursor.parse(raw);
   const d = decide(parsed, "docs", { projectDir: dir, ruleSet });
-  const body = buildCapture(raw, parsed, d, cursor.emit(d, "pre").stdout, {
+  const body = buildCapture(raw, parsed, d, cursor.emit(d, "post").stdout, {
     dir,
     agent: "cursor",
     channel: "docs",
-    event: "pre",
+    event: "post",
     projectDir: dir,
     version: "9.9.9",
     verbatim,
@@ -74,7 +74,7 @@ describe("a capture keeps the shape and drops the prose", () => {
   it("never records the reason, which quotes the matched text back", () => {
     inTmp((dir) => {
       const { body, json } = capture(dir, "We leverage this.");
-      expect(json.stdoutKeys).toEqual(["permission", "additional_context"]);
+      expect(json.stdoutKeys).toEqual(["additional_context"]);
       expect(body).not.toContain("Rewrite the quoted text");
     });
   });
