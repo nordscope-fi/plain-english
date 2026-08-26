@@ -21,7 +21,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 - **`doctor` now reports a Codex project whose folder is trusted but whose hooks are not.** Codex skips those hooks in non-interactive runs, so a clean diagnostic was misleading.
 - **Vibe advisory findings now reach the model through documented `post_tool` additional context.** The old `system_message` response was visible in the interface but did not guide the model after a write.
-- **Generated policy tables no longer turn rule patterns containing a pipe into broken links.** Policy generation also deduplicates shared config files, ignores operator-local agent setup, and distinguishes a Claude compatibility shim from an installed hook.
+- **Generated policy tables no longer turn rule patterns containing a pipe into broken links.** Policy generation also deduplicates shared config files, ignores operator-local agent setup, distinguishes a Claude compatibility shim from an installed hook, and records stable trust requirements instead of one machine's trust decisions.
 - **`init` no longer rewrites or reports unchanged launchers and agent configuration.** A second run now matches its documented no-change behavior.
 
 ## [0.23.0] - 2026-08-26

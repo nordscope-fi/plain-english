@@ -70,7 +70,8 @@ function trustedProject(configPath: string, root: string): boolean {
 function hasHookTrustRecord(configPath: string, hooksPath: string): boolean {
   try {
     const escaped = hooksPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    return readFileSync(configPath, "utf8").includes(`[hooks.state."${escaped}:`);
+    const text = readFileSync(configPath, "utf8");
+    return [escaped, hooksPath].some((path) => text.includes(`[hooks.state."${path}:`));
   } catch {
     return false;
   }

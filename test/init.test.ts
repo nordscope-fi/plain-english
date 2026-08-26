@@ -74,7 +74,8 @@ describe("init", () => {
     // is a shell script that Windows runs through a shell regardless.
     if (process.platform === "win32") {
       expect(statSync(path).isFile()).toBe(true);
-      expect(readFileSync(path, "utf8")).toContain("plain-english hook docs");
+      expect(readFileSync(path, "utf8")).toContain("plain-english.mjs");
+      expect(readFileSync(path, "utf8")).toContain("hook docs");
       return;
     }
 

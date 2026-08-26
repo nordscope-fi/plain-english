@@ -39,9 +39,22 @@ export interface DetectedAgent {
   installed: boolean;
   /** The config files carrying a plain-english entry. */
   files: string[];
-  /** The profile's own diagnosis, such as a folder an agent will not trust. */
+  /** Stable requirements that can stop an installed hook from running. */
   problems: string[];
 }
+
+/**
+ * Trust requirements belong in a checked-in policy; one machine's current
+ * trust decisions do not. `doctor` reports that local state separately.
+ */
+const AGENT_REQUIREMENTS: Partial<Record<string, string>> = {
+  copilot: "repository hooks require folder trust in prompt mode",
+  codex: "requires project trust and review of the current hook definition",
+  cursor: "requires a trusted workspace",
+  vibe: "requires a trusted folder",
+  gemini: "requires project hook trust",
+  qwen: "requires project hook trust",
+};
 
 /**
  * Everything the document needs that is not in the ruleset.
@@ -134,7 +147,7 @@ export function detectAgents(root: string): DetectedAgent[] {
       id: profile.id,
       installed: files.size > 0,
       files: [...files],
-      problems: profile.diagnose?.(root) ?? [],
+      problems: files.size && AGENT_REQUIREMENTS[profile.id] ? [AGENT_REQUIREMENTS[profile.id]!] : [],
     };
   });
 }

@@ -14,12 +14,12 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | Agent | Hook | Notes |
 |---|---|---|
 | claude-code | not installed | no hook runs |
-| copilot | `.github/hooks/plain-english.json` | this project is not in Copilot's trusted folders. An interactive session will ask for trust; prompt mode skips repository hooks unless GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true is set |
-| codex | `.codex/hooks.json` | the installed Codex hooks have no trust record, so non-interactive runs skip them. Start an interactive session and choose 'Trust all and continue', or use /hooks |
-| cursor | `.cursor/hooks.json` |  |
-| vibe | `.vibe/hooks.toml` |  |
-| gemini | `.gemini/settings.json` |  |
-| qwen | `.qwen/settings.json` |  |
+| copilot | `.github/hooks/plain-english.json` | repository hooks require folder trust in prompt mode |
+| codex | `.codex/hooks.json` | requires project trust and review of the current hook definition |
+| cursor | `.cursor/hooks.json` | requires a trusted workspace |
+| vibe | `.vibe/hooks.toml` | requires a trusted folder |
+| gemini | `.gemini/settings.json` | requires project hook trust |
+| qwen | `.qwen/settings.json` | requires project hook trust |
 
 ## The rules in force
 
