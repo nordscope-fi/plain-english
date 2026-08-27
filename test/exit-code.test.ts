@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault } from "../src/rules.ts";
@@ -109,6 +109,21 @@ describe("other commands", () => {
   });
   it("an unknown command exits 2", () => {
     expect(run(["frobnicate"])).toBe(2);
+  });
+
+  it("init names an unknown option and changes nothing", () => {
+    const at = resolve(dir, "unknown-init-option");
+    mkdirSync(at);
+    const result = spawnSync(
+      process.execPath,
+      [CLI, "init", "--agents", "cursor", "--root", at],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("unknown init option '--agents'");
+    expect(existsSync(resolve(at, "AGENTS.md"))).toBe(false);
+    expect(existsSync(resolve(at, ".claude"))).toBe(false);
   });
 });
 
@@ -260,4 +275,3 @@ describe("doctor recognises an install it just wrote", () => {
     expect(line).toContain("no plain-english entry");
   });
 });
-
