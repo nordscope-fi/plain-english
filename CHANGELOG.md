@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-08-27
+### Fixed
+
+- **Stopping a generated offline hook launcher now stops the CLI and every process it started.** Hook timeouts and cancellation no longer leave judges or other commands running when no terminal is attached.
+
 ## [0.24.0] - 2026-08-26
 ### Added
 
@@ -535,7 +540,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.1
 [0.24.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.0
 [0.23.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.23.0
 [0.22.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.22.0
