@@ -203,6 +203,20 @@ If a hook is not firing, or is firing and reading nothing, set
 `PLAIN_ENGLISH_RECORD=./captures` and run the agent again. Each call writes one redacted
 JSON file describing what arrived, which is what an adapter bug report needs.
 
+### Chat assistants without hooks
+
+For Claude on the web, OpenAI's chat assistant known as ChatGPT, or another assistant
+that accepts pasted instructions, attach or paste these two files:
+
+- [`plain-english.md`](integrations/claude-code/output-styles/plain-english.md) tells the
+  assistant how to write its replies.
+- [`ai-writing-policy.md`](docs/ai-writing-policy.md) names this repository's rules and
+  says what happens when one fires.
+
+Do not give the assistant the whole repository. It contains deliberately bad examples
+and reference pages that quote every banned term. Those are test material, not
+instructions.
+
 ### Agents with no adapter
 
 Not every agent has a hook this package speaks, and some have none at all. Three things
