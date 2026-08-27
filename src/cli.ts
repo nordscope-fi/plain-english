@@ -1151,9 +1151,15 @@ async function main(): Promise<number> {
       case "init": {
         // `--claude-code` is still accepted and still does nothing: init wrote
         // the Claude Code hooks unconditionally long before there was a second
-        // agent to choose between. Unknown flags are ignored by parseArgs, so
-        // the command published in earlier READMEs keeps working, and it now
-        // means the same thing as the `--agent claude-code` default.
+        // agent to choose between. The command published in earlier READMEs
+        // keeps working, and it now means the same thing as the
+        // `--agent claude-code` default.
+        const known = new Set(["agent", "claude-code", "dry-run", "root", "user"]);
+        const unknown = Object.keys(args.flags).find((flag) => !known.has(flag));
+        if (unknown) {
+          process.stderr.write(`plain-english: unknown init option '--${unknown}'.\n`);
+          return 2;
+        }
         const requested = args.flags["agent"] === undefined ? undefined : String(args.flags["agent"]);
         let agents;
         if (requested === "all") {
