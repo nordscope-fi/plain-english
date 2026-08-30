@@ -4,302 +4,120 @@
 [![CI](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml/badge.svg)](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml)
 [![licence](https://img.shields.io/npm/l/plain-english.svg)](LICENSE)
 
-Catch AI writing tells before they land in a commit, a doc, or an issue somebody else
-reads. It reads finished text and reports the giveaways, the way a spell checker reports
-misspellings. A tool shaped like that is called a linter.
+Catch stock AI phrases, vague claims, and unexplained jargon before readers see them.
 
-It also plugs into your coding agent, so the check runs before the write happens. Agents
-call that plug-in point a hook. This package speaks the native hook formats used by
-Claude Code, Copilot, Codex, Cursor, Mistral Vibe, Gemini CLI and Qwen Code.
-Everywhere else, it runs as a plain command.
+`plain-english` checks prose in much the same way that a code linter checks source files.
+It reports the exact passage, the rule it broke, and a direct rewrite hint.
+It checks Markdown and plain text.
 
-## Two problems, one tool
-
-**Prose that reads as machine-generated.** AI-generated text reuses a small set of words
-and a handful of sentence shapes. That set is short enough to check exactly.
-
-**Prose nobody can follow.** A different complaint, and the more common one. It usually
-turns out not to be about length. This sentence is 26 words, which is ordinary:
-
-> The OIDC trusted publisher attaches SLSA provenance to the tarball at publish time,
-> which the registry verifies against the workflow identity asserted by the id-token
-> claim.
-
-Nothing in it was ever explained. Five names arrive with no gloss, and the reader carries
-all five to the end. Length is not the fault here. The rule that catches it counts how
-many terms arrived unexplained.
-
-```
-$ plain-english lint docs/
-
+```text
 docs/onboarding.md
-     3:1   block  "Furthermore" (furthermore)  Start the sentence with its own point.
-     3:27  block  "boasts" (boasts)  State the number without the verb: 'uptime is 99.9%'.
-     3:36  block  "seamless" (seamless)  Say what actually happens, or cut the word.
-     4:1   block  "leverage" (leverage)  Use 'use'.
-     6:5    warn  "OIDC" (unglossed-term)  "OIDC" is not explained. Say what it does, then name it.
-     6:37   warn  "SLSA" (unglossed-term)  "SLSA" is not explained. Say what it does, then name it.
+  3:1   block  "Furthermore" (furthermore)  Start the sentence with its own point.
+  3:27  block  "boasts" (boasts)  State the number without the verb.
+  6:5    warn  "OIDC" (unglossed-term)  Explain what "OIDC" does before naming it.
 
-4 blocking, 2 warnings across 2 files
+2 blocking, 1 warning across 1 file
 ```
 
-## Install
+This is a style checker, not an authorship detector. It finds configured patterns no
+matter who wrote them.
+
+## Try it
 
 ```bash
 npm install -D plain-english
 npx plain-english lint .
 ```
 
-Needs Node 20 or newer. No config needed to start: `.plain-english.yml` is optional.
+Node 20 or newer is required. The first run needs no config. Blocking is opt-in. You can
+tune the rules before they stop a build.
 
-## What a finding actually does
+To make blocking findings return a failing exit code, add `.plain-english.yml`:
 
-Nothing, by default. The run above exits 0. Blocking is opt-in: a gate that fires on day
-one, before anyone has tuned the config for their vocabulary, is a gate people learn to
-route around. How to turn it on is in [Config](#config).
-
-## What makes this different from a grep
-
-**Non-prose is never scanned.** Code, frontmatter, blockquotes, link targets and tables
-are blanked before matching, so a sample calling `leverage()` is not a finding and neither
-is a customer quote. The exact list is in
-[`docs/writing-style.md`](docs/writing-style.md#what-is-never-scanned).
-
-**Words with a real technical sense do not block.** `silently`, `quietly`, `mechanical`,
-`holistic` and `dive into` warn instead. Rules also carry exceptions, so `fails silently`,
-`silently drops`, `mechanical keyboard`, `leveraged buyout` and `load-bearing wall`
-produce nothing at all.
-
-**You can escape a finding at five scopes**, narrowest first:
-
-```markdown
-<!-- plain-english-disable-next-line leverage: finance sense -->   one line, one rule
-<!-- plain-english-disable leverage: finance sense -->             a range, until
-<!-- plain-english-enable -->
-<!-- plain-english-disable-file: reference material -->            the whole file
+```yaml
+version: 1
+extends: default
+failOn: error
 ```
 
-Plus an `exclude` list of file patterns and a severity downgrade in config. Every one of
-these came from a real false positive.
+Use `failOn: warn` to fail on warnings too. Use `failOn: never` to keep every run
+advisory.
 
-The text after the colon is the reason. Leaving it out is itself a finding:
-`unexplained-suppression` warns on a waiver that does not say why. The next person to
-read it cannot tell a considered exception from a rule somebody found annoying.
+## What it checks
 
-It is the one rule an in-file directive cannot silence. `disable-file` covers the whole
-document, so a reasonless `disable-file` would be the single waiver nothing could
-report. Turn it off in config if you do not want it.
+The built-in rules cover:
 
-## The rules
+- stock transitions and filler, such as an opener that announces the conclusion;
+- corporate verbs and vague claims that should name a concrete result;
+- punctuation patterns strongly associated with generated prose;
+- acronyms and product names used before they are explained;
+- sentences that are long or show little variation across a document;
+- suppressions that give no reason.
 
-`plain-english explain` lists all of them. `plain-english explain <id>` shows one, with
-its pattern, its exceptions and its rewrite hint.
-
-### Words and punctuation (55 active)
-
-Stock transitions, corporate verbs, buzzwords, AI self-reference, and three punctuation
-rules. Deterministic, tested, and the only tier that can fail a build.
-
-### Sentence shapes (10)
-
-A regex cannot reach these. The optional semantic layer asks a model, using prompts
-generated from the same ruleset.
-
-| Shape | Bad | Good |
-|---|---|---|
-| Binary contrast | "This isn't just a bug. It's a trust problem." | "This bug will make people distrust the report." |
-| Throat-clearing | "Here's the thing: the deal stalled because..." | "The deal stalled because..." |
-| Weasel attribution | "Experts agree this is best practice." | Name the source, or drop the claim. |
-| Fake-strong verbs | "This property serves as a centralized hub for deal stage." | "This property stores the deal stage." |
-
-### Readability and suppressions (4)
-
-These read the shape of a sentence, so there is no term to match. Both are warnings.
-
-- `unglossed-term` fires on an acronym or camel-cased name used before it is explained,
-  on first use only. A term that arrives with its gloss is never reported: "is called X",
-  "known as X", "X stands for Y" and a parenthetical expansion in either order all
-  count. About eighty
-  names a reader already has, such as JSON and GitHub, are exempt by default.
-- `long-sentence` fires past 35 words. Set generously, so that dense but explained
-  writing is left alone.
-- `sentence-spread` warns when a document of at least 20 sentences has almost no
-  variation in sentence length. Its threshold is provisional and documented as such.
-- `unexplained-suppression` warns when a waiver does not say why it exists.
-
-Full list: [`docs/writing-style.md`](docs/writing-style.md), generated from the ruleset.
-
-## Where it runs
-
-| Channel | Deterministic | Semantic |
-|---|---|---|
-| Markdown files | `plain-english lint`, or an agent hook | Claude prompt hook; optional Vibe judge |
-| Commit messages | pre-commit hook, or an agent hook | Claude prompt hook; optional Vibe judge |
-| PR and issue bodies | GitHub Action, or an agent hook | Claude prompt hook; optional Vibe judge |
-| Issue tracker (Linear-shaped tool calls) | agent hook | Claude prompt hook; optional Vibe judge |
-| Editor diagnostics | `--format unix` or `--format sarif` | none |
-| A chat reply | an output style, a stop hook, and `lint --chat` after the fact | none |
-
-The findings file in that table, which editors and GitHub code scanning both read, is
-called SARIF (Static Analysis Results Interchange Format).
-
-Under the default `failOn: never`, an agent hook surfaces a finding and lets you decide.
-Under `failOn: error` it refuses the write outright. The semantic layer rides on a prompt
-hook in Claude Code. Vibe can run the same model-judged pass through its optional local
-judge. The other five agents receive the generated guidance through `AGENTS.md`, but no
-model checks those ten shapes during a write.
-
-### Coding agents
+`plain-english explain` lists every rule. Pass a rule name to see its match, exceptions,
+severity, and rewrite hint:
 
 ```bash
-npx plain-english init --agent claude-code   # default
-npx plain-english init --agent copilot
+npx plain-english explain
+npx plain-english explain unglossed-term
+```
+
+The normal scan is deterministic. An optional model-backed check covers sentence shapes
+that regular expressions cannot judge, such as vague attribution and canned contrasts.
+Agent support for that check varies. [The agent guide](docs/agents.md) records what each
+integration can run.
+
+## What it ignores
+
+The scanner removes code, frontmatter, blockquotes, link targets, and tables before it
+checks prose. A code sample that contains a banned word will not produce a finding.
+
+Rules also include exceptions for valid technical uses. For example, a financial term
+can pass while the same word used as a vague business verb can fail.
+
+[The generated rule guide](docs/writing-style.md) lists the full ruleset, its exceptions,
+and everything excluded from scanning.
+
+## Add it to a coding agent
+
+`init` adds the selected agent's hooks, a local launcher, project instructions, and a
+starter config. It merges with files that already exist.
+
+```bash
+npx plain-english init --agent codex --dry-run
 npx plain-english init --agent codex
-npx plain-english init --agent cursor
-npx plain-english init --agent vibe
-npx plain-english init --agent gemini
-npx plain-english init --agent qwen
-npx plain-english init --agent all
 ```
 
-Each writes that agent's hook config and an offline launcher, merging into whatever is
-already there without disturbing it. It also writes a generated `AGENTS.md` section and
-a starter `.plain-english.yml`.
-Run it twice and nothing changes the second time. Add `--dry-run` to see first.
+The dry run shows the diff first.
 
-The hooks cover file writes, `Bash` (commit and `gh` invocations, including message files
-passed with `-F` or `--body-file`), and Linear-shaped `save_issue` / `save_comment` calls.
-Only the inserted side of an edit is judged, so you can still edit a file that already
-contains a banned term.
+Supported names are `claude-code`, `copilot`, `codex`, `cursor`, `vibe`, `gemini`, and
+`qwen`. Use `--agent all` to install every profile.
 
-The hook protocols overlap enough that seven agents need seven translation tables, not
-seven linters.
+The hooks can check file edits, commit and pull request text, issue text, and completed
+chat replies. Each agent exposes different hook events and trust controls. Read
+[the agent guide](docs/agents.md) before relying on a hook as a gate.
 
-[`docs/agents.md`](docs/agents.md) has the per-agent detail. Four caveats are worth
-knowing before you rely on a hook:
+For agents without a profile, run the linter after each edit. The
+[post-edit guide](docs/post-edit-lint.md) gives a portable setup.
 
-- **Current Copilot reads repository hooks from `.github/hooks/`.** Trust the folder in
-  an interactive session first. Prompt mode skips repository hooks until then unless
-  `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` is set. The `--user` flag is retained only
-  as an explicit fallback for Copilot CLI 1.0.78 and older.
-- **Copilot's cloud agent turns an `ask` into a `deny`**, so the advisory default blocks
-  there.
-- **Codex needs two approvals before any hook runs**, one for the folder and one for the
-  hook itself. Starting an interactive session offers both.
-  [`plain-english doctor`](docs/agents.md#openai-codex-cli) says which one is missing.
-- **Cursor, Vibe, Gemini and Qwen protect project hooks with their own trust prompts.**
-  Review the generated files before approving them.
+## Add it to a build
 
-Under the default `failOn: never` the finding is advisory. Claude Code and Copilot can ask
-before the call. Other agents receive advisory context through the event each vendor
-documents for that purpose; strict mode still refuses before a write where supported.
-[`docs/agents.md`](docs/agents.md#what-the-advisory-default-means-on-each-agent) has the
-table.
+### GitHub Actions
 
-If a finding is wrong and you need past it once, `touch .plain-english-ack-docs` waives
-that channel for ten minutes, then expires on its own. It silences the advisory too.
-
-If a hook is not firing, or is firing and reading nothing, set
-`PLAIN_ENGLISH_RECORD=./captures` and run the agent again. Each call writes one redacted
-JSON file describing what arrived, which is what an adapter bug report needs.
-
-### Chat assistants without hooks
-
-For Claude on the web, OpenAI's chat assistant known as ChatGPT, or another assistant
-that accepts pasted instructions, attach or paste these two files:
-
-- [`plain-english.md`](integrations/claude-code/output-styles/plain-english.md) tells the
-  assistant how to write its replies.
-- [`ai-writing-policy.md`](docs/ai-writing-policy.md) names this repository's rules and
-  says what happens when one fires.
-
-Do not give the assistant the whole repository. It contains deliberately bad examples
-and reference pages that quote every banned term. Those are test material, not
-instructions.
-
-### Agents with no adapter
-
-Not every agent has a hook this package speaks, and some have none at all. Three things
-work regardless:
-
-- **`AGENTS.md`**, written by `init`. Roughly twenty agents read it. It shapes behaviour
-  and enforces nothing.
-- **A post-edit lint command.** Most agents can be told to run a command after editing and
-  act on the output. [`docs/post-edit-lint.md`](docs/post-edit-lint.md) shows the portable
-  loop and an aider configuration.
-- **Editor diagnostics.** Several agents read their editor's Problems list. Findings
-  reach it as `path:line:col` text, or as SARIF.
-  [`docs/editors.md`](docs/editors.md) covers both.
-
-### The policy document
-
-A team adopting a linter usually writes a page saying what the rules are and what
-happens when one fires, then lets it drift from the config. `plain-english policy`
-generates that page instead:
-
-```bash
-npx plain-english policy              # writes docs/ai-writing-policy.md
-npx plain-english policy --check      # exits 1 when it no longer matches, and says
-                                      # which sections moved
+```yaml
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.0.0
+  with:
+    paths: docs README.md
+    fail-on: error
+    check-pr-body: "true"
 ```
 
-It reads the merged config rather than the shipped ruleset, so it describes what your
-repository actually does. The effect of your `failOn`. Which agent hooks are on disk
-right now. The rules in force at your severities, what you changed and why, and every
-waiver in the tree with its stated reason.
-
-Waivers that give no reason get their own heading, which turns them into a number that
-should be going down.
-
-The last section is the one a hand-written policy always leaves out: what nothing in
-the setup can reach. Chat replies, subagents, and the sentence shapes on any agent
-with no prompt hook. [`docs/ai-writing-policy.md`](docs/ai-writing-policy.md) is this
-repository's own, generated the same way and checked in CI.
-
-### Chat
-
-Three things cover chat, with different strength. `init` installs the pieces supported
-by the selected agent.
-
-**An output style**, generated from the ruleset, at three levels. `init` writes all three
-and selects one, so there is nothing to copy and no menu to find:
-
-```
-.claude/output-styles/plain-english-brief.md    "Plain English (brief)"
-.claude/output-styles/plain-english.md          "Plain English"      <- selected
-.claude/output-styles/plain-english-full.md     "Plain English (full)"
-```
-
-Switch between them under `/config` > **Output style**. A style is part of the system
-prompt, which is read once at session start, so a change takes effect after `/clear`.
-Elsewhere the portable equivalent is the `AGENTS.md` section, at the default level.
-
-**A completed-turn hook.** All seven profiles install the current vendor event for a
-finished main-loop or subagent reply. Some events carry the reply; others name the local
-transcript. Under the default `failOn: never` a finding is only reported. Strict retry
-behaviour is documented for every profile, but live verification is not equally strong
-on all seven. [`docs/agents.md`](docs/agents.md#the-chat-channel) separates observed
-behaviour from documented behaviour.
-
-**A scan of what was actually said:**
-
-```bash
-npx plain-english lint --chat --summary
-```
-
-It reads the session transcripts each agent writes locally and reports findings per 1,000
-words, split main loop against subagent. That split is the point: an output style never
-reaches a subagent, so a single number across both hides the one gap it cannot close.
-
-Local only. A transcript holds whatever passed through a tool, so this is never a CI step
-and the GitHub Action takes no `--chat` input.
-[`docs/limitations.md`](docs/limitations.md) covers what each agent reaches and what it
-does not.
+The action fails on blocking findings by default. It can also emit a findings file for
+GitHub code scanning. [The adoption guide](docs/adopting.md) covers a staged rollout.
 
 ### pre-commit
 
-[pre-commit](https://pre-commit.com) is a separate tool that runs checks over staged files
-before a commit is made. If your repo already uses it, add:
+If the repository already uses [pre-commit](https://pre-commit.com), add:
 
 ```yaml
 repos:
@@ -310,242 +128,105 @@ repos:
       - id: plain-english-commit-msg
 ```
 
-### GitHub Actions
+## Configure project vocabulary
 
-```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.0.0
-  with:
-    paths: docs README.md    # default: .
-    fail-on: warn            # default: error
-    check-pr-body: "true"    # default: false
-    version: latest          # pin to a release to freeze the ruleset
-    sarif-file: pe.sarif     # default: none. Upload it yourself; the step
-                             # needs security-events: write.
-```
-
-The action defaults to `fail-on: error`, unlike the command line, which defaults to
-`never`. Failing a build is the reason to add the action, so it starts strict.
-
-## Config
-
-`.plain-english.yml` at the repo root. A project adds vocabulary and exclusions on top of
-the built-in set, and still gets upstream rule fixes.
+Keep the built-in rules with `extends: default`, then add only the project-specific
+differences:
 
 ```yaml
 version: 1
-extends: default            # never fork the ruleset
+extends: default
+failOn: error
 
-failOn: never               # never (default) | error | warn
-
-allow:
-  - "\\bMRR\\b"             # a bare string suppresses every rule on the line
-
-  - pattern: "\\b(Deal|Contact|Company|Ticket)\\b"
-    rules: [unglossed-term]  # this rule only
-    semantic: true           # and tell the model that judges sentence shapes
-
-exclude:                    # files skipped entirely
-  - "docs/writing-style.md"
+exclude:
+  - "docs/reference/**"
   - "CHANGELOG.md"
 
-rules:                      # adjust without copying the file
+rules:
   - id: showcase
     severity: warn
   - id: load-bearing
     severity: off
-    reason: structural engineering, the term is literal here
-  - id: leverage
-    unless:                 # add a domain exception
-      - "\\bleverage\\s+ratio\\b"
+    reason: structural engineering term in this repository
 
 readability:
   - id: unglossed-term
-    known:                  # adds to the defaults, does not replace them
+    known:
       - RevOps
       - ARR
-    emphasis:               # words you shout, which are not acronyms
-      - SHIPPED
 ```
 
-### Severity, label, and `failOn`
+Use a narrow allowance when one rule should ignore a project term:
 
-Three settings decide the outcome, and they are easy to confuse because two of them use
-different words for the same thing:
-
-| | Values | Meaning |
-|---|---|---|
-| Rule severity, in config | `error`, `warn`, `off` | how seriously the rule takes itself |
-| Label, in the output | `block`, `warn` | the same two levels, printed |
-| `failOn`, in config | `never`, `error`, `warn` | what happens as a result |
-
-`failOn` defaults to `never`, so a finding labelled `block` reports and exits 0. The label
-names the rule's tier. What happens as a result is `failOn`'s job. Set `failOn: error` to
-make blocking findings fail the build and refuse a write, or `failOn: warn` to fail on
-everything.
-
-`reason` is optional and nothing validates it. Turning a rule off in config silences it
-in every file, which is broader than any comment, so `plain-english policy` prints the
-reason next to the change.
-
-`allow` and `known` are separate on purpose. `known` reaches `unglossed-term` and
-nothing else. A bare `allow` string reaches everything on the line. That is a large
-promise. In one repository, an entry added so nobody would be asked to gloss the word
-"Deal" was also hiding 247 findings that had nothing to do with vocabulary. Naming
-`rules` narrows it, and `semantic: true` passes the same words to the prompt-based
-layer, which reads no config of its own and so used to ask for a gloss the
-deterministic rules had been told to skip.
-
-`plain-english lint --show-suppressed` prints what each entry hid, per rule, and names
-the entries that hid nothing. Without the flag a run that suppressed something says so
-in one line. In that same repository nine of the eleven entries suppressed nothing at
-all, and finding that out meant removing them one at a time.
-
-An unknown key is a hard error with a suggestion. A typo'd `allowlist:` used to suppress
-nothing while looking like it worked.
-
-See [`examples/revops.yml`](examples/revops.yml) for a filled-in config, and
-[`docs/adopting.md`](docs/adopting.md) for a rollout order that does not annoy everyone.
-
-## CLI
-
-```
-plain-english lint [PATH...]       lint files or directories (default: stdin)
-plain-english lint --chat          lint what agents said in the chat window
-plain-english render               regenerate docs/ and prompt templates
-plain-english policy               generate this repository's effective policy
-plain-english explain [RULE]       show a rule, or list them all
-plain-english doctor               environment dump for bug reports
-plain-english init                 wire this repo up
-plain-english hook <CHANNEL>       hook adapter (docs|github|issue|chat)
-
-LINT OPTIONS
-  --format text|json|unix|github|sarif
-                                     output shape (default: text).
-                                     unix is path:line:col for editors.
-  --fail-on never|error|warn         exit-code threshold (default: never)
-  --show-suppressed                  what the allow entries hid, per entry and
-                                     per rule, and which hid nothing
-
-LINT --chat OPTIONS
-  Reads local agent transcripts. Never run this in CI: transcripts can contain
-  file contents, command output and pasted text.
-
-  --agent ID|all                     claude-code, copilot, codex, cursor, vibe,
-                                     gemini, qwen
-                                     (default: all)
-  --since DAYS                       how far back to look (default: 30)
-  --all-projects                     every project, not just this repository
-  --summary                          rate per 1,000 words, main loop against
-                                     subagents
-
-RENDER OPTIONS
-  --check                            exit 1 if generated files are stale
-  --root PATH                        repo root (default: cwd)
-
-POLICY OPTIONS
-  --out PATH                         where to write it
-                                     (default: docs/ai-writing-policy.md)
-  --check                            exit 1 if the policy is stale
-  --root PATH                        repo root (default: cwd)
-
-INIT OPTIONS
-  --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, vibe, gemini, qwen, or all
-  --user                             also write outside the repo, under ~.
-                                     Copilot compatibility fallback only.
-  --dry-run                          print what would change
-  --root PATH                        repo root (default: cwd)
-
-HOOK OPTIONS
-  --agent ID                         which agent's protocol to speak.
-                                     Detected from the payload when omitted.
-  --event pre|post                   pre refuses before the write, post tells
-                                     the model after it (default: pre)
-
-  --version                          print the version and exit
-
-Set PLAIN_ENGLISH_RECORD=<dir> to write each hook payload there, redacted, for
-reporting an adapter bug. Add --record-verbatim only for a payload you wrote
-yourself.
+```yaml
+allow:
+  - pattern: "\\bMRR\\b"
+    rules: [unglossed-term]
+    semantic: true
 ```
 
-Exit codes: 0 clean or advisory, 1 a finding at or above `failOn`, 2 a bad path or a
-config error.
+A bare pattern suppresses every rule on a matching line. Naming the affected rules avoids
+hiding unrelated findings. Check the cost of each allowance with:
 
-`--format github` emits annotations your build shows inline on a pull request.
-`--format unix` feeds an editor, and `--format sarif` feeds GitHub code scanning. Attach
-`doctor` output to a bug report.
+```bash
+npx plain-english lint --show-suppressed
+```
 
-## One hand-written source
+A complete example lives in [`examples/revops.yml`](examples/revops.yml).
 
-`rules/default.yml` is edited by hand. `plain-english render` generates nine files from it:
+## Suppress one passage
 
-- `docs/writing-style.md`
-- `integrations/agents-md/plain-english.md`
-- `integrations/claude-code/output-styles/plain-english{,-brief,-full}.md`
-- `integrations/claude-code/prompts/{docs,github,issue}.txt`
-- `integrations/claude-code/skills/writing-a-document/SKILL.md`
+Every suppression needs a reason after the colon.
 
-The build fails if any of them drift, which keeps the docs, the regexes, the prompt text
-and the output style saying the same thing. Never edit a generated file; edit the ruleset
-and re-render.
+```markdown
+<!-- plain-english-disable-next-line leverage: finance term -->
+<!-- plain-english-disable leverage: quoted customer wording -->
+Text in the disabled range.
+<!-- plain-english-enable -->
+<!-- plain-english-disable-file: generated reference -->
+```
 
-Adding a rule means adding a corpus case that blocks and a case that exercises its
-exceptions. `npm test` refuses to pass if a rule has neither.
+Use project config for a repeated exception. Use a comment for a passage that should stay
+unusual and visible to the next reader.
 
-## How this relates to other tools
+## Other commands
 
-The rules here are not original, and the sources are worth reading directly.
-
-| Project | What it is |
+| Command | Purpose |
 |---|---|
-| [Wikipedia:Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing) | The canonical catalogue of these patterns, maintained by WikiProject AI Cleanup. Describes itself as observations, not rules. |
-| [stop-slop](https://github.com/hardikpandya/stop-slop) | A skill file that tells a model what to avoid writing. Generation side. |
-| [Vale](https://github.com/errata-ai/vale) | A general prose linter with a much larger rule surface and a style-package ecosystem. |
-| [textlint](https://github.com/textlint/textlint), [alex](https://github.com/get-alex/alex) | Pluggable prose linting on the unified stack. |
+| `plain-english lint --chat --summary` | Check local agent transcripts and separate main replies from subagent replies. |
+| `plain-english policy` | Write a policy page from the active config and installed hooks. |
+| `plain-english policy --check` | Fail when that generated policy no longer matches the repo. |
+| `plain-english doctor` | Print the environment details needed for a hook bug report. |
+| `plain-english render --check` | Check that generated rules and agent instructions are current. |
+| `plain-english --help` | Show all commands, formats, and exit behaviour. |
 
-stop-slop and the Wikipedia list describe the patterns. This runs them against text that
-already exists, deterministically, with a test corpus and an exit code. To make a model
-write better in the first place, use a skill file or the output style above. To check what
-landed, use this.
+Chat transcripts can contain file contents, command output, and pasted text. Keep
+`lint --chat` on the local machine. Do not run it in a build.
 
-For general prose linting beyond AI tells, use Vale. It is a bigger tool and it is very
-good.
+## Limits
+
+The rules are opinionated and English-only. False positives are expected. Some words in
+the list are normal in a dialect, profession, or second-language writing style. The tool
+cannot prove that text came from a model.
+
+Read [the limitations](docs/limitations.md) before turning on blocking for a team. That
+page also states which parts of chat each agent integration cannot reach.
 
 ## Contributing
 
-Every bug that reaches a user becomes a permanent fixture in
-`test/corpus/regressions.yml`. A case in `test/corpus/cases.yml` is a complete bug report
-for a false positive.
-
-Adding another agent, or checking an existing one against a live binary, is
-[`docs/verifying-an-adapter.md`](docs/verifying-an-adapter.md). It is worth
-reading first: several defects survived schema and documentation review and
-appeared only in a real session.
-
 ```bash
 npm ci
-npm run build                             # render and the exit-code tests need dist/
+npm run build
 npm test
-npm run render && git diff --exit-code    # generated files must be current
-npm run lint:self                         # this repo passes its own linter
+npm run render && git diff --exit-code
+npm run lint:self
 ```
 
-## Limitations
+Rules live in `rules/default.yml`. Generated guides and agent files should not be edited
+by hand. A rule change needs corpus cases for the finding and its valid exceptions.
 
-[`docs/limitations.md`](docs/limitations.md) covers what this gets wrong and who it gets
-wrong for: the published false-positive rate against non-native English writers, dialect
-exposure in the word list, English-only scope, and why the signal decays. Read it before
-turning on blocking.
-
-## Design notes
-
-[`docs/design-rationale.md`](docs/design-rationale.md) covers why the checks run before
-the write, why there are two layers, and the calibration problem the semantic layer has.
-
-Each of those decisions also has a record of its own under
-[`docs/architecture/adr/`](docs/architecture/adr/README.md), with the alternatives that
-lost and what would make it worth revisiting.
+See [the documentation index](docs/README.md) for agent verification, design decisions,
+editor output, and release notes.
 
 ## Licence
 
