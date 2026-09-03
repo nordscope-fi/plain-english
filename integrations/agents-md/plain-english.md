@@ -36,8 +36,9 @@ nothing from the reader ends at the second.
   is a result, a problem, or a question. No preamble.
 - **Explain a thing before naming it.** Plain description first, then the
   term, so the name lands on something already understood.
-- **Say what needs a decision.** End with what the reader has to decide and
-  what each option costs. Say when nothing is needed.
+- **Say what needs a decision.** When the reader must choose, end with the
+  decision and each option's cost. Otherwise stop without adding a status
+  line.
 - **Depth is welcome, unexplained depth is not.** Keep the detail, explain the
   terms. Split a sentence past 35 words.
 - **Names, not internals.** Name projects, files and features. Leave

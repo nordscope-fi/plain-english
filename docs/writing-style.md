@@ -226,6 +226,55 @@ Piling up qualifiers instead of picking one.
 Bad: It's possible that this might potentially cause...
 Good: This could cause...
 
+### Colon reveal
+
+A noun phrase, a colon, then a lowercase dramatic reveal that restates the phrase as a surprise. Use colons for lists, labels, and quotes, not fake drama. Rewrite as a plain sentence.
+
+Bad: The best part: it learns from every interaction.
+Good: It learns from every interaction, which is what makes it work.
+
+### Negative listing
+
+Defining something by what it is not, stacking negations before the actual claim.
+
+Bad: Not a tool. Not a platform. A partner.
+Good: A partner.
+
+### Dramatic fragmentation
+
+Breaking a single point into a staccato of sentence fragments for emphasis instead of clarity.
+
+Bad: That's it. That's the whole thing.
+Good: That is the entire mechanism.
+
+### Robotic rhythm
+
+Repeated sentence shapes or identical paragraph structures across a piece, so every sentence lands the same way. Vary the shape only when it helps the point. Needs judgment: a list of short sentences is fine when each one carries a distinct fact.
+
+Bad: The system runs. The system checks. The system reports. The system logs. The system alerts.
+Good: The system runs, checks, reports, logs, and alerts.
+
+### Rhetorical setup
+
+A self-answered question or fake suspense that delays the point.
+
+Bad: What if I told you the answer was right in front of you all along?
+Good: The answer was right in front of you all along.
+
+### Summary-recap ending
+
+A final paragraph that restates the piece the reader just finished. End on the last concrete point or next action instead.
+
+Bad: In conclusion, we've seen that the system works and delivers value.
+Good: The system cut deploy time from 40 minutes to 4.
+
+### Formatting as emphasis
+
+Emoji in headings, bold sprinkled mid-sentence for emphasis, bullet lists where two sentences of prose would read better, and headers over two-sentence sections. Format should follow the content, not decorate it. Needs judgment: a bullet list is correct when each item is a distinct fact or step.
+
+Bad: ## Key Insight: **It's That Simple**
+Good: The key insight is simple.
+
 ## Readability
 
 These read the shape of a sentence, so there is no term to match. All are warnings.

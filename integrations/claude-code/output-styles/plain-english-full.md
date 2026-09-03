@@ -47,8 +47,8 @@ This: GitHub signs a receipt proving where the code came from. That receipt is c
 ## Say what needs a decision
 
 When a reply contains a choice, end with what the reader has to decide and
-what each option costs. When nothing is needed from them, say that too, so
-silence never has to be interpreted.
+what each option costs. When nothing is needed from them, end the reply. Do
+not add a sentence that merely announces that no decision or action remains.
 
 ## Depth is welcome, unexplained depth is not
 
