@@ -86,7 +86,7 @@ See `examples/revops.yml` for a filled-in example.
 ## 4. Turn it on in CI before turning it on locally
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.0.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.2.0
   with:
     paths: docs README.md
     fail-on: warn      # start loud, tighten later
@@ -107,7 +107,7 @@ For git, whatever your agent:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.0.0
+    rev: v1.2.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
