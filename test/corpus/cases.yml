@@ -1221,3 +1221,37 @@ cases:
   - name: "the same words mid-sentence pass"
     expect: pass
     text: "It matters more than the cache size, which is why the retry runs twice."
+
+  # ==========================================================================
+  # Sentence shapes (structures). These are semantic-only, so they produce
+  # no deterministic findings. The pass cases here are the good versions; the
+  # bad examples live in rules/default.yml as reference material.
+  # ==========================================================================
+
+  - name: "colon reveal rewritten as plain sentence passes"
+    expect: pass
+    text: "It learns from every interaction, which is what makes it work."
+
+  - name: "negative listing rewritten passes"
+    expect: pass
+    text: "The app is a partner, not a tool or a platform."
+
+  - name: "dramatic fragmentation rewritten passes"
+    expect: pass
+    text: "That is the entire mechanism."
+
+  - name: "robotic rhythm rewritten passes"
+    expect: pass
+    text: "The system runs, checks, reports, logs, and alerts."
+
+  - name: "rhetorical setup rewritten passes"
+    expect: pass
+    text: "The answer was right in front of you all along."
+
+  - name: "summary-recap rewritten passes"
+    expect: pass
+    text: "The system cut deploy time from 40 minutes to 4."
+
+  - name: "formatting slop rewritten passes"
+    expect: pass
+    text: "The key insight is simple."

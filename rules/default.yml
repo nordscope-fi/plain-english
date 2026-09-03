@@ -861,6 +861,60 @@ structures:
     bad: "It's possible that this might potentially cause..."
     good: "This could cause..."
 
+  - id: colon-reveal
+    name: "Colon reveal"
+    description: >-
+      A noun phrase, a colon, then a lowercase dramatic reveal that restates the
+      phrase as a surprise. Use colons for lists, labels, and quotes, not fake
+      drama. Rewrite as a plain sentence.
+    bad: "The best part: it learns from every interaction."
+    good: "It learns from every interaction, which is what makes it work."
+
+  - id: negative-listing
+    name: "Negative listing"
+    description: "Defining something by what it is not, stacking negations before the actual claim."
+    bad: "Not a tool. Not a platform. A partner."
+    good: "A partner."
+
+  - id: dramatic-fragmentation
+    name: "Dramatic fragmentation"
+    description: "Breaking a single point into a staccato of sentence fragments for emphasis instead of clarity."
+    bad: "That's it. That's the whole thing."
+    good: "That is the entire mechanism."
+
+  - id: robotic-rhythm
+    name: "Robotic rhythm"
+    description: >-
+      Repeated sentence shapes or identical paragraph structures across a piece,
+      so every sentence lands the same way. Vary the shape only when it helps
+      the point. Needs judgment: a list of short sentences is fine when each one
+      carries a distinct fact.
+    bad: "The system runs. The system checks. The system reports. The system logs. The system alerts."
+    good: "The system runs, checks, reports, logs, and alerts."
+
+  - id: rhetorical-setup
+    name: "Rhetorical setup"
+    description: "A self-answered question or fake suspense that delays the point."
+    bad: "What if I told you the answer was right in front of you all along?"
+    good: "The answer was right in front of you all along."
+
+  - id: summary-recap
+    name: "Summary-recap ending"
+    description: "A final paragraph that restates the piece the reader just finished. End on the last concrete point or next action instead."
+    bad: "In conclusion, we've seen that the system works and delivers value."
+    good: "The system cut deploy time from 40 minutes to 4."
+
+  - id: formatting-slop
+    name: "Formatting as emphasis"
+    description: >-
+      Emoji in headings, bold sprinkled mid-sentence for emphasis, bullet lists
+      where two sentences of prose would read better, and headers over
+      two-sentence sections. Format should follow the content, not decorate it.
+      Needs judgment: a bullet list is correct when each item is a distinct fact
+      or step.
+    bad: "## Key Insight: **It's That Simple**"
+    good: "The key insight is simple."
+
 # ---------------------------------------------------------------------------
 # Chat.
 #
@@ -1036,11 +1090,12 @@ chat:
 
     - id: say-what-needs-a-decision
       name: "Say what needs a decision"
-      short: "End with what the reader has to decide and what each option costs. Say when nothing is needed."
+      short: "When the reader must choose, end with the decision and each option's cost. Otherwise stop without adding a status line."
       description: >-
         When a reply contains a choice, end with what the reader has to decide
-        and what each option costs. When nothing is needed from them, say that
-        too, so silence never has to be interpreted.
+        and what each option costs. When nothing is needed from them, end the
+        reply. Do not add a sentence that merely announces that no decision or
+        action remains.
       levels: [brief, standard, full]
 
     - id: depth-is-welcome
@@ -1273,7 +1328,11 @@ chat:
     # fuller week before treating 13 as settled.
     - id: reply-pace
       kind: reply-pace
-      severity: error
+      # Advisory until the provisional four-reply calibration survives the
+      # private transcript benchmark. A mean sentence length does not measure
+      # the variation the rule's message asks for, and blocking at 13 produced
+      # a clear false positive at 14.3 words per sentence on 2026-08-30.
+      severity: warn
       maxMeanWords: 13
       # A two-sentence answer has no pace. Without this the rule would fire on
       # a one-line answer that happened to need twenty words.
