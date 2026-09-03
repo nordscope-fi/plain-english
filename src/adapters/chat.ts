@@ -209,7 +209,16 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   // about whether a lint run fails a build, and a reply has no build to fail.
   const tier = base.chat?.failOn ?? ruleSet.failOn;
   const failing = tier === "warn" ? findings : findings.filter((f) => f.severity === "error");
-  if (!failing.length) return { allow: true, decision: "allow", findings, ...timedOut };
+
+  // `reply-pace` ships as `warn` while its calibration is provisional. It is
+  // still in the judgeable set, so collect judgeable findings from all
+  // findings, not just the failing tier. The tier decides whether it blocks,
+  // not whether the judge sees it.
+  const allJudgeable = findings.filter((f) => JUDGEABLE.has(f.ruleId));
+
+  if (!failing.length && !allJudgeable.length) {
+    return { allow: true, decision: "allow", findings, ...timedOut };
+  }
 
   if (hasAck("chat", opts.projectDir, now)) {
     return { allow: true, decision: "allow", findings, ...timedOut };
@@ -220,8 +229,8 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   // reply the reader wanted. Anything else failing skips this entirely, which
   // is what keeps the model call on roughly one reply in ten rather than all
   // of them.
-  if (opts.judge && failing.every((f) => JUDGEABLE.has(f.ruleId))) {
-    const verdict = opts.judge(reply, failing);
+  if (opts.judge && allJudgeable.length > 0 && (failing.length === 0 || failing.every((f) => JUDGEABLE.has(f.ruleId)))) {
+    const verdict = opts.judge(reply, allJudgeable);
     if (verdict?.ok) {
       return { allow: true, decision: "allow", findings, ...timedOut };
     }
