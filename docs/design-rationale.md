@@ -8,6 +8,17 @@ This is the narrative version. Each decision below also has a record of its own 
 
 AI-generated writing has predictable tells: a small set of overused words, plus a handful of sentence shapes (a contrast cliche, a throat-clearing opener, an unnamed-authority claim, a fake-strong verb dressing up a plain fact). New AI-written text keeps arriving. The check has to run at write time, in every channel where text gets produced.
 
+## What the check does not do
+
+The check catches tells. It does not rewrite prose, and it does not flatten the writer's voice. A rough draft with a real voice should still sound like the same person after the flagged words are removed.
+
+This distinction matters for two decisions the ruleset makes:
+
+- The fifteen words deliberately absent from the ruleset (surface, vector, primitive, and the rest listed in `rules/default.yml` as candidates) are ordinary working vocabulary in some domains. Banning them would flag real prose that happens to use them, which is a false positive that costs the writer time. The bar for adding a word is evidence of misuse, not just of existence.
+- The `warn` severity exists for words that have a legitimate sense the `unless` clauses might not catch. A warning reports the finding and lets the writer decide. An error stops the write. The split is based on whether the word has an ordinary technical or domain sense, not on how often AI overuses it.
+
+The voice-preservation principle comes from no-ai-slop, which frames the editor's job as "make the minimum effective edit" and treats the writer's vocabulary, cadence, and digressions as traits to keep. plain-english applies the same idea at the rule level: the ruleset catches the tells and leaves the rest alone.
+
 ## Why two layers
 
 [ADR-001](architecture/adr/001-two-layer-detection.md)
@@ -17,6 +28,22 @@ A word list matches exact terms in about a millisecond and is fully testable. It
 A model can see those, and costs a network round trip. It is also the layer that gets calibration wrong, in a specific and repeatable way documented below.
 
 Running both means the cheap layer carries the load it can carry, and the expensive layer is the only thing that can be wrong in an unbounded way.
+
+## The shape catalogue
+
+The original nine shapes covered the most common tells: binary contrast, throat-clearing, faux-insight, physical metaphor, weasel attribution, fake-strong verbs, meta-commentary, synonym cycling, and hedging stacks.
+
+Seven more shapes were added after reviewing no-ai-slop, which covers twenty-plus. The additions are shapes a regex cannot match and the model judge was not previously instructed to look for:
+
+- **Colon reveal** -- a noun phrase, a colon, then a lowercase dramatic reveal.
+- **Negative listing** -- defining by stacking what something is not.
+- **Dramatic fragmentation** -- a single point broken into staccato fragments.
+- **Robotic rhythm** -- repeated sentence shapes across a piece.
+- **Rhetorical setup** -- a self-answered question or fake suspense.
+- **Summary-recap ending** -- a final paragraph restating the piece.
+- **Formatting as emphasis** -- emoji headings, mid-sentence bold, headers over tiny sections.
+
+Three of these (robotic rhythm, formatting as emphasis, summary-recap ending) need judgment about the whole document, not a single sentence. The model judge handles that. The rest are sentence-level shapes the judge can quote a substring for.
 
 ## Why block before the write
 

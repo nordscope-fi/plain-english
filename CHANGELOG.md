@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-03
+### Added
+
+- **Seven new sentence shapes for the semantic layer.** Colon reveal, negative listing, dramatic fragmentation, robotic rhythm, rhetorical setup, summary-recap ending, and formatting as emphasis. The shapes come from reviewing no-ai-slop, which covers a wider set than the original nine.
+
 ## [1.0.0] - 2026-08-27
 ### Fixed
 
@@ -545,7 +550,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.2.0
 [1.0.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.0.0
 [0.24.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.1
 [0.24.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.0

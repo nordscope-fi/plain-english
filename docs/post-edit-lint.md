@@ -56,7 +56,7 @@ An agent that has none of the above still commits. `pre-commit` catches that:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.0.0
+    rev: v1.2.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
