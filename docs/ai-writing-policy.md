@@ -23,7 +23,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-55 word and punctuation rules, 29 of them blocking, plus 10 sentence shapes judged by a model and 4 readability rules.
+55 word and punctuation rules, 29 of them blocking, plus 17 sentence shapes judged by a model and 4 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
@@ -113,6 +113,6 @@ A style reaches the main conversation and a fork, which inherits the parent's sy
 
 `plain-english lint --chat` reads what was actually said, from the transcripts each agent writes locally, and splits the rate by main loop against subagent. It is local only: a transcript holds whatever passed through a tool.
 
-The 10 sentence shapes need a model to judge them, so they are checked by Claude Code's prompt hooks and by Vibe's optional local judge. For Copilot, Codex, Cursor, Gemini and Qwen they are guidance in `AGENTS.md`; no runtime model judge is installed.
+The 17 sentence shapes need a model to judge them, so they are checked by Claude Code's prompt hooks and by Vibe's optional local judge. For Copilot, Codex, Cursor, Gemini and Qwen they are guidance in `AGENTS.md`; no runtime model judge is installed.
 
 The rules describe how models wrote in 2024 and 2025. Vendors suppress known tells, so this list decays and needs maintenance.
