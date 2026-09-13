@@ -21,6 +21,7 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
@@ -157,14 +158,14 @@ export const cursor: AgentProfile = {
           at: ["hooks", "stop"],
           shape: "flat" as const,
           defaults: { version: 1 },
-          entries: [{ type: "command", command: command("chat"), timeout: 10, loop_limit: 5 }],
+          entries: [{ type: "command", command: command("chat"), timeout: CHAT_HOOK_TIMEOUT_SECONDS, loop_limit: 5 }],
         },
         {
           path: ".cursor/hooks.json",
           at: ["hooks", "subagentStop"],
           shape: "flat" as const,
           defaults: { version: 1 },
-          entries: [{ type: "command", command: command("chat"), timeout: 10, loop_limit: 5 }],
+          entries: [{ type: "command", command: command("chat"), timeout: CHAT_HOOK_TIMEOUT_SECONDS, loop_limit: 5 }],
         },
       ],
       shims: [{ path: RUNNER, body: HOOK_RUNNER }],

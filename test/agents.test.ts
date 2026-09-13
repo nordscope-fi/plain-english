@@ -6,6 +6,7 @@ import { ackPath, decide, type Decision } from "../src/adapters/hook.ts";
 import { PROFILES, agentIds, byId, resolveProfile } from "../src/agents/registry.ts";
 import { parseApplyPatch } from "../src/agents/fields.ts";
 import { compile, loadDefault, type RuleSet } from "../src/rules.ts";
+import { CHAT_HOOK_TIMEOUT_MS, CHAT_HOOK_TIMEOUT_SECONDS } from "../src/chat/budget.ts";
 
 const BAD = "We leverage this.";
 const advisory: RuleSet = compile({ ...loadDefault(), failOn: "never" });
@@ -551,6 +552,35 @@ describe("the registry stays consistent with itself", () => {
       ].join(" ");
       expect(commands, `${p.id} does not pass --agent ${p.id}`).toContain(`--agent ${p.id}`);
       expect(plan.config.length, `${p.id} installs nothing`).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives every chat hook enough time to contain the judge pipeline", () => {
+    const visit = (value: unknown, found: number[]): void => {
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item, found);
+        return;
+      }
+      if (!value || typeof value !== "object") return;
+      const row = value as Record<string, unknown>;
+      const command = [row["command"], row["bash"], row["powershell"]]
+        .filter((part): part is string => typeof part === "string")
+        .join(" ");
+      if (/plain-english-chat|hook\s+chat/.test(command)) {
+        const timeout = row["timeoutSec"] ?? row["timeout"];
+        if (typeof timeout === "number") found.push(timeout);
+      }
+      for (const child of Object.values(row)) visit(child, found);
+    };
+
+    for (const profile of PROFILES) {
+      const found: number[] = [];
+      visit(profile.plan({ prompts: {}, model: "m" }).config, found);
+      expect(found.length, `${profile.id} has no timed chat hook`).toBeGreaterThan(0);
+      const expected = profile.id === "gemini" || profile.id === "qwen"
+        ? CHAT_HOOK_TIMEOUT_MS
+        : CHAT_HOOK_TIMEOUT_SECONDS;
+      expect(found, profile.id).toEqual(found.map(() => expected));
     }
   });
 

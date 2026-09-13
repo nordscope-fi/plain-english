@@ -25,7 +25,7 @@ import {
   POST_BUDGET_MS,
   type Channel,
 } from "./adapters/hook.ts";
-import type { HookEvent } from "./agents/profile.ts";
+import type { ConfigFile, HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
 import {
   isJudge,
@@ -42,6 +42,7 @@ import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
 import { matchesAny } from "./glob.ts";
 import { buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
+import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, nextJudgeTimeout } from "./chat/budget.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
@@ -757,6 +758,9 @@ function hookChat(
 
   const cwd = typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd();
   const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
+  // One deadline covers both optional model calls. Giving each call its own
+  // full timeout allowed the pipeline to outlive the host hook around it.
+  const judgeDeadline = Date.now() + CHAT_JUDGE_PIPELINE_MS;
 
   const decision = decideChat(reply, {
     /**
@@ -769,13 +773,17 @@ function hookChat(
       if (isJudge()) return undefined;
       const prompts = renderPrompts(ruleSetFor(cwd));
       const input = judgeInput(r, lastAsked(payload, reader), findings);
-      const run = (prompt: string) =>
-        runJudge(input, {
+      const run = (prompt: string) => {
+        const timeoutMs = nextJudgeTimeout(judgeDeadline);
+        if (timeoutMs === 0) return undefined;
+        return runJudge(input, {
           prompt,
           command: "claude",
           args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
           cwd: resolve(cwd),
+          timeoutMs,
         });
+      };
 
       /**
        * Can this reply be read? Asked first, and asked on its own.
@@ -799,14 +807,7 @@ function hookChat(
 
       const prompt = prompts["chat"];
       if (!prompt) return undefined;
-      const verdict = runJudge(input, {
-        prompt,
-        command: "claude",
-        // No tools, no file reads, one turn. The judge answers a question
-        // about text it was handed and has no business touching the repo.
-        args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
-        cwd: resolve(cwd),
-      });
+      const verdict = run(prompt);
       // The reason is shown to the reader and sent back to the model, so it is
       // this package speaking and it is held to this package's rules. Caught
       // live on the first end-to-end run: the judge refused a reply and put an
@@ -1132,6 +1133,57 @@ function writingProfileStatus(root: string): string {
   }
 }
 
+/** Report an installed chat hook whose host can kill it before judging ends. */
+function staleChatTimeout(source: string, file: ConfigFile, agent: string): string | undefined {
+  if (!source) return undefined;
+  const seconds: number[] = [];
+
+  if (file.format === "toml") {
+    for (const block of source.split(/(?=\[\[hooks\]\])/)) {
+      if (!/plain-english-chat|hook\s+chat/.test(block)) continue;
+      const hit = /^timeout\s*=\s*(\d+(?:\.\d+)?)\s*$/m.exec(block);
+      if (hit) seconds.push(Number(hit[1]));
+    }
+  } else {
+    let value: unknown;
+    try {
+      value = JSON.parse(source);
+      for (const key of file.at) {
+        if (!value || typeof value !== "object") return undefined;
+        value = (value as Record<string, unknown>)[key];
+      }
+    } catch {
+      return undefined;
+    }
+    if (!Array.isArray(value)) return undefined;
+    const hooks = file.shape === "nested"
+      ? value.flatMap((group) => {
+          if (!group || typeof group !== "object") return [];
+          const nested = (group as Record<string, unknown>)["hooks"];
+          return Array.isArray(nested) ? nested : [];
+        })
+      : value;
+    const milliseconds = agent === "gemini" || agent === "qwen";
+    for (const hook of hooks) {
+      if (!hook || typeof hook !== "object") continue;
+      const row = hook as Record<string, unknown>;
+      const command = [row["command"], row["bash"], row["powershell"]]
+        .filter((part): part is string => typeof part === "string")
+        .join(" ");
+      if (!/plain-english-chat|hook\s+chat/.test(command)) continue;
+      const timeout = row["timeoutSec"] ?? row["timeout"];
+      if (typeof timeout === "number") {
+        seconds.push(milliseconds ? timeout / 1000 : timeout);
+      }
+    }
+  }
+
+  const shortest = seconds.length ? Math.min(...seconds) : undefined;
+  if (shortest === undefined || shortest * 1000 >= CHAT_HOOK_TIMEOUT_MS) return undefined;
+  const wanted = CHAT_HOOK_TIMEOUT_MS / 1000;
+  return `chat hook timeout is ${shortest}s; run plain-english init --agent ${agent} to set ${wanted}s`;
+}
+
 /**
  * Which agent configs exist here, and whether they are ours.
  *
@@ -1143,18 +1195,25 @@ function agentReport(root: string): string[] {
   const lines: string[] = [];
   for (const profile of PROFILES) {
     const seen: string[] = [];
+    const timeoutProblems = new Set<string>();
     for (const file of profile.plan({ prompts: {}, model: "" }).config) {
       const path = resolve(root, file.path);
       if (!existsSync(path)) continue;
       let ours = false;
       try {
-        ours = hasOurEntries(readFileSync(path, "utf8"), file);
+        const source = readFileSync(path, "utf8");
+        ours = hasOurEntries(source, file);
+        const timeoutProblem = staleChatTimeout(source, file, profile.id);
+        if (timeoutProblem) timeoutProblems.add(timeoutProblem);
       } catch {
         /* unreadable counts as not ours */
       }
       seen.push(`${file.path} ${file.at.join(".")}${ours ? "" : " (no plain-english entry)"}`);
     }
     lines.push(`  ${profile.id.padEnd(12)} ${seen.length ? seen.join("; ") : "not installed"}`);
+    for (const problem of timeoutProblems) {
+      lines.push(`  ${" ".repeat(12)} ! ${problem}`);
+    }
     // Whatever this machine would do to a hook that is installed correctly.
     // Repository trust is deliberately kept outside init, so doctor names the
     // vendor gate instead of silently changing a security decision.

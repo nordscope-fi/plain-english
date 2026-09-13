@@ -1,6 +1,7 @@
 /** Google Gemini CLI hooks, following the native BeforeTool/AfterAgent API. */
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_MS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
@@ -86,7 +87,7 @@ export const gemini: AgentProfile = {
           path: ".gemini/settings.json",
           at: ["hooks", "AfterAgent"],
           shape: "nested",
-          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: runnerCommand(RUNNER, "chat", "gemini"), timeout: 10000 }] }],
+          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: runnerCommand(RUNNER, "chat", "gemini"), timeout: CHAT_HOOK_TIMEOUT_MS }] }],
         },
       ],
       shims: [{ path: RUNNER, body: HOOK_RUNNER }],

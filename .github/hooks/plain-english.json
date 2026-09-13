@@ -29,7 +29,7 @@
         "type": "command",
         "bash": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
         "powershell": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
-        "timeoutSec": 10
+        "timeoutSec": 60
       }
     ],
     "SubagentStop": [
@@ -37,7 +37,7 @@
         "type": "command",
         "bash": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
         "powershell": "node .github/hooks/plain-english.mjs hook chat --agent copilot",
-        "timeoutSec": 10
+        "timeoutSec": 60
       }
     ]
   }

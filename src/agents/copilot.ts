@@ -19,6 +19,7 @@ import { homedir } from "node:os";
 import { isAbsolute, relative, resolve } from "node:path";
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
@@ -214,7 +215,7 @@ export const copilot: AgentProfile = {
           shape: "flat" as const,
           defaults: { version: 1 },
           entries: [
-            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: 10 },
+            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: CHAT_HOOK_TIMEOUT_SECONDS },
           ],
         },
         {
@@ -223,7 +224,7 @@ export const copilot: AgentProfile = {
           shape: "flat" as const,
           defaults: { version: 1 },
           entries: [
-            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: 10 },
+            { type: "command", bash: command("chat"), powershell: command("chat"), timeoutSec: CHAT_HOOK_TIMEOUT_SECONDS },
           ],
         },
         // Compatibility fallback for Copilot CLI 1.0.78 and older. Current

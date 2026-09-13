@@ -11,6 +11,7 @@
  */
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerPath } from "./runner.ts";
@@ -239,7 +240,7 @@ export const claudeCode: AgentProfile = {
                   // slow the gate down: it silently removes the block. That is
                   // the failure this package exists to catch, so it is not
                   // going to ship one.
-                  timeout: 60,
+                  timeout: CHAT_HOOK_TIMEOUT_SECONDS,
                   command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
                 },
               ],
@@ -263,7 +264,7 @@ export const claudeCode: AgentProfile = {
                   // slow the gate down: it silently removes the block. That is
                   // the failure this package exists to catch, so it is not
                   // going to ship one.
-                  timeout: 60,
+                  timeout: CHAT_HOOK_TIMEOUT_SECONDS,
                   command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${CHAT_SHIM}`,
                 },
               ],

@@ -43,7 +43,7 @@
             "type": "command",
             "name": "plain-english-chat",
             "command": "node .qwen/hooks/plain-english.mjs hook chat --agent qwen",
-            "timeout": 10000
+            "timeout": 60000
           }
         ]
       }
@@ -56,7 +56,7 @@
             "type": "command",
             "name": "plain-english-chat",
             "command": "node .qwen/hooks/plain-english.mjs hook chat --agent qwen",
-            "timeout": 10000
+            "timeout": 60000
           }
         ]
       }
