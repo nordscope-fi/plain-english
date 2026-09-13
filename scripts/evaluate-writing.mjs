@@ -586,15 +586,24 @@ function showAnalysis(run) {
   const split = takeOption("--split", "development");
   const format = takeOption("--format", "text");
   requireHoldout(run, split);
+  const comparisonsFile = runPath(run, `comparisons-${split}.jsonl`);
   const result = analyzeStructures(
     readJsonl(path("cases.jsonl")),
     readJsonl(path("outputs.jsonl")).map(validateOutput),
-    { run, split },
+    {
+      run,
+      split,
+      comparisons: existsSync(comparisonsFile) ? readJsonl(comparisonsFile) : [],
+      votes: readJsonl(path("votes.jsonl")).map(validateVote),
+    },
   );
   if (format === "json") process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   else if (format === "text") {
     process.stdout.write(`experimental structure analysis: ${run} (${split}), ${result.cases} cases\n`);
-    for (const row of result.rows) process.stdout.write(`${row.caseId} ${row.system}: triads ${row.triads}, repeated openings ${row.repeatedOpenings}, confidence ${row.confidence.qualified}/${row.confidence.certain}\n`);
+    for (const [name, evidence] of Object.entries(result.evidence)) {
+      process.stdout.write(`${name}: ${evidence.activeOutputs}/${evidence.eligibleOutputs} active outputs; source ${percent(evidence.humanSourceActivation)}; preference ${percent(evidence.preference)}; lower 95% ${percent(evidence.lower95)}; promotion ${evidence.ready ? "PASS" : "NOT MET"}\n`);
+    }
+    process.stdout.write("These measurements do not create lint findings.\n");
   } else throw new Error("--format must be text or json");
 }
 

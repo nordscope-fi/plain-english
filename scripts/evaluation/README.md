@@ -148,7 +148,7 @@ node scripts/evaluate-writing.mjs audit august-voice
 
 This audit does not assign correctness. A missing literal is useful triage evidence, while a preserved literal does not prove that the surrounding claim remains correct.
 
-The experimental analysis reports repeated three-part lists, repeated paragraph openings, and qualified or certain language. These figures remain evidence until the pre-registered promotion rule is met. They never produce lint findings.
+The experimental analysis measures three possible warning signals: repeated three-part lists, paragraphs with the same sentence-length shape, and nearly uniform confidence language. It reports aggregate activation, human-source activation, blinded preference, and every promotion check. These measurements never produce lint findings on their own.
 
 ```bash
 node scripts/evaluate-writing.mjs analyze august-voice
@@ -266,7 +266,9 @@ These thresholds were chosen before the first private result. Changing one after
 
 Those remain later decisions. The first benchmark should show whether either candidate improves correctness-gated reader preference and in which genre. If neither does, the right result is to keep the released behavior and revise the hypothesis.
 
-An experimental structure signal needs 50 cases across four genres and at least 20
-eligible outputs before it can become a warning. The output without the signal must win
-more than 70% of grounded comparisons, with a 95% Wilson lower bound above 50%. The
-signal may appear in no more than 5% of human source text.
+An experimental structure signal needs 50 cases across four genres, at least 20
+eligible outputs, and at least 20 outputs where it fires before it can become a warning.
+The output without the signal must win more than 70% of correctness-gated comparisons,
+with a 95% Wilson lower bound above 50%. The signal may appear in no more than 5% of
+eligible human source text. The analysis marks promotion as passed only on the frozen
+holdout when every check passes.
