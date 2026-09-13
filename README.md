@@ -110,7 +110,7 @@ For agents without a profile, run the linter after each edit. The
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.3.1
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.4.0
   with:
     paths: docs README.md
     fail-on: error
@@ -127,7 +127,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.3.1
+    rev: v1.4.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -200,9 +200,17 @@ npx plain-english profile --check
 npx plain-english init --agent all
 ```
 
-The profile stores paths, hashes, counts, and summaries. It stores no excerpts. Small or
-inconsistent samples stay marked as insufficient or mixed and do not reach agent guidance.
-The `preferences` mapping is for deliberate project choices and survives regeneration.
+The profile stores paths, hashes, counts, summaries, common sentence connectors, and
+recurring terms. It stores no excerpts. Small or inconsistent samples stay marked as
+insufficient or mixed and do not reach agent guidance. Connectors and recurring terms
+also wait for explicit approval:
+
+```bash
+npx plain-english profile --approve technical-doc:connectives,technical-doc:domainTerms
+```
+
+Approvals and the `preferences` mapping survive regeneration. Use `preferences` for
+deliberate project choices that the source files cannot establish.
 
 ## Suppress one passage
 
@@ -228,6 +236,7 @@ unusual and visible to the next reader.
 | `plain-english policy --check` | Fail when that generated policy no longer matches the repo. |
 | `plain-english profile` | Measure stable style preferences from configured project files. |
 | `plain-english profile --check` | Fail when the committed profile is missing or stale. |
+| `plain-english profile --approve GENRE:FIELD` | Approve measured connectors or recurring terms for agent guidance. |
 | `plain-english doctor` | Print the environment details needed for a hook bug report. |
 | `plain-english render --check` | Check that generated rules and agent instructions are current. |
 | `plain-english --help` | Show all commands, formats, and exit behaviour. |

@@ -41,7 +41,7 @@ import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
 import { matchesAny } from "./glob.ts";
-import { buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
+import { approveWritingProfile, buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
 import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, nextJudgeTimeout } from "./chat/budget.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -583,7 +583,23 @@ function cmdWritingProfile(args: Args): number {
     return 2;
   }
   const current = existsSync(out) ? readFileSync(out, "utf8") : "";
-  const fresh = writingProfileYaml(buildWritingProfile(root, set.profile, current));
+  const approval = args.flags["approve"];
+  if (approval && args.flags["check"]) {
+    process.stderr.write("plain-english: profile --approve cannot be combined with --check.\n");
+    return 2;
+  }
+  if (approval === true) {
+    process.stderr.write("plain-english: profile --approve needs genre:connectives or genre:domainTerms.\n");
+    return 2;
+  }
+  let profile = buildWritingProfile(root, set.profile, current);
+  try {
+    if (typeof approval === "string") profile = approveWritingProfile(profile, approval);
+  } catch (error) {
+    process.stderr.write(`plain-english: ${error instanceof Error ? error.message : String(error)}\n`);
+    return 2;
+  }
+  const fresh = writingProfileYaml(profile);
   const where = relative(root, out) || out;
   if (args.flags["check"]) {
     if (current !== fresh) {
@@ -1026,6 +1042,8 @@ POLICY OPTIONS
 
 PROFILE OPTIONS
   --check                            exit 1 if the profile is missing or stale
+  --approve GENRE:FIELD              approve stable connectives or domainTerms;
+                                     separate several approvals with commas
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS

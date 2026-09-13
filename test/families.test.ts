@@ -23,6 +23,16 @@ describe("pattern families", () => {
     expect(lintText("Furthermore, test it. Furthermore, ship it. Furthermore, report it.", set).findings.some((finding) => finding.ruleId.startsWith("family-"))).toBe(false);
   });
 
+  it("summarises repeated scripted transitions", () => {
+    const result = lintText(
+      "Here's the thing: one job failed. The real question is why it failed. Here's what that means in practice: inspect the log.",
+      compile(loadDefault()),
+    );
+    const family = result.findings.find((finding) => finding.ruleId === "family-mechanical-transition");
+    expect(family).toMatchObject({ severity: "warn", family: "mechanical-transition", hitCount: 3 });
+    expect(family?.relatedRuleIds).toEqual(["heres-the-thing", "real-question-hook", "what-that-means-hook"]);
+  });
+
   it("can suppress only the summary", () => {
     const text = "<!-- plain-english-disable-next-line family-empty-framing: quoted example -->\nFurthermore, this starts. Moreover, this continues. In conclusion, this ends.";
     const result = lintText(text, compile(loadDefault()));
