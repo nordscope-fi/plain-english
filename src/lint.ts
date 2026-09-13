@@ -30,6 +30,10 @@ export interface Finding {
   message?: string;
   /** URL explaining the rule, shown with the finding. */
   link?: string;
+  /** Set on an aggregate warning about several related findings. */
+  family?: string;
+  hitCount?: number;
+  relatedRuleIds?: string[];
 }
 
 /**
@@ -368,6 +372,40 @@ export function lintText(
   findings.push(
     ...readabilityFindings(text, ruleSet, starts, sourceLines, suppressed, silenced),
   );
+
+  const familyByRule = new Map([
+    ...ruleSet.rules.map((rule) => [rule.id, rule.family] as const),
+    ...ruleSet.readability.map((rule) => [rule.id, rule.family] as const),
+  ]);
+  const sentenceRows = sentences(text);
+  for (const family of ruleSet.families ?? []) {
+    if (family.severity === "off") continue;
+    const members = findings.filter((finding) => familyByRule.get(finding.ruleId) === family.id);
+    if (members.length < family.minFindings) continue;
+    const ruleIds = [...new Set(members.map((finding) => finding.ruleId))].sort();
+    if (ruleIds.length < family.minRules) continue;
+    const sentenceIds = new Set(members.map((finding) => {
+      const offset = (starts[finding.line - 1] ?? 0) + finding.column - 1;
+      return sentenceRows.findIndex((sentence) => offset >= sentence.start && offset < sentence.end);
+    }).filter((id) => id >= 0));
+    if (sentenceIds.size < family.minSentences) continue;
+    const first = [...members].sort((a, b) => a.line - b.line || a.column - b.column)[0]!;
+    const ruleId = `family-${family.id}`;
+    const sup = suppressed.get(first.line);
+    if (sup === "all" || (sup instanceof Set && sup.has(ruleId))) continue;
+    findings.push({
+      ruleId,
+      severity: family.severity,
+      match: first.match,
+      line: first.line,
+      column: first.column,
+      lineText: first.lineText,
+      message: family.message ?? `${members.length} related findings form a repeated pattern.`,
+      family: family.id,
+      hitCount: members.length,
+      relatedRuleIds: ruleIds,
+    });
+  }
 
   findings.sort((a, b) => a.line - b.line || a.column - b.column || a.ruleId.localeCompare(b.ruleId));
 

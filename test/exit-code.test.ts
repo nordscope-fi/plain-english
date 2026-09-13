@@ -133,11 +133,12 @@ describe("other commands", () => {
  * were listed. Every id in the ruleset must resolve.
  */
 describe("explain reaches every collection", () => {
-  it("lists all three groups", () => {
+  it("lists every group", () => {
     const out = stdout(["explain"]);
     expect(out).toContain("Words and punctuation");
     expect(out).toContain("Readability");
     expect(out).toContain("Sentence shapes");
+    expect(out).toContain("Pattern families");
   });
 
   it("names every id in the ruleset", () => {
@@ -147,6 +148,7 @@ describe("explain reaches every collection", () => {
       ...set.rules.map((r) => r.id),
       ...set.readability.map((r) => r.id),
       ...set.structures.map((s) => s.id),
+      ...(set.families ?? []).map((family) => `family-${family.id}`),
     ];
     // A floor, not the count. The exact number was 52 and became 62 the first
     // time a rule was added, and bumping it taught nobody anything: the loop
@@ -170,7 +172,14 @@ describe("explain reaches every collection", () => {
   });
 
   it("still explains a word rule", () => {
-    expect(stdout(["explain", "leverage"])).toContain("match:");
+    const out = stdout(["explain", "leverage"]);
+    expect(out).toContain("match:");
+    expect(out).toContain("basis:");
+    expect(out).toContain("reviewed 2026-09-13");
+  });
+
+  it("explains a pattern family", () => {
+    expect(stdout(["explain", "family-empty-framing"])).toContain("3 findings from 2 rules across 2 sentences");
   });
 
   it("an unknown id still exits 2", () => {

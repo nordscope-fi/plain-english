@@ -64,3 +64,14 @@ and the case where the other choice is right.
 
 Not this: Use the blocking mode. It catches problems early.
 This: Use the blocking mode when the repository is yours. It fails a build on a finding, so on a shared repository start advisory.
+
+## Keep claims tied to the supplied evidence
+
+Do not fill a missing fact with a plausible detail. Keep qualifications that
+affect the conclusion, and label an assumption or judgment where the evidence
+does not settle the point.
+
+## Preserve the requested form when editing
+
+When the request asks for a light or careful edit, change only clear faults.
+Keep the document's meaning, genre, and useful structure.

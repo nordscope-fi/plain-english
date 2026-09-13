@@ -17,7 +17,10 @@ This distinction matters for two decisions the ruleset makes:
 - The fifteen words deliberately absent from the ruleset (surface, vector, primitive, and the rest listed in `rules/default.yml` as candidates) are ordinary working vocabulary in some domains. Banning them would flag real prose that happens to use them, which is a false positive that costs the writer time. The bar for adding a word is evidence of misuse, not just of existence.
 - The `warn` severity exists for words that have a legitimate sense the `unless` clauses might not catch. A warning reports the finding and lets the writer decide. An error stops the write. The split is based on whether the word has an ordinary technical or domain sense, not on how often AI overuses it.
 
-The voice-preservation principle comes from no-ai-slop, which frames the editor's job as "make the minimum effective edit" and treats the writer's vocabulary, cadence, and digressions as traits to keep. plain-english applies the same idea at the rule level: the ruleset catches the tells and leaves the rest alone.
+The voice-preservation principle comes from no-ai-slop, which frames the editor's job as
+"make the minimum effective edit." It treats the writer's vocabulary, cadence, and
+digressions as traits to keep. plain-english applies the same idea at the rule level: the
+ruleset catches the tells and leaves the rest alone.
 
 ## Why two layers
 

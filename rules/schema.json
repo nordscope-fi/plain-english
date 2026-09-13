@@ -158,6 +158,12 @@
           "reason": {
             "$ref": "#/$defs/reason"
           },
+          "family": {
+            "$ref": "#/$defs/id"
+          },
+          "provenance": {
+            "$ref": "#/$defs/provenance"
+          },
           "maxTerms": {
             "description": "reader-load only: the count of distinct backticked names above which the rule fires.",
             "type": "integer",
@@ -634,6 +640,52 @@
           },
           "good": {
             "type": "string"
+          },
+          "family": {
+            "$ref": "#/$defs/id"
+          },
+          "provenance": {
+            "$ref": "#/$defs/provenance"
+          }
+        }
+      }
+    },
+    "families": {
+      "description": "Related checks that produce an advisory summary when they cluster.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "severity": { "enum": ["error", "warn", "off"], "default": "warn" },
+          "minFindings": { "type": "integer", "minimum": 1, "default": 3 },
+          "minRules": { "type": "integer", "minimum": 1, "default": 2 },
+          "minSentences": { "type": "integer", "minimum": 1, "default": 2 },
+          "message": { "type": "string" },
+          "reason": { "$ref": "#/$defs/reason" }
+        }
+      }
+    },
+    "profile": {
+      "description": "An opt-in, committed summary of stable writing preferences measured from project files.",
+      "type": "object",
+      "required": ["file", "samples"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "samples": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "chat": { "$ref": "#/$defs/globList" },
+            "technical-doc": { "$ref": "#/$defs/globList" },
+            "decision": { "$ref": "#/$defs/globList" },
+            "status": { "$ref": "#/$defs/globList" },
+            "email": { "$ref": "#/$defs/globList" },
+            "repository": { "$ref": "#/$defs/globList" }
           }
         }
       }
@@ -650,6 +702,11 @@
       "items": {
         "$ref": "#/$defs/id"
       }
+    },
+    "globList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
     },
     "ruleList": {
       "type": "array",
@@ -697,6 +754,12 @@
           },
           "reason": {
             "$ref": "#/$defs/reason"
+          },
+          "family": {
+            "$ref": "#/$defs/id"
+          },
+          "provenance": {
+            "$ref": "#/$defs/provenance"
           }
         }
       }
@@ -710,6 +773,29 @@
       "description": "Why this project changed the rule. Set in a project config, never in the shipped ruleset. Printed next to the change in the generated policy document.",
       "type": "string",
       "minLength": 1
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["kind", "confidence", "scope", "reviewed", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "enum": ["quality", "marker", "both"] },
+        "confidence": { "enum": ["high", "medium", "experimental"] },
+        "scope": { "type": "array", "items": { "type": "string" } },
+        "reviewed": { "type": "string", "format": "date" },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["title", "url"],
+            "additionalProperties": false,
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      }
     }
   }
 }

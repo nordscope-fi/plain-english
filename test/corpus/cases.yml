@@ -1167,6 +1167,28 @@ cases:
     expect: pass
     text: "The Node maintainers say the approach does not scale."
 
+  - name: "an internal citation marker warns"
+    expect: pass
+    warns: [assistant-citation-debris]
+    text: "The result appears in turn4search2."
+
+  - name: "an unfinished template field warns"
+    expect: pass
+    warns: [unresolved-placeholder]
+    text: "Send the report to [Your Name] by YYYY-XX-XX."
+
+  - name: "a documented date shape passes"
+    expect: pass
+    text: "Use YYYY-MM-DD for stored dates."
+
+  - name: "a normal markdown link passes"
+    expect: pass
+    text: "Read [the release guide](https://example.com/release)."
+
+  - name: "citation text inside code passes"
+    expect: pass
+    text: "Use `turn4search2` as the synthetic fixture value."
+
   # ==========================================================================
   # Figurative placement, and the mic-drop ending.
   #

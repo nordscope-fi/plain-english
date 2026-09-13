@@ -719,6 +719,13 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
 
+  if (set.profileGuidance?.length) {
+    out.push("## This project's observed style", "");
+    out.push(...wrap("These stable observations describe the repository's existing prose. They guide wording and never change lint results."), "");
+    for (const note of set.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
+    out.push("");
+  }
+
   // The skeleton, before the rules rather than after them. Everything below is
   // a rule about a reply; this is the shape of one, and a model reproduces a
   // shape it was shown far more reliably than one it has to derive from a
@@ -988,6 +995,13 @@ export function renderDocsSkill(set: RuleSet): string {
   ];
 
   if (docs.scope) out.push(...wrap(docs.scope), "");
+
+  if (set.profileGuidance?.length) {
+    out.push("## This project's observed style", "");
+    out.push(...wrap("Follow these stable observations where they fit the document. They do not override facts, requested form, or readability."), "");
+    for (const note of set.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
+    out.push("");
+  }
 
   // The prohibitions stay where they are. `plain-english lint` owns every
   // banned term and sentence shape already, and restating them here would give

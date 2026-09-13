@@ -24,6 +24,32 @@ meta:
     commit messages, PR descriptions, and issue text. Not just the channels a
     hook can check.
 
+families:
+  - id: empty-framing
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several framing phrases delay the substance. Remove the frame and keep each point."
+  - id: promotional-language
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several promotional claims appear together. Replace them with facts or measurements."
+  - id: unsupported-authority
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several claims borrow authority without giving evidence. Name the source or qualify the claim."
+  - id: assistant-debris
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Internal citation markers and unfinished fields remain in the text."
+
 punctuation:
   - id: em-dash
     severity: error
@@ -60,21 +86,25 @@ rules:
   # ---------------------------------------------------------------- stock transitions
   - id: furthermore
     severity: error
+    family: empty-framing
     match: "\\bfurthermore\\b"
     message: "Start the sentence with its own point."
 
   - id: moreover
     severity: error
+    family: empty-framing
     match: "\\bmoreover\\b"
     message: "Start the sentence with its own point."
 
   - id: in-conclusion
     severity: error
+    family: empty-framing
     match: "\\bin conclusion\\b"
     message: "State the conclusion. Do not announce it."
 
   - id: worth-noting
     severity: error
+    family: empty-framing
     # The tell is a verb of noticing, so the list is closed: note, understand,
     # remember and their neighbours. "It is important to test the migration"
     # makes a claim about what to do and stays legal.
@@ -83,6 +113,7 @@ rules:
 
   - id: at-the-end-of-the-day
     severity: error
+    family: empty-framing
     # Only the discourse-marker use (followed by a comma). The literal temporal
     # sense ("the batch runs at the end of the day") stays legal.
     match: "\\bat the end of the day,"
@@ -90,6 +121,7 @@ rules:
 
   - id: lets-dive-in
     severity: error
+    family: empty-framing
     match: "\\blet'?s dive in\\b"
     message: "Start with the content."
 
@@ -150,6 +182,7 @@ rules:
   # ---------------------------------------------------------------- buzzwords
   - id: seamless
     severity: error
+    family: promotional-language
     match: "\\bseamless(ly)?\\b"
     unless:
       # Manufacturing sense.
@@ -158,12 +191,14 @@ rules:
 
   - id: cutting-edge
     severity: error
+    family: promotional-language
     # Bounded so 'cutting edges of the sheet' does not match.
     match: "\\bcutting[- ]edge\\b"
     message: "Name the thing that is new."
 
   - id: holistic
     severity: warn
+    family: promotional-language
     match: "\\bholistic(ally)?\\b"
     unless:
       - "\\bholistic\\s+(medicine|health|healing|therapy|wellness|practitioner|nutrition)\\b"
@@ -171,27 +206,32 @@ rules:
 
   - id: synergy
     severity: error
+    family: promotional-language
     match: "\\bsynerg(y|ies|istic|istically)\\b"
     message: "Name the actual benefit."
 
   - id: paradigm-shift
     severity: error
+    family: promotional-language
     match: "\\bparadigm shift\\b"
     message: "Say what changed."
 
   - id: game-changer
     severity: error
+    family: promotional-language
     match: "\\bgame[- ]chang(er|ing)\\b"
     message: "Say what it changes."
 
   - id: unlock-the
     severity: error
+    family: promotional-language
     # Only the marketing sense. 'unlock the door' and 'unlock the account' pass.
     match: "\\bunlock (the|your) (potential|power|value|secret|secrets|full)\\b"
     message: "Say what becomes possible."
 
   - id: elevate-your
     severity: error
+    family: promotional-language
     match: "\\belevate your\\b"
     message: "Say what improves."
 
@@ -205,6 +245,34 @@ rules:
     severity: error
     match: "\\bas an AI\\b|\\bas a large language model\\b"
     message: "Cut it."
+
+  - id: assistant-citation-debris
+    severity: warn
+    family: assistant-debris
+    match: "\\bturn[0-9]+(?:search|fetch|view)[0-9]+\\b|\\b(?:oaicite|oai_citation|attributableIndex)\\b|\\[cite:\\s*[0-9]+\\]"
+    message: "Remove the provider's internal citation marker and add a real source link if the claim needs one."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: unresolved-placeholder
+    severity: warn
+    family: assistant-debris
+    match: "\\[(?:Your Name|Company Name|Describe [^\\]\\n]{1,60}|Insert [^\\]\\n]{1,60})\\]|\\bYYYY-XX-XX\\b"
+    message: "Replace the unfinished field with its value or remove it."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
 
   # ---------------------------------------------------------------- soft-focus adverbs
   # These have real technical senses, so they warn instead of blocking.
@@ -372,6 +440,7 @@ rules:
 
   - id: promotional-adjectives
     severity: error
+    family: promotional-language
     match: "\\b(vibrant|breathtaking|groundbreaking|stunning|nestled|must-visit)\\b"
     message: "Describe it neutrally, or give the number."
 
@@ -402,11 +471,13 @@ rules:
   # they describe rather than the way it is written.
   - id: inflated-significance
     severity: error
+    family: promotional-language
     match: "\\b(a stark reminder|unwavering commitment|transformative power|relentless pursuit|pav(e|es|ed|ing) the way for (the )?future|a significant step forward)\\b"
     message: "State what changed or what the evidence shows."
 
   - id: formulaic-importance
     severity: warn
+    family: unsupported-authority
     match: "\\b(provid(e|es|ed|ing)|offer(s|ed|ing)) (a )?valuable insights?\\b|\\b(significant role in shaping|play(s|ed|ing)? (a )?(crucial|significant) role)\\b|\\b(emphasi(s|z)(e|es|ed|ing)|highlight(s|ed|ing)?) (the )?(importance|need|potential)\\b"
     message: "Name the fact or consequence instead of announcing its importance."
 
@@ -496,6 +567,7 @@ rules:
 
   - id: vague-attribution
     severity: warn
+    family: unsupported-authority
     match: "\\b(experts|analysts|critics|researchers|observers|industry reports|some critics|some experts)\\s+(believe|say|says|agree|argue|argues|suggest|suggests|note|notes|claim|claims)\\b"
     message: "Name the source, or cut the claim."
 
@@ -1146,6 +1218,24 @@ chat:
         reply that asserts a result nobody can check is worse than a long one.
       levels: [standard, full]
 
+    - id: keep-claims-grounded
+      name: "Keep every claim tied to evidence"
+      short: "Preserve facts and qualifications. Label assumptions, judgments, and gaps instead of filling them in."
+      description: >-
+        Keep factual claims and qualifications from the source. Do not add a
+        plausible detail to make an answer sound complete. Say when a statement
+        is an assumption, a judgment, or a gap in the available evidence.
+      levels: [brief, standard, full]
+
+    - id: preserve-the-requested-edit
+      name: "Match the requested editing strength"
+      short: "For a light edit, fix only clear faults. Preserve the requested form and useful structure."
+      description: >-
+        Treat a light edit as a request to fix unambiguous faults while keeping
+        meaning, form, and useful structure. Remove empty repetition only when
+        the reader did not ask for a close edit.
+      levels: [standard, full]
+
     - id: answer-before-qualifying
       name: "Answer before qualifying"
       short: "Answer, result or recommendation first. Only the caveats that change what the reader does."
@@ -1650,3 +1740,20 @@ docs:
       flag: "The document recommends an approach without naming its cost or the case where a different choice is better."
       bad: "Use the blocking mode. It catches problems early."
       good: "Use the blocking mode when the repository is yours. It fails a build on a finding, so on a shared repository start advisory."
+
+    - id: keep-claims-grounded
+      name: "Keep claims tied to the supplied evidence"
+      short: "Preserve facts and qualifications. Label assumptions, judgments, and missing evidence."
+      description: >-
+        Do not fill a missing fact with a plausible detail. Keep qualifications
+        that affect the conclusion, and label an assumption or judgment where
+        the evidence does not settle the point.
+      flag: "The document adds an unsupported factual claim, presents an assumption as fact, or removes a material qualification."
+
+    - id: preserve-the-requested-form
+      name: "Preserve the requested form when editing"
+      short: "A light edit keeps meaning, genre, and useful structure."
+      description: >-
+        When the request asks for a light or careful edit, change only clear
+        faults. Keep the document's meaning, genre, and useful structure.
+      flag: "The edit changes the document's genre, scope, or useful structure without the request asking for that change."

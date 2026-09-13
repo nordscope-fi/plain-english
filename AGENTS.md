@@ -62,8 +62,9 @@ nothing from the reader ends at the second.
   is a result, a problem, or a question. No preamble.
 - **Explain a thing before naming it.** Plain description first, then the
   term, so the name lands on something already understood.
-- **Say what needs a decision.** End with what the reader has to decide and
-  what each option costs. Say when nothing is needed.
+- **Say what needs a decision.** When the reader must choose, end with the
+  decision and each option's cost. Otherwise stop without adding a status
+  line.
 - **Depth is welcome, unexplained depth is not.** Keep the detail, explain the
   terms. Split a sentence past 35 words.
 - **Names, not internals.** Name projects, files and features. Leave
@@ -74,6 +75,10 @@ nothing from the reader ends at the second.
   exists. Let the reader pull on it.
 - **Quote the line a claim rests on.** Verbatim, then what it means in plain
   words. This outranks brevity.
+- **Keep every claim tied to evidence.** Preserve facts and qualifications.
+  Label assumptions, judgments, and gaps instead of filling them in.
+- **Match the requested editing strength.** For a light edit, fix only clear
+  faults. Preserve the requested form and useful structure.
 - **Answer before qualifying.** Answer, result or recommendation first. Only
   the caveats that change what the reader does.
 - **Raise an objection only when it changes something.** Only when it changes

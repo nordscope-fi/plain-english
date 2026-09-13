@@ -23,6 +23,8 @@ be.
   line.
 - **Depth is welcome, unexplained depth is not.** Keep the detail, explain the
   terms. Split a sentence past 35 words.
+- **Keep every claim tied to evidence.** Preserve facts and qualifications.
+  Label assumptions, judgments, and gaps instead of filling them in.
 
 ## Two numbers, and they are checked
 

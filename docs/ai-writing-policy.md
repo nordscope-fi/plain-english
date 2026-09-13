@@ -23,7 +23,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-55 word and punctuation rules, 29 of them blocking, plus 17 sentence shapes judged by a model and 4 readability rules.
+57 word and punctuation rules, 29 of them blocking, plus 17 sentence shapes judged by a model and 4 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|
@@ -52,6 +52,8 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | `elevate your` | `block` | Say what improves. |
 | `in today's (fast-paced/digital/business/competitive/modern)` | `block` | Cut the opener and start with the point. |
 | `as an AI, as a large language model` | `block` | Cut it. |
+| `turn......, ...]` | `warn` | Remove the provider's internal citation marker and add a real source link if the claim needs one. |
+| `[], YYYY-XX-XX` | `warn` | Replace the unfinished field with its value or remove it. |
 | `silent[ly]` | `warn` | Say what happened and what it affected. |
 | `quietly` | `warn` | Say what happened and what it affected. |
 | `mechanical[ly]` | `warn` | Say what the process actually does. |
@@ -82,6 +84,15 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | `(It/This/That) (key/crucial/critical/intentional/deliberate/elegant/subtle/telling/striking/by design/no accident)., (It/This/That) (matters/works/compounds/adds up/pays off).` | `warn` | Fold the point into the sentence before it, or cut it. |
 | `(serves/serve/stands/stand) as` | `warn` | Just say 'is' or 'has'. |
 | `(experts/analysts/critics/researchers/observers/industry reports/some critics/some experts) (believe/say/says/agree/argue/argues/suggest/suggests/note/notes/claim/claims)` | `warn` | Name the source, or cut the claim. |
+
+Related findings can also produce these advisory summaries:
+
+| Family | Tier | Fires at |
+|---|---|---|
+| family-empty-framing | warn | 3 findings, 2 rules, 2 sentences |
+| family-promotional-language | warn | 3 findings, 2 rules, 2 sentences |
+| family-unsupported-authority | warn | 3 findings, 2 rules, 2 sentences |
+| family-assistant-debris | warn | 3 findings, 2 rules, 2 sentences |
 
 ## What this repository changed
 
