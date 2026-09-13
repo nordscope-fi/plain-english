@@ -95,6 +95,9 @@ Two severities:
 | `at the end of the day,` | `block` | Cut the phrase and state the point. |  |
 | `let's dive in` | `block` | Start with the content. |  |
 | `div(e/es/ing) into` | `warn` | Usually 'read', 'look at', or just the verb for what you are doing. |  |
+| `heres the thing` | `warn` | State the thing directly. |  |
+| `the real question is` | `warn` | Ask the question directly. |  |
+| `heres what that means in practice` | `warn` | Give the practical effect directly. |  |
 | `leverag(e/es/ed/ing)` | `block` | Use 'use'. |  |
 | `utiliz(e/es/ed/ing), utilis(e/es/ed/ing)` | `block` | Use 'use'. |  |
 | `delv(e/es/ed/ing)` | `block` | Use 'look at', 'read', or 'go through'. |  |
@@ -112,6 +115,7 @@ Two severities:
 | `in today's (fast-paced/digital/business/competitive/modern)` | `block` | Cut the opener and start with the point. |  |
 | `as an AI, as a large language model` | `block` | Cut it. |  |
 | `turn......, ...]` | `warn` | Remove the provider's internal citation marker and add a real source link if the claim needs one. |  |
+| `as of my, in the provided search results` | `warn` | Remove the assistant's service note and state the supported fact or evidence gap. |  |
 | `[], YYYY-XX-XX` | `warn` | Replace the unfinished field with its value or remove it. |  |
 | `silent[ly]` | `warn` | Say what happened and what it affected. |  |
 | `quietly` | `warn` | Say what happened and what it affected. |  |

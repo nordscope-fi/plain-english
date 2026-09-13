@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildWritingProfile, writingProfileGuidance, writingProfileYaml } from "../src/writing-profile.ts";
+import { approveWritingProfile, buildWritingProfile, writingProfileGuidance, writingProfileYaml } from "../src/writing-profile.ts";
 import { loadConfig } from "../src/rules.ts";
 import { renderAgentsFragment } from "../src/render.ts";
 
@@ -27,7 +27,7 @@ describe("project writing profiles", () => {
   it("is deterministic, stores no prose, and preserves manual preferences", () => {
     const root = project();
     for (let i = 0; i < 20; i++) {
-      const sentence = "You can organize the color setting before the service starts safely.";
+      const sentence = "However, you can organize the color setting before the service starts safely.";
       writeFileSync(resolve(root, "docs", `guide-${i}.md`), `# Configure Color\n\n${Array(12).fill(sentence).join(" ")}\n`);
     }
     const config = loadConfig(resolve(root, ".plain-english.yml")).profile!;
@@ -36,13 +36,24 @@ describe("project writing profiles", () => {
     const second = buildWritingProfile(root, config, writingProfileYaml(first));
     expect(second).toEqual(first);
     expect(first.preferences).toEqual({ voice: "direct" });
+    expect(first.approvals).toEqual({});
     expect(JSON.stringify(first)).not.toContain("service starts safely");
     expect(first.genres["technical-doc"].status).toBe("stable");
-    expect(writingProfileGuidance(first).join(" ")).toContain("technical-doc");
+    expect(first.genres["technical-doc"].connectives).toContainEqual({ value: "however", count: 240, stable: true });
+    expect(first.genres["technical-doc"].domainTerms.some((item) => item.value === "service" && item.stable)).toBe(true);
+    expect(writingProfileGuidance(first).join(" ")).not.toContain("often starts sentences");
+    const approved = approveWritingProfile(first, "technical-doc:connectives,technical-doc:domainTerms");
+    expect(writingProfileGuidance(approved).join(" ")).toContain("often starts sentences with however");
+    expect(writingProfileGuidance(approved).join(" ")).toContain("recurring project terms");
+    expect(() => approveWritingProfile(first, "technical-doc:unknown")).toThrow(/unknown profile approval/);
     writeFileSync(resolve(root, ".plain-english-profile.yml"), writingProfileYaml(first));
     const rendered = renderAgentsFragment(loadConfig(resolve(root, ".plain-english.yml")));
     expect(rendered).toContain("This project's observed style");
     expect(rendered).toContain("technical-doc:");
+    execFileSync(process.execPath, [CLI, "profile", "--approve", "technical-doc:connectives", "--root", root]);
+    expect(readFileSync(resolve(root, ".plain-english-profile.yml"), "utf8")).toContain("- connectives");
+    execFileSync(process.execPath, [CLI, "profile", "--root", root]);
+    expect(readFileSync(resolve(root, ".plain-english-profile.yml"), "utf8")).toContain("- connectives");
   });
 
   it("marks a small sample insufficient", () => {

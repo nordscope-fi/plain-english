@@ -1172,6 +1172,30 @@ cases:
     warns: [assistant-citation-debris]
     text: "The result appears in turn4search2."
 
+  - name: "a leaked assistant service note warns"
+    expect: pass
+    warns: [assistant-service-residue]
+    text: "As of my last knowledge cutoff, the result was unavailable."
+
+  - name: "a named knowledge cutoff passes"
+    expect: pass
+    text: "The report uses 2025-01-01 as its knowledge cutoff."
+
+  - name: "a stock conversational hook warns"
+    expect: pass
+    warns: [heres-the-thing]
+    text: "Here's the thing: the queue is full."
+
+  - name: "a real question hook warns"
+    expect: pass
+    warns: [real-question-hook]
+    text: "The real question is whether the queue can drain."
+
+  - name: "a practical meaning hook warns"
+    expect: pass
+    warns: [what-that-means-hook]
+    text: "Here's what that means in practice: inspect the log."
+
   - name: "an unfinished template field warns"
     expect: pass
     warns: [unresolved-placeholder]

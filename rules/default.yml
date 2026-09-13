@@ -48,7 +48,13 @@ families:
     minFindings: 3
     minRules: 2
     minSentences: 2
-    message: "Internal citation markers and unfinished fields remain in the text."
+    message: "Several provider artifacts or unfinished fields remain in the text."
+  - id: mechanical-transition
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several stock hooks give the text a repeated scripted rhythm. Start those passages with their point."
 
 punctuation:
   - id: em-dash
@@ -131,6 +137,48 @@ rules:
     unless:
       - "\\bdiv(e|es|ing) into (the )?(pool|water|sea|ocean|wreck)\\b"
     message: "Usually 'read', 'look at', or just the verb for what you are doing."
+
+  - id: heres-the-thing
+    severity: warn
+    family: mechanical-transition
+    match: "\\bhere(?:'|’)s the thing\\b"
+    message: "State the thing directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: real-question-hook
+    severity: warn
+    family: mechanical-transition
+    match: "\\bthe real question is\\b"
+    message: "Ask the question directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: what-that-means-hook
+    severity: warn
+    family: mechanical-transition
+    match: "\\bhere(?:'|’)s what that means in practice\\b"
+    message: "Give the practical effect directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
 
   # ---------------------------------------------------------------- corporate verbs
   - id: leverage
@@ -251,6 +299,20 @@ rules:
     family: assistant-debris
     match: "\\bturn[0-9]+(?:search|fetch|view)[0-9]+\\b|\\b(?:oaicite|oai_citation|attributableIndex)\\b|\\[cite:\\s*[0-9]+\\]"
     message: "Remove the provider's internal citation marker and add a real source link if the claim needs one."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: assistant-service-residue
+    severity: warn
+    family: assistant-debris
+    match: "\\bas of my (?:last )?(?:knowledge cutoff|training update)\\b|\\bin the provided search results\\b"
+    message: "Remove the assistant's service note and state the supported fact or evidence gap."
     provenance:
       kind: marker
       confidence: high
