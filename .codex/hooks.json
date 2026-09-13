@@ -39,7 +39,7 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\" hook chat --agent codex",
-            "timeout": 10
+            "timeout": 60
           }
         ]
       }
@@ -51,7 +51,7 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\" hook chat --agent codex",
-            "timeout": 10
+            "timeout": 60
           }
         ]
       }

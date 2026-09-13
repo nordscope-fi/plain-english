@@ -16,6 +16,12 @@ import { decide, formatReason } from "../src/adapters/hook.ts";
 import { byId } from "../src/agents/registry.ts";
 import { lintText } from "../src/lint.ts";
 import { JUDGE_MARKER, isJudge, judgeInput, lastAsked, parseVerdict, runJudge, usableReason } from "../src/adapters/judge.ts";
+import {
+  CHAT_HOOK_TIMEOUT_MS,
+  CHAT_JUDGE_CALL_MS,
+  CHAT_JUDGE_PIPELINE_MS,
+  nextJudgeTimeout,
+} from "../src/chat/budget.ts";
 
 /**
  * Fixtures are hand-authored in each agent's real record shape, never copied
@@ -1154,6 +1160,15 @@ describe("reader load", () => {
  * this package keeps finding in other people's tools.
  */
 describe("the chat judge", () => {
+  it("shares one bounded budget across sequential judge calls", () => {
+    const started = 1_000_000;
+    const deadline = started + CHAT_JUDGE_PIPELINE_MS;
+    expect(nextJudgeTimeout(deadline, started)).toBe(CHAT_JUDGE_CALL_MS);
+    expect(nextJudgeTimeout(deadline, started + 30_000)).toBe(15_000);
+    expect(nextJudgeTimeout(deadline, deadline + 1)).toBe(0);
+    expect(CHAT_HOOK_TIMEOUT_MS - CHAT_JUDGE_PIPELINE_MS).toBeGreaterThanOrEqual(15_000);
+  });
+
   it("reads a pass and a refusal", () => {
     expect(parseVerdict('{"ok": true}')).toEqual({ ok: true });
     expect(parseVerdict('{"ok": false, "reason": "Lead with the number."}')).toEqual({

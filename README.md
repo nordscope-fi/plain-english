@@ -110,7 +110,7 @@ For agents without a profile, run the linter after each edit. The
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.3.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.3.1
   with:
     paths: docs README.md
     fail-on: error
@@ -127,7 +127,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.3.0
+    rev: v1.3.1
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

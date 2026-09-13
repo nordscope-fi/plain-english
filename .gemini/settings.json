@@ -78,7 +78,7 @@
             "type": "command",
             "name": "plain-english-chat",
             "command": "node .gemini/hooks/plain-english.mjs hook chat --agent gemini",
-            "timeout": 10000
+            "timeout": 60000
           }
         ]
       }

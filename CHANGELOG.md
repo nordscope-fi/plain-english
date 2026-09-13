@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-13
+### Fixed
+
+- **Chat checks now finish before agents discard them.** All supported agents allow 60 seconds. The two optional model calls share 45 seconds, leaving time for startup and output. `doctor` reports old 10-second installations and names the setup command that upgrades them.
+
 ## [1.3.0] - 2026-09-13
 ### Added
 
@@ -563,7 +568,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.1
 [1.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.0
 [1.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.2.0
 [1.0.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.0.0

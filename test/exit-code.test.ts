@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault } from "../src/rules.ts";
@@ -282,5 +282,36 @@ describe("doctor recognises an install it just wrote", () => {
     });
     const line = out.split("\n").filter((l) => l.trim().startsWith("vibe ")).join("\n");
     expect(line).toContain("no plain-english entry");
+  });
+
+  it("reports and upgrades an old chat timeout without removing foreign hooks", () => {
+    const at = mkdtempSync(resolve(home, "stale-timeout-"));
+    execFileSync(process.execPath, [CLI, "init", "--agent", "codex", "--root", at], {
+      stdio: "pipe",
+    });
+    const configPath = resolve(at, ".codex/hooks.json");
+    const config = JSON.parse(readFileSync(configPath, "utf8"));
+    config.hooks.Stop[0].hooks[0].timeout = 10;
+    config.hooks.Stop.push({
+      matcher: "foreign",
+      hooks: [{ type: "command", command: "./foreign.sh", timeout: 5 }],
+    });
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+
+    const report = execFileSync(process.execPath, [CLI, "doctor"], {
+      cwd: at,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1" },
+    });
+    expect(report).toContain("chat hook timeout is 10s");
+    expect(report).toContain("plain-english init --agent codex");
+
+    execFileSync(process.execPath, [CLI, "init", "--agent", "codex", "--root", at], {
+      stdio: "pipe",
+    });
+    const upgraded = JSON.parse(readFileSync(configPath, "utf8"));
+    const stop = upgraded.hooks.Stop as Array<{ matcher: string; hooks: Array<Record<string, unknown>> }>;
+    expect(stop.find((group) => group.matcher === "*")?.hooks[0]?.timeout).toBe(60);
+    expect(stop.find((group) => group.matcher === "foreign")?.hooks[0]?.command).toBe("./foreign.sh");
   });
 });

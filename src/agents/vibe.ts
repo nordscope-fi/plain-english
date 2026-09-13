@@ -30,6 +30,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick } from "./fields.ts";
 import { DOCS_MAX_JUDGE_BYTES } from "../adapters/judge.ts";
@@ -270,7 +271,7 @@ export const vibe: AgentProfile = {
               name: "plain-english-chat",
               type: "post_agent",
               command: runnerCommand(RUNNER, "chat", "vibe"),
-              timeout: 10,
+              timeout: CHAT_HOOK_TIMEOUT_SECONDS,
               description: "plain-english chat channel",
             },
           ],

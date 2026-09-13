@@ -23,6 +23,7 @@ import { spawnSync } from "node:child_process";
 import { lintText, type Finding } from "../lint.ts";
 import type { RuleSet } from "../rules.ts";
 import type { ChatReader, Reply } from "../chat/reader.ts";
+import { CHAT_JUDGE_CALL_MS } from "../chat/budget.ts";
 
 export interface Verdict {
   ok: boolean;
@@ -40,7 +41,7 @@ export interface Verdict {
 export const JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
 
 /** How long the judge may take before the count wins by default. */
-export const JUDGE_TIMEOUT_MS = 25_000;
+export const JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
 
 /** Whether this process is itself a judge, and must not start another. */
 export function isJudge(env: NodeJS.ProcessEnv = process.env): boolean {

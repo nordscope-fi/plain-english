@@ -74,5 +74,5 @@ description = "plain-english issue judge, opt-in"
 name = "plain-english-chat"
 type = "post_agent"
 command = "node .vibe/hooks/plain-english.mjs hook chat --agent vibe"
-timeout = 10
+timeout = 60
 description = "plain-english chat channel"

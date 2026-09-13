@@ -22,6 +22,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerPath } from "./runner.ts";
@@ -271,7 +272,7 @@ export const codex: AgentProfile = {
                 {
                   type: "command",
                   command: command("chat"),
-                  timeout: 10,
+                  timeout: CHAT_HOOK_TIMEOUT_SECONDS,
                 },
               ],
             },
@@ -288,7 +289,7 @@ export const codex: AgentProfile = {
                 {
                   type: "command",
                   command: command("chat"),
-                  timeout: 10,
+                  timeout: CHAT_HOOK_TIMEOUT_SECONDS,
                 },
               ],
             },

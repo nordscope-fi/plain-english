@@ -1,6 +1,7 @@
 /** Qwen Code hooks, using its documented Claude-shaped command protocol. */
 
 import type { Decision } from "../adapters/hook.ts";
+import { CHAT_HOOK_TIMEOUT_MS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
 import { asRecord, issueFields, pick } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
@@ -79,13 +80,13 @@ export const qwen: AgentProfile = {
           path: ".qwen/settings.json",
           at: ["hooks", "Stop"],
           shape: "nested",
-          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: command("chat"), timeout: 10000 }] }],
+          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: command("chat"), timeout: CHAT_HOOK_TIMEOUT_MS }] }],
         },
         {
           path: ".qwen/settings.json",
           at: ["hooks", "SubagentStop"],
           shape: "nested",
-          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: command("chat"), timeout: 10000 }] }],
+          entries: [{ matcher: "*", hooks: [{ type: "command", name: "plain-english-chat", command: command("chat"), timeout: CHAT_HOOK_TIMEOUT_MS }] }],
         },
       ],
       shims: [{ path: RUNNER, body: HOOK_RUNNER }],
