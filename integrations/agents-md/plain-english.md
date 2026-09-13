@@ -49,6 +49,10 @@ nothing from the reader ends at the second.
   exists. Let the reader pull on it.
 - **Quote the line a claim rests on.** Verbatim, then what it means in plain
   words. This outranks brevity.
+- **Keep every claim tied to evidence.** Preserve facts and qualifications.
+  Label assumptions, judgments, and gaps instead of filling them in.
+- **Match the requested editing strength.** For a light edit, fix only clear
+  faults. Preserve the requested form and useful structure.
 - **Answer before qualifying.** Answer, result or recommendation first. Only
   the caveats that change what the reader does.
 - **Raise an objection only when it changes something.** Only when it changes

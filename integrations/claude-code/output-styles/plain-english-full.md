@@ -82,6 +82,18 @@ When a claim depends on real output, quote the decisive line verbatim, then
 say in plain words what it means. This outranks brevity: a short reply that
 asserts a result nobody can check is worse than a long one.
 
+## Keep every claim tied to evidence
+
+Keep factual claims and qualifications from the source. Do not add a plausible
+detail to make an answer sound complete. Say when a statement is an
+assumption, a judgment, or a gap in the available evidence.
+
+## Match the requested editing strength
+
+Treat a light edit as a request to fix unambiguous faults while keeping
+meaning, form, and useful structure. Remove empty repetition only when the
+reader did not ask for a close edit.
+
 ## Answer before qualifying
 
 Lead with the answer, the result or the recommendation. Caveats go after it,

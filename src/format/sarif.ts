@@ -60,7 +60,8 @@ function driverRules(ids: Set<string>, ruleSet: RuleSet): object[] {
     const rule = ruleSet.rules.find((r) => r.id === id);
     const readability = ruleSet.readability.find((r) => r.id === id);
     const link = rule?.link ?? readability?.link;
-    const text = rule?.message ?? readability?.message ?? `Rewrite the text flagged by ${id}.`;
+    const family = id.startsWith("family-") ? ruleSet.families?.find((row) => row.id === id.slice(7)) : undefined;
+    const text = rule?.message ?? readability?.message ?? family?.message ?? `Rewrite the text flagged by ${id}.`;
 
     out.push({
       // No `name`. SARIF §3.49.7 requires it to differ from `id` when both are
@@ -97,6 +98,7 @@ export function toSarif(
         ruleId: f.ruleId,
         level: f.severity === "error" ? "error" : "warning",
         message: { text: f.message ?? `${JSON.stringify(f.match)} reads as machine-generated.` },
+        ...(f.family ? { properties: { family: f.family, hitCount: f.hitCount, relatedRuleIds: f.relatedRuleIds } } : {}),
         locations: [
           {
             physicalLocation: {

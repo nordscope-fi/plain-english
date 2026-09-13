@@ -129,6 +129,14 @@ describe("rule metadata", () => {
       expect(described.has(r.ruleId), `${r.ruleId} has no rule descriptor`).toBe(true);
     }
   });
+
+  it("describes an aggregate family and its contributors", () => {
+    const log = sarifFor(resolve(ROOT, "x.md"), "Furthermore, test it. Moreover, ship it. In conclusion, report it.");
+    const result = log.runs[0].results.find((row: any) => row.ruleId === "family-empty-framing");
+    expect(result.properties).toMatchObject({ family: "empty-framing", hitCount: 3 });
+    expect(result.properties.relatedRuleIds).toEqual(["furthermore", "in-conclusion", "moreover"]);
+    expect(log.runs[0].tool.driver.rules.some((row: any) => row.id === "family-empty-framing")).toBe(true);
+  });
 });
 
 describe("a clean run", () => {

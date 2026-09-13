@@ -53,6 +53,8 @@ The built-in rules cover:
 - acronyms and product names used before they are explained;
 - sentences that are long or show little variation across a document;
 - suppressions that give no reason.
+- internal citation markers and unfinished template fields;
+- clusters of related findings that form one repeated pattern.
 
 `plain-english explain` lists every rule. Pass a rule name to see its match, exceptions,
 severity, and rewrite hint:
@@ -61,6 +63,9 @@ severity, and rewrite hint:
 npx plain-english explain
 npx plain-english explain unglossed-term
 ```
+
+The explanation also shows whether a check is a writing-quality rule, a known
+machine marker, or both. It includes the review date and supporting source.
 
 The normal scan is deterministic. An optional model-backed check covers sentence shapes
 that regular expressions cannot judge, such as vague attribution and canned contrasts.
@@ -105,7 +110,7 @@ For agents without a profile, run the linter after each edit. The
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.2.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.3.0
   with:
     paths: docs README.md
     fail-on: error
@@ -122,7 +127,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.2.0
+    rev: v1.3.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -174,6 +179,31 @@ npx plain-english lint --show-suppressed
 
 A complete example lives in [`examples/revops.yml`](examples/revops.yml).
 
+## Learn this repository's existing style
+
+A committed profile can give agents stable project preferences without changing lint
+results. Choose the source files in `.plain-english.yml`:
+
+```yaml
+profile:
+  file: .plain-english-profile.yml
+  samples:
+    technical-doc: ["docs/**/*.md"]
+    repository: ["README.md", "CONTRIBUTING.md"]
+```
+
+Build it, check it in, then rerun `init` so agent guidance includes the stable results:
+
+```bash
+npx plain-english profile
+npx plain-english profile --check
+npx plain-english init --agent all
+```
+
+The profile stores paths, hashes, counts, and summaries. It stores no excerpts. Small or
+inconsistent samples stay marked as insufficient or mixed and do not reach agent guidance.
+The `preferences` mapping is for deliberate project choices and survives regeneration.
+
 ## Suppress one passage
 
 Every suppression needs a reason after the colon.
@@ -196,6 +226,8 @@ unusual and visible to the next reader.
 | `plain-english lint --chat --summary` | Check local agent transcripts and separate main replies from subagent replies. |
 | `plain-english policy` | Write a policy page from the active config and installed hooks. |
 | `plain-english policy --check` | Fail when that generated policy no longer matches the repo. |
+| `plain-english profile` | Measure stable style preferences from configured project files. |
+| `plain-english profile --check` | Fail when the committed profile is missing or stale. |
 | `plain-english doctor` | Print the environment details needed for a hook bug report. |
 | `plain-english render --check` | Check that generated rules and agent instructions are current. |
 | `plain-english --help` | Show all commands, formats, and exit behaviour. |

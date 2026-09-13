@@ -4,6 +4,19 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-13
+### Added
+
+- **Project writing profiles.** The new `profile` command records stable spelling, sentence, paragraph, heading, list, direct-address, and punctuation habits from configured repository files. The committed profile stores summaries rather than excerpts. Agent guidance uses only stable observations, and lint findings do not change.
+- **Two warning rules for unfinished assistant output.** Internal provider citation markers and narrow template fields are reported while code and link targets remain masked.
+- **Pattern-family summaries.** Related findings can produce one extra warning when they cluster across a passage. The original findings remain, and JSON and SARIF output identify the family and its contributing rules.
+- **Rule provenance.** `explain` now reports whether a built-in check describes writing quality, a known marker, or both, with its confidence, review date, scope, and source.
+- **Grounded writing evaluation.** The maintainer harness rejects unsupported factual additions and lost qualifications before preference review. Its separate analysis command measures structural hypotheses without turning them into product rules.
+
+### Changed
+
+- **Generated writing guidance preserves evidence and editing intent.** Agents are told to label assumptions and evidence gaps, keep material qualifications, and preserve the requested form during a light edit.
+
 ## [1.2.0] - 2026-09-03
 ### Added
 
@@ -550,7 +563,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.0
 [1.2.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.2.0
 [1.0.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.0.0
 [0.24.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v0.24.1

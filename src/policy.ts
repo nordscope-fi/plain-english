@@ -295,6 +295,13 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
     out.push(`| ${markdownTableCode(humanise(rule))} | \`${tier(rule)}\` | ${rule.message ?? ""} |`);
   }
   out.push("");
+  const families = (set.families ?? []).filter((family) => family.severity !== "off");
+  if (families.length) {
+    out.push("Related findings can also produce these advisory summaries:", "");
+    out.push("| Family | Tier | Fires at |", "|---|---|---|");
+    for (const family of families) out.push(`| family-${family.id} | ${family.severity} | ${family.minFindings} findings, ${family.minRules} rules, ${family.minSentences} sentences |`);
+    out.push("");
+  }
 
   out.push("## What this repository changed", "");
   const changes = deviations(set);
@@ -332,6 +339,16 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
       `Files skipped entirely: ${set.exclude.map((e) => `\`${e}\``).join(", ")}.`,
       "",
     );
+  }
+
+  if (set.profile) {
+    out.push("## Project writing profile", "");
+    if (set.profileState) {
+      out.push(`Profile \`${set.profileState.file}\` has source hash \`${set.profileState.sourceHash}\`.`, "");
+      out.push("| Genre | Evidence |", "|---|---|");
+      for (const [genre, status] of Object.entries(set.profileState.genres)) out.push(`| ${genre} | ${status} |`);
+      out.push("");
+    } else out.push(`Profile \`${set.profile.file}\` is configured but missing or invalid.`, "");
   }
 
   out.push("## Waivers in the tree", "");

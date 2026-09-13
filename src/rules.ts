@@ -11,8 +11,17 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { findUnsafe } from "./safe-regex.ts";
+import { PROFILE_GENRES, readWritingProfile, writingProfileGuidance } from "./writing-profile.ts";
 
 export type Severity = "error" | "warn" | "off";
+
+export interface Provenance {
+  kind: "quality" | "marker" | "both";
+  confidence: "high" | "medium" | "experimental";
+  scope: string[];
+  reviewed: string;
+  sources: Array<{ title: string; url: string }>;
+}
 
 export interface Rule {
   id: string;
@@ -36,6 +45,8 @@ export interface Rule {
    * Presence alone is not a finding.
    */
   perThousandWords?: number;
+  family?: string;
+  provenance?: Provenance;
   /** Compiled lazily by `compile`. */
   re?: RegExp;
   unlessRe?: RegExp[];
@@ -125,6 +136,8 @@ export interface ReadabilityRule {
   link?: string;
   /** Why this project changed the rule. See `Rule.reason`. */
   reason?: string;
+  family?: string;
+  provenance?: Provenance;
 }
 
 export interface Structure {
@@ -133,6 +146,29 @@ export interface Structure {
   description: string;
   bad?: string;
   good?: string;
+  family?: string;
+  provenance?: Provenance;
+}
+
+export interface PatternFamily {
+  id: string;
+  severity: Severity;
+  minFindings: number;
+  minRules: number;
+  minSentences: number;
+  message?: string;
+  reason?: string;
+}
+
+export interface WritingProfileConfig {
+  file: string;
+  samples: Record<string, string[]>;
+}
+
+export interface WritingProfileState {
+  file: string;
+  sourceHash: string;
+  genres: Record<string, string>;
 }
 
 /** One rendering of the chat guidance. Ordered narrowest first. */
@@ -372,6 +408,11 @@ export interface RuleSet {
   rules: Rule[];
   readability: ReadabilityRule[];
   structures: Structure[];
+  families?: PatternFamily[];
+  profile?: WritingProfileConfig;
+  /** Stable observations loaded from the generated profile file. */
+  profileGuidance?: string[];
+  profileState?: WritingProfileState;
   /**
    * How to write a document. Empty when the ruleset carries no `docs` key, and
    * every consumer checks, so a config written before this section still
@@ -432,6 +473,8 @@ interface RawRule {
   link?: unknown;
   perThousandWords?: unknown;
   reason?: unknown;
+  family?: unknown;
+  provenance?: unknown;
 }
 
 interface RawSet {
@@ -442,6 +485,8 @@ interface RawSet {
   rules?: unknown;
   readability?: unknown;
   structures?: unknown;
+  families?: unknown;
+  profile?: unknown;
   chat?: unknown;
   allow?: unknown;
   exclude?: unknown;
@@ -475,6 +520,27 @@ function asStringArray(v: unknown, where: string): string[] {
 }
 
 const ALLOW_KEYS = new Set(["pattern", "rules", "semantic"]);
+
+function readProvenance(v: unknown, where: string): Provenance | undefined {
+  if (v === undefined) return undefined;
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new RuleError(`${where} must be a mapping`);
+  const row = v as Record<string, unknown>;
+  const kind = row["kind"];
+  const confidence = row["confidence"];
+  if (!new Set(["quality", "marker", "both"]).has(String(kind))) throw new RuleError(`${where}.kind is invalid`);
+  if (!new Set(["high", "medium", "experimental"]).has(String(confidence))) throw new RuleError(`${where}.confidence is invalid`);
+  if (typeof row["reviewed"] !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row["reviewed"])) throw new RuleError(`${where}.reviewed must be YYYY-MM-DD`);
+  const scope = asStringArray(row["scope"], `${where}.scope`);
+  if (!Array.isArray(row["sources"])) throw new RuleError(`${where}.sources must be a list`);
+  const sources = row["sources"].map((item, i) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new RuleError(`${where}.sources[${i}] must be a mapping`);
+    const source = item as Record<string, unknown>;
+    if (typeof source["title"] !== "string" || typeof source["url"] !== "string") throw new RuleError(`${where}.sources[${i}] needs title and url`);
+    try { new URL(source["url"]); } catch { throw new RuleError(`${where}.sources[${i}].url must be a URL`); }
+    return { title: source["title"], url: source["url"] };
+  });
+  return { kind: kind as Provenance["kind"], confidence: confidence as Provenance["confidence"], scope, reviewed: row["reviewed"], sources };
+}
 
 /**
  * Read `allow`, in either shape.
@@ -542,6 +608,9 @@ function readRules(v: unknown, where: string): Rule[] {
     if (typeof r.message === "string") rule.message = r.message;
     if (typeof r.link === "string") rule.link = r.link;
     if (typeof r.reason === "string") rule.reason = r.reason;
+    if (typeof r.family === "string") rule.family = r.family;
+    const provenance = readProvenance(r.provenance, `${where}[${i}] (${r.id}).provenance`);
+    if (provenance) rule.provenance = provenance;
     if (r.perThousandWords !== undefined) {
       const n = Number(r.perThousandWords);
       if (!Number.isFinite(n) || n < 0) {
@@ -659,6 +728,9 @@ function readReadability(v: unknown): ReadabilityRule[] {
     if (typeof r["message"] === "string") out.message = r["message"];
     if (typeof r["link"] === "string") out.link = r["link"];
     if (typeof r["reason"] === "string") out.reason = r["reason"];
+    if (typeof r["family"] === "string") out.family = r["family"];
+    const provenance = readProvenance(r["provenance"], `readability[${i}] (${r["id"]}).provenance`);
+    if (provenance) out.provenance = provenance;
     return out;
   });
 }
@@ -680,8 +752,48 @@ function readStructures(v: unknown): Structure[] {
     };
     if (typeof s["bad"] === "string") out.bad = s["bad"];
     if (typeof s["good"] === "string") out.good = s["good"];
+    if (typeof s["family"] === "string") out.family = s["family"];
+    const provenance = readProvenance(s["provenance"], `structures[${i}] (${s["id"]}).provenance`);
+    if (provenance) out.provenance = provenance;
     return out;
   });
+}
+
+function readFamilies(v: unknown): PatternFamily[] {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) throw new RuleError("families must be a list");
+  return v.map((raw, i) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new RuleError(`families[${i}] must be a mapping`);
+    const row = raw as Record<string, unknown>;
+    if (typeof row["id"] !== "string" || !ID_RE.test(row["id"])) throw new RuleError(`families[${i}].id must be kebab-case`);
+    const severity = (row["severity"] ?? "warn") as Severity;
+    if (!new Set(["error", "warn", "off"]).has(severity)) throw new RuleError(`families[${i}].severity is invalid`);
+    const whole = (key: string, fallback: number) => {
+      const value = row[key] ?? fallback;
+      if (!Number.isInteger(value) || Number(value) < 1) throw new RuleError(`families[${i}].${key} must be a positive integer`);
+      return Number(value);
+    };
+    const out: PatternFamily = { id: row["id"], severity, minFindings: whole("minFindings", 3), minRules: whole("minRules", 2), minSentences: whole("minSentences", 2) };
+    if (typeof row["message"] === "string") out.message = row["message"];
+    if (typeof row["reason"] === "string") out.reason = row["reason"];
+    return out;
+  });
+}
+
+function readWritingProfileConfig(v: unknown): WritingProfileConfig | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new RuleError("profile must be a mapping");
+  const row = v as Record<string, unknown>;
+  if (typeof row["file"] !== "string" || !row["file"].trim()) throw new RuleError("profile.file must be a path");
+  if (!row["samples"] || typeof row["samples"] !== "object" || Array.isArray(row["samples"])) throw new RuleError("profile.samples must be a mapping");
+  const samples: Record<string, string[]> = {};
+  for (const [genre, patterns] of Object.entries(row["samples"] as Record<string, unknown>)) {
+    if (!(PROFILE_GENRES as readonly string[]).includes(genre)) throw new RuleError(`profile.samples has unknown genre '${genre}'`);
+    samples[genre] = asStringArray(patterns, `profile.samples.${genre}`);
+    if (!samples[genre].length) throw new RuleError(`profile.samples.${genre} must not be empty`);
+  }
+  if (!Object.keys(samples).length) throw new RuleError("profile.samples must name at least one genre");
+  return { file: row["file"], samples };
 }
 
 const EMPTY_CHAT: ChatSection = {
@@ -1045,6 +1157,8 @@ export const KNOWN_TOP_LEVEL = new Set([
   "rules",
   "readability",
   "structures",
+  "families",
+  "profile",
   "chat",
   "docs",
 ]);
@@ -1099,6 +1213,7 @@ function toRuleSet(raw: RawSet): RuleSet {
   if (failOn !== undefined && !["error", "warn", "never"].includes(String(failOn))) {
     throw new RuleError(`failOn must be error, warn or never (got ${String(failOn)})`);
   }
+  const profile = readWritingProfileConfig(raw.profile);
   return {
     version: 1,
     failOn: (failOn as FailOn) ?? "never",
@@ -1111,6 +1226,8 @@ function toRuleSet(raw: RawSet): RuleSet {
     rules: [...readRules(raw.punctuation, "punctuation"), ...readRules(raw.rules, "rules")],
     readability: readReadability(raw.readability),
     structures: readStructures(raw.structures),
+    families: readFamilies(raw.families),
+    ...(profile ? { profile } : {}),
     chat: readChat(raw.chat),
     docs: readDocs((raw as { docs?: unknown }).docs),
     allow: readAllow(raw.allow),
@@ -1121,7 +1238,27 @@ function toRuleSet(raw: RawSet): RuleSet {
 /** Load the built-in ruleset. */
 export function loadDefault(): RuleSet {
   const path = defaultRulesPath();
-  return toRuleSet(parseSet(readFileSync(path, "utf8"), path));
+  const set = toRuleSet(parseSet(readFileSync(path, "utf8"), path));
+  const source = {
+    title: "Plain English design rationale",
+    url: "https://github.com/nordscope-fi/plain-english/blob/main/docs/design-rationale.md",
+  };
+  for (const rule of set.rules) {
+    rule.provenance ??= {
+      kind: "both",
+      confidence: "medium",
+      scope: ["prose"],
+      reviewed: "2026-09-13",
+      sources: [source],
+    };
+  }
+  for (const rule of set.readability) {
+    rule.provenance ??= { kind: "quality", confidence: "medium", scope: ["prose"], reviewed: "2026-09-13", sources: [source] };
+  }
+  for (const structure of set.structures) {
+    structure.provenance ??= { kind: "both", confidence: "experimental", scope: ["semantic-review"], reviewed: "2026-09-13", sources: [source] };
+  }
+  return set;
 }
 
 /**
@@ -1143,6 +1280,8 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.link) existing.link = r.link;
       if (r.perThousandWords !== undefined) existing.perThousandWords = r.perThousandWords;
       if (r.reason) existing.reason = r.reason;
+      if (r.family) existing.family = r.family;
+      if (r.provenance) existing.provenance = r.provenance;
     } else {
       if (!r.match) {
         throw new RuleError(`rule '${r.id}' is new to this config and needs a 'match'`);
@@ -1152,6 +1291,12 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
   }
   const structures = new Map(base.structures.map((s) => [s.id, s]));
   for (const s of overlay.structures) structures.set(s.id, s);
+
+  const families = new Map((base.families ?? []).map((family) => [family.id, { ...family }]));
+  for (const family of overlay.families ?? []) {
+    const existing = families.get(family.id);
+    families.set(family.id, existing ? { ...existing, ...family } : { ...family });
+  }
 
   const readability = new Map(base.readability.map((r) => [r.id, { ...r }]));
   for (const r of overlay.readability) {
@@ -1170,6 +1315,8 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.message) existing.message = r.message;
       if (r.link) existing.link = r.link;
       if (r.reason) existing.reason = r.reason;
+      if (r.family) existing.family = r.family;
+      if (r.provenance) existing.provenance = r.provenance;
     } else {
       if (!r.kind) {
         throw new RuleError(`readability rule '${r.id}' is new to this config and needs a 'kind'`);
@@ -1191,6 +1338,10 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
     rules: [...byId.values()],
     readability: [...readability.values()],
     structures: [...structures.values()],
+    families: [...families.values()],
+    ...(overlay.profile ?? base.profile ? { profile: overlay.profile ?? base.profile } : {}),
+    ...(overlay.profileGuidance ?? base.profileGuidance ? { profileGuidance: overlay.profileGuidance ?? base.profileGuidance } : {}),
+    ...(overlay.profileState ?? base.profileState ? { profileState: overlay.profileState ?? base.profileState } : {}),
     chat: mergeChat(base.chat, overlay.chat),
     docs: mergeDocs(base.docs, overlay.docs),
     allow: [...base.allow, ...overlay.allow],
@@ -1328,12 +1479,25 @@ export function loadConfig(path: string): RuleSet {
   const raw = parseSet(readFileSync(path, "utf8"), path);
   const overlay = toRuleSet(raw);
   const ext = raw.extends;
-  if (ext === undefined || ext === "default") {
-    return merge(loadDefault(), overlay);
+  let set: RuleSet;
+  if (ext === undefined || ext === "default") set = merge(loadDefault(), overlay);
+  else {
+    if (typeof ext !== "string") throw new RuleError(`${path}: extends must be a string`);
+    const basePath = isAbsolute(ext) ? ext : resolve(dirname(path), ext);
+    set = merge(loadConfig(basePath), overlay);
   }
-  if (typeof ext !== "string") throw new RuleError(`${path}: extends must be a string`);
-  const basePath = isAbsolute(ext) ? ext : resolve(dirname(path), ext);
-  return merge(loadConfig(basePath), overlay);
+  if (set.profile) {
+    const profile = readWritingProfile(resolve(dirname(path), set.profile.file));
+    if (profile) {
+      set.profileGuidance = writingProfileGuidance(profile);
+      set.profileState = {
+        file: set.profile.file,
+        sourceHash: profile.sourceHash,
+        genres: Object.fromEntries(Object.entries(profile.genres).map(([name, row]) => [name, row.status])),
+      };
+    }
+  }
+  return set;
 }
 
 /**
@@ -1359,6 +1523,7 @@ export function resolveRuleSet(from: string): RuleSet {
  * rule so the author knows which line of their config to fix.
  */
 export function compile(set: RuleSet): RuleSet {
+  set.families ??= [];
   const guard = (source: string, where: string) => {
     const unsafe = findUnsafe(source);
     if (unsafe) {
@@ -1403,7 +1568,15 @@ export function compile(set: RuleSet): RuleSet {
     ...(set.readability ?? []).map((r) => r.id),
     ...(set.chat?.tells ?? []).map((t) => t.id),
     ...(set.chat?.limits ?? []).map((r) => r.id),
+    ...set.families.map((family) => `family-${family.id}`),
   ]);
+
+  const familyIds = new Set(set.families.map((family) => family.id));
+  for (const entry of [...(set.rules ?? []), ...(set.readability ?? [])]) {
+    if (entry.family && !familyIds.has(entry.family)) {
+      throw new RuleError(`rule '${entry.id}' names unknown family '${entry.family}'`);
+    }
+  }
 
   // A bare string reaching here means a caller built the ruleset by hand
   // rather than loading it, which the public API allows. Normalise instead of

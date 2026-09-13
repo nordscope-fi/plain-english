@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { delimiter, extname, relative, resolve, dirname } from "node:path";
+import { delimiter, extname, relative, resolve, dirname, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
@@ -41,6 +41,7 @@ import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
 import { matchesAny } from "./glob.ts";
+import { buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
@@ -567,6 +568,36 @@ function cmdPolicy(args: Args): number {
   return 0;
 }
 
+function cmdWritingProfile(args: Args): number {
+  const root = resolve(String(args.flags["root"] ?? process.cwd()));
+  const set = resolveRuleSet(root);
+  if (!set.profile) {
+    process.stderr.write("plain-english: configure profile.file and profile.samples first.\n");
+    return 2;
+  }
+  const out = resolve(root, set.profile.file);
+  const rel = relative(root, out);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) {
+    process.stderr.write("plain-english: profile.file must stay inside the project root.\n");
+    return 2;
+  }
+  const current = existsSync(out) ? readFileSync(out, "utf8") : "";
+  const fresh = writingProfileYaml(buildWritingProfile(root, set.profile, current));
+  const where = relative(root, out) || out;
+  if (args.flags["check"]) {
+    if (current !== fresh) {
+      process.stderr.write(`plain-english: ${where} is missing or stale. Run \`plain-english profile\`.\n`);
+      return 1;
+    }
+    process.stdout.write(`${where} is up to date\n`);
+    return 0;
+  }
+  mkdirSync(dirname(out), { recursive: true });
+  if (current === fresh) process.stdout.write("no changes\n");
+  else { writeFileSync(out, fresh); process.stdout.write(`wrote ${where}\n`); }
+  return 0;
+}
+
 /**
  * Which headed sections differ, so `--check` says what moved.
  *
@@ -626,8 +657,19 @@ function cmdExplain(args: Args): number {
         process.stdout.write(`  ${s.id.padEnd(22)} ${dim(s.name)}\n`);
       }
     }
+    if (set.families?.length) {
+      process.stdout.write(`\n${bold("Pattern families")}\n`);
+      for (const family of set.families) process.stdout.write(`  ${family.severity.padEnd(5)} family-${family.id}\n`);
+    }
     return 0;
   }
+
+  const printProvenance = (provenance: import("./rules.ts").Provenance | undefined): void => {
+    if (!provenance) return;
+    process.stdout.write(`  basis:   ${provenance.kind}, ${provenance.confidence} confidence; reviewed ${provenance.reviewed}\n`);
+    process.stdout.write(`  scope:   ${provenance.scope.join(", ")}\n`);
+    for (const source of provenance.sources) process.stdout.write(`  source:  ${source.title} (${source.url})\n`);
+  };
 
   const rule = set.rules.find((r) => r.id === id);
   if (rule) {
@@ -638,6 +680,7 @@ function cmdExplain(args: Args): number {
     }
     if (rule.message) process.stdout.write(`  instead: ${rule.message}\n`);
     if (rule.link) process.stdout.write(`  more:    ${rule.link}\n`);
+    printProvenance(rule.provenance);
     return 0;
   }
 
@@ -657,6 +700,7 @@ function cmdExplain(args: Args): number {
     }
     if (read.message) process.stdout.write(`  instead: ${read.message}\n`);
     if (read.link) process.stdout.write(`  more:    ${read.link}\n`);
+    printProvenance(read.provenance);
     return 0;
   }
 
@@ -667,6 +711,15 @@ function cmdExplain(args: Args): number {
     process.stdout.write(`  what:    ${structure.description.replace(/\s+/g, " ").trim()}\n`);
     if (structure.bad) process.stdout.write(`  bad:     ${structure.bad}\n`);
     if (structure.good) process.stdout.write(`  good:    ${structure.good}\n`);
+    printProvenance(structure.provenance);
+    return 0;
+  }
+
+  const family = set.families?.find((row) => `family-${row.id}` === id);
+  if (family) {
+    process.stdout.write(`${bold(`family-${family.id}`)}  (${family.severity})\n\n`);
+    process.stdout.write(`  fires:   ${family.minFindings} findings from ${family.minRules} rules across ${family.minSentences} sentences\n`);
+    if (family.message) process.stdout.write(`  instead: ${family.message}\n`);
     return 0;
   }
 
@@ -928,6 +981,7 @@ USAGE
   plain-english lint --chat          lint what agents said in the chat window
   plain-english render               regenerate docs/ and prompt templates
   plain-english policy               write this repo's AI writing policy
+  plain-english profile              build this repo's writing profile
   plain-english explain [RULE]       show a rule, or list them all
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
@@ -967,6 +1021,10 @@ POLICY OPTIONS
                                      (default: docs/ai-writing-policy.md)
   --check                            exit 1 if the policy is stale, naming
                                      which sections moved
+  --root PATH                        repo root (default: cwd)
+
+PROFILE OPTIONS
+  --check                            exit 1 if the profile is missing or stale
   --root PATH                        repo root (default: cwd)
 
 INIT OPTIONS
@@ -1049,6 +1107,7 @@ function cmdDoctor(): number {
       `config        ${configPath}`,
       `rules         ${ruleSummary}`,
       `structures    ${resolveRuleSetSafe(root)}`,
+      `profile       ${writingProfileStatus(root)}`,
       `resolves      ${resolvesLocally(root)}`,
       "",
       "agents",
@@ -1057,6 +1116,20 @@ function cmdDoctor(): number {
     ].join("\n"),
   );
   return 0;
+}
+
+function writingProfileStatus(root: string): string {
+  try {
+    const set = resolveRuleSet(root);
+    if (!set.profile) return "not configured";
+    const path = resolve(root, set.profile.file);
+    if (!existsSync(path)) return `${set.profile.file} missing`;
+    const current = readFileSync(path, "utf8");
+    const fresh = writingProfileYaml(buildWritingProfile(root, set.profile, current));
+    return current === fresh ? `${set.profile.file} up to date` : `${set.profile.file} stale`;
+  } catch (error) {
+    return `unavailable (${error instanceof Error ? error.message.split("\n")[0] : String(error)})`;
+  }
 }
 
 /**
@@ -1142,6 +1215,8 @@ async function main(): Promise<number> {
         return cmdRender(args);
       case "policy":
         return cmdPolicy(args);
+      case "profile":
+        return cmdWritingProfile(args);
       case "explain":
         return cmdExplain(args);
       case "doctor":
