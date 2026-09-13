@@ -22,6 +22,7 @@ import {
   readJsonl,
   report,
   splitFor,
+  structuralSignals,
   validateCase,
   validateGate,
   validateOutput,
@@ -120,8 +121,11 @@ describe("the private writing evaluation contract", () => {
 
   it("loads only synthetic checked-in cases", () => {
     const rows = readJsonl(resolve(import.meta.dirname, "fixtures/evaluation/cases.jsonl"));
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(6);
     expect(rows.every((row: { id: string }) => row.id.startsWith("synthetic-"))).toBe(true);
+    expect(new Set(rows.map((row: { genre: string }) => row.genre))).toEqual(new Set([
+      "chat", "decision", "email", "repository", "status", "technical-doc",
+    ]));
   });
 });
 
@@ -201,12 +205,74 @@ describe("correctness gates before preference", () => {
 });
 
 describe("experimental structure signals", () => {
-  it("reports triads, repeated openings, and confidence without creating findings", () => {
+  it("measures repeated lists, paragraph shapes, and confidence without creating findings", () => {
     const { benchmarkCase, outputs } = fixture();
-    outputs[0].text = "We may test red, blue, and green.\n\nWe may test one.\n\nWe may test two.";
+    outputs[0].text = [
+      "We may test red, blue, and green. We may test one.",
+      "We may test ash, oak, and pine. We may test two.",
+      "We may test cyan, gold, and black. We may test three.",
+    ].join("\n\n");
     const result = analyzeStructures([benchmarkCase], outputs, { run: "run-1", split: "development" });
-    expect(result.rows[0]).toMatchObject({ triads: 1, repeatedOpenings: 2 });
-    expect(result.rows[0].confidence.qualified).toBe(3);
+    expect(result.rows[0]).toMatchObject({ triads: 3, repeatedOpenings: 2 });
+    expect(result.rows[0].signals).toEqual({
+      repeatedTriads: { eligible: true, active: true },
+      repeatedParagraphShapes: { eligible: true, active: true },
+      uniformConfidence: { eligible: true, active: true },
+    });
+    expect(result.evidence.repeatedTriads.ready).toBe(false);
+  });
+
+  it("does not treat a short or mixed sample as a repeated structure", () => {
+    const result = structuralSignals("This may work. This will work. A plain sentence.");
+    expect(result.signals.repeatedTriads.eligible).toBe(false);
+    expect(result.signals.repeatedParagraphShapes.eligible).toBe(false);
+    expect(result.signals.uniformConfidence.eligible).toBe(false);
+  });
+
+  it("promotes a signal only after the frozen evidence thresholds pass", () => {
+    const seed = "structure-evidence";
+    const systems = instructionSystems("released", "candidate A", "candidate B");
+    const cases = Array.from({ length: 50 }, (_, index) => {
+      const item = validateCase(rawCase(
+        `structure-${index}`,
+        `structure-group-${index}`,
+        ["chat", "technical-doc", "decision", "status", "email", "repository"][index % 6],
+      ), seed);
+      item.split = "holdout";
+      item.prompt = "Revise this.\nSOURCE REPLY\nOne is ready. Two is ready. Three is ready. Four is ready. Five is ready.";
+      return item;
+    });
+    const tasks = generationTasks(cases, systems, { run: "structure-run", split: "holdout", seed });
+    const active = "Choose red, blue, and green. Check one. Choose ash, oak, and pine. Check two. Check three.";
+    const inactive = "Check one. Check two. Check three. Check four. Check five.";
+    const outputs = tasks.map((task: Record<string, string>) => validateOutput({
+      ...task,
+      model: "fixed-model",
+      settingsHash: "fixed-settings",
+      text: task.system === "released" ? active : inactive,
+    }));
+    const gates = cases.flatMap((item) => systems.map((system: { id: string }) => allPass("structure-run", item, system.id)));
+    const scheduled = comparisons(cases, outputs, gates, { run: "structure-run", split: "holdout", seed });
+    const votes = scheduled.map((row: { id: string; left: string; right: string }) => {
+      const preferred = row.left === "released" ? row.right : row.right === "released" ? row.left : "tie";
+      return {
+        run: "structure-run",
+        comparisonId: row.id,
+        reviewer: "reviewer-1",
+        reason: "Synthetic structure preference.",
+        choice: preferred === "tie" ? "TIE" : preferred === row.left ? "A" : "B",
+      };
+    });
+    const result = analyzeStructures(cases, outputs, {
+      run: "structure-run", split: "holdout", comparisons: scheduled, votes,
+    });
+    expect(result.evidence.repeatedTriads).toMatchObject({
+      eligibleOutputs: 200,
+      activeOutputs: 50,
+      activeHumanSources: 0,
+      preferredWithout: 150,
+      ready: true,
+    });
   });
 });
 

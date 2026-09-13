@@ -304,10 +304,123 @@ export function structuralSignals(value) {
     qualified: (value.match(/\b(?:may|might|could|likely|probably|appears?|suggests?)\b/giu) ?? []).length,
     certain: (value.match(/\b(?:will|must|always|never|clearly|definitely)\b/giu) ?? []).length,
   };
-  return { sentences: sentences.length, paragraphs: paragraphs.length, triads, repeatedOpenings, confidence };
+  const confidenceBySentence = sentences.map((sentence) => {
+    const qualified = /\b(?:may|might|could|likely|probably|appears?|suggests?)\b/iu.test(sentence);
+    const certain = /\b(?:will|must|always|never|clearly|definitely)\b/iu.test(sentence);
+    if (qualified && certain) return "mixed";
+    if (qualified) return "qualified";
+    if (certain) return "certain";
+    return "unmarked";
+  });
+  const paragraphShapes = paragraphs.map((paragraph) => {
+    const lengths = paragraph.split(/(?<=[.!?])\s+/u).map((sentence) => wordCount(sentence)).filter(Boolean);
+    return lengths.map((length) => length <= 8 ? "short" : length <= 20 ? "medium" : "long").join("-");
+  }).filter(Boolean);
+  const shapeCounts = new Map();
+  for (const shape of paragraphShapes) shapeCounts.set(shape, (shapeCounts.get(shape) ?? 0) + 1);
+  const dominantShapeCount = Math.max(0, ...shapeCounts.values());
+  const confidenceSentences = {
+    qualified: confidenceBySentence.filter((value) => value === "qualified").length,
+    certain: confidenceBySentence.filter((value) => value === "certain").length,
+    mixed: confidenceBySentence.filter((value) => value === "mixed").length,
+    unmarked: confidenceBySentence.filter((value) => value === "unmarked").length,
+  };
+  const markedConfidence = confidenceSentences.qualified + confidenceSentences.certain + confidenceSentences.mixed;
+  const confidenceDominance = markedConfidence
+    ? Math.max(confidenceSentences.qualified, confidenceSentences.certain) / markedConfidence
+    : 0;
+  const signals = {
+    repeatedTriads: {
+      eligible: sentences.length >= 5,
+      active: sentences.length >= 5 && triads >= 2,
+    },
+    repeatedParagraphShapes: {
+      eligible: paragraphs.length >= 3,
+      active: paragraphs.length >= 3 && dominantShapeCount >= 3 && dominantShapeCount / paragraphs.length >= 0.6,
+    },
+    uniformConfidence: {
+      eligible: sentences.length >= 5 && markedConfidence >= 3,
+      active: sentences.length >= 5 && markedConfidence >= 3 && confidenceDominance >= 0.9,
+    },
+  };
+  return {
+    sentences: sentences.length,
+    paragraphs: paragraphs.length,
+    triads,
+    repeatedOpenings,
+    paragraphShapes: {
+      distinct: shapeCounts.size,
+      dominantCount: dominantShapeCount,
+      dominantShare: paragraphs.length ? dominantShapeCount / paragraphs.length : 0,
+    },
+    confidence: {
+      ...confidence,
+      sentences: confidenceSentences,
+      dominantShare: confidenceDominance,
+    },
+    signals,
+  };
 }
 
-export function analyzeStructures(cases, outputs, { run, split = "development" }) {
+function sourceReply(benchmarkCase) {
+  const marker = "\nSOURCE REPLY\n";
+  const at = benchmarkCase.prompt.indexOf(marker);
+  return at === -1 ? "" : benchmarkCase.prompt.slice(at + marker.length).trim();
+}
+
+function signalEvidence(name, selectedCases, allCases, rows, comparisonsList, votes, split) {
+  const relevantRows = rows.filter((row) => row.signals[name].eligible);
+  const activeRows = relevantRows.filter((row) => row.signals[name].active);
+  const sourceRows = selectedCases.map((benchmarkCase) => sourceReply(benchmarkCase)).filter(Boolean).map(structuralSignals)
+    .filter((row) => row.signals[name].eligible);
+  const activeSources = sourceRows.filter((row) => row.signals[name].active).length;
+  const rowMap = new Map(rows.map((row) => [`${row.caseId}\0${row.system}`, row]));
+  const verdicts = pairVerdicts(comparisonsList, votes).filter((row) => row.outcome !== "pending");
+  let comparisonsCount = 0;
+  let decisive = 0;
+  let preferredWithout = 0;
+  for (const verdict of verdicts) {
+    const [first, second] = verdict.systems;
+    const firstRow = rowMap.get(`${verdict.caseId}\0${first}`);
+    const secondRow = rowMap.get(`${verdict.caseId}\0${second}`);
+    if (!firstRow?.signals[name].eligible || !secondRow?.signals[name].eligible) continue;
+    if (firstRow.signals[name].active === secondRow.signals[name].active) continue;
+    comparisonsCount += 1;
+    if (verdict.outcome === "tie") continue;
+    decisive += 1;
+    const without = firstRow.signals[name].active ? second : first;
+    if (verdict.outcome === without) preferredWithout += 1;
+  }
+  const preference = decisive ? preferredWithout / decisive : 0;
+  const sourceActivation = sourceRows.length ? activeSources / sourceRows.length : 0;
+  const genres = new Set(allCases.map((row) => row.genre)).size;
+  const checks = {
+    frozenHoldout: split === "holdout",
+    atLeast50PrivateCases: allCases.length >= 50,
+    atLeast4Genres: genres >= 4,
+    atLeast20EligibleOutputs: relevantRows.length >= 20,
+    atLeast20ActiveOutputs: activeRows.length >= 20,
+    preferenceAbove70: preference > 0.7,
+    lowerBoundAbove50: wilsonLower(preferredWithout, decisive) > 0.5,
+    humanSourceActivationAtMost5: sourceActivation <= 0.05,
+  };
+  return {
+    eligibleOutputs: relevantRows.length,
+    activeOutputs: activeRows.length,
+    eligibleHumanSources: sourceRows.length,
+    activeHumanSources: activeSources,
+    humanSourceActivation: sourceActivation,
+    comparisons: comparisonsCount,
+    decisive,
+    preferredWithout,
+    preference,
+    lower95: wilsonLower(preferredWithout, decisive),
+    checks,
+    ready: Object.values(checks).every(Boolean),
+  };
+}
+
+export function analyzeStructures(cases, outputs, { run, split = "development", comparisons: comparisonsList = [], votes = [] }) {
   const caseMap = new Map(cases.filter((row) => row.split === split).map((row) => [row.id, row]));
   const rows = outputs.filter((row) => row.run === run && caseMap.has(row.caseId)).map((row) => ({
     caseId: row.caseId,
@@ -315,7 +428,19 @@ export function analyzeStructures(cases, outputs, { run, split = "development" }
     genre: caseMap.get(row.caseId).genre,
     ...structuralSignals(row.text),
   }));
-  return { schemaVersion: SCHEMA_VERSION, run, split, cases: caseMap.size, rows };
+  const signalNames = ["repeatedTriads", "repeatedParagraphShapes", "uniformConfidence"];
+  const systems = Object.fromEntries(SYSTEMS.map((system) => [system, Object.fromEntries(signalNames.map((name) => {
+    const systemRows = rows.filter((row) => row.system === system && row.signals[name].eligible);
+    return [name, {
+      eligible: systemRows.length,
+      active: systemRows.filter((row) => row.signals[name].active).length,
+    }];
+  }))]));
+  const evidence = Object.fromEntries(signalNames.map((name) => [
+    name,
+    signalEvidence(name, [...caseMap.values()], cases, rows, comparisonsList, votes, split),
+  ]));
+  return { schemaVersion: SCHEMA_VERSION, run, split, cases: caseMap.size, systems, evidence, rows };
 }
 
 /** Blind correctness tasks hide the instruction system from the reviewer. */
