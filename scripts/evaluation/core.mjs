@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, posix, resolve, win32 } from "node:path";
 
 export const SCHEMA_VERSION = 1;
 export const GENRES = ["chat", "technical-doc", "decision", "status", "email", "repository"];
@@ -526,15 +526,19 @@ export function report(cases, outputs, gates, comparisonsList, votes, { run, spl
 }
 
 export function evaluationHome(env = process.env, platform = process.platform, home = homedir()) {
-  if (env.PLAIN_ENGLISH_EVAL_HOME) return resolve(env.PLAIN_ENGLISH_EVAL_HOME);
-  if (platform === "darwin") return resolve(home, "Library", "Application Support", "plain-english", "evaluation");
-  if (platform === "win32") return resolve(env.LOCALAPPDATA || resolve(home, "AppData", "Local"), "plain-english", "evaluation");
-  return resolve(env.XDG_DATA_HOME || resolve(home, ".local", "share"), "plain-english", "evaluation");
+  const paths = platform === "win32" ? win32 : posix;
+  if (env.PLAIN_ENGLISH_EVAL_HOME) return paths.resolve(env.PLAIN_ENGLISH_EVAL_HOME);
+  if (platform === "darwin") return paths.resolve(home, "Library", "Application Support", "plain-english", "evaluation");
+  if (platform === "win32") return paths.resolve(env.LOCALAPPDATA || paths.resolve(home, "AppData", "Local"), "plain-english", "evaluation");
+  return paths.resolve(env.XDG_DATA_HOME || paths.resolve(home, ".local", "share"), "plain-english", "evaluation");
 }
 
 export function assertOutsideRepository(store, repository) {
-  const rel = relative(resolve(repository), resolve(store));
-  if (rel === "" || (!rel.startsWith("..") && !rel.startsWith("../") && !rel.startsWith("..\\"))) {
+  const looksWindows = (value) => /^(?:[a-z]:[\\/]|\\\\)/i.test(value);
+  const paths = looksWindows(store) || looksWindows(repository) ? win32 : posix;
+  const rel = paths.relative(paths.resolve(repository), paths.resolve(store));
+  const isInside = rel === "" || (!paths.isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${paths.sep}`));
+  if (isInside) {
     fail("evaluation data must live outside the repository; set PLAIN_ENGLISH_EVAL_HOME to a user-data directory");
   }
 }

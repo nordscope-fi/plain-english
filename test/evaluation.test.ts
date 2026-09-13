@@ -291,7 +291,10 @@ describe("pre-registered evidence thresholds", () => {
 describe("private storage and the maintainer CLI", () => {
   it("uses operating-system user data and refuses the repository", () => {
     expect(evaluationHome({}, "darwin", "/fictional-home")).toContain("Library/Application Support/plain-english/evaluation");
+    expect(evaluationHome({ LOCALAPPDATA: "C:\\Users\\writer\\AppData\\Local" }, "win32", "C:\\Users\\writer"))
+      .toBe("C:\\Users\\writer\\AppData\\Local\\plain-english\\evaluation");
     expect(() => assertOutsideRepository(resolve(ROOT, "evaluation-data"), ROOT)).toThrow(/outside the repository/);
+    expect(() => assertOutsideRepository("C:\\Users\\writer\\evaluation", "D:\\a\\plain-english")).not.toThrow();
   });
 
   it("round-trips JSONL with an atomic replacement", () => {
