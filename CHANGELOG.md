@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-07
+### Added
+
+- **A Claude Code plugin.** `integrations/claude-code-plugin/` holds a mod that runs the four channels as functions inside Claude Code, and the repository is now its own marketplace. Install with `/plugin install plain-english --marketplace nordscope-fi/plain-english`. The chat gate holds a turn under `claude -p`, which the settings hook could not.
+
 ## [1.4.0] - 2026-09-13
 ### Added
 
@@ -574,7 +579,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.0
 [1.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.4.0
 [1.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.1
 [1.3.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.0

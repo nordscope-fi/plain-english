@@ -105,12 +105,20 @@ chat replies. Each agent exposes different hook events and trust controls. Read
 For agents without a profile, run the linter after each edit. The
 [post-edit guide](docs/post-edit-lint.md) gives a portable setup.
 
+Claude Code can also install it as a plugin, with nothing written into the project:
+
+```text
+/plugin install plain-english --marketplace nordscope-fi/plain-english
+```
+
+The [plugin's own guide](integrations/claude-code-plugin/README.md) lists what it hooks.
+
 ## Add it to a build
 
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.4.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.5.0
   with:
     paths: docs README.md
     fail-on: error
@@ -127,7 +135,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.4.0
+    rev: v1.5.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
