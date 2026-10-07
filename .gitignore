@@ -14,3 +14,13 @@ coverage/
 CLAUDE.md
 VIBE.md
 .playwright-mcp/
+
+# The Claude Code plugin ships a bundled copy of the CLI, built by
+# scripts/build-plugin.mjs on every `npm run build` and committed so an
+# install from the marketplace needs no build step.
+!integrations/claude-code-plugin/dist/
+
+# Written by Claude Code when it loads or tests the plugin: this build's API
+# declarations and a tsconfig that extends them. Per machine, not source.
+integrations/claude-code-plugin/tsconfig.json
+integrations/claude-code-plugin/.claude-plugin/types/

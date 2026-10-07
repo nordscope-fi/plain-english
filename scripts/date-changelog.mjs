@@ -145,6 +145,21 @@ export function retargetPins(text, version) {
   return out;
 }
 
+/**
+ * The Claude Code plugin's manifest, whose `version` gates updates.
+ *
+ * A plugin installed from a marketplace stays on its cached copy until the
+ * manifest's version string changes, however many commits land. Held equal to
+ * package.json's version, it changes on every release and never between,
+ * which is exactly when the bundled CLI inside the plugin changes.
+ */
+export const PLUGIN_MANIFEST = "integrations/claude-code-plugin/.claude-plugin/plugin.json";
+
+/** Point the manifest's `version` at `version`, keeping its formatting. */
+export function retargetManifest(text, version) {
+  return text.replace(/^(\s*"version":\s*")\d+\.\d+\.\d+(")/m, `$1${version}$2`);
+}
+
 /** Every version a pin in `text` currently names, in order. */
 export function readPins(text) {
   const found = [];
@@ -182,5 +197,14 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   }
   if (moved.length) {
     process.stdout.write(`pins: now v${pkg.version} in ${moved.join(", ")}\n`);
+  }
+
+  const manifestPath = resolve(root, PLUGIN_MANIFEST);
+  const manifestBefore = readFileSync(manifestPath, "utf8");
+  const manifestAfter = retargetManifest(manifestBefore, pkg.version);
+  if (manifestAfter !== manifestBefore) {
+    writeFileSync(manifestPath, manifestAfter, "utf8");
+    execFileSync("git", ["add", manifestPath], { cwd: root });
+    process.stdout.write(`plugin: manifest version is now ${pkg.version}\n`);
   }
 }

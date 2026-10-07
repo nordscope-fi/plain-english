@@ -26,5 +26,9 @@ export default defineConfig({
   test: {
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // The Claude Code plugin's tests import `claude-code/testing`, a module
+    // only `claude plugin test` provides. Vitest cannot run them, and the
+    // plugin's README says what does.
+    exclude: ["**/node_modules/**", "integrations/claude-code-plugin/**"],
   },
 });

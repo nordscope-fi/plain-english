@@ -119,6 +119,29 @@ Select the output style with `/config`, then **Output style**. The standalone
 A style applies to the main conversation only. Subagents run their own system prompt and
 do not see it.
 
+**There is a plugin too.** Claude Code 2.1.287 added mods: plugins whose behaviour is
+TypeScript functions the agent runs on its own events. The one under
+`integrations/claude-code-plugin/` does what `init` installs, as a mod:
+
+```text
+/plugin install plain-english --marketplace nordscope-fi/plain-english
+```
+
+Three things differ from the settings-hook install, each observed on 2.1.293:
+
+- **The chat gate holds a turn under `claude -p`.** A settings `Stop` block is ignored in
+  print mode (see below). The mod's block was honoured: the reply, the block as hook
+  feedback, a second model turn. It holds an interactive turn as well.
+- **There is no JSON shape to get wrong.** The mod returns a typed object, so the two
+  shape defects recorded under the chat channel cannot recur there.
+- **Nothing is written into the project.** No settings file, no launcher. Updates arrive
+  through `claude plugin update`.
+
+What does not differ: the rules, the config file, the advisory default, and the output
+style, which the plugin does not install. A project that has both installed is judged
+once per event, because a block or a deny from the mod stops the settings hooks beneath
+it from running.
+
 ### GitHub Copilot
 
 Reference: [GitHub Copilot hooks](https://docs.github.com/en/copilot/reference/hooks-reference).

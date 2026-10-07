@@ -1,0 +1,16 @@
+{
+  "name": "plain-english",
+  "owner": { "name": "Nordscope", "url": "https://github.com/nordscope-fi" },
+  "metadata": {
+    "description": "The plain-english prose linter as a Claude Code plugin: a mod that refuses writes and holds replies that break the ruleset."
+  },
+  "plugins": [
+    {
+      "name": "plain-english",
+      "source": "./integrations/claude-code-plugin",
+      "description": "Catches stock AI phrases, vague claims and unexplained jargon in Markdown writes, commit and pull request text, tracker issues and chat replies, inside Claude Code.",
+      "category": "productivity",
+      "keywords": ["writing", "lint", "prose", "hooks", "mod"]
+    }
+  ]
+}

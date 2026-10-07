@@ -1,0 +1,4 @@
+{
+  "description": "Four channels as function hooks: tool.call on Write, Edit and MultiEdit for Markdown (docs), tool.call on Bash for git and gh write commands (github), tool.call on the Linear MCP save tools (issue), and classic.Stop plus classic.SubagentStop for the reply (chat); each runs the installed plain-english CLI's hook adapter through $.process.run and answers with its decision. A /plain-english command lints the working tree on demand.",
+  "modules": ["./register.ts"]
+}

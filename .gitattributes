@@ -29,3 +29,6 @@ test/corpus/*.yml -text
 *.jpg binary
 *.gif binary
 *.ico binary
+
+# The Claude Code plugin's bundled CLI is built from dist/ by scripts/build-plugin.mjs.
+integrations/claude-code-plugin/dist/cli.mjs linguist-generated=true

@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 // @ts-expect-error plain .mjs helper, no types
-import { dateChangelog, pinnedFiles, readPins, retargetPins, today } from "../scripts/date-changelog.mjs";
+import {
+  PLUGIN_MANIFEST,
+  dateChangelog,
+  pinnedFiles,
+  readPins,
+  retargetManifest,
+  retargetPins,
+  today,
+} from "../scripts/date-changelog.mjs";
 
 /**
  * `npm version` dates the changelog now.
@@ -140,6 +148,38 @@ describe("moving the version pins", () => {
   it("changes nothing on a second pass", () => {
     const once = retargetPins(DOC, "0.9.1") as string;
     expect(retargetPins(once, "0.9.1")).toBe(once);
+  });
+});
+
+describe("moving the plugin manifest's version", () => {
+  const MANIFEST = [
+    "{",
+    '  "name": "plain-english",',
+    '  "version": "1.4.0",',
+    '  "description": "Released as 1.4.0, then 1.4.1.",',
+    '  "dependencies": { "other": "1.4.0" }',
+    "}",
+    "",
+  ].join("\n");
+
+  it("moves the version field and nothing else", () => {
+    const out = retargetManifest(MANIFEST, "1.5.0") as string;
+    expect(out).toContain('"version": "1.5.0"');
+    expect(out).toContain('"description": "Released as 1.4.0, then 1.4.1."');
+    expect(out).toContain('"dependencies": { "other": "1.4.0" }');
+    expect(JSON.parse(out).version).toBe("1.5.0");
+  });
+
+  it("changes nothing on a second pass", () => {
+    const once = retargetManifest(MANIFEST, "1.5.0") as string;
+    expect(retargetManifest(once, "1.5.0")).toBe(once);
+  });
+
+  it("holds this repository's manifest to package.json", () => {
+    const root = resolve(import.meta.dirname, "..");
+    const manifest = JSON.parse(readFileSync(resolve(root, PLUGIN_MANIFEST), "utf8"));
+    const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+    expect(manifest.version).toBe(pkg.version);
   });
 });
 
