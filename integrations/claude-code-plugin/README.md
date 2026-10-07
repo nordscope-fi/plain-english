@@ -50,7 +50,7 @@ The CLI reads `.plain-english.yml` in the project as it does everywhere else. Wi
 
 ## When it misfires
 
-A term the ruleset flags that is ordinary in your field goes in the config under `allow`, or on the line itself as `<!-- plain-english-disable-next-line leverage: finance sense -->`, with the reason after the colon, since a suppression without one is itself a finding. A refusal you need to get past once: `touch .plain-english-ack-docs` in the project root waives that channel for ten minutes. `plain-english doctor` prints the environment for a bug report.
+A term the ruleset flags that is ordinary in your field goes in the config under `allow`, or on the line itself as an HTML comment naming the rule and, after a colon, the reason. The [rule guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md) shows the comment. A suppression without a reason is itself a finding. A refusal you need to get past once: `touch .plain-english-ack-docs` in the project root waives that channel for ten minutes. `plain-english doctor` prints the environment for a bug report.
 
 Report a problem at <https://github.com/nordscope-fi/plain-english/issues>. Security concerns go to <peter@nordscope.fi>, not to the public tracker.
 
