@@ -28304,6 +28304,8 @@ function fromMarkdown(value2, encoding, options) {
 }
 function compiler(options) {
   const config = {
+    afterExit: [],
+    beforeEnter: [],
     transforms: [],
     canContainEols: ["emphasis", "fragment", "heading", "paragraph", "strong"],
     enter: {
@@ -28407,7 +28409,8 @@ function compiler(options) {
   function compile2(events) {
     let tree = {
       type: "root",
-      children: []
+      children: [],
+      position: void 0
     };
     const context = {
       stack: [tree],
@@ -28420,24 +28423,40 @@ function compiler(options) {
       data
     };
     const listStack = [];
+    const prepared = [];
     let index2 = -1;
     while (++index2 < events.length) {
+      prepared.push(events[index2]);
       if (events[index2][1].type === "listOrdered" || events[index2][1].type === "listUnordered") {
         if (events[index2][0] === "enter") {
-          listStack.push(index2);
+          listStack.push(prepared.length - 1);
         } else {
           const tail = listStack.pop();
-          index2 = prepareList(events, tail, index2);
+          prepareList(prepared, tail);
         }
       }
     }
+    events = prepared;
     index2 = -1;
     while (++index2 < events.length) {
       const handler = config[events[index2][0]];
-      if (own2.call(handler, events[index2][1].type)) {
-        handler[events[index2][1].type].call(Object.assign({
+      if (events[index2][0] === "enter" && config.beforeEnter.length > 0) {
+        callListeners(config.beforeEnter, {
+          ...context,
           sliceSerialize: events[index2][2].sliceSerialize
-        }, context), events[index2][1]);
+        }, events[index2][1]);
+      }
+      if (own2.call(handler, events[index2][1].type)) {
+        handler[events[index2][1].type].call({
+          ...context,
+          sliceSerialize: events[index2][2].sliceSerialize
+        }, events[index2][1]);
+      }
+      if (events[index2][0] === "exit" && config.afterExit.length > 0) {
+        callListeners(config.afterExit, {
+          ...context,
+          sliceSerialize: events[index2][2].sliceSerialize
+        }, events[index2][1]);
       }
     }
     if (context.tokenStack.length > 0) {
@@ -28463,7 +28482,14 @@ function compiler(options) {
     }
     return tree;
   }
-  function prepareList(events, start, length) {
+  function callListeners(listeners, context, token) {
+    let index2 = -1;
+    while (++index2 < listeners.length) {
+      listeners[index2].call(context, token);
+    }
+  }
+  function prepareList(events, start) {
+    const end = events.length - 1;
     let index2 = start - 1;
     let containerBalance = -1;
     let listSpread = false;
@@ -28471,7 +28497,8 @@ function compiler(options) {
     let lineIndex2;
     let firstBlankLineIndex;
     let atMarker;
-    while (++index2 <= length) {
+    const insertions = [];
+    while (++index2 <= end) {
       const event = events[index2];
       switch (event[1].type) {
         case "listUnordered":
@@ -28528,9 +28555,10 @@ function compiler(options) {
             listItem2._spread = true;
           }
           listItem2.end = Object.assign({}, lineIndex2 ? events[lineIndex2][1].start : event[1].end);
-          events.splice(lineIndex2 || index2, 0, ["exit", listItem2, event[2]]);
-          index2++;
-          length++;
+          insertions.push({
+            at: lineIndex2 || index2,
+            event: ["exit", listItem2, event[2]]
+          });
         }
         if (event[1].type === "listItemPrefix") {
           const item = {
@@ -28541,16 +28569,25 @@ function compiler(options) {
             end: void 0
           };
           listItem2 = item;
-          events.splice(index2, 0, ["enter", item, event[2]]);
-          index2++;
-          length++;
+          insertions.push({
+            at: index2,
+            event: ["enter", item, event[2]]
+          });
           firstBlankLineIndex = void 0;
           atMarker = true;
         }
       }
     }
+    const listEvents = events.splice(start);
+    let insertion = 0;
+    index2 = -1;
+    while (++index2 < listEvents.length) {
+      while (insertion < insertions.length && insertions[insertion].at === start + index2) {
+        events.push(insertions[insertion++].event);
+      }
+      events.push(listEvents[index2]);
+    }
     events[start][1]._spread = listSpread;
-    return length;
   }
   function opener2(create2, and) {
     return open;
@@ -28592,7 +28629,8 @@ function compiler(options) {
         start: token.start,
         end: token.end
       }) + "): it\u2019s not open");
-    } else if (open[0].type !== token.type) {
+    }
+    if (open[0].type !== token.type) {
       if (onExitError) {
         onExitError.call(this, token, open[0]);
       } else {
@@ -28828,7 +28866,8 @@ function compiler(options) {
   function blockQuote2() {
     return {
       type: "blockquote",
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function codeFlow() {
@@ -28836,13 +28875,15 @@ function compiler(options) {
       type: "code",
       lang: null,
       meta: null,
-      value: ""
+      value: "",
+      position: void 0
     };
   }
   function codeText2() {
     return {
       type: "inlineCode",
-      value: ""
+      value: "",
+      position: void 0
     };
   }
   function definition2() {
@@ -28851,13 +28892,15 @@ function compiler(options) {
       identifier: "",
       label: null,
       title: null,
-      url: ""
+      url: "",
+      position: void 0
     };
   }
   function emphasis() {
     return {
       type: "emphasis",
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function heading() {
@@ -28865,18 +28908,21 @@ function compiler(options) {
       type: "heading",
       // @ts-expect-error `depth` will be set later.
       depth: 0,
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function hardBreak() {
     return {
-      type: "break"
+      type: "break",
+      position: void 0
     };
   }
   function html() {
     return {
       type: "html",
-      value: ""
+      value: "",
+      position: void 0
     };
   }
   function image() {
@@ -28884,7 +28930,8 @@ function compiler(options) {
       type: "image",
       title: null,
       url: "",
-      alt: null
+      alt: null,
+      position: void 0
     };
   }
   function link() {
@@ -28892,7 +28939,8 @@ function compiler(options) {
       type: "link",
       title: null,
       url: "",
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function list2(token) {
@@ -28901,7 +28949,8 @@ function compiler(options) {
       ordered: token.type === "listOrdered",
       start: null,
       spread: token._spread,
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function listItem(token) {
@@ -28909,30 +28958,35 @@ function compiler(options) {
       type: "listItem",
       spread: token._spread,
       checked: null,
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function paragraph() {
     return {
       type: "paragraph",
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function strong() {
     return {
       type: "strong",
-      children: []
+      children: [],
+      position: void 0
     };
   }
   function text4() {
     return {
       type: "text",
-      value: ""
+      value: "",
+      position: void 0
     };
   }
   function thematicBreak2() {
     return {
-      type: "thematicBreak"
+      type: "thematicBreak",
+      position: void 0
     };
   }
 }
@@ -28973,6 +29027,14 @@ function extension(combined, extension2) {
           }
           break;
         }
+        case "afterExit":
+        case "beforeEnter": {
+          const right = extension2[key];
+          if (right) {
+            combined[key].push(right);
+          }
+          break;
+        }
         case "enter":
         case "exit": {
           const right = extension2[key];
@@ -28994,12 +29056,11 @@ function defaultOnError(left, right) {
       start: right.start,
       end: right.end
     }) + ") is open");
-  } else {
-    throw new Error("Cannot close document, a token (`" + right.type + "`, " + stringifyPosition({
-      start: right.start,
-      end: right.end
-    }) + ") is still open");
   }
+  throw new Error("Cannot close document, a token (`" + right.type + "`, " + stringifyPosition({
+    start: right.start,
+    end: right.end
+  }) + ") is still open");
 }
 
 // node_modules/ccount/index.js
