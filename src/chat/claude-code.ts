@@ -116,6 +116,33 @@ function assistantText(record: Record<string, unknown>): string[] {
 }
 
 /**
+ * What a subagent handed back, read off its own transcript.
+ *
+ * On Claude Code 2.1.294 a subagent ends with a `SubagentHandback` tool call,
+ * and SubagentStop then carries no `last_assistant_message`. In three of three
+ * live runs on 2026-10-08 the handback was already the last assistant record in
+ * `agent_transcript_path` when the event fired. Only the last assistant record
+ * counts: an earlier handback, or narration before it, is not the reply.
+ */
+function subagentHandback(path: string | undefined): string | undefined {
+  if (!path) return undefined;
+  let last: Record<string, unknown> | undefined;
+  readJsonl(path, (record) => {
+    if (record["type"] === "assistant") last = record;
+  });
+  const content = last && (last["message"] as Record<string, unknown> | undefined)?.["content"];
+  if (!Array.isArray(content)) return undefined;
+  for (const block of content) {
+    if (!block || typeof block !== "object") continue;
+    const b = block as Record<string, unknown>;
+    if (b["type"] !== "tool_use" || b["name"] !== "SubagentHandback") continue;
+    const message = (b["input"] as Record<string, unknown> | undefined)?.["message"];
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return undefined;
+}
+
+/**
  * The text of one record, when it is something a person typed.
  *
  * Three kinds of record carry `type: "user"` and only one of them is a
@@ -194,7 +221,8 @@ export const claudeCodeChat: ChatReader = {
   current(payload: Record<string, unknown>): Reply | null {
     // Documented as the complete final message, and documented as the thing to
     // use instead of the transcript, which lags.
-    const text = field(payload, "last_assistant_message");
+    const text = field(payload, "last_assistant_message") ??
+      subagentHandback(field(payload, "agent_transcript_path"));
     if (!text) return null;
     const reply: Reply = {
       text,

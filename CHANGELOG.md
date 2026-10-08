@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-10-08
+### Fixed
+
+- Helper agents' answers in Claude Code are checked again. On Claude Code 2.1.294 a helper agent (subagent) hands its answer back through a tool call, and the stop event then carries no reply text, so the check found nothing to read. The reply reader now takes the handed-back answer from the helper agent's own transcript. In live runs before the fix, an answer containing banned words passed with no finding; after it, the same answer was held for a rewrite.
+
 ## [1.13.0] - 2026-10-08
 ### Changed
 
@@ -679,7 +684,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.1
 [1.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.0
 [1.12.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.4
 [1.12.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.3
