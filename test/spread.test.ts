@@ -8,16 +8,16 @@ import { compile, loadDefault } from "../src/rules.ts";
  * Sentence spread.
  *
  * Every other readability rule here judges one sentence. This one judges the
- * set: how widely the lengths vary. Hand-edited prose swings; generated prose
- * clusters, and it goes on clustering after the giveaway words are edited out,
- * which is the reason the rule exists.
+ * set: how widely the lengths vary. It measures rhythm, rather than establishing authorship or writing quality.
+ * Independent calibration left the rule off by default; projects can opt in.
  *
  * Measured 2026-08-24. One cover letter written by a model and then revised by
  * hand to remove the word-level tells still scored 0.414 across 43 sentences.
  * Every document in this repository with 20 or more sentences scored 0.492 or
  * above, across a per-file range of 0.492 to 0.745.
  */
-const set = compile(loadDefault());
+const defaults = loadDefault();
+const set = compile({ ...defaults, readability: defaults.readability.map(rule => rule.id === "sentence-spread" ? { ...rule, severity: "warn" as const } : rule) });
 const fired = (text: string) =>
   lintText(text, set).findings.some((f) => f.ruleId === "sentence-spread");
 
@@ -35,6 +35,10 @@ const varied = Array.from({ length: 30 }, (_, i) =>
 ).join(" ");
 
 describe("sentence-spread", () => {
+  it("remains optional after independent calibration", () => {
+    expect(lintText(uniform, compile(defaults)).findings.some(f => f.ruleId === "sentence-spread")).toBe(false);
+    expect(fired(uniform)).toBe(true);
+  });
   it("fires on prose whose sentences are all one length", () => {
     expect(fired(uniform)).toBe(true);
   });

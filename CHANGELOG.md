@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-08
+### Fixed
+
+- Keep sentence-spread checking optional after independent calibration found frequent findings on human-labelled texts. Projects can still enable the existing rule and threshold. A public measurement record covers 1,300 labelled texts and 106 software documents; the held-back vocabulary gains no additional bans.
+
 ## [1.10.1] - 2026-10-08
 ### Fixed
 
@@ -644,7 +649,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.11.0
 [1.10.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.10.1
 [1.10.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.10.0
 [1.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.9.0

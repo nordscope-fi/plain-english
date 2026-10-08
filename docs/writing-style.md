@@ -308,12 +308,6 @@ Fires past 35 words. Set generously: a long sentence carrying one idea is fine, 
 
 Instead: Split this. One idea per sentence.
 
-### sentence-spread
-
-Fires when sentence lengths in a document vary less than 0.45, measured as their standard deviation over their mean. Documents under 20 sentences are skipped, having no spread to speak of. Every other readability rule judges one sentence; this judges the set, and catches the document where no single sentence is hard and the short one that lets a reader rest never arrives. Provisional: the figure clears every document in this repository, and the machine-written side of the comparison is one letter, measured at three stages of its own revision. The spread barely moved across those stages while the giveaway words were being taken out.
-
-Instead: Let a short sentence land between the long ones.
-
 ## Chat
 
 These apply to a reply in the chat window and to nothing else. A document that runs long is doing its job; a reply that runs long is the complaint readers make most often. Both are checked on the stop event, and both can be waived by the judge when the reader asked for the depth.
