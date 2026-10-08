@@ -11,9 +11,11 @@
  * CI's drift job fails on a bundle nobody committed.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolveRuleSet } from "../src/rules.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const PLUGIN = resolve(ROOT, "integrations/claude-code-plugin");
@@ -23,6 +25,21 @@ function json(path: string): Record<string, unknown> {
 }
 
 describe("the Claude Code plugin", () => {
+  it("creates approved vocabulary in a configuration the checker can actually load", async () => {
+    const { approveTerm } = await import("../scripts/approve-term.mjs");
+    const directory = mkdtempSync(resolve(tmpdir(), "pe-approved-term-"));
+    const path = resolve(directory, ".plain-english.yml");
+    try {
+      writeFileSync(path, approveTerm("", "BuildKit", "unglossed-term", "Our readers know this tool"));
+      const rules = resolveRuleSet(directory);
+      expect(rules.allowRe?.[0]?.re.test("BuildKit")).toBe(true);
+      expect(rules.allowRe?.[0]?.re.test("BuildKitExtra")).toBe(false);
+      expect(rules.allowRe?.[0]?.rules?.has("unglossed-term")).toBe(true);
+      expect(rules.allowRe?.[0]?.rules?.has("leverage")).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
   const own = json(resolve(ROOT, "package.json"));
   const manifest = json(resolve(PLUGIN, ".claude-plugin/plugin.json"));
   const marketplace = json(resolve(ROOT, ".claude-plugin/marketplace.json"));
@@ -57,6 +74,32 @@ describe("the Claude Code plugin", () => {
     expect(readFileSync(resolve(PLUGIN, "rules/default.yml"), "utf8")).toBe(
       readFileSync(resolve(ROOT, "rules/default.yml"), "utf8"),
     );
+  });
+
+  it("ships the existing writing guidance without changing it", () => {
+    for (const path of [
+      "output-styles/plain-english.md",
+      "output-styles/plain-english-brief.md",
+      "output-styles/plain-english-full.md",
+      "skills/writing-a-document/SKILL.md",
+    ]) {
+      expect(readFileSync(resolve(PLUGIN, path), "utf8")).toBe(
+        readFileSync(resolve(ROOT, "integrations/claude-code", path), "utf8"),
+      );
+    }
+  });
+
+  it("approves an exact term for one rule without erasing existing config comments", async () => {
+    const { approveTerm } = await import("../scripts/approve-term.mjs");
+    const config = "# Team choices\nextends: default\nchat:\n  failOn: never\nallow:\n  - pattern: Existing\n    rules: [unglossed-term]\n";
+    const updated = approveTerm(config, "BuildKit", "unglossed-term", "Our readers know this tool");
+    expect(updated).toContain("# Team choices");
+    expect(updated).toContain("failOn: never");
+    expect(updated).toContain("pattern: Existing");
+    expect(updated).toContain("Our readers know this tool");
+    expect(updated).toContain("BuildKit");
+    expect(updated).toContain("unglossed-term");
+    expect(updated).toContain("semantic: true");
   });
 
   it("has a README and a licence, as the directory requires", () => {

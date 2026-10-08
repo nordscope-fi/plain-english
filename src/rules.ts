@@ -405,6 +405,8 @@ export interface RuleSet {
    * past gets bypassed. Blocking is something a project opts into.
    */
   failOn: FailOn;
+  /** Extra model checks. Omitted preserves Claude Code and opt-in Vibe defaults. */
+  modelChecks?: boolean;
   rules: Rule[];
   readability: ReadabilityRule[];
   structures: Structure[];
@@ -487,6 +489,7 @@ interface RawSet {
   structures?: unknown;
   families?: unknown;
   profile?: unknown;
+  modelChecks?: unknown;
   chat?: unknown;
   allow?: unknown;
   exclude?: unknown;
@@ -1153,6 +1156,7 @@ export const KNOWN_TOP_LEVEL = new Set([
   "allow",
   "exclude",
   "failOn",
+  "modelChecks",
   "punctuation",
   "rules",
   "readability",
@@ -1213,10 +1217,14 @@ function toRuleSet(raw: RawSet): RuleSet {
   if (failOn !== undefined && !["error", "warn", "never"].includes(String(failOn))) {
     throw new RuleError(`failOn must be error, warn or never (got ${String(failOn)})`);
   }
+  if (raw.modelChecks !== undefined && typeof raw.modelChecks !== "boolean") {
+    throw new RuleError("modelChecks must be true or false");
+  }
   const profile = readWritingProfileConfig(raw.profile);
   return {
     version: 1,
     failOn: (failOn as FailOn) ?? "never",
+    ...(raw.modelChecks !== undefined ? { modelChecks: raw.modelChecks as boolean } : {}),
     meta: {
       title: typeof meta.title === "string" ? meta.title : "Writing style",
       intro: typeof meta.intro === "string" ? meta.intro : "",
@@ -1334,6 +1342,7 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
   return {
     version: 1,
     failOn: overlay.failOn ?? base.failOn,
+    ...((overlay.modelChecks ?? base.modelChecks) !== undefined ? { modelChecks: overlay.modelChecks ?? base.modelChecks } : {}),
     meta: overlay.meta.title ? overlay.meta : base.meta,
     rules: [...byId.values()],
     readability: [...readability.values()],

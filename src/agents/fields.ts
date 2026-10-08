@@ -94,9 +94,20 @@ export function issueFields(input: Record<string, unknown>): Record<string, unkn
   };
 }
 
+/** Fields needed to apply an edit without losing its surrounding document. */
+export function editFields(input: Record<string, unknown>): Record<string, unknown> {
+  return {
+    newString: pick(input, "new_string", "newString", "new_str", "replacement"),
+    oldString: pick(input, "old_string", "oldString", "old_str", "search"),
+    replaceAll: input["replace_all"] === true || input["replaceAll"] === true,
+  };
+}
+
 export interface PatchedFile {
   path: string;
   text: string;
+  sourcePath?: string;
+  edits?: { oldString: string; newString: string; changedRanges: { start: number; end: number }[] }[];
 }
 
 /**
@@ -131,59 +142,97 @@ export function parseApplyPatch(patch: string): PatchedFile[] {
 
 /** OpenAI's `*** Begin Patch` format. */
 function parseEnvelope(patch: string): PatchedFile[] {
-  const files: { path: string; text: string[] }[] = [];
-  let current: { path: string; text: string[] } | undefined;
-
+  const files: PatchedFile[] = [];
+  let current: PatchedFile | undefined;
+  let removed = "";
+  let added = "";
+  let ranges: { start: number; end: number }[] = [];
+  const finishHunk = () => {
+    if (current?.sourcePath && (removed || added)) {
+      (current.edits ??= []).push({ oldString: removed, newString: added, changedRanges: ranges });
+    }
+    removed = ""; added = ""; ranges = [];
+  };
   for (const line of patch.split(/\r?\n/)) {
-    const header = /^\*\*\* (?:Add|Update) File: (.+)$/.exec(line);
-    if (header?.[1]) {
-      current = { path: header[1].trim(), text: [] };
+    const header = /^\*\*\* (Add|Update) File: (.+)$/.exec(line);
+    if (header?.[2]) {
+      finishHunk();
+      current = { path: header[2].trim(), text: "" };
+      if (header[1] === "Update") current.sourcePath = current.path;
       files.push(current);
       continue;
     }
-    // Any other *** marker is structural: Begin Patch, End Patch, Delete File,
-    // and the `*** Move to:` that follows an Update File header.
-    if (line.startsWith("***")) {
+    if (line.startsWith("*** Move to:") && current) {
+      current.path = line.slice("*** Move to:".length).trim();
+      continue;
+    }
+    if (line.startsWith("***") || line.startsWith("@@")) {
+      finishHunk();
       if (/^\*\*\* (?:End Patch|Delete File)/.test(line)) current = undefined;
       continue;
     }
-    // "@@" context markers carry no inserted text.
-    if (line.startsWith("@@")) continue;
-    if (line.startsWith("+") && current) current.text.push(line.slice(1));
+    if (!current) continue;
+    if (line.startsWith("+")) {
+      const value = line.slice(1);
+      current.text += (current.text ? "\n" : "") + value;
+      ranges.push({ start: added.length, end: added.length + value.length });
+      added += value + "\n";
+    } else if (line.startsWith("-")) removed += line.slice(1) + "\n";
+    else if (line.startsWith(" ")) {
+      removed += line.slice(1) + "\n";
+      added += line.slice(1) + "\n";
+    }
   }
-
-  return files.map((f) => ({ path: f.path, text: f.text.join("\n") }));
+  finishHunk();
+  return files;
 }
 
 /** Ordinary `--- a/x` / `+++ b/x` / `@@` diff. */
 function parseUnifiedDiff(patch: string): PatchedFile[] {
-  const files: { path: string; text: string[] }[] = [];
-  let current: { path: string; text: string[] } | undefined;
-
+  const files: PatchedFile[] = [];
+  let current: PatchedFile | undefined;
+  let sourcePath: string | undefined;
+  let removed = "";
+  let added = "";
+  let ranges: { start: number; end: number }[] = [];
+  const finishHunk = () => {
+    if (current?.sourcePath && (removed || added)) {
+      (current.edits ??= []).push({ oldString: removed, newString: added, changedRanges: ranges });
+    }
+    removed = ""; added = ""; ranges = [];
+  };
   for (const line of patch.split(/\r?\n/)) {
-    if (line.startsWith("+++ ")) {
+    if (line.startsWith("--- ")) {
+      finishHunk();
       const raw = line.slice(4).trim().split("\t")[0] ?? "";
-      // A deletion names /dev/null as its destination and creates no file.
-      if (raw === "/dev/null") {
-        current = undefined;
-        continue;
-      }
-      current = { path: raw.replace(/^[ab]\//, ""), text: [] };
+      sourcePath = raw === "/dev/null" ? undefined : raw.replace(/^[ab]\//, "");
+      continue;
+    }
+    if (line.startsWith("+++ ")) {
+      finishHunk();
+      const raw = line.slice(4).trim().split("\t")[0] ?? "";
+      if (raw === "/dev/null") { current = undefined; continue; }
+      current = { path: raw.replace(/^[ab]\//, ""), text: "" };
+      if (sourcePath) current.sourcePath = sourcePath;
       files.push(current);
       continue;
     }
-    // Headers and metadata, none of which is inserted text.
-    if (
-      line.startsWith("--- ") ||
-      line.startsWith("@@") ||
-      line.startsWith("diff ") ||
-      line.startsWith("index ") ||
-      line.startsWith("\\ ")
-    ) {
+    if (line.startsWith("@@") || line.startsWith("diff ") || line.startsWith("index ")) {
+      finishHunk();
       continue;
     }
-    if (line.startsWith("+") && current) current.text.push(line.slice(1));
+    if (line.startsWith("\\ ") || !current) continue;
+    if (line.startsWith("+")) {
+      const value = line.slice(1);
+      current.text += (current.text ? "\n" : "") + value;
+      ranges.push({ start: added.length, end: added.length + value.length });
+      added += value + "\n";
+    } else if (line.startsWith("-")) removed += line.slice(1) + "\n";
+    else if (line.startsWith(" ")) {
+      removed += line.slice(1) + "\n";
+      added += line.slice(1) + "\n";
+    }
   }
-
-  return files.map((f) => ({ path: f.path, text: f.text.join("\n") }));
+  finishHunk();
+  return files;
 }

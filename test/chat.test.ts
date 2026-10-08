@@ -433,6 +433,56 @@ describe("the chat gate", () => {
       expect(d.reason).not.toMatch(/words of prose/);
     });
 
+    it("reports a model refusal without blocking when chat.failOn is never", () => {
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: { ...base, chat: { ...base.chat, failOn: "never" } },
+        judge: () => ({ ok: false, reason: "Lead with the result." }),
+      });
+      expect(d.allow).toBe(true);
+      expect(d.decision).toBe("ask");
+      expect(d.advisory).toBe("Lead with the result.");
+    });
+
+    it("keeps a warning-only model refusal below an error threshold", () => {
+      const warningOnly = {
+        ...base,
+        rules: [],
+        readability: [],
+        families: [],
+        chat: { ...base.chat, tells: [], limits: base.chat.limits.map((r) => ({ ...r, severity: "warn" as const })) },
+      };
+      let asked = false;
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: warningOnly,
+        judge: () => {
+          asked = true;
+          return { ok: false, reason: "Lead with the result." };
+        },
+      });
+      expect(asked).toBe(true);
+      expect(d.findings.length).toBeGreaterThan(0);
+      expect(d.findings.every((f) => f.severity === "warn")).toBe(true);
+      expect(d.allow).toBe(true);
+      expect(d.advisory).toBe("Lead with the result.");
+    });
+
+    it("uses only pattern checks when modelChecks is false", () => {
+      let asked = false;
+      const d = decideChat(reply(long), {
+        projectDir: home,
+        ruleSet: { ...strict, modelChecks: false },
+        judge: () => {
+          asked = true;
+          return { ok: true };
+        },
+      });
+      expect(asked).toBe(false);
+      expect(d.allow).toBe(false);
+      expect(d.findings.some((f) => f.ruleId === "reply-length")).toBe(true);
+    });
+
     it("is never asked about a rule it has no business waiving", () => {
       // A banned term is failing too, so the answer is already settled and the
       // model call would be spent to change nothing.
@@ -475,6 +525,19 @@ describe("the chat gate", () => {
       });
       expect(asked).toBe(false);
     });
+  });
+
+  it("keeps long turn identities distinct after a shared path prefix", () => {
+    const prefix = "x".repeat(100);
+    expect(blockStatePath(home, prefix + ":first")).not.toBe(blockStatePath(home, prefix + ":second"));
+  });
+
+  it("does not let a main reply's refusal silence its helper", () => {
+    const opts = { projectDir: home, ruleSet: strict, promptId: "same-human-turn" };
+    expect(decideChat(reply("We leverage this."), opts).allow).toBe(false);
+    const helper = { ...reply("We leverage this."), isSubagent: true, source: "helper.jsonl" };
+    expect(decideChat(helper, opts).allow).toBe(false);
+    expect(decideChat(helper, opts).allow).toBe(true);
   });
 
   it("allows a clean reply and says nothing", () => {
@@ -1218,6 +1281,19 @@ describe("the chat judge", () => {
         env: {},
       }),
     ).toBeUndefined();
+  });
+
+  it("reports an unavailable background check without confusing it with a pass", () => {
+    let unavailable = "";
+    const verdict = runJudge("the passage", {
+      prompt: "Check: $ARGUMENTS",
+      command: "definitely-not-a-real-binary",
+      args: [],
+      env: {},
+      onUnavailable: (reason) => { unavailable = reason; },
+    });
+    expect(verdict).toBeUndefined();
+    expect(unavailable).toBe("could not start");
   });
 
   it("refuses a prompt with no slot to put the reply in", () => {

@@ -79,6 +79,10 @@
       ],
       "default": "never"
     },
+    "modelChecks": {
+      "description": "Extra model checks for documents, publishing and replies. False keeps checks local. Omit for Claude Code automatic checks and Vibe environment opt-in. True enables checks for every agent: Vibe uses its own CLI, others use Claude.",
+      "type": "boolean"
+    },
     "punctuation": {
       "$ref": "#/$defs/ruleList"
     },

@@ -440,7 +440,7 @@ export function vocabularyForPrompt(set: RuleSet): string {
  * this repository are unchanged by that section. It appears only in the copies
  * `init` writes into a project that asked for it.
  */
-export function renderPrompts(set: RuleSet): Record<string, string> {
+export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "tool"): Record<string, string> {
   const words = ruleListForPrompt(set);
   const shapes = structureListForPrompt(set);
   const vocabulary = vocabularyForPrompt(set);
@@ -464,6 +464,16 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "",
     "You are a plain-English gate for a markdown file about to be written or edited.",
     "",
+    ...(inputFormat === "prose" ? [
+    "Input contains files already scoped to the project, with excluded and reference files removed:",
+    "$ARGUMENTS",
+    "",
+    "Each files entry has a project-relative path and text. Text is the proposed complete document.",
+    "If changedRanges is present, its start/end values are zero-based character offsets",
+    "with an exclusive end. Judge ONLY prose overlapping those ranges. Use the surrounding",
+    "document to understand code blocks, quotations, definitions and accepted terminology.",
+    "Without changedRanges, judge the complete text. Flag:",
+    ] : [
     "Hook input (contains the tool call, including tool_input.file_path and the content being written):",
     "$ARGUMENTS",
     "",
@@ -473,6 +483,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "banned terms on purpose as a reference list).",
     "",
     "Otherwise judge ONLY the content or new_string being written. Flag:",
+    ]),
     `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     ...shapeLine,
@@ -537,6 +548,13 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "You are a plain-English gate for a git or GitHub write action (commit message, PR",
     "description or comment, issue body, release notes) about to run as a shell command.",
     "",
+    ...(inputFormat === "prose" ? [
+    "Input contains a texts list extracted from the writing command. Read-only commands",
+    "produce no input. Branch names, flags, file paths and commit hashes were removed.",
+    "$ARGUMENTS",
+    "",
+    "Judge ONLY the texts being introduced. Flag:",
+    ] : [
     "Hook input (contains the tool call, including tool_input.command):",
     "$ARGUMENTS",
     "",
@@ -548,6 +566,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "Otherwise judge ONLY the message text the command introduces: the -m/--message value, the",
     "--title/--body value, a heredoc body, or the contents of a file passed with -F/--file/",
     "--body-file/--notes-file. Ignore branch names, flags, file paths and commit hashes. Flag:",
+    ]),
     `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     "",
@@ -564,6 +583,14 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "",
     "You are a plain-English gate for an issue or comment about to be saved to a tracker.",
     "",
+    ...(inputFormat === "prose" ? [
+    "Input contains a texts list of the title, body and newly inserted patch text.",
+    "Removed text, location anchors, issue IDs, labels and other metadata were removed.",
+    "$ARGUMENTS",
+    "",
+    "Judge ONLY those texts being introduced.",
+    "",
+    ] : [
     "Hook input (contains the tool call, including the title and body being written):",
     "$ARGUMENTS",
     "",
@@ -575,6 +602,7 @@ export function renderPrompts(set: RuleSet): Record<string, string> {
     "replaced or located, not text being introduced, so someone fixing one line of an old body",
     "must not be blocked by the rest of it.",
     "",
+    ]),
     "Standard platform terminology for the tools this project uses is assumed vocabulary and does",
     "not need expanding. Only genuinely obscure internal shorthand (project-specific codenames, and",
     "acronyms that are not standard industry or product terms) needs a gloss. Flag:",

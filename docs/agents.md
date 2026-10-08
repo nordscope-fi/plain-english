@@ -22,19 +22,26 @@ twice and nothing changes the second time.
 
 | Agent | Config written | Can refuse a write | Honours `ask` | Semantic layer |
 |---|---|---|---|---|
-| Claude Code | `.claude/settings.json` + generated launchers in `.claude/hooks/` | yes | yes | yes, prompt hooks |
+| Claude Code | `.claude/settings.json` + generated launchers in `.claude/hooks/` | yes | yes | yes, shared command |
 | GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
 | OpenAI Codex CLI | `.codex/hooks.json` | yes, in a trusted folder you have approved | no | no |
 | Cursor | `.cursor/hooks.json` | yes | no | no |
-| Mistral Vibe | `.vibe/hooks.toml` + a judge in `.vibe/hooks/`, in a folder you have trusted | yes | no | yes, opt-in |
+| Mistral Vibe | `.vibe/hooks.toml`, in a folder you have trusted | yes | no | yes, opt-in |
 | Google Gemini CLI | `.gemini/settings.json` | yes | no | no |
 | Qwen Code | `.qwen/settings.json` | yes | no | no |
 
-The semantic layer is the model-judged pass over the ten sentence shapes a regex cannot
-reach. It rides on Claude Code's `prompt` hook type. Copilot's prompt hooks submit text at
-session start; they are not a model judge. Vibe has no prompt hook either, so its judge is
-a shell command that asks Vibe, off unless `PLAIN_ENGLISH_VIBE_JUDGE=1`.
-The deterministic rules, which are the ones that can fail a build, run everywhere.
+The semantic layer asks a model to check sentence shapes that patterns cannot judge.
+The shared command now scopes the prose and reads configuration before making that call.
+Claude Code enables it by default. Vibe remains opt-in through `PLAIN_ENGLISH_VIBE_JUDGE=1`.
+Set `modelChecks: true` to enable it explicitly, or `modelChecks: false` to disable it even when Vibe's environment setting is on.
+Other agents omit model calls by default; explicit opt-in uses an installed Claude CLI.
+Vibe uses its own CLI and its normal conversation storage behavior.
+Its child disables ordinary project context and prompt detail. Custom agent profiles and administrator settings can still supply context under Vibe's own configuration.
+Pattern checks run everywhere.
+
+After upgrading a settings-hook installation, run `plain-english init --agent <id>` again.
+This replaces older independent prompt or judge hooks that cannot read the runtime setting.
+The Claude plugin updates its bundled hooks without writing project settings.
 
 ## What the advisory default means on each agent
 
@@ -137,10 +144,11 @@ Three things differ from the settings-hook install, each observed on 2.1.293:
 - **Nothing is written into the project.** No settings file, no launcher. Updates arrive
   through `claude plugin update`.
 
-What does not differ: the rules, the config file, the advisory default, and the output
-style, which the plugin does not install. A project that has both installed is judged
-once per event, because a block or a deny from the mod stops the settings hooks beneath
-it from running.
+The plugin now includes the same three output styles and document skill as `init`.
+It also adds declared project vocabulary and loaded writing-profile observations to the conversation.
+Select a style under `/config` > **Output style**, then start a new session.
+The plugin adds a recent-findings panel and session repair controls, described in its [guide](../integrations/claude-code-plugin/README.md).
+Use one installation method to avoid duplicate checks when one returns a pass.
 
 ### GitHub Copilot
 

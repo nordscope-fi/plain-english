@@ -53,8 +53,9 @@ import {
  * repository, or two repositories in one session, cannot share a turn's state.
  */
 export function blockStatePath(projectDir: string, sessionId: string): string {
-  // A session id is a uuid from the agent. Anything else is not going in a path.
-  const safe = sessionId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "session";
+  // Readers may recover an identity from a transcript path and user-record id.
+  // Hash the complete identity so shared path prefixes cannot merge turns.
+  const safe = createHash("sha256").update(sessionId || "session").digest("hex").slice(0, 24);
   const scope = createHash("sha256").update(resolve(projectDir)).digest("hex").slice(0, 12);
   return resolve(tmpdir(), `plain-english-chat-${scope}-${safe}`);
 }
@@ -190,6 +191,9 @@ const JUDGEABLE = new Set(["reply-length", "reader-load", "reply-pace"]);
  */
 export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   const now = opts.now ?? Date.now();
+  const blockOpts = reply.isSubagent
+    ? { ...opts, promptId: `${opts.promptId ?? ""}:helper:${reply.session}:${reply.source}` }
+    : opts;
   const base = opts.ruleSet ?? resolveRuleSet(opts.projectDir);
   const ruleSet = chatRuleSet(base);
 
@@ -229,7 +233,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
   // reply the reader wanted. Anything else failing skips this entirely, which
   // is what keeps the model call on roughly one reply in ten rather than all
   // of them.
-  if (opts.judge && allJudgeable.length > 0 && (failing.length === 0 || failing.every((f) => JUDGEABLE.has(f.ruleId)))) {
+  if (base.modelChecks !== false && opts.judge && allJudgeable.length > 0 && (failing.length === 0 || failing.every((f) => JUDGEABLE.has(f.ruleId)))) {
     const verdict = opts.judge(reply, allJudgeable);
     if (verdict?.ok) {
       return { allow: true, decision: "allow", findings, ...timedOut };
@@ -238,7 +242,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
       // The judge said what the reply should have led with. That is more use
       // than "over 250 words", so it replaces the count in the message.
       const reason = verdict.reason;
-      if (!shouldBlock(opts, now, failing)) {
+      if (tier === "never" || failing.length === 0 || !shouldBlock(blockOpts, now, failing)) {
         return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
       }
       return { allow: false, decision: "deny", reason, advisory: reason, findings, ...timedOut };
@@ -246,6 +250,10 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
     // No verdict at all: the judge timed out, failed to start, or answered
     // something unreadable. Fall through to the count, which is the answer
     // this package had before the judge existed.
+  }
+
+  if (!failing.length) {
+    return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
   const reason = formatReason(failing, "chat", "This reply");
@@ -257,7 +265,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
   }
 
-  if (!shouldBlock(opts, now, failing)) {
+  if (!shouldBlock(blockOpts, now, failing)) {
     // Already blocked this turn, or the agent says this turn exists because we
     // blocked the last one. Say it once more as advice and let the turn end.
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };

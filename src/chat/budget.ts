@@ -7,6 +7,9 @@
  * timeout to the reader.
  */
 
+/** Document and publishing checks finish inside the 20-second tool hook. */
+export const DOCS_JUDGE_CALL_MS = 15_000;
+
 /** Most time one model call may take. */
 export const CHAT_JUDGE_CALL_MS = 25_000;
 

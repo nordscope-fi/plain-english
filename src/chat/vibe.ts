@@ -32,6 +32,7 @@ import { resolve } from "node:path";
 import { vibeHome } from "../agents/vibe.ts";
 import {
   field,
+  latestUserTurnId,
   inScope,
   readJsonl,
   withinDays,
@@ -161,6 +162,12 @@ export const vibeChat: ChatReader = {
    * of the four other agents there is no fast path here, and the transcript is
    * the only source. The last assistant reply in it is the turn that just ended.
    */
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      return record["role"] === "user";
+    });
+  },
+
   current(payload: Record<string, unknown>): Reply | null {
     const path = field(payload, "transcript_path");
     if (!path) return null;

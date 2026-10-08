@@ -8,15 +8,19 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { delimiter, extname, relative, resolve, dirname, isAbsolute } from "node:path";
+import { delimiter, extname, relative, resolve, dirname, isAbsolute, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
 import { renderAll, renderPrompts, writeTargets } from "./render.ts";
+import { projectGuidance } from "./guidance.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
   decide,
+  scopedDocsFiles,
+  extractFromBash,
+  extractFromIssue,
   isChannel,
   projectDirFor,
   hasAck,
@@ -29,6 +33,8 @@ import type { ConfigFile, HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
 import {
   isJudge,
+  CLAUDE_JUDGE_ARGS,
+  VIBE_JUDGE_ARGS,
   judgeInput,
   lastAsked,
   runJudge,
@@ -42,7 +48,7 @@ import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
 import { matchesAny } from "./glob.ts";
 import { approveWritingProfile, buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
-import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, nextJudgeTimeout } from "./chat/budget.ts";
+import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, DOCS_JUDGE_CALL_MS, nextJudgeTimeout } from "./chat/budget.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
@@ -757,8 +763,25 @@ function ruleSetFor(cwd: string): RuleSet {
   try {
     return resolveRuleSet(resolve(cwd));
   } catch {
-    return compile(loadDefault());
+    process.stderr.write("plain-english: configuration unavailable; using local built-in pattern checks as advice only.\n");
+    const fallback = compile(loadDefault());
+    return { ...fallback, modelChecks: false, chat: { ...fallback.chat, failOn: "never" } };
   }
+}
+
+function modelChecksEnabled(ruleSet: RuleSet, agent: string): boolean {
+  return ruleSet.modelChecks ?? (agent === "claude-code" ||
+    (agent === "vibe" && process.env["PLAIN_ENGLISH_VIBE_JUDGE"] === "1"));
+}
+
+function modelCommand(agent: string, model?: string): { command: string; args: string[] } {
+  return agent === "vibe"
+    ? { command: "vibe", args: VIBE_JUDGE_ARGS }
+    : { command: "claude", args: [...CLAUDE_JUDGE_ARGS, ...(model ? ["--model", model] : [])] };
+}
+
+function reportUnavailableModelCheck(reason: string): void {
+  process.stderr.write(`plain-english: extra model check ${reason}; pattern checks still apply.\n`);
 }
 
 function hookChat(
@@ -774,11 +797,18 @@ function hookChat(
 
   const cwd = typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd();
   const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
+  const ruleSet = ruleSetFor(cwd);
+  const turn = String(payload["prompt_id"] ?? payload["promptId"] ?? payload["turn_id"] ??
+    payload["turnId"] ?? reader.turnId?.(payload) ?? payload["session_id"] ?? payload["sessionId"] ?? "");
+  const helper = payload["agent_id"] ?? payload["subagent_id"];
+  // A helper may share the parent's turn id while producing its own reply.
+  const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
   // One deadline covers both optional model calls. Giving each call its own
   // full timeout allowed the pipeline to outlive the host hook around it.
   const judgeDeadline = Date.now() + CHAT_JUDGE_PIPELINE_MS;
 
   const decision = decideChat(reply, {
+    ruleSet,
     /**
      * Consulted only when a reply limit is the only thing failing, which is
      * roughly one reply in ten. Everything about it fails towards the count,
@@ -786,18 +816,18 @@ function hookChat(
      * package did before the judge existed.
      */
     judge: (r, findings) => {
-      if (isJudge()) return undefined;
-      const prompts = renderPrompts(ruleSetFor(cwd));
+      if (isJudge() || !modelChecksEnabled(ruleSet, profile.id)) return undefined;
+      const prompts = renderPrompts(ruleSet);
       const input = judgeInput(r, lastAsked(payload, reader), findings);
       const run = (prompt: string) => {
         const timeoutMs = nextJudgeTimeout(judgeDeadline);
         if (timeoutMs === 0) return undefined;
         return runJudge(input, {
           prompt,
-          command: "claude",
-          args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
+          ...modelCommand(profile.id),
           cwd: resolve(cwd),
           timeoutMs,
+          onUnavailable: reportUnavailableModelCheck,
         });
       };
 
@@ -817,7 +847,7 @@ function hookChat(
       if (readablePrompt) {
         const readable = run(readablePrompt);
         if (readable && !readable.ok && readable.reason) {
-          if (usableReason(readable.reason, chatRuleSet(ruleSetFor(cwd)))) return readable;
+          if (usableReason(readable.reason, chatRuleSet(ruleSet))) return readable;
         }
       }
 
@@ -833,7 +863,7 @@ function hookChat(
         verdict &&
         !verdict.ok &&
         verdict.reason &&
-        !usableReason(verdict.reason, chatRuleSet(ruleSetFor(cwd)))
+        !usableReason(verdict.reason, chatRuleSet(ruleSet))
       ) {
         return undefined;
       }
@@ -843,20 +873,7 @@ function hookChat(
     // Both Claude Code and Copilot document this, and it is the agent telling
     // you the current turn exists because a hook blocked the last one.
     stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true,
-    // Each agent names the turn differently, and getting this wrong is not
-    // loud: the block-once key falls back to the session, so one block would
-    // silence the rest of the session instead of the rest of the turn.
-    // Observed 2026-08-18: Claude Code sends `prompt_id`, Codex sends
-    // `turn_id`, Copilot sends neither and only `sessionId`.
-    promptId: String(
-      payload["prompt_id"] ??
-        payload["promptId"] ??
-        payload["turn_id"] ??
-        payload["turnId"] ??
-        payload["session_id"] ??
-        payload["sessionId"] ??
-        "",
-    ),
+    promptId,
   });
 
   const out = profile.emitChat(decision, eventName);
@@ -904,55 +921,57 @@ async function cmdHook(args: Args): Promise<number> {
     // nothing there but an incomplete scan.
     const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
     const parsed = profile.parse(payload);
-    let decision = decide(parsed, channel, { budgetMs });
+    let decision = decide(parsed, channel, { budgetMs, alreadyApplied: event === "post" });
+    const projectDir = projectDirFor(parsed);
+    const ruleSet = ruleSetFor(projectDir);
+    // Send extracted prose, never the original tool call: a command or patch
+    // can contain unrelated private text and excluded files.
+    const requests: { channel: Channel; input: string }[] = [];
+    if (channel === "docs" || (channel === "github" && parsed.tool === "bash")) {
+      const files = scopedDocsFiles(parsed, ruleSet, undefined, { alreadyApplied: event === "post" }).filter((file) =>
+        file.text.trim() && !["CLAUDE.md", "writing-style.md"].includes(basename(file.path)));
+      if (files.length) requests.push({
+        channel: "docs",
+        input: JSON.stringify({ files: files.map((file) => ({
+          ...file,
+          path: toPosix(relative(resolve(projectDir), resolve(file.path))),
+        })) }),
+      });
+    }
+    const texts = channel === "github" && parsed.tool === "bash"
+      ? extractFromBash(String(parsed.input["command"] ?? ""), parsed.cwd || projectDir)
+      : channel === "issue" ? extractFromIssue(parsed.input) : [];
+    if (texts.length) requests.push({ channel, input: JSON.stringify({ texts }) });
 
-    // Docs semantic pass. The deterministic gate above owns banned terms; this
-    // asks a model about faults of shape a count cannot see. It used to be a
-    // harness `prompt` hook that sent the whole file to a model and failed with
-    // `Prompt is too long` on a large one. Here the size guard runs first, in
-    // code: a payload over the limit passes on its size alone, and everything
-    // else fails towards allowing, exactly as the chat judge does. Only when
-    // the deterministic pass already allowed is there anything left to ask.
-    if (
-      channel === "docs" &&
-      event === "pre" &&
-      decision.allow &&
-      !isJudge() &&
-      !overDocsJudgeLimit(raw)
-    ) {
-      const projectDir = projectDirFor(parsed);
-      if (!hasAck("docs", projectDir)) {
-        const ruleSet = ruleSetFor(projectDir);
-        // The docs prompt carries a `{{PROJECT_DIR}}` placeholder so the model
-        // can tell an in-repo path from an outside one. The prompt-hook path
-        // filled it with "this repository" to keep an absolute path out of a
-        // committed settings file; here the substitution happens in the hook
-        // process, never on disk, so the real path is both safe and more useful.
-        const prompt = renderPrompts(ruleSet)["docs"]?.replaceAll(
-          "{{PROJECT_DIR}}",
-          resolve(projectDir),
-        );
-        if (prompt) {
-          const verdict = runJudge(raw, {
-            prompt,
-            // No tools, no file reads, one turn: the judge answers a question
-            // about text it was handed and has no business touching the repo.
-            command: "claude",
-            args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
-            cwd: resolve(projectDir),
-          });
-          // A refusal is honoured only when its reason is fit to show: the
-          // reason goes back to the model and to the reader, so it is held to
-          // this package's own rules. An unusable reason falls back to allowing.
-          if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
-            decision = {
-              allow: false,
-              decision: ruleSet.failOn === "never" ? "ask" : "deny",
-              reason: verdict.reason,
-              advisory: verdict.reason,
-              findings: decision.findings,
-            };
-          }
+    // Optional semantic checks share one deadline and the same runtime choices
+    // as the deterministic pass. Installed prompt hooks cannot enforce those
+    // choices before disclosing their input, so the CLI owns every model call.
+    const semanticPhase = ruleSet.failOn === "never" ? (profile.advisoryPhase ?? "pre") : "pre";
+    if (event === semanticPhase && decision.allow && !isJudge() &&
+        modelChecksEnabled(ruleSet, profile.id)) {
+      const deadline = Date.now() + DOCS_JUDGE_CALL_MS;
+      for (const request of requests) {
+        if (hasAck(request.channel, projectDir) || overDocsJudgeLimit(request.input)) continue;
+        const timeoutMs = Math.max(0, deadline - Date.now());
+        if (timeoutMs === 0) break;
+        const prompt = renderPrompts(ruleSet, "prose")[request.channel];
+        if (!prompt) continue;
+        const verdict = runJudge(request.input, {
+          prompt,
+          ...modelCommand(profile.id, args.flags["model"] ? String(args.flags["model"]) : undefined),
+          cwd: resolve(projectDir),
+          timeoutMs,
+          onUnavailable: reportUnavailableModelCheck,
+        });
+        if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
+          decision = {
+            ...decision,
+            allow: event === "post",
+            decision: event === "post" ? "allow" : ruleSet.failOn === "never" ? "ask" : "deny",
+            reason: verdict.reason,
+            advisory: verdict.reason,
+          };
+          break;
         }
       }
     }
@@ -987,6 +1006,7 @@ async function cmdHook(args: Args): Promise<number> {
     // must never be the reason a write cannot happen. Copilot is the one agent
     // that reads a non-zero exit here as a refusal, so 0 is also the only safe
     // answer, not merely the polite one.
+    process.stderr.write("plain-english: check unavailable; the write was allowed.\n");
     return 0;
   }
 }
@@ -997,6 +1017,7 @@ USAGE
   plain-english lint [PATH...]       lint files or directories (default: stdin)
   plain-english lint --chat          lint what agents said in the chat window
   plain-english render               regenerate docs/ and prompt templates
+  plain-english guidance             print project vocabulary and writing observations
   plain-english policy               write this repo's AI writing policy
   plain-english profile              build this repo's writing profile
   plain-english explain [RULE]       show a rule, or list them all
@@ -1290,6 +1311,15 @@ async function main(): Promise<number> {
         return await cmdLint(args);
       case "render":
         return cmdRender(args);
+      case "guidance": {
+        if (args.positionals.length || Object.keys(args.flags).length) {
+          process.stderr.write("plain-english: guidance takes no arguments. Run it in the project directory.\n");
+          return 2;
+        }
+        const text = projectGuidance(resolveRuleSet(process.cwd()));
+        if (text) process.stdout.write(text + "\n");
+        return 0;
+      }
       case "policy":
         return cmdPolicy(args);
       case "profile":

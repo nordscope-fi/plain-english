@@ -4,6 +4,21 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-08
+### Added
+
+- A project setting, `modelChecks`, controls extra model calls. Set it to `false` for local pattern checks only, or `true` to enable model checks explicitly. Claude Code retains its automatic default; Vibe keeps its own opt-in provider.
+- The Claude plugin includes brief, standard, and full output styles plus the document-writing skill. Declared vocabulary and writing-profile observations reach the conversation. Its review panel offers deliberate exceptions, and session repair mode permits one advisory rewrite before asking the user. Required checks still refuse.
+- A public synthetic Claude comparison measures ordinary writing, generated guidance, and guidance with checks. It records outputs and available usage measurements, then prepares blinded comparisons for human review.
+
+### Fixed
+
+- Report-only chat settings and warning thresholds now remain nonblocking when an extra model check refuses a reply.
+- Excluded files and paths outside the project are removed before extra model checks. Mixed patches send only eligible documents, and edits retain surrounding text while reporting changed prose.
+- Shell Markdown writes use document exceptions. Commit and publishing commands recognize options, attached messages, and message files relative to the command's working directory. Patch checks follow rename destinations.
+- Reply correction limits now distinguish user turns recovered from transcripts. Installation preserves unrelated hooks whose names mention Plain English.
+- Extra Claude checks disable local conversation saving. Failed checks produce notices, and native plugin validation and tests now run before release.
+
 ## [1.5.1] - 2026-10-08
 ### Fixed
 
@@ -584,7 +599,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.6.0
 [1.5.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.1
 [1.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.0
 [1.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.4.0

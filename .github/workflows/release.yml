@@ -167,6 +167,9 @@ jobs:
       - run: bash scripts/check-no-private-refs.sh
       - run: bash scripts/check-no-private-refs.sh --history
       - run: npm run lint:self
+      - run: npm install --global @anthropic-ai/claude-code@2.1.294
+      - run: claude plugin validate --strict integrations/claude-code-plugin
+      - run: claude plugin test integrations/claude-code-plugin
       - name: Generated files are current
         run: |
           npm run render

@@ -32,6 +32,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
   field,
+  latestUserTurnId,
   inScope,
   readJsonl,
   withinDays,
@@ -151,6 +152,17 @@ export const codexChat: ChatReader = {
       }
     }
     return out;
+  },
+
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      const data = record["payload"];
+      if (!data || typeof data !== "object") return false;
+      const p = data as Record<string, unknown>;
+      if (record["type"] === "event_msg" && p["type"] === "user_message") return true;
+      if (record["type"] !== "response_item" || p["type"] !== "message" || p["role"] !== "user") return false;
+      return Array.isArray(p["content"]) && p["content"].some((b) => b && typeof b === "object" && (b as Record<string, unknown>)["type"] === "input_text");
+    });
   },
 
   current(payload: Record<string, unknown>): Reply | null {

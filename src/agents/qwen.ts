@@ -3,7 +3,7 @@
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_MS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
-import { asRecord, issueFields, pick } from "./fields.ts";
+import { asRecord, editFields, issueFields, pick } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
 
 const RUNNER = runnerPath(".qwen");
@@ -30,7 +30,7 @@ export const qwen: AgentProfile = {
       case "write_file":
         return { tool: "write", cwd, input: { filePath, content: pick(input, "content") } };
       case "edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "run_shell_command":
         return { tool: "bash", cwd, input: { command: pick(input, "command") } };
       default:

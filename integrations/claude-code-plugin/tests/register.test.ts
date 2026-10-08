@@ -53,7 +53,324 @@ const BLOCK = JSON.stringify({
   reason: 'reply-length: 300 words of prose, over 250.',
 })
 
+const PANE = {
+  plugin: 'plain-english', component: 'Pane', requestId: 'plain-english-review',
+  viewport: { columns: 100, rows: 30 },
+  props: { title: 'Plain English findings', isFocused: true, bodyColumns: 60,
+    placement: 'inline', scroll: { offset: 0, bodyRows: 10 }, view: {} },
+} as const
+
 describe('register', () => {
+  test('approval does not save an exception for a rule removed since the finding', async ($, on) => {
+    let saved = false
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', ($, e) => ({ value: e.argv.includes('explain')
+      ? { ...RUN, exitCode: 2, stdout: '', stderr: 'no rule old-custom-rule' }
+      : { ...RUN, stdout: ASK.replaceAll('furthermore', 'old-custom-rule') } }))
+    on('fs.exists', () => ({ value: false }))
+    on('fs.stat', ($, e) => ({ value: { kind: 'dir', isLink: false, size: 0, mtimeMs: 0, realPath: e.path } }))
+    on('fs.write', () => { saved = true; return { value: undefined } })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
+    await ui.press({ key: 'approve-term-0' })
+    expect(saved).toBe(false)
+    expect(await ui.find({ type: 'Text', text: /no rule old-custom-rule/ })).toBeDefined()
+    await ui.unmount()
+  })
+  test('approval rechecks the project destination after confirmation before creating a config', async ($, on) => {
+    let confirmed = false
+    let saved = false
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('fs.exists', () => ({ value: false }))
+    on('fs.stat', () => ({ value: { kind: 'dir', isLink: confirmed, size: 0, mtimeMs: 0, realPath: confirmed ? '/elsewhere' : '/repo' } }))
+    on('fs.write', () => { saved = true; return { value: undefined } })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      if (!String(question['question']).includes('project-wide')) return { deny: 'dismissed' }
+      confirmed = true
+      return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
+    await ui.press({ key: 'approve-term-0' })
+    expect(confirmed).toBe(true)
+    expect(saved).toBe(false)
+    expect(await ui.find({ type: 'Text', text: /project directory changed/ })).toBeDefined()
+    await ui.unmount()
+  })
+  test('approval refuses to shadow an inherited project configuration', async ($, on) => {
+    let saved = false
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo/sub' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('fs.exists', ($, e) => ({ value: e.path === '/repo/.plain-english.yaml' }))
+    on('fs.stat', ($, e) => ({ value: { kind: 'dir', isLink: false, size: 0, mtimeMs: 0, realPath: e.path } }))
+    on('fs.write', () => { saved = true; return { value: undefined } })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/sub/a.md', content: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
+    await ui.press({ key: 'approve-term-0' })
+    expect(saved).toBe(false)
+    expect(await ui.find({ type: 'Text', text: /inherited configuration/ })).toBeDefined()
+    await ui.unmount()
+  })
+  test('oversized project guidance leaves the existing context intact and explains the skip', async ($, on) => {
+    let notice = ''
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: 'x'.repeat(32_769) } }))
+    on('ui.log', ($, e) => {
+      notice = e.text
+      return { value: undefined }
+    })
+    on('prompt.context', ($, e) => ({ blocks: e.blocks }))
+    const blocks = [{ name: 'claudeMd', text: 'Keep the coding instructions.' }]
+    const context = await $.prompt.context({ blocks })
+    expect(context.blocks).toEqual(blocks)
+    expect(notice).toContain('too large')
+  })
+  test('an unexpected response shape is unavailable rather than a clean check', async ($, on) => {
+    let logged = ''
+    let stdout = '[]'
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout } }))
+    on('ui.log', ($, e) => {
+      logged = e.text
+      return { value: undefined }
+    })
+    on('tool.call', () => ({ result: 'written' }))
+    expect((await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'x' })).result).toBe('written')
+    expect(logged).toContain('check unavailable')
+    stdout = '{"unexpected": true}'
+    logged = ''
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'x' })
+    expect(logged).toContain('check unavailable')
+  })
+  test('project writing guidance joins context without replacing existing instructions', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    let args: string[] = []
+    on('process.run', ($, e) => {
+      args = [...e.argv]
+      return { value: { ...RUN, stdout: 'Our readers know BuildKit. Preserve approved quotations.' } }
+    })
+    on('prompt.context', ($, e) => ({ blocks: e.blocks, instructionFiles: e.instructionFiles }))
+    const base = { name: 'claudeMd', text: 'Keep the coding instructions.' }
+    const context = await $.prompt.context({ blocks: [base], instructionFiles: [] })
+    expect(context.blocks).toEqual([base, { name: 'plainEnglishProject', text: 'Our readers know BuildKit. Preserve approved quotations.' }])
+    expect(context.instructionFiles).toEqual([])
+    expect(args.slice(2)).toEqual(['guidance'])
+  })
+  test('review also shows a refused reply without offering a one-time write bypass', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: JSON.stringify({ decision: 'block', reason: ASK_REASON }) } }))
+    on('classic.Stop', () => ({}))
+    await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    expect(await ui.find({ type: 'Text', text: /Most recent finding in chat/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Furthermore/ })).toBeDefined()
+    expect(await ui.find({ key: 'keep-once' })).toBeUndefined()
+    await ui.unmount()
+  })
+  test('repair and review never weaken a required refusal', async ($, on) => {
+    let dialogs = 0
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: DENY } }))
+    on('tool.call', ($, e) => {
+      if (e.tool === 'AskUserQuestion') dialogs += 1
+      return { result: 'written' }
+    })
+    await $.command.run({ command: 'plain-english', args: 'repair on' })
+    const call = { tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' }
+    expect((await $.tool.call(call)).deny).toContain('Furthermore')
+    expect((await $.tool.call(call)).deny).toContain('Furthermore')
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    expect(await ui.find({ key: 'keep-once' })).toBeUndefined()
+    expect(dialogs).toBe(0)
+    await ui.unmount()
+  })
+  test('a manual check that cannot start returns an unavailable notice', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ deny: 'node not found' }))
+    const answer = await $.command.run({ command: 'plain-english', args: 'docs' })
+    expect(answer.text).toContain('check unavailable')
+  })
+  test('a failed background check allows work but reports unavailable', async ($, on) => {
+    const notices: string[] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, exitCode: 2, stdout: '', stderr: 'Invalid configuration' } }))
+    on('ui.log', ($, e) => {
+      notices.push(e.text)
+      return { value: undefined }
+    })
+    on('tool.call', () => ({ result: 'written' }))
+    const answer = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    expect(answer.result).toBe('written')
+    expect(notices.join('\n')).toContain('check unavailable')
+    expect(notices.join('\n')).toContain('Invalid configuration')
+  })
+  test('a scoped comment is copied only after a valid reason is supplied', async ($, on) => {
+    let copied = ''
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', () => ({ deny: 'dismissed' }))
+    on('ui.copy', ($, e) => {
+      copied = e.text
+      return { value: { isCopied: true } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.press({ key: 'copy-exception-0' })
+    expect(copied).toBe('')
+    await ui.input({ key: 'exception-reason', text: 'Quoted customer wording' })
+    await ui.press({ key: 'copy-exception-0' })
+    expect(copied).toBe('<!-- plain-english-disable-next-line furthermore: Quoted customer wording -->')
+    await ui.unmount()
+  })
+  test('term approval requires a reason and confirmation before saving a scoped exception', async ($, on) => {
+    let saved = ''
+    let dialogs = 0
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('fs.exists', () => ({ value: true }))
+    on('fs.stat', ($, e) => ({ value: { kind: e.path === '/repo' ? 'dir' : 'file', isLink: false, size: 20, mtimeMs: 0, realPath: e.path } }))
+    on('fs.read', () => ({ value: 'extends: default\nchat:\n  failOn: never\n' }))
+    on('fs.write', ($, e) => {
+      saved = String(e.text)
+      return { value: undefined }
+    })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      if (!String(question['question']).includes('project-wide')) return { deny: 'dismissed' }
+      dialogs += 1
+      return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    await ui.press({ key: 'approve-term-0' })
+    expect(saved).toBe('')
+    expect(dialogs).toBe(0)
+    await ui.input({ key: 'exception-reason', text: 'Our readers use this term' })
+    await ui.press({ key: 'approve-term-0' })
+    expect(await ui.find({ type: 'Text', text: /^Project vocabulary was not changed:/ })).toBeUndefined()
+    expect(dialogs).toBe(1)
+    expect(saved).toContain('failOn: never')
+    expect(saved).toContain('Furthermore')
+    expect(saved).toContain('furthermore')
+    expect(saved).toContain('Our readers use this term')
+    await ui.unmount()
+  })
+  test('keeping once permits only the identical advisory write and consumes approval', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => e.tool === 'AskUserQuestion' ? { deny: 'dismissed' } : { result: 'written' })
+    const call = { tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' }
+    await $.tool.call(call)
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.press({ key: 'keep-once' })
+    const otherAgent = await $.tool.call({ ...call, agentId: 'helper' })
+    expect(otherAgent.deny).toContain('Furthermore')
+    const changed = await $.tool.call({ ...call, content: 'Furthermore, changed.' })
+    expect(changed.deny).toContain('Furthermore')
+    const allowed = await $.tool.call(call)
+    expect(allowed.result).toBe('written')
+    const consumed = await $.tool.call(call)
+    expect(consumed.deny).toContain('Furthermore')
+    await ui.unmount()
+  })
+  test('review opens a pane containing the current quoted findings', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', () => ({ deny: 'no one to ask' }))
+    let opened = ''
+    on('ui.open', ($, e) => {
+      opened = e.id
+      return { value: { isPlaced: true } }
+    })
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    await $.command.run({ command: 'plain-english', args: 'review' })
+    expect(opened).toBe('plain-english-review')
+    const tree = await $.ui.render({ component: 'Pane', requestId: opened, surface: 'terminal', props: {} })
+    const shown = JSON.stringify(tree)
+    expect(shown).toContain('2 findings')
+    expect(shown).toContain('Furthermore')
+    expect(shown).toContain('Keep this write once')
+  })
+  test('shell-written Markdown uses the shared docs check', async ($, on) => {
+    let args: string[] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', ($, e) => {
+      args = [...e.argv]
+      return { value: { ...RUN, stdout: DENY } }
+    })
+    on('tool.call', () => ({ result: 'written' }))
+    const answer = await $.tool.call({ tool: 'Bash', command: 'printf "%s" "Furthermore." > "notes.md"' })
+    expect(answer.deny).toContain('Furthermore')
+    expect(args.slice(2)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+  })
+  test('manual paths preserve quoted spaces and flag-looking filenames', async ($, on) => {
+    let args: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', ($, e) => {
+      args = [...e.argv]
+      return { value: { ...RUN, stdout: '' } }
+    })
+    await $.command.run({ command: 'plain-english', args: '"docs/Release notes.md" \'-draft.md\'' })
+    expect(args.slice(2)).toEqual(['lint', 'docs/Release notes.md', './-draft.md'])
+  })
+  test('repair mode gives one rewrite attempt, then asks on repeat', async ($, on) => {
+    let dialogs = 0
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      dialogs += 1
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Save it as it is' } } }
+    })
+    await $.command.run({ command: 'plain-english', args: 'repair on' })
+    const call = { tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' }
+    const first = await $.tool.call(call)
+    expect(first.deny).toContain('Rewrite attempt 1 of 1')
+    expect(dialogs).toBe(0)
+    const repeated = await $.tool.call({ ...call, content: 'Furthermore, updated.' })
+    expect(repeated.deny).toBeUndefined()
+    expect(dialogs).toBe(1)
+    const later = await $.tool.call({ ...call, content: 'Furthermore, a later write.' })
+    expect(later.deny).toContain('Rewrite attempt 1 of 1')
+    expect(dialogs).toBe(1)
+  })
+  test('an empty failed manual check reports unavailable, not clean', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, exitCode: 2, stdout: '' } }))
+    const answer = await $.command.run({ command: 'plain-english', args: 'docs' })
+    expect(answer.text).toContain('check unavailable')
+    expect(answer.text).not.toContain('no findings')
+  })
   test('a Markdown write the adapter refuses is denied with its reason', async ($, on) => {
     const argv: string[][] = []
     const stdin: string[] = []
@@ -154,6 +471,10 @@ describe('register', () => {
     expect(result.block).toBe('reply-length: 300 words of prose, over 250.')
     expect(reachedSettings, 'a block never runs the settings hooks beneath').toBe(false)
     expect(JSON.parse(stdin[0] ?? '{}').last_assistant_message).toBe('A long reply.')
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: 'Latest finding' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '0 findings' })).toBeUndefined()
+    await ui.unmount()
   })
 
   test('a reply the adapter passes goes on to the settings hooks', async ($, on) => {
@@ -236,6 +557,7 @@ describe('register', () => {
     const result = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'x' })
 
     expect(result.deny).toContain('Furthermore')
+    expect(result.deny).toContain('No approval was received')
   })
 
   test('readPassages reads the quoted lines and nothing else', async () => {

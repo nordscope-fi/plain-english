@@ -38,8 +38,8 @@ export type CanonicalTool =
  *
  *   filePath                      write | edit | multi-edit
  *   content                       write
- *   newString                     edit
- *   edits: [{ newString }]        multi-edit
+ *   oldString, newString          edit
+ *   edits: [{ oldString, newString, replaceAll }] multi-edit
  *   files: [{ path, text }]       patch
  *   command                       bash
  *   title, description, body      issue
@@ -228,6 +228,8 @@ export interface AgentProfile {
    * advisory tier has to be text fed back to the model instead, or the hook
    * looks installed and reports nothing at all under the default configuration.
    */
+  /** Phase where the host can deliver advisory prose to the model. */
+  advisoryPhase?: HookEvent;
   supportsAsk: boolean;
   /**
    * Anything about this machine that would stop an installed hook from running.

@@ -16,7 +16,7 @@ The plugin carries its own copy of the CLI under `dist/`, one file with every de
 
 ## What you see
 
-Three things happen without any prompt from you.
+The plugin checks writes and completed replies. Select **Plain English** under `/config` > **Output style** for writing guidance, then start a new session. Brief and full styles are also included. The bundled **writing-a-document** skill supplies document guidance when Claude invokes it.
 
 1. **A save is questioned.** Claude tries to save `notes.md` opening with `Furthermore, the build is slow.` Before the file is written, a dialog headed `Prose check` opens:
 
@@ -34,39 +34,45 @@ Three things happen without any prompt from you.
 
 The example sentences above sit in code spans and a code block so this file passes its own check.
 
-And one command you run yourself: `/plain-english docs/` lints those files and prints the findings, with no model turn.
+Commands you run yourself:
+
+- `/plain-english docs/` checks files without an extra model call. Quote paths containing spaces.
+- `/plain-english review` opens the recent findings panel.
+- `/plain-english status` reports the session's repair setting and recent findings.
+- `/plain-english repair on` allows one automatic rewrite of an advisory write. A repeated attempt asks you before proceeding. `/plain-english repair off` restores the immediate question. Required checks still refuse the write.
 
 ## What it hooks
 
 | Event | What the hook does |
 | --- | --- |
-| `tool.call` | On `Write`, `Edit` and `MultiEdit` of a `.md` or `.mdx` file, on a `Bash` command that is `git commit`, `gh pr`, `gh issue` or `gh release`, and on the Linear MCP save tools: runs the CLI's hook adapter on the call and returns its decision. A deny refuses the call with the reason. An ask opens a dialog headed `Prose check` that names the file or command and quotes one passage with its rule; a refusal there hands Claude the full finding, and where nobody can answer it refuses. Everything else passes through untouched. |
+| `tool.call` | On `Write`, `Edit` and `MultiEdit` of a `.md` or `.mdx` file, on a supported `Bash` Markdown write or message command (`git commit`, `gh pr`, `gh issue` or `gh release`), and on the Linear MCP save tools: runs the CLI's hook adapter on the call and returns its decision. A deny refuses the call with the reason. An ask opens a dialog headed `Prose check` that names the file or command and quotes one passage with its rule; a refusal there hands Claude the full finding, and where nobody can answer it refuses. Everything else passes through untouched. |
 | `classic.Stop`, `classic.SubagentStop` | Runs the chat adapter on the reply. A block holds the turn with the reason, in an interactive session and under `claude -p` alike. |
 | `session.start` | Registers `/plain-english`. |
+| `prompt.context` | Adds declared project vocabulary and loaded writing-profile observations to the conversation. The selected output style supplies general writing guidance. |
 | `command.run` | `/plain-english [paths]` lints the working tree and prints the findings. No model turn. |
 
 ## What it reads, writes and sends
 
-- **Reads:** the text of the write, commit message or reply being judged, as Claude Code hands it to the hook; `.plain-english.yml` in the project, when present; the files you name to `/plain-english`.
-- **Writes:** one small state file per turn in the system's temporary directory, so a held reply is held once and not in a loop. Nothing in the project, and nothing about the text itself.
-- **Sends:** nothing to any network service. The chat adapter may run `claude -p` on this machine as a judge when a reply limit is the only thing failing. That is your own Claude Code, under your own account, with no tools.
-- **Keeps:** nothing. No text is logged or retained.
+- **Reads:** proposed prose, its surrounding document when an edit needs context, the project config, configured writing-profile summaries, and files you request. Excluded documents and paths outside the project are skipped before extra model checks. Edits report findings only on changed prose.
+- **Writes:** temporary reply-control files with turn identifiers and small counters. The review panel retains recent findings in session memory. Approving a project term writes an exception to the project config after your confirmation.
+- **Sends:** pattern matching stays on this machine. Extra checks can call `claude -p` using your configured model service and account. Document checks receive the complete proposed document as context, including its code examples and quoted material, but judge changed prose. Chat checks can also include your last question. These calls use your plan or API usage. Set `modelChecks: false` to disable them.
+- **Keeps:** extra Claude calls disable local session persistence. Provider retention follows your account and provider settings. The host conversation still follows Claude Code's normal storage behavior.
 
-What it calls on the engine: `process.run`, to run the bundled CLI with `node`; `session.cwd` and `session.id`, to build the hook payload; `ui.ask` for an advisory finding; `ui.log` for a notice; `command.register`. Every hook fails open: if the CLI cannot run, the write goes ahead and the reply is shown.
+A failed checker produces a notice rather than a clean result. If the bundled CLI cannot run, the original action proceeds. If an extra model check cannot run, the pattern checks still apply. Document model calls share a 15-second deadline inside a 20-second tool check. Chat model calls share 45 seconds inside a 60-second hook.
 
 ## Configuration
 
-The CLI reads `.plain-english.yml` in the project as it does everywhere else. With no file, a finding is advisory and the mod asks before the write. To make findings refuse outright, set `failOn: error` there. The [adoption guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/adopting.md#3-write-a-project-config) walks through the file, and the [vocabulary section](https://github.com/nordscope-fi/plain-english#configure-project-vocabulary) of the main README covers project terms.
+The CLI reads `.plain-english.yml` in the project as it does everywhere else. With no file, a finding is advisory and the mod asks before the write. To make findings refuse outright, set `failOn: error` there. Chat has its own setting and blocks errors by default. Set `chat.failOn: never` to report chat findings without holding the reply. Extra model checks follow `modelChecks`: `false` disables them, `true` enables them, and omission retains the Claude Code default. The [adoption guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/adopting.md#3-write-a-project-config) walks through the file, and the [vocabulary section](https://github.com/nordscope-fi/plain-english#configure-project-vocabulary) of the main README covers project terms.
 
 ## When it misfires
 
-A term the ruleset flags that is ordinary in your field goes in the config under `allow`, or on the line itself as an HTML comment naming the rule and, after a colon, the reason. The [rule guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md) shows the comment. A suppression without a reason is itself a finding. A refusal you need to get past once: `touch .plain-english-ack-docs` in the project root waives that channel for ten minutes. `plain-english doctor` prints the environment for a bug report.
+A term the ruleset flags that is ordinary in your field goes in the config under `allow`, or on the line itself as an HTML comment naming the rule and, after a colon, the reason. The [rule guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md) shows the comment. A suppression without a reason is itself a finding. The review panel offers a one-use exception for the identical advisory attempt, approval of a term for one rule across the project, or a suppression comment copied with your reason. Paste that comment above the intended passage yourself. Inherited or linked configuration needs a manual edit. Term approval asks you to confirm: the named rule is waived on matching lines across the project. A required check must be fixed or resolved through the project config or a valid suppression comment. `plain-english doctor` prints the environment for a bug report.
 
 Report a problem at <https://github.com/nordscope-fi/plain-english/issues>. Security concerns go to <peter@nordscope.fi>, not to the public tracker.
 
 ## Develop and test
 
-`npm run build` at the repository root compiles the CLI and writes the bundle and ruleset copy into this folder. Both are committed, and CI fails when a build changes them and the change was not committed. Then, from this folder:
+`npm run build` at the repository root compiles the CLI and writes the bundle and ruleset copy into this folder. The build also copies generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. Then, from this folder:
 
 ```text
 claude --plugin-dir .

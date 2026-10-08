@@ -3,7 +3,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
-import { field, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
+import { field, latestUserTurnId, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
 
 export function qwenHome(): string {
   return resolve(process.env["QWEN_HOME"] || resolve(homedir(), ".qwen"));
@@ -79,6 +79,12 @@ export const qwenChat: ChatReader = {
       replies(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)),
     );
   },
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      return record["type"] === "user";
+    });
+  },
+
   current(payload: Record<string, unknown>): Reply | null {
     const direct = field(payload, "last_assistant_message");
     const subagent = payload["hook_event_name"] === "SubagentStop";

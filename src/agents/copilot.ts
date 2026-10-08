@@ -21,7 +21,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
-import { asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { editFields, asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
 
 const RUNNER = runnerPath(".github");
@@ -99,7 +99,7 @@ export const copilot: AgentProfile = {
         return {
           tool: "edit",
           cwd,
-          input: { filePath, newString: pick(input, "new_string", "newString", "new_str") },
+          input: { filePath, ...editFields(input) },
         };
       case "multiedit":
         return {
@@ -108,7 +108,7 @@ export const copilot: AgentProfile = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick(asRecord(e), "new_string", "newString"),
+              ...editFields(asRecord(e)),
             })),
           },
         };

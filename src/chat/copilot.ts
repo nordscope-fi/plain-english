@@ -34,6 +34,7 @@ import { homedir, tmpdir } from "node:os";
 import { resolve } from "node:path";
 import {
   field,
+  latestUserTurnId,
   inScope,
   readJsonl,
   withinDays,
@@ -173,6 +174,12 @@ export const copilotChat: ChatReader = {
       out.push(reply);
     }
     return out;
+  },
+
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      return record["type"] === "user.message";
+    });
   },
 
   current(payload: Record<string, unknown>): Reply | null {
