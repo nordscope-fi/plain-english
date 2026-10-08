@@ -61,14 +61,29 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
-  it("keep every bundled file under the directory's 1 MiB read limit", () => {
-    // Held as "Files or downloads the validator couldn't inspect" at 1.7 MB.
-    const dist = resolve(PLUGIN, "dist");
-    const files = readdirSync(dist, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
-    expect(files.length).toBeGreaterThan(1);
-    for (const file of files) {
+  // The pre-submission checklist: "Keep every file that isn't an image or font
+  // under 256 KiB" and "Keep the plugin to 512 files or fewer", both held as
+  // "Files or downloads the validator couldn't inspect".
+  it("keep every file under the directory's 256 KiB read limit, and the plugin under 512 files", () => {
+    const all = readdirSync(PLUGIN, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && !resolve(entry.parentPath).includes(`${resolve(PLUGIN, ".claude-plugin", "types")}`));
+    expect(all.length).toBeLessThanOrEqual(512);
+    for (const file of all) {
       const path = resolve(file.parentPath, file.name);
-      expect(statSync(path).size, path).toBeLessThan(1024 * 1024);
+      if (/\.(png|jpe?g|gif|webp|woff2?|ttf|otf)$/i.test(file.name)) continue;
+      expect(statSync(path).size, path).toBeLessThan(256 * 1024);
+    }
+  });
+
+  it("explain that source prose needs the npm package, since the plugin leaves the parser out", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-plugin-source-"));
+    try {
+      writeFileSync(resolve(dir, "a.ts"), 'const greeting = "Hello there.";\n');
+      const ran = spawnSync(process.execPath, [resolve(PLUGIN, "dist/cli.mjs"), "lint", "--source-prose", resolve(dir, "a.ts")], { cwd: dir, encoding: "utf8" });
+      expect(ran.status).toBe(2);
+      expect(ran.stderr).toContain("npm package");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 
