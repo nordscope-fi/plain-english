@@ -105,7 +105,7 @@ The mod itself reads and writes no files. The checker it starts writes two kinds
 
 ### Bundled code
 
-`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies into one unminified file by `scripts/build-plugin.mjs`. It is too large for the directory to scan, so a reviewer reads it. The same build is published on npm with a signed record of the GitHub build that produced it.
+`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies by `scripts/build-plugin.mjs` and left unminified. Two of those dependencies, `@babel/parser` and `yaml`, are bundled into `dist/vendor/` and imported from there, so every file stays under the directory's read limit of 1,048,576 bytes. The same build is published on npm with a signed record of the GitHub build that produced it.
 
 ## Configuration
 

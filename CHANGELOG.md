@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-10-08
+### Changed
+
+- The Claude Code plugin ships its checker as three files instead of one: the checker, and two libraries it imports from `dist/vendor/`. Each is under the Claude directory's 1 MiB read limit, so the directory can inspect all of them. The two zero-width patterns in the text normaliser are written as escapes, so no bundled file carries an invisible character.
+
 ## [1.14.0] - 2026-10-08
 ### Added
 
@@ -708,7 +713,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.1
 [1.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.0
 [1.13.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.4
 [1.13.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.3
