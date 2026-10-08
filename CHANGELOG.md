@@ -4,6 +4,19 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-08
+### Added
+
+- Optional maintainer measurements capture background model usage and provider-reported API price estimates without saving source prose. Missing calls and incomplete captures leave cost unknown. These estimates do not establish subscription charges.
+- Releases include a standalone Claude Code mod archive and checksum, with a native plugin tag at the package release commit. The plugin carries the project licence and full notices for its bundled dependencies.
+
+### Fixed
+
+- Cancelling or abandoning a native Claude Code check now stops its checker and model subprocesses. A wrapper enforces check timeouts. Cancellation was verified on macOS with Claude Code 2.1.293 and 2.1.294; the plugin now requires 2.1.293 or later.
+- The writing comparison uses 24 distinct task contracts and checks background measurement completeness before reporting a total. Two fresh released-plugin samples found factual failures in every mode; the results support no writing advantage claim.
+- The release guide separates repository marketplace publication from an account-owner directory submission and explains that the bundled CLI can require review on later versions too.
+- A release retry verifies the already published npm artifact against the original release commit and resumes uploading GitHub assets. A different commit or missing provenance is refused.
+
 ## [1.6.0] - 2026-10-08
 ### Added
 
@@ -599,7 +612,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.7.0
 [1.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.6.0
 [1.5.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.1
 [1.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.0

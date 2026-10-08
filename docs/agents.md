@@ -134,6 +134,9 @@ TypeScript functions the agent runs on its own events. The one under
 /plugin install plain-english --marketplace nordscope-fi/plain-english
 ```
 
+The current plugin requires Claude Code 2.1.293 or later. Its process API lets a
+cancelled check terminate its model subprocesses.
+
 Three things differ from the settings-hook install, each observed on 2.1.293:
 
 - **The chat gate holds a turn under `claude -p`.** A settings `Stop` block is ignored in

@@ -31,6 +31,7 @@ import {
 } from "./adapters/hook.ts";
 import type { ConfigFile, HookEvent } from "./agents/profile.ts";
 import { decideChat } from "./adapters/chat.ts";
+import { initializeJudgeReceipts } from "./adapters/judge-measurement.ts";
 import {
   isJudge,
   CLAUDE_JUDGE_ARGS,
@@ -882,6 +883,7 @@ function hookChat(
 }
 
 async function cmdHook(args: Args): Promise<number> {
+  const finishCapture = initializeJudgeReceipts();
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -1008,6 +1010,8 @@ async function cmdHook(args: Args): Promise<number> {
     // answer, not merely the polite one.
     process.stderr.write("plain-english: check unavailable; the write was allowed.\n");
     return 0;
+  } finally {
+    finishCapture();
   }
 }
 

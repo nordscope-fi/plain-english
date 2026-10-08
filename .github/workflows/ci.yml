@@ -72,8 +72,20 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm install --global @anthropic-ai/claude-code@2.1.294
+      - run: claude plugin validate --strict .
       - run: claude plugin validate --strict integrations/claude-code-plugin
       - run: claude plugin test integrations/claude-code-plugin
+      - run: node scripts/evaluation/native-cancellation.mjs claude
+      - name: Validate the standalone mod archive
+        run: |
+          set -euo pipefail
+          git archive --format=zip --prefix=plain-english/ \
+            --output="$RUNNER_TEMP/plain-english-mod.zip" HEAD:integrations/claude-code-plugin
+          unzip -q "$RUNNER_TEMP/plain-english-mod.zip" -d "$RUNNER_TEMP/mod-consumer"
+          claude plugin validate --strict "$RUNNER_TEMP/mod-consumer/plain-english"
+          VERSION="$(node -p "require('./package.json').version")"
+          ACTUAL="$(node "$RUNNER_TEMP/mod-consumer/plain-english/dist/cli.mjs" --version)"
+          test "$ACTUAL" = "$VERSION"
 
   drift:
     name: Generated docs match rules

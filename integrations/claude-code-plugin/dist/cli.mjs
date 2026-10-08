@@ -7467,7 +7467,7 @@ var require_dist = __commonJS({
 
 // dist/cli.js
 import { readFileSync as readFileSync15, readdirSync as readdirSync12, statSync as statSync12, existsSync as existsSync15, mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "node:fs";
-import { delimiter, extname as extname3, relative as relative6, resolve as resolve19, dirname as dirname5, isAbsolute as isAbsolute4, basename as basename4 } from "node:path";
+import { delimiter, extname as extname3, relative as relative6, resolve as resolve19, dirname as dirname5, isAbsolute as isAbsolute5, basename as basename4 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // node_modules/mdast-util-to-string/lib/index.js
@@ -20655,14 +20655,14 @@ function readJsonl(path2, onRecord) {
     const line = lines[i];
     if (!line.trim())
       continue;
-    let record2;
+    let record3;
     try {
-      record2 = JSON.parse(line);
+      record3 = JSON.parse(line);
     } catch {
       continue;
     }
-    if (record2 && typeof record2 === "object") {
-      onRecord(record2, i + 1);
+    if (record3 && typeof record3 === "object") {
+      onRecord(record3, i + 1);
     }
   }
 }
@@ -20697,12 +20697,12 @@ function latestUserTurnId(path2, isHuman) {
   if (!path2)
     return void 0;
   let latest;
-  readJsonl(path2, (record2, line) => {
-    if (record2["isMeta"] === true || record2["isSidechain"] === true || record2["toolUseResult"] !== void 0)
+  readJsonl(path2, (record3, line) => {
+    if (record3["isMeta"] === true || record3["isSidechain"] === true || record3["toolUseResult"] !== void 0)
       return;
-    if (!isHuman(record2))
+    if (!isHuman(record3))
       return;
-    latest = `${path2}:${field(record2, "uuid", "id", "turn_id", "turnId") ?? line}`;
+    latest = `${path2}:${field(record3, "uuid", "id", "turn_id", "turnId") ?? line}`;
   });
   return latest;
 }
@@ -20751,10 +20751,10 @@ function transcripts(sinceDays, now) {
   walk4(root);
   return out.sort((a, b) => b.mtime - a.mtime).map((f) => f.path);
 }
-function assistantText(record2) {
-  if (record2["type"] !== "assistant")
+function assistantText(record3) {
+  if (record3["type"] !== "assistant")
     return [];
-  const message = record2["message"];
+  const message = record3["message"];
   if (!message || typeof message !== "object")
     return [];
   const content3 = message["content"];
@@ -20772,14 +20772,14 @@ function assistantText(record2) {
   }
   return out;
 }
-function typedUserText(record2) {
-  if (record2["type"] !== "user")
+function typedUserText(record3) {
+  if (record3["type"] !== "user")
     return void 0;
-  if (record2["isSidechain"] === true || record2["isMeta"] === true)
+  if (record3["isSidechain"] === true || record3["isMeta"] === true)
     return void 0;
-  if (record2["toolUseResult"] !== void 0)
+  if (record3["toolUseResult"] !== void 0)
     return void 0;
-  const message = record2["message"];
+  const message = record3["message"];
   if (!message || typeof message !== "object")
     return void 0;
   const content3 = message["content"];
@@ -20816,14 +20816,14 @@ var claudeCodeChat = {
     const now = Date.now();
     const out = [];
     for (const path2 of transcripts(options.sinceDays, now)) {
-      readJsonl(path2, (record2, line) => {
-        const texts = assistantText(record2);
+      readJsonl(path2, (record3, line) => {
+        const texts = assistantText(record3);
         if (!texts.length)
           return;
-        const cwd = typeof record2["cwd"] === "string" ? record2["cwd"] : void 0;
+        const cwd = typeof record3["cwd"] === "string" ? record3["cwd"] : void 0;
         if (!inScope(cwd, options.cwd))
           return;
-        const at = typeof record2["timestamp"] === "string" ? record2["timestamp"] : void 0;
+        const at = typeof record3["timestamp"] === "string" ? record3["timestamp"] : void 0;
         if (!withinDays(at, options.sinceDays, now))
           return;
         for (const text4 of texts) {
@@ -20833,8 +20833,8 @@ var claudeCodeChat = {
             // on the record, and a subagent also gets its own file under a
             // `subagents/` directory. Trusting only the flag would miss a file
             // whose records do not carry it.
-            isSubagent: record2["isSidechain"] === true || hasSegment(path2, "subagents"),
-            session: typeof record2["sessionId"] === "string" ? record2["sessionId"] : "",
+            isSubagent: record3["isSidechain"] === true || hasSegment(path2, "subagents"),
+            session: typeof record3["sessionId"] === "string" ? record3["sessionId"] : "",
             source: path2,
             line
           };
@@ -20864,15 +20864,15 @@ var claudeCodeChat = {
     return reply;
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path"), (record2) => typedUserText(record2) !== void 0);
+    return latestUserTurnId(field(payload, "transcript_path"), (record3) => typedUserText(record3) !== void 0);
   },
   lastAsk(payload) {
     const path2 = field(payload, "transcript_path");
     if (!path2)
       return void 0;
     let latest;
-    readJsonl(path2, (record2) => {
-      const text4 = typedUserText(record2);
+    readJsonl(path2, (record3) => {
+      const text4 = typedUserText(record3);
       if (text4)
         latest = text4;
     });
@@ -20920,19 +20920,19 @@ function rollouts(dir, sinceDays, now, out = []) {
 }
 function parseRollout(path2) {
   const parsed = { replies: [] };
-  readJsonl(path2, (record2, line) => {
-    const payload = record2["payload"];
+  readJsonl(path2, (record3, line) => {
+    const payload = record3["payload"];
     if (!payload || typeof payload !== "object")
       return;
     const p = payload;
-    if (record2["type"] === "session_meta") {
+    if (record3["type"] === "session_meta") {
       if (typeof p["cwd"] === "string")
         parsed.cwd = p["cwd"];
       if (typeof p["session_id"] === "string")
         parsed.session = p["session_id"];
       return;
     }
-    if (record2["type"] !== "response_item")
+    if (record3["type"] !== "response_item")
       return;
     if (p["type"] !== "message" || p["role"] !== "assistant")
       return;
@@ -20948,8 +20948,8 @@ function parseRollout(path2) {
       if (typeof b["text"] !== "string" || !b["text"].trim())
         continue;
       const entry = { text: b["text"], line };
-      if (typeof record2["timestamp"] === "string")
-        entry.at = record2["timestamp"];
+      if (typeof record3["timestamp"] === "string")
+        entry.at = record3["timestamp"];
       parsed.replies.push(entry);
     }
   });
@@ -20994,14 +20994,14 @@ var codexChat = {
     return out;
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      const data = record2["payload"];
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      const data = record3["payload"];
       if (!data || typeof data !== "object")
         return false;
       const p = data;
-      if (record2["type"] === "event_msg" && p["type"] === "user_message")
+      if (record3["type"] === "event_msg" && p["type"] === "user_message")
         return true;
-      if (record2["type"] !== "response_item" || p["type"] !== "message" || p["role"] !== "user")
+      if (record3["type"] !== "response_item" || p["type"] !== "message" || p["role"] !== "user")
         return false;
       return Array.isArray(p["content"]) && p["content"].some((b) => b && typeof b === "object" && b["type"] === "input_text");
     });
@@ -21119,8 +21119,8 @@ var copilotChat = {
     return out;
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      return record2["type"] === "user.message";
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      return record3["type"] === "user.message";
     });
   },
   current(payload) {
@@ -21139,10 +21139,10 @@ var copilotChat = {
     if (path2) {
       let text4 = "";
       let line = 0;
-      readJsonl(path2, (record2, at) => {
-        if (record2["type"] !== "assistant.message")
+      readJsonl(path2, (record3, at) => {
+        if (record3["type"] !== "assistant.message")
           return;
-        const data = record2["data"];
+        const data = record3["data"];
         if (!data || typeof data !== "object")
           return;
         const content3 = data["content"];
@@ -21240,10 +21240,10 @@ var cursorChat = {
     const out = [];
     for (const { path: path2 } of transcripts2(options.cwd, options.sinceDays, now)) {
       const session = basename(path2, ".jsonl");
-      readJsonl(path2, (record2, line) => {
-        if (record2["role"] !== "assistant")
+      readJsonl(path2, (record3, line) => {
+        if (record3["role"] !== "assistant")
           return;
-        const message = record2["message"];
+        const message = record3["message"];
         if (!message || typeof message !== "object")
           return;
         const content3 = message["content"];
@@ -21272,8 +21272,8 @@ var cursorChat = {
     return out;
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      return record2["role"] === "user";
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      return record3["role"] === "user";
     });
   },
   current(payload) {
@@ -21283,10 +21283,10 @@ var cursorChat = {
     const session = field(payload, "conversation_id", "subagent_id") ?? basename(path2, ".jsonl");
     const isSubagent = payload["hook_event_name"] === "subagentStop";
     let found = null;
-    readJsonl(path2, (record2, line) => {
-      if (record2["role"] !== "assistant")
+    readJsonl(path2, (record3, line) => {
+      if (record3["role"] !== "assistant")
         return;
-      const message = record2["message"];
+      const message = record3["message"];
       if (!message || typeof message !== "object")
         return;
       const content3 = message["content"];
@@ -21368,10 +21368,10 @@ function files(options, now) {
   }
   return out.sort((a, b) => b.mtime - a.mtime);
 }
-function textOf(record2) {
-  if (record2["type"] !== "gemini")
+function textOf(record3) {
+  if (record3["type"] !== "gemini")
     return "";
-  const content3 = record2["content"];
+  const content3 = record3["content"];
   if (typeof content3 === "string")
     return content3;
   if (!Array.isArray(content3))
@@ -21386,14 +21386,14 @@ function textOf(record2) {
 function replies(path2, subagent) {
   const out = [];
   let session = basename2(path2, ".jsonl");
-  readJsonl(path2, (record2, line) => {
-    if (typeof record2["sessionId"] === "string")
-      session = record2["sessionId"];
-    const text4 = textOf(record2);
+  readJsonl(path2, (record3, line) => {
+    if (typeof record3["sessionId"] === "string")
+      session = record3["sessionId"];
+    const text4 = textOf(record3);
     if (!text4.trim())
       return;
     const reply = { text: text4, isSubagent: subagent, session, source: path2, line };
-    const at = typeof record2["timestamp"] === "string" ? record2["timestamp"] : void 0;
+    const at = typeof record3["timestamp"] === "string" ? record3["timestamp"] : void 0;
     if (at)
       reply.at = at;
     out.push(reply);
@@ -21412,8 +21412,8 @@ var geminiChat = {
     return files(options, now).flatMap((file) => replies(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)));
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      return record2["type"] === "user";
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      return record3["type"] === "user";
     });
   },
   current(payload) {
@@ -21490,12 +21490,12 @@ function files2(options, now) {
 function replies2(path2, subagent) {
   const out = [];
   let session = basename3(path2, ".jsonl");
-  readJsonl(path2, (record2, line) => {
-    if (record2["type"] !== "assistant")
+  readJsonl(path2, (record3, line) => {
+    if (record3["type"] !== "assistant")
       return;
-    if (typeof record2["sessionId"] === "string")
-      session = record2["sessionId"];
-    const message = record2["message"];
+    if (typeof record3["sessionId"] === "string")
+      session = record3["sessionId"];
+    const message = record3["message"];
     if (!message || typeof message !== "object")
       return;
     const parts = message["parts"];
@@ -21510,8 +21510,8 @@ function replies2(path2, subagent) {
     if (!text4.trim())
       return;
     const reply = { text: text4, isSubagent: subagent, session, source: path2, line };
-    if (typeof record2["timestamp"] === "string")
-      reply.at = record2["timestamp"];
+    if (typeof record3["timestamp"] === "string")
+      reply.at = record3["timestamp"];
     out.push(reply);
   });
   return out;
@@ -21528,8 +21528,8 @@ var qwenChat = {
     return files2(options, now).flatMap((file) => replies2(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)));
   },
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      return record2["type"] === "user";
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      return record3["type"] === "user";
     });
   },
   current(payload) {
@@ -22067,12 +22067,12 @@ function readMeta(dir) {
 }
 function repliesIn(path2, meta, isSubagent) {
   const out = [];
-  readJsonl(path2, (record2, line) => {
-    if (record2["role"] !== "assistant")
+  readJsonl(path2, (record3, line) => {
+    if (record3["role"] !== "assistant")
       return;
-    if (record2["injected"] === true)
+    if (record3["injected"] === true)
       return;
-    const text4 = record2["content"];
+    const text4 = record3["content"];
     if (typeof text4 !== "string" || !text4.trim())
       return;
     const reply = { text: text4, isSubagent, session: meta.session, source: path2, line };
@@ -22146,8 +22146,8 @@ var vibeChat = {
    * the only source. The last assistant reply in it is the turn that just ended.
    */
   turnId(payload) {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
-      return record2["role"] === "user";
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record3) => {
+      return record3["role"] === "user";
     });
   },
   current(payload) {
@@ -25615,6 +25615,121 @@ function renderPolicy(set, scan) {
   return out.join("\n");
 }
 
+// dist/adapters/judge-measurement.js
+import { randomUUID } from "node:crypto";
+import { appendFileSync, closeSync, constants, openSync } from "node:fs";
+import { isAbsolute as isAbsolute3 } from "node:path";
+var TOKEN_FIELDS = ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"];
+var MODEL_FIELDS = ["inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens", "webSearchRequests", "costUSD", "contextWindow", "maxOutputTokens"];
+function record(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? value2 : void 0;
+}
+function nonnegative(value2) {
+  return typeof value2 === "number" && Number.isFinite(value2) && value2 >= 0 ? value2 : null;
+}
+function measuredFields(value2, fields) {
+  const object = record(value2);
+  if (!object)
+    return null;
+  const measured = Object.fromEntries(fields.flatMap((field2) => {
+    const number = nonnegative(object[field2]);
+    return number === null || field2 !== "costUSD" && !Number.isSafeInteger(number) ? [] : [[field2, number]];
+  }));
+  return Object.keys(measured).length ? measured : null;
+}
+function nativeJudgeResult(stdout) {
+  try {
+    const result = record(JSON.parse(stdout.trim()));
+    return result?.["type"] === "result" ? result : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function judgeMeasurement(stdout, provider, outcome, structuredOutput) {
+  const result = structuredOutput ? nativeJudgeResult(stdout) : void 0;
+  const reportedCostUsd = nonnegative(result?.["total_cost_usd"]);
+  const modelUsage = Object.fromEntries(Object.entries(record(result?.["modelUsage"]) ?? {}).flatMap(([model, value2]) => {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,119}$/.test(model))
+      return [];
+    const measured = measuredFields(value2, MODEL_FIELDS);
+    return measured ? [[model, measured]] : [];
+  }));
+  return {
+    provider: result ? "claude" : provider,
+    outcome: result?.["is_error"] === true ? "failed" : outcome,
+    reportedCostUsd,
+    invoiceCostUsd: null,
+    costBasis: reportedCostUsd === null ? "unknown" : "provider-reported-api-estimate",
+    usage: measuredFields(result?.["usage"], TOKEN_FIELDS),
+    modelUsage: Object.keys(modelUsage).length ? modelUsage : null
+  };
+}
+var activeCapture;
+function receiptAppender(env) {
+  const path2 = env["PLAIN_ENGLISH_JUDGE_RECEIPTS"];
+  if (!path2)
+    return void 0;
+  return (receipt) => {
+    let fd;
+    try {
+      if (!isAbsolute3(path2))
+        throw new Error("absolute receipt destination required");
+      fd = openSync(path2, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0), 384);
+      appendFileSync(fd, JSON.stringify({ schemaVersion: 1, ...receipt }) + "\n");
+      return true;
+    } catch {
+      if (activeCapture?.path === path2)
+        activeCapture.captureHealthy = false;
+      process.stderr.write("plain-english: model usage capture unavailable.\n");
+      return false;
+    } finally {
+      if (fd !== void 0) {
+        try {
+          closeSync(fd);
+        } catch {
+        }
+      }
+    }
+  };
+}
+function initializeJudgeReceipts(env = process.env) {
+  const append = receiptAppender(env);
+  const path2 = env["PLAIN_ENGLISH_JUDGE_RECEIPTS"];
+  if (!append || !path2)
+    return () => {
+    };
+  const state = { path: path2, captureId: randomUUID(), issuedCalls: 0, completedCalls: 0, captureHealthy: true };
+  activeCapture = state;
+  append({ phase: "capture-enabled", captureVersion: 1, captureId: state.captureId });
+  return () => {
+    append({
+      phase: "capture-finished",
+      captureId: state.captureId,
+      issuedCalls: state.issuedCalls,
+      completedCalls: state.completedCalls,
+      captureHealthy: state.captureHealthy
+    });
+    if (activeCapture === state)
+      activeCapture = void 0;
+  };
+}
+function startJudgeReceipt(env, provider) {
+  const append = receiptAppender(env);
+  if (!append)
+    return () => {
+    };
+  const state = activeCapture?.path === env["PLAIN_ENGLISH_JUDGE_RECEIPTS"] ? activeCapture : void 0;
+  if (state)
+    state.issuedCalls++;
+  const callId = randomUUID();
+  append({ phase: "started", callId, provider, ...state ? { captureId: state.captureId } : {} });
+  return (measurement) => {
+    if (state)
+      state.completedCalls++;
+    append({ phase: "finished", callId, ...state ? { captureId: state.captureId } : {}, ...measurement });
+  };
+}
+
 // dist/adapters/judge.js
 import { spawnSync } from "node:child_process";
 var JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
@@ -25630,7 +25745,7 @@ var CLAUDE_JUDGE_ARGS = [
   "--disable-slash-commands",
   "--no-session-persistence",
   "--output-format",
-  "text"
+  "json"
 ];
 var VIBE_JUDGE_ARGS = [
   "--output",
@@ -25675,6 +25790,10 @@ function overDocsJudgeLimit(payload) {
   return payload.length > DOCS_MAX_JUDGE_BYTES;
 }
 function parseVerdict(stdout) {
+  const native = nativeJudgeResult(stdout);
+  if (native) {
+    return native["is_error"] === true || typeof native["result"] !== "string" ? void 0 : parseVerdict(native["result"]);
+  }
   const text4 = stdout.trim();
   if (!text4)
     return void 0;
@@ -25710,6 +25829,18 @@ function runJudge(input, opts) {
   if (!opts.prompt.includes("$ARGUMENTS"))
     return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
+  const provider = opts.command === "claude" ? "claude" : opts.command === "vibe" ? "vibe" : "unknown";
+  const formatIndex = opts.args.indexOf("--output-format");
+  const structuredOutput = formatIndex !== -1 && opts.args[formatIndex + 1] === "json";
+  const finishReceipt = startJudgeReceipt(env, provider);
+  const measured = (stdout, outcome) => {
+    const measurement = judgeMeasurement(stdout, provider, outcome, structuredOutput);
+    finishReceipt(measurement);
+    try {
+      opts.onMeasurement?.(measurement);
+    } catch {
+    }
+  };
   let out;
   try {
     out = spawnSync(opts.command, [...opts.args, filled], {
@@ -25732,13 +25863,16 @@ function runJudge(input, opts) {
       maxBuffer: 4 * 1024 * 1024
     });
   } catch {
+    measured("", "unavailable");
     opts.onUnavailable?.("could not start");
     return void 0;
   }
   if (out.error || out.status !== 0) {
+    measured(out.stdout ?? "", out.error && "code" in out.error && out.error.code === "ETIMEDOUT" ? "timed_out" : out.error ? "unavailable" : "failed");
     opts.onUnavailable?.(out.error && "code" in out.error && out.error.code === "ETIMEDOUT" ? "timed out" : out.error ? "could not start" : "failed");
     return void 0;
   }
+  measured(out.stdout ?? "", "complete");
   const verdict = parseVerdict(out.stdout ?? "");
   if (!verdict)
     opts.onUnavailable?.("returned no usable answer");
@@ -25746,13 +25880,13 @@ function runJudge(input, opts) {
 }
 
 // dist/format/sarif.js
-import { isAbsolute as isAbsolute3, relative as relative5, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute4, relative as relative5, sep as sep2 } from "node:path";
 import { pathToFileURL } from "node:url";
 var SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json";
 var HOMEPAGE = "https://github.com/nordscope-fi/plain-english";
 function toUri(file, root) {
   const rel = relative5(root, file);
-  if (!rel || rel.startsWith("..") || isAbsolute3(rel)) {
+  if (!rel || rel.startsWith("..") || isAbsolute4(rel)) {
     return pathToFileURL(file).href;
   }
   return rel.split(sep2).join("/").split("\\").join("/");
@@ -25907,7 +26041,7 @@ function buildCapture(raw, parsed, decision, stdout, opts) {
     return null;
   return body;
 }
-function record(raw, parsed, decision, stdout, opts) {
+function record2(raw, parsed, decision, stdout, opts) {
   try {
     mkdirSync3(opts.dir, { recursive: true });
     if (readdirSync11(opts.dir).length >= MAX_FILES)
@@ -26276,7 +26410,7 @@ function cmdWritingProfile(args) {
   }
   const out = resolve19(root, set.profile.file);
   const rel = relative6(root, out);
-  if (!rel || rel.startsWith("..") || isAbsolute4(rel)) {
+  if (!rel || rel.startsWith("..") || isAbsolute5(rel)) {
     process.stderr.write("plain-english: profile.file must stay inside the project root.\n");
     return 2;
   }
@@ -26562,6 +26696,7 @@ function hookChat(payload, profile) {
   return out.exitCode;
 }
 async function cmdHook(args) {
+  const finishCapture = initializeJudgeReceipts();
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -26643,7 +26778,7 @@ async function cmdHook(args) {
     const dir = process.env["PLAIN_ENGLISH_RECORD"];
     if (dir) {
       try {
-        record(payload, parsed, decision, out.stdout, {
+        record2(payload, parsed, decision, out.stdout, {
           dir: resolve19(dir),
           agent: profile.id,
           channel,
@@ -26659,6 +26794,8 @@ async function cmdHook(args) {
   } catch {
     process.stderr.write("plain-english: check unavailable; the write was allowed.\n");
     return 0;
+  } finally {
+    finishCapture();
   }
 }
 var USAGE = `plain-english - catch AI writing tells before they land

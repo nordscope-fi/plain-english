@@ -21,7 +21,7 @@ const CLI = 'dist/cli.mjs'
 /**
  * The CLI's own hook budget is half a second of matching; the chat judge may
  * shell to a model and take seconds. Both stay far under the ten-minute cap,
- * and time inside `$.process.run` never counts against the hook's budget.
+ * and time inside `$.process.spawn` never counts against the hook's budget.
  */
 const TOOL_TIMEOUT_MS = 20_000
 const CHAT_TIMEOUT_MS = 60_000
@@ -108,12 +108,36 @@ async function adapter(
   payload: Record<string, unknown>,
   cwd: string,
   timeoutMs: number,
+  signal: AbortSignal,
 ): Promise<string> {
-  const variables: Record<string, string> = { CLAUDE_PROJECT_DIR: cwd }
-  const ran = await $.process.run(
-    ['node', `${$.plugin.root}/${CLI}`, 'hook', channel, '--agent', 'claude-code'],
-    { cwd, env: variables, stdin: JSON.stringify(payload), timeoutMs },
-  )
+  const variables: Record<string, string> = { CLAUDE_PROJECT_DIR: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
+  // The stream follows the dispatch's cancellation signal. The asynchronous
+  // wrapper relays it to the CLI's group, including a synchronous model child.
+  const stream = $.process.spawn({
+    argv: ['node', `${$.plugin.root}/hooks/run-checker.mjs`, `${$.plugin.root}/${CLI}`, 'hook', channel, '--agent', 'claude-code'],
+    cwd, env: variables, input: JSON.stringify(payload),
+  })
+  const ran = { stdout: '', stderr: '', exitCode: null as number | null }
+  const bytes = { stdout: 0, stderr: 0 }
+  const stop = () => { void stream.return({ code: null, signal: null }).catch(() => {}) }
+  signal.addEventListener('abort', stop, { once: true })
+  try {
+    signal.throwIfAborted()
+    for (;;) {
+      const chunk = await stream.next()
+      if (chunk.done) {
+        ran.exitCode = chunk.value.code
+        if (chunk.value.signal !== null) throw new Error(`check unavailable (signal ${chunk.value.signal}).`)
+        break
+      }
+      bytes[chunk.value.stream] += new TextEncoder().encode(chunk.value.text).length
+      if (bytes[chunk.value.stream] > 4_194_304) throw new Error('check unavailable: checker output exceeded 4 MB.')
+      ran[chunk.value.stream] += chunk.value.text
+    }
+  } finally {
+    signal.removeEventListener('abort', stop)
+    await stream.return({ code: null, signal: null })
+  }
   if (ran.exitCode !== 0) throw new Error(`check unavailable (exit ${ran.exitCode}). ${ran.stderr.trim()}`)
   if (ran.stdout.trim() !== '') {
     let parsed: unknown
@@ -168,12 +192,12 @@ function channelOf(e: Readonly<Record<string, unknown>>): 'docs' | 'github' | 'i
 async function judgeReply<E extends { last_assistant_message?: string }, R extends { block?: string }>(
   $: EngineInterface,
   e: E,
-  next: (e: E) => Promise<R>,
+  next: ((e: E) => Promise<R>) & { readonly signal: AbortSignal },
   record: (finding: ReviewFinding) => void,
 ): Promise<R | { block: string }> {
   const cwd = await $.session.cwd()
   const payload = e as unknown as Record<string, unknown>
-  const stdout = await adapter($, 'chat', payload, cwd, CHAT_TIMEOUT_MS)
+  const stdout = await adapter($, 'chat', payload, cwd, CHAT_TIMEOUT_MS, next.signal)
   const verdict = readChatVerdict(stdout)
   if (verdict.notice !== undefined) $.ui.log(verdict.notice)
   if (verdict.kind === 'block') {
@@ -203,7 +227,7 @@ export const register: Register = on => {
     const here = await session($)
     const payload = toolPayload(e, here)
     const key = JSON.stringify([here.id, channel, e['agentId'] ?? '', payload['tool_name'], payload['tool_input']])
-    const stdout = await adapter($, channel, payload, here.cwd, TOOL_TIMEOUT_MS)
+    const stdout = await adapter($, channel, payload, here.cwd, TOOL_TIMEOUT_MS, next.signal)
     const verdict = readToolVerdict(stdout)
     if (verdict.kind !== 'allow') {
       current = { channel, reason: verdict.reason, strict: verdict.kind === 'deny', event: e, cwd: here.cwd, key }

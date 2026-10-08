@@ -75,9 +75,29 @@ This used to be a manual step on the checklist below. It was missed on two conse
 
 `npm version` also moves the version pins in the copy-paste examples. `rev:` in a pre-commit block and `@vX.Y.Z` on the GitHub Action both name a tag. A stale one hands a new reader the ruleset from three releases ago, and five of them had gone stale that way. The script rewrites every pin in `README.md` and `docs/*.md` and stages those files into the same commit. A test asserts each pin matches `package.json`. A version mentioned in prose is left alone.
 
-The same script moves the `version` in the Claude Code plugin's manifest, `integrations/claude-code-plugin/.claude-plugin/plugin.json`. A plugin installed from the marketplace stays on its cached copy until that string changes, so it is held equal to `package.json`: an install updates on every release and never between. The plugin's bundled copy of the CLI is written by `npm run build` and committed; CI's drift job fails when a build changes it and the change was not committed.
+The same script moves the `version` in the Claude Code plugin's manifest, `integrations/claude-code-plugin/.claude-plugin/plugin.json`. A plugin installed from the marketplace stays on its cached copy until that string changes, so it is held equal to `package.json`. Every release makes an update available. Own-marketplace automatic updates are off by default; users run `claude plugin update plain-english@plain-english` or enable automatic updates. The plugin's bundled copy of the CLI is written by `npm run build` and committed; CI's drift job fails when a build changes it and the change was not committed.
 
-Once the plugin is listed in Anthropic's directory, nothing per release is needed there either. The directory follows `main`, scans each commit it picks up, and offers it as a new version of the listing under the manifest's `version`. The publish setting in the developer portal says whether a passing version goes live on its own or waits for a reviewer. The portal is at <https://claude.ai/directory/manage>, and the bundle's size means the first version is read by a person before it goes live.
+The release also creates the native plugin tag `plain-english--vX.Y.Z` at the same commit as `vX.Y.Z`. The GitHub Release carries a standalone compressed mod archive (ZIP) and its SHA-256 checksum. CI validates the repository marketplace and plugin, tests cancellation, and extracts the archive to check that its bundled CLI matches the package version.
+
+The repository marketplace and Anthropic's directory are separate publication routes. Publishing this repository makes its marketplace available to Claude Code; it does not create a directory listing. The directory requires an initial submission from the account owner. Its listing can then follow `main` and scan new commits. By default a person publishes each passing version; automatic publication depends on Anthropic's assigned setting. A version held for review still needs a person. The bundled CLI exceeds the directory's individual-file review threshold of 256 kibibytes (KiB), so later versions can require review too. See [Anthropic's submission checklist](https://claude.com/docs/plugins/pre-submission-checklist).
+
+### Submit the directory listing
+
+Use the signed-in account owner's [developer portal](https://claude.ai/directory/manage). Continue an existing submission if one exists; do not create a duplicate.
+
+| Field | Prepared value |
+|---|---|
+| Name | Plain English |
+| Source repository | `nordscope-fi/plain-english` |
+| Plugin directory | `integrations/claude-code-plugin` |
+| Tracked branch | `main` |
+| Description | Checks prose in document writes, messages and replies in Claude Code. Findings quote the passage and explain how to fix it. |
+| Licence | MIT |
+| Support | <https://github.com/nordscope-fi/plain-english/issues> |
+
+For the data-handling disclosure: pattern checks run locally. Optional model checks send the proposed document, or a reply and the user's last question, through the configured Claude service and account. Code and quotes inside a document can be included. Excluded paths are skipped. Model checks can be disabled. Local model sessions are not persisted; provider retention follows the account's settings. Temporary control files contain identifiers and counters, and recent findings stay in session memory. Optional maintainer measurements retain usage and reported price estimates, without source prose. The [plugin README](../integrations/claude-code-plugin/README.md#what-it-reads-writes-and-sends) describes these controls.
+
+The owner must review the portal's account permissions and compliance acknowledgments. Do not pre-answer them from this checklist. The current event-checking mod targets Claude Code; do not promise equivalent enforcement in Claude chat or Cowork. The directory is also separate from the official Claude Code marketplace. These distinctions follow [Anthropic's publishing guide](https://code.claude.com/docs/en/plugins/publish), [submission guide](https://claude.com/docs/plugins/submit) and [platform support table](https://claude.com/docs/plugins/platform-support).
 
 `release.yml` verifies before it publishes: build, tests, the private-reference check over tree and history, the dogfood lint, the generated-file drift check, `publint` and `arethetypeswrong`. A tag push is checked against `package.json` first, because a tag that disagrees would publish something other than what it claims to be. It also runs the full CI matrix across Linux, Windows and macOS on Node 20, 22 and 24, because a publish gate weaker than the pull-request gate let `v0.2.0` ship with a red Windows job. Then it tags and publishes.
 
@@ -85,13 +105,15 @@ The tag is made after the gates rather than before them, so it means "this passe
 
 ## The GitHub Release
 
-The last step of the publish job creates it, titled with the tag. Its body is that version's changelog section, pulled out by `scripts/changelog-section.mjs`. Read what a release note will say before tagging:
+The last step of the publish job creates it, titled with the tag. Its body is that version's changelog section, pulled out by `scripts/changelog-section.mjs`. Its attachments are `plain-english-mod-vX.Y.Z.zip` and the matching `.sha256` file. The archive contains the plugin directory, ready to extract and validate with `claude plugin validate --strict`. Read what a release note will say before tagging:
 
 ```bash
 node scripts/changelog-section.mjs v0.24.0
 ```
 
 It runs after `npm publish` on purpose, so a failure creating the release cannot cost a publish that already went out. Releases before v0.7.0 have no notes: this step did not exist, and backfilling ten thin entries was not worth it.
+
+For a partial release, rerun its original workflow run. The npm step accepts an already published version only when npm's provenance names this repository, release workflow and exact commit, and its artifact digest matches the registry's package integrity. The GitHub step uploads the archive and checksum into an existing release. Retrying from a later commit is refused.
 
 ## Version numbering
 

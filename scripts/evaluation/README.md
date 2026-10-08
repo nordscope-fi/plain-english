@@ -276,7 +276,7 @@ holdout when every check passes.
 
 ## Claude plugin comparison with public tasks
 
-`claude.mjs` prepares 48 synthetic tasks from six writing templates. It compares ordinary Claude, generated writing guidance, and the same guidance with the native plugin checks. Each run uses the native evaluation command's isolated workspace and normal configured model. No private transcripts or repository documents enter the task set.
+`claude.mjs` prepares 48 synthetic tasks across six genres and 24 distinct task contracts. Each contract has two numerical variants, which are not independent scenarios. It compares ordinary Claude, generated writing guidance, and the same guidance with the native plugin checks. Each run uses the native evaluation command's isolated workspace and normal configured model. No private transcripts or repository documents enter the task set.
 
 ```sh
 node scripts/evaluation/claude.mjs prepare --out /tmp/pe-writing-smoke --limit 2
@@ -287,11 +287,11 @@ The first command prepares cases without model calls. The second uses your Claud
 
 The three modes receive identical tasks. Guidance and checks receive identical appended instructions, copied from the generated output style and document skill. Ordinary Claude receives neither. The check mode carries the plugin; the other modes carry an empty benchmark plugin. All modes allow no task tools. This measures completed writing and reply checks, while native unit tests cover refused writes, review actions, and repair controls.
 
-Results retain final replies, missing protected literals, elapsed time, reported usage, turn counts, and estimated cost. Unavailable interruption telemetry remains unknown. Background model checks may use additional account usage that the outer runner does not include. The saved traces support inspection without inventing measurements.
+Results retain final replies, missing protected literals, elapsed time, reported usage, turn counts, and estimated cost. Unavailable interruption telemetry remains unknown. With an instrumented plugin, metadata-only receipts record observed background model calls, including unfinished or unpriced calls. Missing capture or incomplete receipts leave total cost unknown. Native evaluation strips custom environment variables from its child session. The harness enables capture inside the copied plugin's existing startup hook and records that complete module's hash beside the shipped plugin fingerprint. This test-only insertion changes no writing guidance or check decision. Capture requires healthy start/end markers and complete call receipts; reports explain why missing totals remain unknown. These are provider-reported API price estimates, not subscription invoices. The generation ceiling excludes background calls. Saved traces support inspection without inventing measurements.
 
-`blind-review.json` hides mode names and leaves correctness, completeness, and preference judgments empty. Give that file to reviewers and keep `review-key.json` separate. Reject factual additions, lost qualifications, and missing requirements before choosing a preferred answer. Literal matching alone cannot certify those properties.
+`correctness-review.json` gives one shuffled review per reply. Check its facts and completeness first. `blind-review.json` hides mode names and leaves correctness, completeness, and preference judgments empty. Give that file to reviewers and keep `review-key.json` separate. Reject factual additions, lost qualifications, and missing requirements before choosing a preferred answer. Literal matching alone cannot certify those properties.
 
-This is a development smoke comparison. Eight variants of a template are not eight independent writing situations. Run repeated samples and use the existing independent review and held-out evaluation process before claiming a writing advantage.
+This is a development smoke comparison. Two numerical variants of a contract are not two independent writing situations. Use a new output directory for each repeated sample so cached outputs do not turn a repeat into a reread. Run repeated samples and use the existing independent review and held-out evaluation process before claiming a writing advantage.
 
 The native case format and isolation follow [Claude's evaluation reference](https://code.claude.com/docs/en/plugin-evals).
 
@@ -302,3 +302,26 @@ Claude Code 2.1.294 completed six tasks in each mode, producing 18 replies with 
 Manual inspection found defects in the mode with checks. Its status reply said the remaining jobs had no problems without supporting evidence. Its decision reply described 89 unused exports when the task required 8 of an allowance of 100. Its backup reply inferred that the source was the only good copy. These observations are examples of failures, not a complete correctness assessment.
 
 Reported generation costs were about $0.27 for ordinary writing, $0.41 for guidance, and $0.42 for checks. Separate background checks are excluded and their cost is unknown. Outputs, traces, review pairs, and generation identity stay outside the repository. This run supports no superiority claim. It predates the final Windows path and runtime-identity fixes and the early oversized-document guard. Its recorded snapshot must not be presented as an evaluation of those later changes.
+
+
+### Released 1.6.0 comparison, 2026-10-08
+
+Two fresh samples used the exact released plugin, producing 36 replies across six genres and three modes. Release source commit: `7b4578e01a0ac4bd198e6bb5d89df31ebd09d0cc`. Shipped plugin fingerprint: `93d3900d48f3b6e3e11c23edf192155ba48c7965f0c96bb0d46cab55d1f4515f`. Claude Code was 2.1.294 and the observed model was `claude-opus-5-5`. This comparison used the released six-contract dataset; it did not use the expanded task contracts.
+
+A single coding agent reviewed all 36 replies for facts and completeness before opening the mode key. This is an agent review, not independent human review. It marked 12 replies as passing, 15 as failing and 9 as uncertain. All replies covered the requested items. Failure reasons included invented retry history, unsupported API behavior, a promised completion date and confusing 89 additional exports with 92 unused exports. One reply paraphrased a protected phrase, failing exact literal matching while retaining the attempt count's meaning.
+
+Across both samples, agent correctness passes were 6 of 12 for ordinary writing, 3 of 12 for guidance and 3 of 12 for checks. These small, subjective counts do not establish differences between modes. No superiority claim follows from this comparison.
+
+Reported generation cost totaled $2.1968688. Background costs remain unknown for the released plugin, which predates receipt capture. Human review packs contain blank individual and pairwise forms; keys and agent judgments remain separate. Independent human correctness and preference review is still pending. All outputs and traces remain outside the repository.
+
+### Candidate 1.7.0 development comparison, 2026-10-08
+
+Twelve distinct task contracts across six genres produced 36 replies. Claude Code was 2.1.294 and the observed model was `claude-opus-5-5`. The tested plugin fingerprint was `fd02d0cfa42504699e3a0fc3504eedca96101a60f22d92e29be299afbd40be16`. This snapshot preceded the addition of licence files and the harness's capture fix. Its executable code was frozen for the comparison.
+
+A different coding agent reviewed the shuffled replies before seeing their mode labels. Its strict evidence review marked 15 replies as passing and 21 as failing for unsupported additions. All 36 covered the required points. By mode, passes were 5 of 12 for ordinary writing, 3 of 12 for guidance and 7 of 12 for checks. These are subjective development judgments, with no human preference review or held-out result. They do not establish a writing advantage.
+
+Reported generation cost was $2.2335288. Background costs remain unknown: the native evaluator stripped the custom receipt variable from its isolated child session. A synthetic probe then verified the capture fix with the actual bundled checker and a fake model. Its fixture price is test data, not real spending. The next comparison records the test-only capture insertion separately from the shipped plugin fingerprint.
+
+With capture fixed, six tasks produced 18 fresh replies for $1.0971884 in reported generation cost. All six observed reply hooks completed healthy capture records and made no background calls. The measured background cost for those hooks is zero; it does not estimate the cost of a check that needs a model. This sample also retained all protected literals. A blind coding-agent review marked 6 replies as factually passing and 12 as adding unsupported facts; all covered the required points. Human review remains pending.
+
+A separate synthetic document proposal made one real background Claude call. Its complete receipt reported $0.033123 in API price estimates, with token counts and model identity. This is one observation, not a typical-cost estimate or an invoice charge. Missing earlier receipts cannot be reconstructed from it.

@@ -168,8 +168,10 @@ jobs:
       - run: bash scripts/check-no-private-refs.sh --history
       - run: npm run lint:self
       - run: npm install --global @anthropic-ai/claude-code@2.1.294
+      - run: claude plugin validate --strict .
       - run: claude plugin validate --strict integrations/claude-code-plugin
       - run: claude plugin test integrations/claude-code-plugin
+      - run: node scripts/evaluation/native-cancellation.mjs claude
       - name: Generated files are current
         run: |
           npm run render
@@ -195,21 +197,25 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Create it, unless it is already there
+      - name: Create package and native mod tags
         env:
           TAG: ${{ needs.decide.outputs.tag }}
         run: |
           set -euo pipefail
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "$TAG exists already, leaving it as it is."
-            exit 0
-          fi
           # Annotated, not lightweight: `gh release create --verify-tag` and
           # `git push --follow-tags` both treat the two differently.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "$TAG"
-          git push origin "$TAG"
+          PLUGIN_NAME="$(node -p "require('./integrations/claude-code-plugin/.claude-plugin/plugin.json').name")"
+          for RELEASE_TAG in "$TAG" "$PLUGIN_NAME--$TAG"; do
+            if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+              test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+              echo "$RELEASE_TAG exists at this commit."
+            else
+              git tag -a "$RELEASE_TAG" -m "$RELEASE_TAG"
+              git push origin "refs/tags/$RELEASE_TAG"
+            fi
+          done
 
   publish:
     name: Publish to npm
@@ -251,7 +257,26 @@ jobs:
       - run: npm ci
       - run: npm run build
       # No --provenance flag: trusted publishing attaches provenance itself.
-      - run: npm publish
+      - name: Publish or verify the existing npm artifact
+        env:
+          VERSION: ${{ needs.decide.outputs.version }}
+        run: |
+          set -euo pipefail
+          # A retry after npm succeeds must still reach the release assets.
+          # Never accept an existing version built from a different commit.
+          if npm view "plain-english@$VERSION" dist --json > "$RUNNER_TEMP/npm-dist.json"; then
+            node scripts/verify-published-release.mjs \
+              "$RUNNER_TEMP/npm-dist.json" "$VERSION" "$(git rev-parse HEAD)"
+          elif node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const result = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/npm-dist.json`, "utf8"));
+            process.exit(result.error?.code === "E404" ? 0 : 1);
+          '; then
+            npm publish
+          else
+            echo "::error::Could not establish whether this npm version exists."
+            exit 1
+          fi
       # Thirteen tags shipped before this step existed, and the Releases page
       # was empty for all of them while CHANGELOG.md held an entry for each.
       # Last, so a failure here cannot cost a publish that already succeeded.
@@ -262,7 +287,20 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/changelog-section.mjs "$TAG" > "$RUNNER_TEMP/notes.md"
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file "$RUNNER_TEMP/notes.md" \
-            --verify-tag
+          ARCHIVE="plain-english-mod-$TAG.zip"
+          git archive --format=zip --prefix=plain-english/ \
+            --output="$RUNNER_TEMP/$ARCHIVE" HEAD:integrations/claude-code-plugin
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          )
+          if gh release view "$TAG" --json tagName > "$RUNNER_TEMP/release.json"; then
+            gh release upload "$TAG" \
+              "$RUNNER_TEMP/$ARCHIVE" "$RUNNER_TEMP/$ARCHIVE.sha256" --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              --verify-tag \
+              "$RUNNER_TEMP/$ARCHIVE" "$RUNNER_TEMP/$ARCHIVE.sha256"
+          fi

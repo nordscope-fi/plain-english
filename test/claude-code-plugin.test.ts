@@ -11,7 +11,8 @@
  * CI's drift job fails on a bundle nobody committed.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -106,5 +107,72 @@ describe("the Claude Code plugin", () => {
     const readme = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
     expect(readme.split(/\s+/).length).toBeGreaterThan(40);
     expect(manifest["license"]).toBe("MIT");
+  });
+  it("includes the project copyright and permission notice in standalone installs", () => {
+    expect(readFileSync(resolve(PLUGIN, "LICENSE"), "utf8")).toBe(
+      readFileSync(resolve(ROOT, "LICENSE"), "utf8"),
+    );
+  });
+  it("ships full notices for bundled dependencies, including the legacy format package", () => {
+    const notices = readFileSync(resolve(PLUGIN, "THIRD-PARTY-NOTICES.txt"), "utf8");
+    expect(notices).toContain("format@0.2.2");
+    expect(notices).toContain("Copyright 2010 - 2013 Sami Samhuri <sami@samhuri.net>");
+    expect(notices).toContain("Copyright 2010 - 2014 Sami Samhuri sami@samhuri.net");
+    expect(notices).toContain("yaml@");
+    expect(notices).toContain("Permission to use, copy, modify, and/or distribute this software");
+    expect(notices).not.toContain("vitest@");
+    expect(notices).not.toContain("esbuild@");
+    expect(notices).not.toContain(ROOT);
+  });
+  it("fails on an unreviewed missing license but excludes code omitted from the bundle", async () => {
+    const { thirdPartyNotices } = await import("../scripts/build-plugin.mjs");
+    const directory = mkdtempSync(resolve(tmpdir(), "pe-license-graph-"));
+    try {
+      const packageRoot = resolve(directory, "node_modules/unlicensed");
+      mkdirSync(packageRoot, { recursive: true });
+      writeFileSync(resolve(packageRoot, "package.json"), JSON.stringify({ name: "unlicensed", version: "1.0.0", license: "MIT" }));
+      writeFileSync(resolve(packageRoot, "NOTICE"), "Copyright Fixture Author\n");
+      const metafile = { outputs: { bundle: { inputs: { "node_modules/unlicensed/index.js": { bytesInOutput: 5 } } } } };
+      expect(() => thirdPartyNotices([metafile], directory)).toThrow("No license text for bundled unlicensed@1.0.0");
+      metafile.outputs.bundle.inputs["node_modules/unlicensed/index.js"].bytesInOutput = 0;
+      expect(thirdPartyNotices([metafile], directory)).not.toContain("unlicensed@");
+      writeFileSync(resolve(packageRoot, "COPYING.txt"), "Permission is granted.\n");
+      metafile.outputs.bundle.inputs["node_modules/unlicensed/index.js"].bytesInOutput = 5;
+      const notices = thirdPartyNotices([metafile], directory);
+      expect(notices).toContain("--- COPYING.txt ---\nPermission is granted.");
+      expect(notices).toContain("--- NOTICE ---\nCopyright Fixture Author");
+      expect(notices).not.toContain(directory);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  it("checks stale project and dependency notices without changing the artifacts", () => {
+    const directory = mkdtempSync(resolve(tmpdir(), "pe-license-drift-"));
+    try {
+      for (const path of ["dist", "src", "rules", "integrations/claude-code", "integrations/claude-code-plugin", "scripts/licenses"]) {
+        cpSync(resolve(ROOT, path), resolve(directory, path), { recursive: true });
+      }
+      for (const path of ["scripts/build-plugin.mjs", "scripts/approve-term.mjs", "package.json", "LICENSE"]) cpSync(resolve(ROOT, path), resolve(directory, path));
+      symlinkSync(resolve(ROOT, "node_modules"), resolve(directory, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+      const generated = spawnSync(process.execPath, ["scripts/build-plugin.mjs"], { cwd: directory, encoding: "utf8", timeout: 15_000 });
+      expect(generated.status, generated.stderr).toBe(0);
+      const run = () => spawnSync(process.execPath, ["scripts/build-plugin.mjs", "--check"], { cwd: directory, encoding: "utf8", timeout: 15_000 });
+      const initial = run();
+      expect(initial.status, initial.stderr).toBe(0);
+      for (const name of ["LICENSE", "THIRD-PARTY-NOTICES.txt"]) {
+        const path = resolve(directory, "integrations/claude-code-plugin", name);
+        const original = readFileSync(path, "utf8");
+        const tampered = original + "stale artifact\n";
+        writeFileSync(path, tampered);
+        const checked = run();
+        expect(checked.status, checked.stderr).toBe(1);
+        expect(checked.stderr).toContain(name);
+        expect(readFileSync(path, "utf8")).toBe(tampered);
+        writeFileSync(path, original);
+      }
+      expect(run().status).toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

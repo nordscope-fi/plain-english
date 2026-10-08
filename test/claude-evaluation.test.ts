@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 // @ts-expect-error maintainer JavaScript tool
-import { benchmarkCases, caseDefinition, summarizeRun, blindReviews, pluginFingerprint } from "../scripts/evaluation/claude.mjs";
+import { benchmarkCases, caseDefinition, summarizeRun, blindReviews, pluginFingerprint, summarizeCheckReceipts, blindOutputReviews } from "../scripts/evaluation/claude.mjs";
 
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
@@ -52,9 +53,75 @@ function prepared(runtimeAvailable = true) {
 }
 
 describe("Claude writing benchmark", () => {
+  it("keeps incomplete and unpriced background calls distinct from zero spending", () => {
+    const rows = [
+      { schemaVersion: 1, callId: "a", phase: "started" },
+      { schemaVersion: 1, callId: "a", phase: "finished", reportedCostUsd: 0.02 },
+      { schemaVersion: 1, callId: "b", phase: "started" },
+      { schemaVersion: 1, callId: "c", phase: "started" },
+      { schemaVersion: 1, callId: "c", phase: "finished", reportedCostUsd: null },
+    ];
+    expect(summarizeCheckReceipts(rows, true)).toEqual({
+      captureEnabled: true, observedHookExecutions: 0, expectedIssuedCalls: null, expectedCompletedCalls: null,
+      receiptCoverageComplete: false, issuedCalls: 3, completedCalls: 2, incompleteCalls: 1,
+      unpricedCalls: 1, reportedCostUsd: null, observedPricedCostUsd: 0.02,
+      invoiceCostUsd: null, costBasis: "provider-reported-api-estimate",
+    });
+    expect(summarizeCheckReceipts([], false).reportedCostUsd).toBeNull();
+    expect(summarizeCheckReceipts([], true).reportedCostUsd).toBeNull();
+  });
+
+  it("records zero background calls only when a hook confirms capture", () => {
+    const marker = { schemaVersion: 1, phase: "capture-enabled", captureVersion: 1, captureId: "hook-a" };
+    expect(summarizeCheckReceipts([marker], true).reportedCostUsd).toBeNull();
+    const end = { schemaVersion: 1, phase: "capture-finished", captureId: "hook-a", issuedCalls: 0, completedCalls: 0, captureHealthy: true };
+    const result = summarizeCheckReceipts([marker, end], true);
+    expect(result.reportedCostUsd).toBe(0);
+    expect(result.issuedCalls).toBe(0);
+    expect(result.observedHookExecutions).toBe(1);
+    const priced = summarizeCheckReceipts([
+      marker,
+      { schemaVersion: 1, captureId: "hook-a", callId: "call-a", phase: "started" },
+      { schemaVersion: 1, captureId: "hook-a", callId: "call-a", phase: "finished", reportedCostUsd: 0.02 },
+      { ...end, issuedCalls: 1, completedCalls: 1 },
+    ], true);
+    expect(priced.reportedCostUsd).toBe(0.02);
+    expect(priced.receiptCoverageComplete).toBe(true);
+  });
+  it("does not trust healthy capture when its call receipts are missing", () => {
+    const rows = [
+      { schemaVersion: 1, phase: "capture-enabled", captureVersion: 1, captureId: "hook-a" },
+      { schemaVersion: 1, phase: "capture-finished", captureId: "hook-a", issuedCalls: 1, completedCalls: 1, captureHealthy: true },
+    ];
+    const result = summarizeCheckReceipts(rows, true);
+    expect(result.reportedCostUsd).toBeNull();
+    expect(result.receiptCoverageComplete).toBe(false);
+    expect(result.expectedIssuedCalls).toBe(1);
+  });
+  it("configures capture inside the copied native plugin because eval drops outer environment variables", () => {
+    const fixture = prepared();
+    const hooks = JSON.parse(readFileSync(resolve(fixture.dir, "checks/hooks/hooks.json"), "utf8"));
+    expect(hooks.modules).toEqual(["./register.ts"]);
+    const module = readFileSync(resolve(fixture.dir, "checks/hooks/register.ts"), "utf8");
+    expect(module).toContain('$.env.set("PLAIN_ENGLISH_JUDGE_RECEIPTS"');
+    expect(module).toContain(JSON.stringify(resolve(fixture.dir, "checks-check-usage.jsonl")));
+    const identity = JSON.parse(readFileSync(resolve(fixture.dir, "identity.json"), "utf8"));
+    expect(identity.captureHarnessHash).toBe(createHash("sha256").update(module).digest("hex"));
+  });
+  it("creates one shuffled correctness review per reply without exposing its mode", () => {
+    const item = benchmarkCases()[0];
+    const outputs = ["ordinary", "guidance", "checks"].map((mode) => ({ caseId: item.id, mode, text: "Same reply" }));
+    const { reviews, keys } = blindOutputReviews([item], outputs, "seed");
+    expect(reviews).toHaveLength(3);
+    expect(new Set(reviews.map((row: { id: string }) => row.id)).size).toBe(3);
+    expect(keys).toHaveLength(3);
+    expect(reviews.every((row: Record<string, unknown>) => !("mode" in row) && row.correctness === null && row.completeness === null)).toBe(true);
+    expect(reviews[0].protected).toEqual(item.protected);
+  });
   it("covers six writing tasks without private source material", () => {
     const cases = benchmarkCases();
     expect(cases).toHaveLength(48);
+    expect(new Set(cases.map((row: { scenario: string }) => row.scenario)).size).toBe(24);
     expect(new Set(cases.map((row: { genre: string }) => row.genre)).size).toBe(6);
     expect(new Set(cases.map((row: { id: string }) => row.id)).size).toBe(48);
     expect(cases.every((row: { protected: string[] }) => row.protected.length > 0)).toBe(true);
@@ -144,6 +211,15 @@ describe("Claude writing benchmark", () => {
     expect(result.stderr).toContain("Generation identity changed");
   });
 
+  it("explains missing native receipts without reporting zero cost", () => {
+    const fixture = prepared();
+    const result = fixture.run();
+    expect(result.status).toBe(0);
+    const metrics = JSON.parse(readFileSync(resolve(fixture.dir, "metrics.json"), "utf8"));
+    const checks = metrics.metrics.find((row: { mode: string }) => row.mode === "checks");
+    expect(checks.backgroundCheckCostUsd).toBeNull();
+    expect(checks.backgroundCaptureReason).toBe("No capture marker was received from the native checker.");
+  });
   it("accepts an explicitly selected Claude executable without shell expansion", () => {
     const fixture = prepared();
     const result = fixture.run(["--claude-command", fixture.fake]);

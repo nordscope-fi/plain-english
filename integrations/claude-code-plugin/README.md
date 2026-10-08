@@ -6,13 +6,15 @@ The plugin is a mod: TypeScript functions Claude Code runs on its own events. Th
 
 ## Install
 
-In a Claude Code session, version 2.1.287 or later:
+In a Claude Code session, version 2.1.293 or later:
 
 ```text
 /plugin install plain-english --marketplace nordscope-fi/plain-english
 ```
 
 The plugin carries its own copy of the CLI under `dist/`, one file with every dependency inlined, and the ruleset beside it. Nothing is downloaded at install and no script runs.
+
+Standalone compressed archives (ZIP) and checksums are attached to [GitHub releases](https://github.com/nordscope-fi/plain-english/releases). Extract an archive, then pass its `plain-english` directory to `claude --plugin-dir`. The repository marketplace already supplies the plugin. An Anthropic directory listing requires a separate account-owner submission; the [release guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/releasing.md#submit-the-directory-listing) contains the prepared details. The event checks described here target Claude Code.
 
 ## What you see
 
@@ -59,6 +61,8 @@ Commands you run yourself:
 - **Keeps:** extra Claude calls disable local session persistence. Provider retention follows your account and provider settings. The host conversation still follows Claude Code's normal storage behavior.
 
 A failed checker produces a notice rather than a clean result. If the bundled CLI cannot run, the original action proceeds. If an extra model check cannot run, the pattern checks still apply. Document model calls share a 15-second deadline inside a 20-second tool check. Chat model calls share 45 seconds inside a 60-second hook.
+
+On macOS, cancellation and timeouts were verified to stop the checker and its model child on Claude Code 2.1.293 and 2.1.294. Linux uses the same handling to stop a group of related processes and is checked in CI. Windows uses a process-tree termination command, but native Windows cancellation has not been verified. The checker wrapper also enforces its own timeout. Optional maintainer measurements record provider-reported usage and API price estimates without recording source prose. A missing measurement remains unknown; a reported price is not an account charge.
 
 ## Configuration
 
