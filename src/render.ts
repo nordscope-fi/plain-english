@@ -128,8 +128,10 @@ function readabilityDescription(r: ReadabilityRule): string {
   }
   if (r.kind === "reader-load") {
     return (
-      `Fires past ${r.maxTerms} distinct backticked names in one reply: files, config ` +
-      "keys, flags. Counted absolutely and never as a rate, because the rate points the " +
+      `Fires past ${r.maxTerms} distinct backticked or identifier-shaped names in one reply: files, config ` +
+      "keys, flags. Projects can add exact spellings with `names`; matching preserves casing. " +
+      (r.names?.length ? `Declared names: ${r.names.map(name => `\`${name}\``).join(", ")}. ` : "") +
+      "Counted absolutely and never as a rate, because the rate points the " +
       "wrong way. In the replies readers complained about, jargon density was lower than " +
       "in long replies generally; what separated them was the total. Five terms in a " +
       "sixty-word answer is over quickly. Eighteen across five hundred words is carried " +

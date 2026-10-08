@@ -78,6 +78,8 @@ export interface ReadabilityRule {
   maxWords?: number;
   /** reader-load only: distinct backticked names above which the rule fires. */
   maxTerms?: number;
+  /** reader-load only: additional literal names, matched with exact casing. */
+  names?: string[];
   /**
    * sentence-spread only: how widely sentence lengths must vary.
    *
@@ -681,6 +683,13 @@ function readReadability(v: unknown): ReadabilityRule[] {
         );
       }
       out.maxTerms = n;
+    }
+    if (r["names"] !== undefined) {
+      const names = r["names"];
+      if (!Array.isArray(names) || names.length > 128 || names.some(name => typeof name !== "string" || !name.trim() || name.length > 80 || /[\p{C}]/u.test(name))) {
+        throw new RuleError(`readability[${i}] (${r["id"]}).names must contain at most 128 nonempty names of up to 80 characters`);
+      }
+      out.names = [...new Set(names.map(name => (name as string).trim()))];
     }
     if (r["minSpread"] !== undefined) {
       const n = Number(r["minSpread"]);
@@ -1314,6 +1323,7 @@ export function merge(base: RuleSet, overlay: RuleSet): RuleSet {
       if (r.maxWords !== undefined) existing.maxWords = r.maxWords;
       if (r.minSpread !== undefined) existing.minSpread = r.minSpread;
       if (r.minSentences !== undefined) existing.minSentences = r.minSentences;
+      if (r.names !== undefined) existing.names = [...r.names];
       // A project's `known` list adds to the defaults instead of replacing
       // them, so nobody has to restate "GitHub" to add their own terms.
       if (r.known?.length) existing.known = [...(existing.known ?? []), ...r.known];
@@ -1453,6 +1463,7 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
     existing.severity = l.severity;
     if (l.maxWords !== undefined) existing.maxWords = l.maxWords;
     if (l.maxTerms !== undefined) existing.maxTerms = l.maxTerms;
+    if (l.names !== undefined) existing.names = [...l.names];
     if (l.maxClauses !== undefined) existing.maxClauses = l.maxClauses;
     if (l.maxMeanWords !== undefined) existing.maxMeanWords = l.maxMeanWords;
     if (l.minWords !== undefined) existing.minWords = l.minWords;
