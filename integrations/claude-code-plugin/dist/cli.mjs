@@ -43721,6 +43721,7 @@ function startJudgeReceipt(env, provider) {
 
 // dist/adapters/judge.js
 import { spawnSync } from "node:child_process";
+import { createHash as createHash4 } from "node:crypto";
 var JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
 var JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
 var CLAUDE_JUDGE_ARGS = [
@@ -43811,6 +43812,69 @@ function parseVerdict(stdout) {
 function usableReason(reason, ruleSet) {
   return lintText(reason, ruleSet, { allowInlineSuppression: false }).errorCount === 0;
 }
+var ModelRequest = class extends Error {
+  request;
+  constructor(request) {
+    super("model answer needed");
+    this.request = request;
+  }
+};
+function hostKey(filled) {
+  return createHash4("sha256").update(filled).digest("hex");
+}
+function hostRoute(payload, env = process.env) {
+  if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host")
+    return void 0;
+  const raw = payload["plainEnglishModel"];
+  const record4 = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw : {};
+  const answers = Array.isArray(record4["answers"]) ? record4["answers"].flatMap((item) => {
+    if (typeof item !== "object" || item === null)
+      return [];
+    const answer = item;
+    if (typeof answer["key"] !== "string")
+      return [];
+    const usage = typeof answer["usage"] === "object" && answer["usage"] !== null ? answer["usage"] : void 0;
+    return [{
+      key: answer["key"],
+      ...typeof answer["text"] === "string" ? { text: answer["text"] } : {},
+      ...answer["unavailable"] === "timed out" ? { unavailable: "timed out" } : {},
+      ...usage ? { usage } : {}
+    }];
+  }) : [];
+  const deadline = typeof record4["deadline"] === "number" && Number.isFinite(record4["deadline"]) ? record4["deadline"] : void 0;
+  return { answers, ...deadline !== void 0 ? { deadline } : {} };
+}
+function answerFromHost(filled, opts, host) {
+  const key = hostKey(filled);
+  const index2 = host.answers.findIndex((answer2) => answer2.key === key);
+  if (index2 === -1)
+    throw new ModelRequest({ key, prompt: filled, timeoutMs: opts.timeoutMs ?? JUDGE_TIMEOUT_MS });
+  const answer = host.answers[index2];
+  if (index2 === host.answers.length - 1) {
+    const measurement = {
+      provider: "claude",
+      outcome: answer.text !== void 0 ? "complete" : answer.unavailable === "timed out" ? "timed_out" : "failed",
+      reportedCostUsd: null,
+      invoiceCostUsd: null,
+      costBasis: "unknown",
+      usage: answer.usage ?? null,
+      modelUsage: null
+    };
+    startJudgeReceipt(opts.env ?? process.env, "claude")(measurement);
+    try {
+      opts.onMeasurement?.(measurement);
+    } catch {
+    }
+  }
+  if (answer.text === void 0) {
+    opts.onUnavailable?.(answer.unavailable ?? "failed");
+    return void 0;
+  }
+  const verdict = parseVerdict(answer.text);
+  if (!verdict)
+    opts.onUnavailable?.("returned no usable answer");
+  return verdict;
+}
 function runJudge(input, opts) {
   const env = opts.env ?? process.env;
   if (isJudge(env))
@@ -43818,6 +43882,8 @@ function runJudge(input, opts) {
   if (!opts.prompt.includes("$ARGUMENTS"))
     return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
+  if (opts.host)
+    return answerFromHost(filled, opts, opts.host);
   const provider = opts.command === "claude" ? "claude" : opts.command === "vibe" ? "vibe" : "unknown";
   const formatIndex = opts.args.indexOf("--output-format");
   const structuredOutput = formatIndex !== -1 && opts.args[formatIndex + 1] === "json";
@@ -43951,7 +44017,7 @@ function toSarif(input, ruleSet, opts) {
 }
 
 // dist/record.js
-import { createHash as createHash4, randomBytes } from "node:crypto";
+import { createHash as createHash5, randomBytes } from "node:crypto";
 import { mkdirSync as mkdirSync3, readdirSync as readdirSync11, writeFileSync as writeFileSync5 } from "node:fs";
 import { homedir as homedir13 } from "node:os";
 import { resolve as resolve20, sep as sep3 } from "node:path";
@@ -43996,7 +44062,7 @@ function redact(v, opts, key, prose = false, argumentsBag = false) {
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
     if (opts.verbatim || !prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))
       return scrubbed;
-    return `<${scrubbed.length} chars, sha256:${createHash4("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
+    return `<${scrubbed.length} chars, sha256:${createHash5("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
   }
   if (Array.isArray(v))
     return v.map((x) => redact(x, opts, key, prose, argumentsBag));
@@ -44878,7 +44944,7 @@ function reportUnavailableModelCheck(reason) {
   process.stderr.write(`plain-english: extra model check ${reason}; pattern checks still apply.
 `);
 }
-function hookChat(payload, profile) {
+function hookChat(payload, profile, host) {
   if (!profile.emitChat)
     return 0;
   const reader = readerFor(profile.id);
@@ -44893,7 +44959,9 @@ function hookChat(payload, profile) {
   const turn = chatTurnId(payload, reader, reply, cwd);
   const helper = payload["agent_id"] ?? payload["subagent_id"];
   const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
-  const judgeDeadline = Date.now() + CHAT_JUDGE_PIPELINE_MS;
+  const judgeDeadline = host?.deadline ?? Date.now() + CHAT_JUDGE_PIPELINE_MS;
+  if (host)
+    host.deadline = judgeDeadline;
   const decision = decideChat(reply, {
     ruleSet,
     /**
@@ -44916,7 +44984,8 @@ function hookChat(payload, profile) {
           ...modelCommand(profile.id),
           cwd: resolve21(cwd),
           timeoutMs,
-          onUnavailable: reportUnavailableModelCheck
+          onUnavailable: reportUnavailableModelCheck,
+          ...host ? { host } : {}
         });
       };
       const readablePrompt = prompts["chat-readable"];
@@ -44949,6 +45018,7 @@ function hookChat(payload, profile) {
 }
 async function cmdHook(args) {
   const finishCapture = initializeJudgeReceipts();
+  let host;
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -44961,6 +45031,8 @@ async function cmdHook(args) {
     if (!raw.trim())
       return 0;
     const payload = JSON.parse(raw);
+    host = hostRoute(payload);
+    delete payload["plainEnglishModel"];
     const agentFlag = args.flags["agent"] === void 0 ? void 0 : String(args.flags["agent"]);
     let profile;
     try {
@@ -44971,7 +45043,7 @@ async function cmdHook(args) {
       profile = resolveProfile(void 0, payload);
     }
     if (channel === "chat")
-      return hookChat(payload, profile);
+      return hookChat(payload, profile, host);
     const event = args.flags["event"] === "post" ? "post" : "pre";
     const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
     const parsed = profile.parse(payload);
@@ -44995,7 +45067,9 @@ async function cmdHook(args) {
       requests.push({ channel, input: JSON.stringify({ texts }) });
     const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
     if (event === semanticPhase && decision.allow && !isJudge() && modelChecksEnabled(ruleSet, profile.id)) {
-      const deadline = Date.now() + DOCS_JUDGE_CALL_MS;
+      const deadline = host?.deadline ?? Date.now() + DOCS_JUDGE_CALL_MS;
+      if (host)
+        host.deadline = deadline;
       for (const request of requests) {
         if (hasAck(request.channel, projectDir) || overDocsJudgeLimit(request.input))
           continue;
@@ -45010,7 +45084,8 @@ async function cmdHook(args) {
           ...modelCommand(profile.id, args.flags["model"] ? String(args.flags["model"]) : void 0),
           cwd: resolve21(projectDir),
           timeoutMs,
-          onUnavailable: reportUnavailableModelCheck
+          onUnavailable: reportUnavailableModelCheck,
+          ...host ? { host } : {}
         });
         if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
           decision = {
@@ -45043,7 +45118,16 @@ async function cmdHook(args) {
       }
     }
     return out.exitCode;
-  } catch {
+  } catch (error) {
+    if (error instanceof ModelRequest && host) {
+      const model = args.flags["model"] ? String(args.flags["model"]) : void 0;
+      process.stdout.write(JSON.stringify({ plainEnglishModelRequest: {
+        ...error.request,
+        deadline: host.deadline,
+        ...model ? { model } : {}
+      } }));
+      return 0;
+    }
     process.stderr.write("plain-english: check unavailable; the write was allowed.\n");
     return 0;
   } finally {

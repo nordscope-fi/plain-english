@@ -43,6 +43,9 @@ import {
   runJudge,
   usableReason,
   overDocsJudgeLimit,
+  hostRoute,
+  ModelRequest,
+  type HostRoute,
 } from "./adapters/judge.ts";
 import type { Decision } from "./adapters/hook.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
@@ -798,6 +801,7 @@ function reportUnavailableModelCheck(reason: string): void {
 function hookChat(
   payload: Record<string, unknown>,
   profile: { id: string; emitChat?: (d: Decision, e: string) => { stdout: string; exitCode: number } },
+  host?: HostRoute,
 ): number {
   if (!profile.emitChat) return 0;
   const reader = readerFor(profile.id);
@@ -817,7 +821,8 @@ function hookChat(
   const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
   // One deadline covers both optional model calls. Giving each call its own
   // full timeout allowed the pipeline to outlive the host hook around it.
-  const judgeDeadline = Date.now() + CHAT_JUDGE_PIPELINE_MS;
+  const judgeDeadline = host?.deadline ?? Date.now() + CHAT_JUDGE_PIPELINE_MS;
+  if (host) host.deadline = judgeDeadline;
 
   const decision = decideChat(reply, {
     ruleSet,
@@ -840,6 +845,7 @@ function hookChat(
           cwd: resolve(cwd),
           timeoutMs,
           onUnavailable: reportUnavailableModelCheck,
+          ...(host ? { host } : {}),
         });
       };
 
@@ -896,6 +902,7 @@ function hookChat(
 
 async function cmdHook(args: Args): Promise<number> {
   const finishCapture = initializeJudgeReceipts();
+  let host: HostRoute | undefined;
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -909,6 +916,10 @@ async function cmdHook(args: Args): Promise<number> {
     const raw = await readStdin();
     if (!raw.trim()) return 0;
     const payload = JSON.parse(raw) as Record<string, unknown>;
+    // ADR-006: answers the mod got for earlier runs of this same check. They
+    // are not part of the event, so nothing downstream sees or records them.
+    host = hostRoute(payload);
+    delete payload["plainEnglishModel"];
 
     const agentFlag = args.flags["agent"] === undefined ? undefined : String(args.flags["agent"]);
     let profile;
@@ -924,7 +935,7 @@ async function cmdHook(args: Args): Promise<number> {
 
     // Chat is judged from the reply, not from a tool call, so it forks here
     // before `parse` is asked for tool input a stop event does not have.
-    if (channel === "chat") return hookChat(payload, profile);
+    if (channel === "chat") return hookChat(payload, profile, host);
 
     // `post` runs after the tool did, so it can only tell the model something.
     // Only agents that discard `ask` install one, and only `init` writes the
@@ -963,7 +974,8 @@ async function cmdHook(args: Args): Promise<number> {
     const semanticPhase = ruleSet.failOn === "never" ? (profile.advisoryPhase ?? "pre") : "pre";
     if (event === semanticPhase && decision.allow && !isJudge() &&
         modelChecksEnabled(ruleSet, profile.id)) {
-      const deadline = Date.now() + DOCS_JUDGE_CALL_MS;
+      const deadline = host?.deadline ?? Date.now() + DOCS_JUDGE_CALL_MS;
+      if (host) host.deadline = deadline;
       for (const request of requests) {
         if (hasAck(request.channel, projectDir) || overDocsJudgeLimit(request.input)) continue;
         const timeoutMs = Math.max(0, deadline - Date.now());
@@ -976,6 +988,7 @@ async function cmdHook(args: Args): Promise<number> {
           cwd: resolve(projectDir),
           timeoutMs,
           onUnavailable: reportUnavailableModelCheck,
+          ...(host ? { host } : {}),
         });
         if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
           decision = {
@@ -1015,7 +1028,17 @@ async function cmdHook(args: Args): Promise<number> {
     }
 
     return out.exitCode;
-  } catch {
+  } catch (error) {
+    // ADR-006: an open question goes back to the mod in place of a decision.
+    // It is caught first, because the fail-open answer below would allow the
+    // write without asking.
+    if (error instanceof ModelRequest && host) {
+      const model = args.flags["model"] ? String(args.flags["model"]) : undefined;
+      process.stdout.write(JSON.stringify({ plainEnglishModelRequest: {
+        ...error.request, deadline: host.deadline, ...(model ? { model } : {}),
+      } }));
+      return 0;
+    }
     // Fail-open, and this is the contract the whole design rests on: a linter
     // must never be the reason a write cannot happen. Copilot is the one agent
     // that reads a non-zero exit here as a refusal, so 0 is also the only safe
