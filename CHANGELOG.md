@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-10-08
+### Fixed
+
+- Refresh YAML, the bundler and development dependencies, and rebuild the committed executables and dependency notices. Keep tests on Vitest 4 because Vitest 5 excludes the supported Node 20 runtime.
+
 ## [1.10.0] - 2026-10-08
 ### Added
 
@@ -639,7 +644,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.10.1
 [1.10.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.10.0
 [1.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.9.0
 [1.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.8.0

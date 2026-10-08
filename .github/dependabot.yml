@@ -11,6 +11,10 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    ignore:
+      # Vitest 5 requires Node 22; CI and the package still support Node 20.
+      - dependency-name: vitest
+        versions: [">=5 <6"]
     groups:
       dev-dependencies:
         dependency-type: development
