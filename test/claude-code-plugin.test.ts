@@ -34,7 +34,7 @@ function json(path: string): Record<string, unknown> {
 describe("the plugin's hook files as the directory reads them", () => {
   // Control characters, zero-width and direction marks, line and paragraph separators, byte-order mark.
   const INVISIBLE = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u2064\\uFEFF]");
-  const HOOK_FILES = ["hooks/register.ts", "hooks/wire.ts", "hooks/run-checker.mjs", "hooks/shell.mjs", "hooks/approval.mjs", "hooks/issue-tools.mjs"];
+  const HOOK_FILES = ["hooks/register.ts", "hooks/wire.ts", "hooks/run-checker.mjs", "hooks/shell.mjs", "hooks/issue-tools.mjs"];
 
   it("contain no invisible or control characters", () => {
     for (const file of HOOK_FILES) {
@@ -108,7 +108,7 @@ describe("the plugin's directory listing fields", () => {
 
 describe("the Claude Code plugin", () => {
   it("creates approved vocabulary in a configuration the checker can actually load", async () => {
-    const { approveTerm } = await import("../scripts/approve-term.mjs");
+    const { approveTerm } = await import("../src/approve.ts");
     const directory = mkdtempSync(resolve(tmpdir(), "pe-approved-term-"));
     const path = resolve(directory, ".plain-english.yml");
     try {
@@ -172,7 +172,7 @@ describe("the Claude Code plugin", () => {
   });
 
   it("approves an exact term for one rule without erasing existing config comments", async () => {
-    const { approveTerm } = await import("../scripts/approve-term.mjs");
+    const { approveTerm } = await import("../src/approve.ts");
     const config = "# Team choices\nextends: default\nchat:\n  failOn: never\nallow:\n  - pattern: Existing\n    rules: [unglossed-term]\n";
     const updated = approveTerm(config, "BuildKit", "unglossed-term", "Our readers know this tool");
     expect(updated).toContain("# Team choices");
@@ -233,7 +233,7 @@ describe("the Claude Code plugin", () => {
       for (const path of ["dist", "src", "rules", "integrations/claude-code", "integrations/claude-code-plugin", "scripts/licenses"]) {
         cpSync(resolve(ROOT, path), resolve(directory, path), { recursive: true });
       }
-      for (const path of ["scripts/build-plugin.mjs", "scripts/approve-term.mjs", "package.json", "LICENSE"]) cpSync(resolve(ROOT, path), resolve(directory, path));
+      for (const path of ["scripts/build-plugin.mjs", "package.json", "LICENSE"]) cpSync(resolve(ROOT, path), resolve(directory, path));
       symlinkSync(resolve(ROOT, "node_modules"), resolve(directory, "node_modules"), process.platform === "win32" ? "junction" : "dir");
       const generated = spawnSync(process.execPath, ["scripts/build-plugin.mjs"], { cwd: directory, encoding: "utf8", timeout: 15_000 });
       expect(generated.status, generated.stderr).toBe(0);

@@ -155,7 +155,7 @@ The [source guide](docs/source-prose.md) covers React text, escapes and source p
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.13.4
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.14.0
   with:
     paths: docs README.md
     fail-on: error
@@ -172,7 +172,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.13.4
+    rev: v1.14.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -282,6 +282,7 @@ unusual and visible to the next reader.
 | `plain-english profile` | Measure stable style preferences from configured project files. |
 | `plain-english profile --check` | Fail when the committed profile is missing or stale. |
 | `plain-english profile --approve GENRE:FIELD` | Approve measured connectors or recurring terms for agent guidance. |
+| `plain-english approve` | Check, then save, one approved project term sent as JSON on standard input. The Claude Code plugin's review panel uses it. |
 | `plain-english doctor` | Print the environment details needed for a hook bug report. |
 | `plain-english render --check` | Check that generated rules and agent instructions are current. |
 | `plain-english --help` | Show all commands, formats, and exit behaviour. |

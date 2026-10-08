@@ -155,10 +155,10 @@ var require_identity = __commonJS({
     var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
     var isAlias = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === ALIAS;
     var isDocument2 = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === DOC;
-    var isMap = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === MAP;
+    var isMap2 = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === MAP;
     var isPair = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === PAIR;
     var isScalar = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === SCALAR;
-    var isSeq = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === SEQ;
+    var isSeq2 = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === SEQ;
     function isCollection(node3) {
       if (node3 && typeof node3 === "object")
         switch (node3[NODE_TYPE]) {
@@ -191,11 +191,11 @@ var require_identity = __commonJS({
     exports.isAlias = isAlias;
     exports.isCollection = isCollection;
     exports.isDocument = isDocument2;
-    exports.isMap = isMap;
+    exports.isMap = isMap2;
     exports.isNode = isNode;
     exports.isPair = isPair;
     exports.isScalar = isScalar;
-    exports.isSeq = isSeq;
+    exports.isSeq = isSeq2;
   }
 });
 
@@ -4303,9 +4303,9 @@ var require_resolve_flow_collection = __commonJS({
     var blockMsg = "Block collections are not allowed within flow collections";
     var isBlock = (token) => token && (token.type === "block-map" || token.type === "block-seq");
     function resolveFlowCollection({ composeNode, composeEmptyNode }, ctx, fc, onError, tag) {
-      const isMap = fc.start.source === "{";
-      const fcName = isMap ? "flow map" : "flow sequence";
-      const NodeClass = tag?.nodeClass ?? (isMap ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
+      const isMap2 = fc.start.source === "{";
+      const fcName = isMap2 ? "flow map" : "flow sequence";
+      const NodeClass = tag?.nodeClass ?? (isMap2 ? YAMLMap.YAMLMap : YAMLSeq.YAMLSeq);
       const coll = new NodeClass(ctx.schema);
       coll.flow = true;
       const atRoot = ctx.atRoot;
@@ -4341,7 +4341,7 @@ var require_resolve_flow_collection = __commonJS({
             offset = props.end;
             continue;
           }
-          if (!isMap && ctx.options.strict && utilContainsNewline.containsNewline(key))
+          if (!isMap2 && ctx.options.strict && utilContainsNewline.containsNewline(key))
             onError(
               key,
               // checked by containsNewline()
@@ -4381,7 +4381,7 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep4 && !props.found) {
+        if (!isMap2 && !sep4 && !props.found) {
           const valueNode = value2 ? composeNode(ctx, value2, props, onError) : composeEmptyNode(ctx, props.end, sep4, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
@@ -4404,7 +4404,7 @@ var require_resolve_flow_collection = __commonJS({
             startOnNewline: false
           });
           if (valueProps.found) {
-            if (!isMap && !props.found && ctx.options.strict) {
+            if (!isMap2 && !props.found && ctx.options.strict) {
               if (sep4)
                 for (const st of sep4) {
                   if (st === valueProps.found)
@@ -4436,7 +4436,7 @@ var require_resolve_flow_collection = __commonJS({
           const pair = new Pair.Pair(keyNode, valueNode);
           if (ctx.options.keepSourceTokens)
             pair.srcToken = collItem;
-          if (isMap) {
+          if (isMap2) {
             const map = coll;
             if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
               onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
@@ -4452,7 +4452,7 @@ var require_resolve_flow_collection = __commonJS({
           offset = valueNode ? valueNode.range[2] : valueProps.end;
         }
       }
-      const expectedEnd = isMap ? "}" : "]";
+      const expectedEnd = isMap2 ? "}" : "]";
       const [ce, ...ee] = fc.end;
       let cePos = offset;
       if (ce?.source === expectedEnd)
@@ -7353,7 +7353,7 @@ var require_public_api = __commonJS({
         return docs;
       return Object.assign([], { empty: true }, composer$1.streamInfo());
     }
-    function parseDocument2(source, options = {}) {
+    function parseDocument3(source, options = {}) {
       const { lineCounter: lineCounter2, prettyErrors } = parseOptions(options);
       const parser$1 = new parser.Parser(lineCounter2?.addNewLine);
       const composer$1 = new composer.Composer(options);
@@ -7379,7 +7379,7 @@ var require_public_api = __commonJS({
       } else if (options === void 0 && reviver && typeof reviver === "object") {
         options = reviver;
       }
-      const doc = parseDocument2(src, options);
+      const doc = parseDocument3(src, options);
       if (!doc)
         return null;
       doc.warnings.forEach((warning) => log.warn(doc.options.logLevel, warning));
@@ -7415,7 +7415,7 @@ var require_public_api = __commonJS({
     }
     exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
-    exports.parseDocument = parseDocument2;
+    exports.parseDocument = parseDocument3;
     exports.stringify = stringify;
   }
 });
@@ -22065,8 +22065,8 @@ var require_lib = __commonJS({
 });
 
 // dist/cli.js
-import { readFileSync as readFileSync16, readdirSync as readdirSync12, statSync as statSync13, existsSync as existsSync16, mkdirSync as mkdirSync4, writeFileSync as writeFileSync6 } from "node:fs";
-import { delimiter, extname as extname3, relative as relative6, resolve as resolve21, dirname as dirname5, isAbsolute as isAbsolute5, basename as basename4 } from "node:path";
+import { readFileSync as readFileSync17, readdirSync as readdirSync12, statSync as statSync14, existsSync as existsSync17, mkdirSync as mkdirSync4, writeFileSync as writeFileSync7 } from "node:fs";
+import { delimiter, extname as extname3, relative as relative6, resolve as resolve21, dirname as dirname6, isAbsolute as isAbsolute5, basename as basename5 } from "node:path";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
 // node_modules/mdast-util-to-string/lib/index.js
@@ -33029,10 +33029,10 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set basename(basename5) {
-    assertNonEmpty(basename5, "basename");
-    assertPart(basename5, "basename");
-    this.path = default2.join(this.dirname || "", basename5);
+  set basename(basename6) {
+    assertNonEmpty(basename6, "basename");
+    assertPart(basename6, "basename");
+    this.path = default2.join(this.dirname || "", basename6);
   }
   /**
    * Get the parent path (example: `'~'`).
@@ -33053,9 +33053,9 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set dirname(dirname6) {
+  set dirname(dirname7) {
     assertPath(this.basename, "dirname");
-    this.path = default2.join(dirname6 || "", this.basename);
+    this.path = default2.join(dirname7 || "", this.basename);
   }
   /**
    * Get the extname (including dot) (example: `'.js'`).
@@ -41636,9 +41636,97 @@ function projectGuidance(set) {
   ].join("\n");
 }
 
+// dist/approve.js
+var import_yaml3 = __toESM(require_dist(), 1);
+import { createHash as createHash3 } from "node:crypto";
+import { existsSync as existsSync13, lstatSync, readFileSync as readFileSync11, realpathSync as realpathSync2, statSync as statSync10, writeFileSync as writeFileSync3 } from "node:fs";
+import { basename as basename4, dirname as dirname4, join } from "node:path";
+var CONFIG_NAMES = [".plain-english.yml", ".plain-english.yaml"];
+function approveTerm(text4, term, ruleId, reason) {
+  if (!/^[A-Za-z][\w .-]{0,79}$/.test(term) || !/[\w]$/.test(term)) {
+    throw new Error("Approve one short word or name, not a passage.");
+  }
+  if (!/^[\w-]+$/.test(ruleId) || /(?:length|count|paragraph|sentence|structure)/.test(ruleId)) {
+    throw new Error("This rule checks context, not an approved term.");
+  }
+  if (typeof reason !== "string" || !reason.trim() || /[\r\n\x00-\x1f]/.test(reason)) {
+    throw new Error("Give a one-line reason for this project exception.");
+  }
+  const doc = (0, import_yaml3.parseDocument)(text4 || "version: 1\nextends: default\n");
+  if (doc.errors.length)
+    throw new Error("The project configuration cannot be parsed.");
+  if (!(0, import_yaml3.isMap)(doc.contents))
+    throw new Error("The project configuration must be a mapping.");
+  const existing = doc.get("allow", true);
+  if (existing !== void 0 && !(0, import_yaml3.isSeq)(existing))
+    throw new Error("The existing allow entries must be a list.");
+  if (existing === void 0)
+    doc.set("allow", doc.createNode([]));
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const entry = doc.createNode({
+    pattern: `(?<![\\w])${escaped}(?![\\w])`,
+    rules: [ruleId],
+    ...ruleId === "unglossed-term" ? { semantic: true } : {}
+  });
+  entry.commentBefore = ` Approved in Plain English review: ${reason.trim()}`;
+  doc.addIn(["allow"], entry);
+  return doc.toString();
+}
+function approvalConfig(directory) {
+  for (const name of CONFIG_NAMES) {
+    const path2 = join(directory, name);
+    if (existsSync13(path2))
+      return { path: path2, exists: true };
+  }
+  let ancestor = directory;
+  while (dirname4(ancestor) !== ancestor) {
+    ancestor = dirname4(ancestor);
+    if (CONFIG_NAMES.some((name) => existsSync13(join(ancestor, name)))) {
+      throw new Error("This project uses an inherited configuration. Add the scoped term to that configuration by hand; no child configuration was created.");
+    }
+  }
+  return { path: join(directory, ".plain-english.yml"), exists: false };
+}
+function notApprovable(set, ruleId) {
+  if (set.structures.some((structure) => structure.id === ruleId))
+    return "This rule cannot be approved as project vocabulary.";
+  const known = set.rules.some((rule) => rule.id === ruleId) || set.readability.some((rule) => rule.id === ruleId) || (set.families ?? []).some((family) => `family-${family.id}` === ruleId);
+  return known ? void 0 : `no rule ${ruleId}`;
+}
+var sha256 = (text4) => createHash3("sha256").update(text4).digest("hex");
+function approveInProject(cwd, request, ruleSetFor2) {
+  try {
+    const root = realpathSync2(cwd);
+    if (!statSync10(root).isDirectory())
+      throw new Error("Cannot locate the project directory.");
+    const { path: path2, exists } = approvalConfig(root);
+    if (exists) {
+      const link = lstatSync(path2);
+      if (link.isSymbolicLink() || !link.isFile() || realpathSync2(path2) !== path2)
+        throw new Error("Review the linked configuration by hand.");
+    }
+    const original = exists ? readFileSync11(path2, "utf8") : "";
+    const updated = approveTerm(original, request.term, request.rule, request.reason);
+    const refusal = notApprovable(ruleSetFor2(root), request.rule);
+    if (refusal)
+      throw new Error(refusal);
+    const state = { root, config: basename4(path2), exists, hash: sha256(original) };
+    if (request.phase === "write") {
+      const seen = request.expect;
+      if (!seen || seen.root !== state.root || seen.config !== state.config || seen.exists !== state.exists || seen.hash !== state.hash) {
+        throw new Error("The configuration changed. Review it again before saving.");
+      }
+      writeFileSync3(path2, updated);
+    }
+    return { ok: true, ...state, modelVocabulary: request.rule === "unglossed-term" };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 // dist/policy.js
 import { execFileSync } from "node:child_process";
-import { readdirSync as readdirSync10, readFileSync as readFileSync15 } from "node:fs";
+import { readdirSync as readdirSync10, readFileSync as readFileSync16 } from "node:fs";
 import { extname as extname2, relative as relative4, resolve as resolve19 } from "node:path";
 
 // dist/agents/claude-code.js
@@ -41866,7 +41954,7 @@ var claudeCode = {
 };
 
 // dist/agents/codex.js
-import { existsSync as existsSync13, readFileSync as readFileSync11, statSync as statSync10 } from "node:fs";
+import { existsSync as existsSync14, readFileSync as readFileSync12, statSync as statSync11 } from "node:fs";
 import { homedir as homedir10 } from "node:os";
 import { resolve as resolve15 } from "node:path";
 var RUNNER4 = runnerPath(".codex");
@@ -41879,7 +41967,7 @@ var CHANNELS4 = [
 function trustedProject(configPath, root) {
   let text4;
   try {
-    text4 = readFileSync11(configPath, "utf8");
+    text4 = readFileSync12(configPath, "utf8");
   } catch {
     return false;
   }
@@ -41902,7 +41990,7 @@ function trustedProject(configPath, root) {
 function hasHookTrustRecord(configPath, hooksPath) {
   try {
     const escaped = hooksPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const text4 = readFileSync11(configPath, "utf8");
+    const text4 = readFileSync12(configPath, "utf8");
     return [escaped, hooksPath].some((path2) => text4.includes(`[hooks.state."${path2}:`));
   } catch {
     return false;
@@ -41910,7 +41998,7 @@ function hasHookTrustRecord(configPath, hooksPath) {
 }
 function isLinkedWorktree(root) {
   try {
-    return statSync10(resolve15(root, ".git")).isFile();
+    return statSync11(resolve15(root, ".git")).isFile();
   } catch {
     return false;
   }
@@ -41996,7 +42084,7 @@ var codex = {
    * because then there is nothing to be wrong about.
    */
   diagnose(root) {
-    if (!existsSync13(resolve15(root, ".codex", "hooks.json")))
+    if (!existsSync14(resolve15(root, ".codex", "hooks.json")))
       return [];
     const home = process.env["CODEX_HOME"] || resolve15(homedir10(), ".codex");
     const config = resolve15(home, "config.toml");
@@ -42106,7 +42194,7 @@ var codex = {
 };
 
 // dist/agents/copilot.js
-import { existsSync as existsSync14, readFileSync as readFileSync12 } from "node:fs";
+import { existsSync as existsSync15, readFileSync as readFileSync13 } from "node:fs";
 import { homedir as homedir11 } from "node:os";
 import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve16 } from "node:path";
 var RUNNER5 = runnerPath(".github");
@@ -42121,7 +42209,7 @@ function copilotHome2() {
 }
 function trustedFolder2(configPath, root) {
   try {
-    const source = readFileSync12(configPath, "utf8").replace(/^\s*\/\/.*$/gm, "");
+    const source = readFileSync13(configPath, "utf8").replace(/^\s*\/\/.*$/gm, "");
     const parsed = JSON.parse(source);
     if (!Array.isArray(parsed.trustedFolders))
       return false;
@@ -42203,7 +42291,7 @@ var copilot = {
   supportsAsk: false,
   advisoryPhase: "post",
   diagnose(root) {
-    if (!existsSync14(resolve16(root, ".github", "hooks", "plain-english.json")))
+    if (!existsSync15(resolve16(root, ".github", "hooks", "plain-english.json")))
       return [];
     const config = resolve16(copilotHome2(), "config.json");
     if (trustedFolder2(config, root))
@@ -42720,18 +42808,18 @@ function resolveProfile(explicit, raw = {}, env = process.env) {
 }
 
 // dist/init.js
-import { chmodSync, existsSync as existsSync15, mkdirSync as mkdirSync2, readdirSync as readdirSync9, readFileSync as readFileSync14, statSync as statSync12, writeFileSync as writeFileSync4 } from "node:fs";
+import { chmodSync, existsSync as existsSync16, mkdirSync as mkdirSync2, readdirSync as readdirSync9, readFileSync as readFileSync15, statSync as statSync13, writeFileSync as writeFileSync5 } from "node:fs";
 import { homedir as homedir12 } from "node:os";
-import { dirname as dirname4, relative as relative3, resolve as resolve18 } from "node:path";
+import { dirname as dirname5, relative as relative3, resolve as resolve18 } from "node:path";
 
 // dist/adapters/chat.js
-import { readFileSync as readFileSync13, readdirSync as readdirSync8, statSync as statSync11, unlinkSync, utimesSync, writeFileSync as writeFileSync3 } from "node:fs";
-import { createHash as createHash3 } from "node:crypto";
+import { readFileSync as readFileSync14, readdirSync as readdirSync8, statSync as statSync12, unlinkSync, utimesSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { createHash as createHash4 } from "node:crypto";
 import { tmpdir as tmpdir4 } from "node:os";
 import { resolve as resolve17 } from "node:path";
 function blockStatePath(projectDir, sessionId) {
-  const safe = createHash3("sha256").update(sessionId || "session").digest("hex").slice(0, 24);
-  const scope = createHash3("sha256").update(resolve17(projectDir)).digest("hex").slice(0, 12);
+  const safe = createHash4("sha256").update(sessionId || "session").digest("hex").slice(0, 24);
+  const scope = createHash4("sha256").update(resolve17(projectDir)).digest("hex").slice(0, 12);
   return resolve17(tmpdir4(), `plain-english-chat-${scope}-${safe}`);
 }
 function sweepLegacyState(projectDir) {
@@ -42752,10 +42840,10 @@ function sweepLegacyState(projectDir) {
 }
 function readBlockState(path2, now) {
   try {
-    const stat = statSync11(path2);
+    const stat = statSync12(path2);
     if (now - stat.mtimeMs > ACK_WINDOW_MS)
       return null;
-    const [id = "", kind = ""] = readFileSync13(path2, "utf8").split("\n");
+    const [id = "", kind = ""] = readFileSync14(path2, "utf8").split("\n");
     return {
       promptId: id.trim(),
       // A file written before 0.14.0 holds the prompt id alone. Reading that
@@ -42768,7 +42856,7 @@ function readBlockState(path2, now) {
 }
 function rememberBlock(path2, promptId, kind) {
   try {
-    writeFileSync3(path2, `${promptId}
+    writeFileSync4(path2, `${promptId}
 ${kind}`, "utf8");
     const now = /* @__PURE__ */ new Date();
     utimesSync(path2, now, now);
@@ -43140,7 +43228,7 @@ ${body}
 `;
 }
 function projectRuleSet(root) {
-  if (!existsSync15(resolve18(root, ".plain-english.yml")))
+  if (!existsSync16(resolve18(root, ".plain-english.yml")))
     return void 0;
   try {
     return resolveRuleSet(root);
@@ -43183,9 +43271,9 @@ function init(opts) {
     if (docs.has(path2))
       return docs.get(path2);
     let doc = {};
-    if (existsSync15(path2)) {
+    if (existsSync16(path2)) {
       try {
-        doc = JSON.parse(readFileSync14(path2, "utf8"));
+        doc = JSON.parse(readFileSync15(path2, "utf8"));
       } catch (e) {
         process.stderr.write(`plain-english: ${relative3(root, path2)} is not valid JSON, refusing to touch it
   ${e instanceof Error ? e.message : String(e)}
@@ -43207,7 +43295,7 @@ function init(opts) {
     });
     for (const gone of plan.retire ?? []) {
       const path2 = locate2(gone);
-      if (!existsSync15(path2))
+      if (!existsSync16(path2))
         continue;
       const doc = load(path2);
       if (doc === null)
@@ -43221,11 +43309,11 @@ function init(opts) {
     }
     for (const file of plan.config) {
       const path2 = locate2(file);
-      const existed = existsSync15(path2);
+      const existed = existsSync16(path2);
       if (file.format === "toml") {
         let text4 = tomlDocs.get(path2);
         if (text4 === void 0) {
-          text4 = existed ? readFileSync14(path2, "utf8") : "";
+          text4 = existed ? readFileSync15(path2, "utf8") : "";
           if (!readableHooksToml(text4)) {
             process.stderr.write(`plain-english: ${relative3(root, path2)} has a table header this installer does not recognise, refusing to touch it
 `);
@@ -43255,22 +43343,22 @@ function init(opts) {
       const path2 = resolve18(root, s.path);
       let unchanged = false;
       try {
-        const bodyMatches = readFileSync14(path2, "utf8") === s.body;
-        const modeMatches = process.platform === "win32" || (statSync12(path2).mode & 511) === 493;
+        const bodyMatches = readFileSync15(path2, "utf8") === s.body;
+        const modeMatches = process.platform === "win32" || (statSync13(path2).mode & 511) === 493;
         unchanged = bodyMatches && modeMatches;
       } catch {
         unchanged = false;
       }
       if (unchanged)
         continue;
-      planned.push(`${existsSync15(path2) ? "update" : "create"} ${relative3(root, path2)}`);
+      planned.push(`${existsSync16(path2) ? "update" : "create"} ${relative3(root, path2)}`);
       writes.push({ path: path2, body: s.body, mode: 493 });
     }
     for (const f of plan.files ?? []) {
       const path2 = locate2(f);
       let current = null;
       try {
-        current = readFileSync14(path2, "utf8");
+        current = readFileSync15(path2, "utf8");
       } catch {
         current = null;
       }
@@ -43311,29 +43399,29 @@ function init(opts) {
       if (!changes.length)
         continue;
       docs.set(path2, next2);
-      planned.push(`${existsSync15(path2) ? "update" : "create"} ${relative3(root, path2)} ${changes.join(", ")}`);
+      planned.push(`${existsSync16(path2) ? "update" : "create"} ${relative3(root, path2)} ${changes.join(", ")}`);
     }
     for (const n of plan.notes)
       notes.push(`${agent.label}: ${n}`);
   }
   for (const [path2, doc] of docs) {
     const body = JSON.stringify(doc, null, 2) + "\n";
-    if (existsSync15(path2) && readFileSync14(path2, "utf8") === body)
+    if (existsSync16(path2) && readFileSync15(path2, "utf8") === body)
       continue;
     writes.push({ path: path2, body });
   }
   for (const [path2, body] of tomlDocs) {
-    if (existsSync15(path2) && readFileSync14(path2, "utf8") === body)
+    if (existsSync16(path2) && readFileSync15(path2, "utf8") === body)
       continue;
     writes.push({ path: path2, body });
   }
-  const existingAgentsMd = existsSync15(agentsMdPath) ? readFileSync14(agentsMdPath, "utf8") : null;
+  const existingAgentsMd = existsSync16(agentsMdPath) ? readFileSync15(agentsMdPath, "utf8") : null;
   const nextAgentsMd = spliceAgentsMd(existingAgentsMd, renderAgentsFragment(set));
   if (nextAgentsMd !== null) {
     planned.push(`${existingAgentsMd === null ? "create" : "update"} AGENTS.md`);
     writes.push({ path: agentsMdPath, body: nextAgentsMd });
   }
-  if (!existsSync15(configPath)) {
+  if (!existsSync16(configPath)) {
     planned.push(`create ${relative3(root, configPath)}`);
     writes.push({ path: configPath, body: STARTER_CONFIG });
   }
@@ -43356,8 +43444,8 @@ function init(opts) {
     return 0;
   }
   for (const w of writes) {
-    mkdirSync2(dirname4(w.path), { recursive: true });
-    writeFileSync4(w.path, w.body, "utf8");
+    mkdirSync2(dirname5(w.path), { recursive: true });
+    writeFileSync5(w.path, w.body, "utf8");
     if (w.mode !== void 0)
       chmodSync(w.path, w.mode);
   }
@@ -43433,7 +43521,7 @@ function detectAgents(root) {
       const path2 = resolve19(root, file.path);
       let ours = false;
       try {
-        ours = hasOurEntries(readFileSync15(path2, "utf8"), file);
+        ours = hasOurEntries(readFileSync16(path2, "utf8"), file);
       } catch {
         continue;
       }
@@ -43459,7 +43547,7 @@ function scanRepo(root, set, options = {}) {
       continue;
     let text4;
     try {
-      text4 = readFileSync15(file, "utf8");
+      text4 = readFileSync16(file, "utf8");
     } catch {
       continue;
     }
@@ -43745,7 +43833,7 @@ function startJudgeReceipt(env, provider) {
 
 // dist/adapters/judge.js
 import { spawnSync } from "node:child_process";
-import { createHash as createHash4 } from "node:crypto";
+import { createHash as createHash5 } from "node:crypto";
 var JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
 var JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
 var CLAUDE_JUDGE_ARGS = [
@@ -43844,7 +43932,7 @@ var ModelRequest = class extends Error {
   }
 };
 function hostKey(filled) {
-  return createHash4("sha256").update(filled).digest("hex");
+  return createHash5("sha256").update(filled).digest("hex");
 }
 function hostRoute(payload, env = process.env) {
   if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host")
@@ -44041,8 +44129,8 @@ function toSarif(input, ruleSet, opts) {
 }
 
 // dist/record.js
-import { createHash as createHash5, randomBytes } from "node:crypto";
-import { mkdirSync as mkdirSync3, readdirSync as readdirSync11, writeFileSync as writeFileSync5 } from "node:fs";
+import { createHash as createHash6, randomBytes } from "node:crypto";
+import { mkdirSync as mkdirSync3, readdirSync as readdirSync11, writeFileSync as writeFileSync6 } from "node:fs";
 import { homedir as homedir13 } from "node:os";
 import { resolve as resolve20, sep as sep3 } from "node:path";
 var CONTENT_KEYS = /* @__PURE__ */ new Set([
@@ -44086,7 +44174,7 @@ function redact(v, opts, key, prose = false, argumentsBag = false) {
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
     if (opts.verbatim || !prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))
       return scrubbed;
-    return `<${scrubbed.length} chars, sha256:${createHash5("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
+    return `<${scrubbed.length} chars, sha256:${createHash6("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
   }
   if (Array.isArray(v))
     return v.map((x) => redact(x, opts, key, prose, argumentsBag));
@@ -44139,7 +44227,7 @@ function record3(raw, parsed, decision, stdout, opts) {
     }
     const name = `${opts.agent}-${opts.channel}-${opts.event}-${process.pid}-${process.hrtime.bigint()}-${randomBytes(3).toString("hex")}.json`;
     const path2 = resolve20(opts.dir, name);
-    writeFileSync5(path2, body, { encoding: "utf8", flag: "wx" });
+    writeFileSync6(path2, body, { encoding: "utf8", flag: "wx" });
     return path2;
   } catch {
     return null;
@@ -44391,7 +44479,7 @@ function lintSourceText(source, ruleSet, options = {}) {
 }
 
 // dist/cli.js
-var HERE2 = dirname5(fileURLToPath4(import.meta.url));
+var HERE2 = dirname6(fileURLToPath4(import.meta.url));
 var MARKDOWN4 = /* @__PURE__ */ new Set([".md", ".markdown", ".mdx"]);
 function parseArgs2(argv) {
   const flags = {};
@@ -44422,6 +44510,25 @@ function parseArgs2(argv) {
   }
   return { command: command3, positionals, flags };
 }
+async function cmdApprove(args) {
+  if (args.positionals.length || Object.keys(args.flags).length) {
+    process.stderr.write("plain-english: approve takes no arguments. Send the request as JSON on standard input.\n");
+    return 2;
+  }
+  let request;
+  try {
+    request = JSON.parse(await readStdin());
+  } catch {
+    process.stderr.write("plain-english: approve needs a JSON request on standard input.\n");
+    return 2;
+  }
+  if (!request || request.phase !== "check" && request.phase !== "write" || typeof request.term !== "string" || typeof request.rule !== "string" || typeof request.reason !== "string") {
+    process.stderr.write("plain-english: approve needs phase (check or write), term, rule and reason.\n");
+    return 2;
+  }
+  process.stdout.write(JSON.stringify(approveInProject(process.cwd(), request, (directory) => resolveRuleSet(directory))) + "\n");
+  return 0;
+}
 function readStdin() {
   return new Promise((res) => {
     let data = "";
@@ -44433,7 +44540,7 @@ function readStdin() {
   });
 }
 function walk3(target, out = [], sourceProse = false) {
-  const st = statSync13(target);
+  const st = statSync14(target);
   if (st.isFile()) {
     out.push(target);
     return out;
@@ -44564,7 +44671,7 @@ async function cmdLint(args) {
   } else {
     for (const target of args.positionals) {
       const abs = resolve21(root, target);
-      if (!existsSync16(abs)) {
+      if (!existsSync17(abs)) {
         process.stderr.write(`plain-english: no such path: ${target}
 `);
         return 2;
@@ -44573,7 +44680,7 @@ async function cmdLint(args) {
         const rel = relative6(root, file);
         if (matchesAny(rel, ruleSet.exclude))
           continue;
-        const text4 = readFileSync16(file, "utf8");
+        const text4 = readFileSync17(file, "utf8");
         const res = scan(text4, file);
         noteStalled(file, res.timedOut);
         suppressed.push(...res.suppressed);
@@ -44690,7 +44797,7 @@ function cmdRender(args) {
   const set = compile(loadDefault());
   const targets = renderAll(set, root);
   if (args.flags["check"]) {
-    const stale = targets.filter((t) => !existsSync16(t.path) || readFileSync16(t.path, "utf8") !== t.content);
+    const stale = targets.filter((t) => !existsSync17(t.path) || readFileSync17(t.path, "utf8") !== t.content);
     if (stale.length) {
       process.stderr.write("plain-english: generated files are stale. Run `plain-english render`.\n" + stale.map((t) => `  ${relative6(root, t.path)}
 `).join(""));
@@ -44716,12 +44823,12 @@ function cmdPolicy(args) {
   const where = relative6(root, out) || out;
   const content3 = renderPolicy(set, scanRepo(root, set, { skip: [toPosix(where)] }));
   if (args.flags["check"]) {
-    if (!existsSync16(out)) {
+    if (!existsSync17(out)) {
       process.stderr.write(`plain-english: ${where} does not exist. Run \`plain-english policy\`.
 `);
       return 1;
     }
-    const current = readFileSync16(out, "utf8");
+    const current = readFileSync17(out, "utf8");
     if (current !== content3) {
       process.stderr.write(`plain-english: ${where} is stale. Run \`plain-english policy\`.
 ` + summariseDrift(current, content3));
@@ -44731,12 +44838,12 @@ function cmdPolicy(args) {
 `);
     return 0;
   }
-  mkdirSync4(dirname5(out), { recursive: true });
-  if (existsSync16(out) && readFileSync16(out, "utf8") === content3) {
+  mkdirSync4(dirname6(out), { recursive: true });
+  if (existsSync17(out) && readFileSync17(out, "utf8") === content3) {
     process.stdout.write("no changes\n");
     return 0;
   }
-  writeFileSync6(out, content3);
+  writeFileSync7(out, content3);
   process.stdout.write(`wrote ${where}
 `);
   return 0;
@@ -44754,7 +44861,7 @@ function cmdWritingProfile(args) {
     process.stderr.write("plain-english: profile.file must stay inside the project root.\n");
     return 2;
   }
-  const current = existsSync16(out) ? readFileSync16(out, "utf8") : "";
+  const current = existsSync17(out) ? readFileSync17(out, "utf8") : "";
   const approval = args.flags["approve"];
   if (approval && args.flags["check"]) {
     process.stderr.write("plain-english: profile --approve cannot be combined with --check.\n");
@@ -44785,11 +44892,11 @@ function cmdWritingProfile(args) {
 `);
     return 0;
   }
-  mkdirSync4(dirname5(out), { recursive: true });
+  mkdirSync4(dirname6(out), { recursive: true });
   if (current === fresh)
     process.stdout.write("no changes\n");
   else {
-    writeFileSync6(out, fresh);
+    writeFileSync7(out, fresh);
     process.stdout.write(`wrote ${where}
 `);
   }
@@ -45076,7 +45183,7 @@ async function cmdHook(args) {
     const ruleSet = ruleSetFor(projectDir);
     const requests = [];
     if (channel === "docs" || channel === "github" && parsed.tool === "bash") {
-      const files3 = scopedDocsFiles(parsed, ruleSet, void 0, { alreadyApplied: event === "post" }).filter((file) => file.text.trim() && !["CLAUDE.md", "writing-style.md"].includes(basename4(file.path)));
+      const files3 = scopedDocsFiles(parsed, ruleSet, void 0, { alreadyApplied: event === "post" }).filter((file) => file.text.trim() && !["CLAUDE.md", "writing-style.md"].includes(basename5(file.path)));
       if (files3.length)
         requests.push({
           channel: "docs",
@@ -45171,6 +45278,8 @@ USAGE
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
   plain-english hook <CHANNEL>       hook adapter (docs|github|issue|chat)
+  plain-english approve              approve one project term; JSON request on
+                                     stdin (used by the Claude Code plugin)
 
 LINT OPTIONS
   --format text|json|unix|github|sarif
@@ -45245,7 +45354,7 @@ function packageVersion() {
     resolve21(HERE2, "..", "..", "package.json")
   ]) {
     try {
-      return JSON.parse(readFileSync16(p, "utf8")).version ?? "unknown";
+      return JSON.parse(readFileSync17(p, "utf8")).version ?? "unknown";
     } catch {
     }
   }
@@ -45255,7 +45364,7 @@ function cmdDoctor() {
   const root = process.cwd();
   let configPath = "(built-in defaults)";
   for (let dir = root; ; ) {
-    const hit = [".plain-english.yml", ".plain-english.yaml"].map((n) => resolve21(dir, n)).find((p) => existsSync16(p));
+    const hit = [".plain-english.yml", ".plain-english.yaml"].map((n) => resolve21(dir, n)).find((p) => existsSync17(p));
     if (hit) {
       configPath = relative6(root, hit) || hit;
       break;
@@ -45296,9 +45405,9 @@ function writingProfileStatus(root) {
     if (!set.profile)
       return "not configured";
     const path2 = resolve21(root, set.profile.file);
-    if (!existsSync16(path2))
+    if (!existsSync17(path2))
       return `${set.profile.file} missing`;
-    const current = readFileSync16(path2, "utf8");
+    const current = readFileSync17(path2, "utf8");
     const fresh = writingProfileYaml(buildWritingProfile(root, set.profile, current));
     return current === fresh ? `${set.profile.file} up to date` : `${set.profile.file} stale`;
   } catch (error) {
@@ -45364,11 +45473,11 @@ function agentReport(root) {
     const timeoutProblems = /* @__PURE__ */ new Set();
     for (const file of profile.plan({ prompts: {}, model: "" }).config) {
       const path2 = resolve21(root, file.path);
-      if (!existsSync16(path2))
+      if (!existsSync17(path2))
         continue;
       let ours = false;
       try {
-        const source = readFileSync16(path2, "utf8");
+        const source = readFileSync17(path2, "utf8");
         ours = hasOurEntries(source, file);
         const timeoutProblem = staleChatTimeout(source, file, profile.id);
         if (timeoutProblem)
@@ -45389,17 +45498,17 @@ function agentReport(root) {
 }
 function resolvesLocally(root) {
   try {
-    const own5 = JSON.parse(readFileSync16(resolve21(root, "package.json"), "utf8"));
-    if (own5.name === "plain-english" && existsSync16(resolve21(root, "dist", "cli.js"))) {
+    const own5 = JSON.parse(readFileSync17(resolve21(root, "package.json"), "utf8"));
+    if (own5.name === "plain-english" && existsSync17(resolve21(root, "dist", "cli.js"))) {
       return "generated launcher finds this repository build";
     }
   } catch {
   }
   const local = resolve21(root, "node_modules", "plain-english", "package.json");
-  if (existsSync16(local))
+  if (existsSync17(local))
     return "generated launcher finds the local dependency";
   const binary = process.platform === "win32" ? "plain-english.cmd" : "plain-english";
-  if ((process.env["PATH"] ?? "").split(delimiter).some((dir) => dir && existsSync16(resolve21(dir, binary)))) {
+  if ((process.env["PATH"] ?? "").split(delimiter).some((dir) => dir && existsSync17(resolve21(dir, binary)))) {
     return "generated launcher finds the global command";
   }
   return "NO repository, local, or global install available to generated hooks";
@@ -45448,6 +45557,8 @@ async function main() {
         return cmdDoctor();
       case "hook":
         return await cmdHook(args);
+      case "approve":
+        return await cmdApprove(args);
       case "init": {
         const known = /* @__PURE__ */ new Set(["agent", "claude-code", "dry-run", "root", "user"]);
         const unknown = Object.keys(args.flags).find((flag) => !known.has(flag));

@@ -23,3 +23,4 @@ on.
 | 004 | [Ruleset is data, not code](004-ruleset-is-data.md) | Accepted |
 | 005 | [Graduated escape hatch](005-graduated-escape-hatch.md) | Accepted |
 | 006 | [Model checks run through the Claude Code mod when it can make the call](006-model-checks-through-the-host.md) | Accepted |
+| 007 | [Term approval reads and writes files in the checker, not the mod](007-term-approval-in-the-checker.md) | Accepted |
