@@ -94,7 +94,7 @@
   "dependencies": {
     "@babel/parser": "^7.29.9",
     "entities": "^7.0.1",
-    "htmlparser2": "^10.1.0",
+    "htmlparser2": "^12.0.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
