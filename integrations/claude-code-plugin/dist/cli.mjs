@@ -33935,6 +33935,13 @@ function readReadability(v) {
       }
       out.maxTerms = n;
     }
+    if (r["names"] !== void 0) {
+      const names = r["names"];
+      if (!Array.isArray(names) || names.length > 128 || names.some((name) => typeof name !== "string" || !name.trim() || name.length > 80 || /[\p{C}]/u.test(name))) {
+        throw new RuleError(`readability[${i}] (${r["id"]}).names must contain at most 128 nonempty names of up to 80 characters`);
+      }
+      out.names = [...new Set(names.map((name) => name.trim()))];
+    }
     if (r["minSpread"] !== void 0) {
       const n = Number(r["minSpread"]);
       if (!Number.isFinite(n) || n <= 0 || n >= 1) {
@@ -34514,6 +34521,8 @@ function merge(base, overlay) {
         existing.minSpread = r.minSpread;
       if (r.minSentences !== void 0)
         existing.minSentences = r.minSentences;
+      if (r.names !== void 0)
+        existing.names = [...r.names];
       if (r.known?.length)
         existing.known = [...existing.known ?? [], ...r.known];
       if (r.emphasis?.length) {
@@ -34635,6 +34644,8 @@ function mergeChat(base, overlay) {
       existing.maxWords = l.maxWords;
     if (l.maxTerms !== void 0)
       existing.maxTerms = l.maxTerms;
+    if (l.names !== void 0)
+      existing.names = [...l.names];
     if (l.maxClauses !== void 0)
       existing.maxClauses = l.maxClauses;
     if (l.maxMeanWords !== void 0)
@@ -35128,6 +35139,12 @@ function readabilityFindings(text4, ruleSet, starts, sourceLines, suppressed, si
     if (rule.kind === "reader-load") {
       const max = rule.maxTerms ?? 15;
       const names = /* @__PURE__ */ new Set();
+      for (const declared of rule.names ?? []) {
+        const literal = declared.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = new RegExp(`(?<![\\p{L}\\p{N}_])${literal}(?![\\p{L}\\p{N}_])`, "u");
+        if (pattern.test(text4))
+          names.add(declared.toLowerCase());
+      }
       for (const m of text4.matchAll(/(?<!`)`([^`\n]{1,80})`(?!`)/g)) {
         const name = (m[1] ?? "").trim();
         if (name)
@@ -40861,7 +40878,7 @@ function readabilityDescription(r) {
     return `Fires past ${r.maxWords} words of prose in one reply. Quoted output, tables and code do not count, because quoting the line a claim rests on outranks brevity. The number is measured rather than chosen: across seven days of transcripts the 90th-percentile reply was 254 words, and the shortest reply a reader complained about was 264.`;
   }
   if (r.kind === "reader-load") {
-    return `Fires past ${r.maxTerms} distinct backticked names in one reply: files, config keys, flags. Counted absolutely and never as a rate, because the rate points the wrong way. In the replies readers complained about, jargon density was lower than in long replies generally; what separated them was the total. Five terms in a sixty-word answer is over quickly. Eighteen across five hundred words is carried to the end.`;
+    return `Fires past ${r.maxTerms} distinct backticked or identifier-shaped names in one reply: files, config keys, flags. Projects can add exact spellings with \`names\`; matching preserves casing. ` + (r.names?.length ? `Declared names: ${r.names.map((name) => `\`${name}\``).join(", ")}. ` : "") + "Counted absolutely and never as a rate, because the rate points the wrong way. In the replies readers complained about, jargon density was lower than in long replies generally; what separated them was the total. Five terms in a sixty-word answer is over quickly. Eighteen across five hundred words is carried to the end.";
   }
   if (r.kind === "sentence-spread") {
     return `Fires when sentence lengths in a document vary less than ${r.minSpread}, measured as their standard deviation over their mean. Documents under ${r.minSentences ?? 20} sentences are skipped, having no spread to speak of. This optional rhythm check is off by default. Independent calibration found frequent findings on human-labelled texts, so the threshold does not establish authorship or writing quality. See the calibration record for source identifiers, measurements and sampling limits.`;

@@ -713,6 +713,13 @@ function readabilityFindings(
     if (rule.kind === "reader-load") {
       const max = rule.maxTerms ?? 15;
       const names = new Set<string>();
+      // The project chooses the spelling. No generic list can distinguish a
+      // product called Cursor from the ordinary cursor in another project.
+      for (const declared of rule.names ?? []) {
+        const literal = declared.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = new RegExp(`(?<![\\p{L}\\p{N}_])${literal}(?![\\p{L}\\p{N}_])`, "u");
+        if (pattern.test(text)) names.add(declared.toLowerCase());
+      }
       for (const m of text.matchAll(/(?<!`)`([^`\n]{1,80})`(?!`)/g)) {
         const name = (m[1] ?? "").trim();
         if (name) names.add(name.toLowerCase());

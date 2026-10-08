@@ -1433,6 +1433,8 @@ chat:
       # would still pass, because half of what it asked the reader to carry was
       # ordinary-looking words used as names. No pattern reaches those, which
       # is why `judge` gained `reads-as-an-internal-note` in the same change.
+      # A project can now declare exact spellings through `names`. No default
+      # product list guesses which ordinary words refer to tools in a project.
       maxTerms: 12
       message: "Name the thing, not its configuration. Say what it does before you name it."
       link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
