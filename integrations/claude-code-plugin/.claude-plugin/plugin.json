@@ -1,10 +1,14 @@
 {
   "name": "plain-english",
-  "version": "1.13.3",
-  "description": "Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them: refuses a Markdown write, a commit or pull request message, or a tracker issue that breaks the ruleset, and holds a chat reply that does.",
+  "version": "1.13.4",
+  "description": "Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them. It checks Markdown writes, commit and pull request messages and tracker issues and asks you before saving one with a finding, and it holds a chat reply with a clear tell for a rewrite.",
   "author": { "name": "Nordscope", "url": "https://github.com/nordscope-fi" },
   "homepage": "https://github.com/nordscope-fi/plain-english",
   "repository": "https://github.com/nordscope-fi/plain-english",
   "license": "MIT",
-  "keywords": ["writing", "lint", "prose", "hooks", "mod"]
+  "keywords": ["writing", "lint", "prose", "hooks", "mod"],
+  "documentationUrl": "https://github.com/nordscope-fi/plain-english/blob/main/integrations/claude-code-plugin/README.md",
+  "supportUrl": "https://github.com/nordscope-fi/plain-english/issues",
+  "privacyPolicyUrl": "https://github.com/nordscope-fi/plain-english/blob/main/integrations/claude-code-plugin/README.md#what-it-reads-writes-and-sends",
+  "termsOfServiceUrl": "https://github.com/nordscope-fi/plain-english/blob/main/LICENSE"
 }

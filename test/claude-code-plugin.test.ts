@@ -81,6 +81,31 @@ describe("the plugin's directory icon", () => {
   });
 });
 
+/**
+ * The directory's listing reads these fields from plugin.json, and guesses
+ * from the README when they are missing. On 2026-10-08 it guessed the setup
+ * guide as the terms of service and the rule list as the support page.
+ */
+describe("the plugin's directory listing fields", () => {
+  const manifest = JSON.parse(readFileSync(resolve(PLUGIN, ".claude-plugin/plugin.json"), "utf8")) as Record<string, unknown>;
+  const BLOB = "https://github.com/nordscope-fi/plain-english/blob/main/";
+
+  it("sets every listing link and points each at a file that exists here", () => {
+    for (const field of ["privacyPolicyUrl", "supportUrl", "documentationUrl", "termsOfServiceUrl"]) {
+      const url = manifest[field];
+      expect(typeof url, field).toBe("string");
+      if (String(url).startsWith(BLOB)) {
+        const path = String(url).slice(BLOB.length).split("#")[0]!;
+        expect(existsSync(resolve(ROOT, path)), `${field}: ${path}`).toBe(true);
+      }
+    }
+  });
+
+  it("describes the default behaviour: advice on files, a hold on clear faults in replies", () => {
+    expect(String(manifest["description"])).not.toMatch(/\brefuses\b/);
+  });
+});
+
 describe("the Claude Code plugin", () => {
   it("creates approved vocabulary in a configuration the checker can actually load", async () => {
     const { approveTerm } = await import("../scripts/approve-term.mjs");
