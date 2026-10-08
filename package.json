@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI, Antigravity and Qwen Code.",
   "keywords": [
     "linter",
@@ -95,7 +95,7 @@
     "@babel/parser": "^7.29.9",
     "entities": "^7.0.1",
     "htmlparser2": "^10.1.0",
-    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
     "mdast-util-to-nlcst": "^7.0.1",

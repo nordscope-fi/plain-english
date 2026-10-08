@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-10-08
+### Changed
+
+- Update the Markdown parser to 2.1.0 and rebuild the standalone bundle and licence notices.
+
 ## [1.12.1] - 2026-10-08
 ### Fixed
 
@@ -659,7 +664,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.2...HEAD
+[1.12.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.2
 [1.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.1
 [1.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.0
 [1.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.11.0
