@@ -1,0 +1,53 @@
+{
+  "plain-english-docs": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/plain-english.mjs hook docs --agent antigravity",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "plain-english-github": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/plain-english.mjs hook github --agent antigravity",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "plain-english-issue": {
+    "PreToolUse": [
+      {
+        "matcher": "^(?:call_mcp_tool|(?:.*[_:]|MCP:)?(?:save_(?:issue|comment)|createJiraIssue|editJiraIssue|addOrEditJiraIssueComment|createConfluenceContent|updateConfluenceContent|createConfluenceComment|updateConfluenceComment))$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node hooks/plain-english.mjs hook issue --agent antigravity",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "plain-english-chat": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node hooks/plain-english.mjs hook chat --agent antigravity",
+        "timeout": 60
+      }
+    ]
+  }
+}

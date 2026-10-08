@@ -19,7 +19,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 | cursor | `.cursor/hooks.json` | requires a trusted workspace |
 | vibe | `.vibe/hooks.toml` | requires a trusted folder |
 | gemini | `.gemini/settings.json` | requires project hook trust |
-| antigravity | not installed | no hook runs |
+| antigravity | `.agents/hooks.json` | requires workspace trust in interactive sessions |
 | qwen | `.qwen/settings.json` | requires project hook trust |
 
 ## The rules in force
@@ -122,7 +122,7 @@ This section used to say that a chat reply is not a tool call, so nothing sees o
 | cursor | on the stop events | yes |
 | vibe | on the stop events | yes |
 | gemini | on the stop events | yes |
-| antigravity | not installed | no |
+| antigravity | on the stop events | yes |
 | qwen | on the stop events | yes |
 
 An output style shapes a reply before it exists and cannot be measured. A stop hook reads the finished reply and can hand a finding back to the model, which is the closest thing to a gate this channel has. Under `failOn: never` it reports and holds up nothing.

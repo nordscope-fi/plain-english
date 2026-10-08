@@ -1,0 +1,1466 @@
+{
+  "date": "2026-10-08",
+  "revision": "2535d5cd6a821e186626832692d4926d5fce46ae",
+  "packageVersion": "1.5.1",
+  "nodeVersion": "v26.10.0",
+  "vendorVersions": {
+    "copilot": "1.0.80",
+    "codex": "0.161.0",
+    "cursor": "2026.08.25-3e8eec8",
+    "vibe": "2.24.5",
+    "gemini": "0.54.4",
+    "qwen": "0.25.0",
+    "pre-commit": "4.6.2"
+  },
+  "summary": {
+    "probes": 110,
+    "pass": 55,
+    "mismatch": 55
+  },
+  "verification": {
+    "build": "passed",
+    "tests": {
+      "files": 24,
+      "tests": 860,
+      "excludedDedicatedClaudePlugin": true
+    },
+    "renderCheck": "passed",
+    "policyCheck": "passed"
+  },
+  "live": {
+    "copilot": [
+      {
+        "turn": 0,
+        "exitCode": 0,
+        "timedOut": false,
+        "sessionId": "422d7c6f-ff70-4cb8-a542-6c77f09f75e1",
+        "events": [
+          {
+            "event": "Stop",
+            "payloadKeys": [
+              "hook_event_name",
+              "session_id",
+              "timestamp",
+              "cwd",
+              "transcript_path",
+              "stop_reason",
+              "stop_hook_active"
+            ],
+            "reply": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          },
+          {
+            "event": "Stop",
+            "payloadKeys": [
+              "hook_event_name",
+              "session_id",
+              "timestamp",
+              "cwd",
+              "transcript_path",
+              "stop_reason",
+              "stop_hook_active"
+            ],
+            "reply": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          }
+        ]
+      },
+      {
+        "turn": 1,
+        "exitCode": 0,
+        "timedOut": false,
+        "sessionId": "422d7c6f-ff70-4cb8-a542-6c77f09f75e1",
+        "events": [
+          {
+            "event": "Stop",
+            "payloadKeys": [
+              "hook_event_name",
+              "session_id",
+              "timestamp",
+              "cwd",
+              "transcript_path",
+              "stop_reason",
+              "stop_hook_active"
+            ],
+            "reply": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          }
+        ]
+      }
+    ],
+    "vibe": [
+      {
+        "turn": 0,
+        "exitCode": 0,
+        "timedOut": false,
+        "sessionId": "8af0c07d-a259-ce21-ec28-7ba36e257870",
+        "events": [
+          {
+            "event": "post_agent",
+            "payloadKeys": [
+              "session_id",
+              "transcript_path",
+              "cwd",
+              "parent_session_id",
+              "hook_event_name"
+            ],
+            "reply": "{\"decision\":\"deny\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          },
+          {
+            "event": "post_agent",
+            "payloadKeys": [
+              "session_id",
+              "transcript_path",
+              "cwd",
+              "parent_session_id",
+              "hook_event_name"
+            ],
+            "reply": "",
+            "diagnostic": ""
+          }
+        ]
+      },
+      {
+        "turn": 1,
+        "exitCode": 0,
+        "timedOut": false,
+        "sessionId": "8af0c07d-a259-ce21-ec28-7ba36e257870",
+        "events": [
+          {
+            "event": "post_agent",
+            "payloadKeys": [
+              "session_id",
+              "transcript_path",
+              "cwd",
+              "parent_session_id",
+              "hook_event_name"
+            ],
+            "reply": "",
+            "diagnostic": ""
+          }
+        ]
+      }
+    ],
+    "qwen": [
+      {
+        "turn": 0,
+        "exitCode": -15,
+        "timedOut": true,
+        "sessionId": "41b06890-c2a7-4ed2-8a10-6303f3ee4de5",
+        "events": [
+          {
+            "event": "Stop",
+            "payloadKeys": [
+              "session_id",
+              "transcript_path",
+              "cwd",
+              "hook_event_name",
+              "timestamp",
+              "permission_mode",
+              "prompt_id",
+              "stop_hook_active",
+              "last_assistant_message",
+              "background_tasks",
+              "crons",
+              "context_usage",
+              "context_limit",
+              "input_tokens"
+            ],
+            "reply": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          },
+          {
+            "event": "Stop",
+            "payloadKeys": [
+              "session_id",
+              "transcript_path",
+              "cwd",
+              "hook_event_name",
+              "timestamp",
+              "permission_mode",
+              "prompt_id",
+              "stop_hook_active",
+              "last_assistant_message",
+              "background_tasks",
+              "crons",
+              "context_usage",
+              "context_limit",
+              "input_tokens"
+            ],
+            "reply": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 3: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+            "diagnostic": ""
+          }
+        ]
+      }
+    ],
+    "qwen-clean.stdout": {
+      "type": "result",
+      "subtype": "success",
+      "is_error": false,
+      "duration_ms": 11124
+    },
+    "qwen-clean-hooks.stdout": {
+      "type": "result",
+      "subtype": "success",
+      "is_error": false,
+      "duration_ms": 21345
+    }
+  },
+  "cursor": {
+    "status": "Login successful; unable to fetch user details",
+    "execution": "Authentication required",
+    "hooksFired": 0
+  },
+  "preCommit": {
+    "originalManifestDiscovery": "InvalidManifestError: .pre-commit-hooks.yaml is not a file",
+    "relocatedManifestInDisposableClone": "installed package has no dist/cli.js or generated binary",
+    "isolatedExecution": "Executable plain-english not found",
+    "globalInstallControl": "existing global command initially masked missing executable"
+  },
+  "probes": [
+    {
+      "name": "relative-outside",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "rules": [
+        "leverage"
+      ]
+    },
+    {
+      "name": "absolute-outside",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "rules": []
+    },
+    {
+      "name": "commit git commit -m \"We leverage this approach.\"",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "extracted": [
+        "We leverage this approach."
+      ]
+    },
+    {
+      "name": "commit git -C sub commit -m \"We leverage this approach.\"",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "extracted": []
+    },
+    {
+      "name": "commit git commit -mWe\\ leverage\\ this\\ approach.",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "extracted": []
+    },
+    {
+      "name": "commit git commit --message=\"We leverage this approach.\"",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "extracted": [
+        "We leverage this approach."
+      ]
+    },
+    {
+      "name": "commit cd sub && git commit -F msg.txt",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "extracted": []
+    },
+    {
+      "name": "message file relative to event cwd",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false
+    },
+    {
+      "name": "rename source.txt -> notes.md",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "files": [
+        {
+          "path": "source.txt",
+          "text": "We leverage this approach."
+        }
+      ]
+    },
+    {
+      "name": "rename notes.md -> source.ts",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "files": [
+        {
+          "path": "notes.md",
+          "text": "We leverage this approach."
+        }
+      ]
+    },
+    {
+      "name": "cursor chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"followup_message\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "cursor chat second turn",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "second": {
+        "code": 0,
+        "stdout": "",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "vibe chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"decision\":\"deny\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "vibe chat second turn",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "second": {
+        "code": 0,
+        "stdout": "{\"system_message\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "gemini chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"decision\":\"deny\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "gemini chat second turn",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "second": {
+        "code": 0,
+        "stdout": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "qwen chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "qwen chat second turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "second": {
+        "code": 0,
+        "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "copilot chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "copilot chat second turn",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "second": {
+        "code": 0,
+        "stdout": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "codex chat first turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "first": {
+        "code": 0,
+        "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "codex chat second turn",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "second": {
+        "code": 0,
+        "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "copilot shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Explain the result before naming it.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "codex shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Explain the result before naming it.\"}}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "cursor shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"permission\":\"deny\",\"user_message\":\"Explain the result before naming it.\",\"agent_message\":\"Explain the result before naming it.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "vibe shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"decision\":\"deny\",\"reason\":\"Explain the result before naming it.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "gemini shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"decision\":\"deny\",\"reason\":\"Explain the result before naming it.\"}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "qwen shared docs hook starts Claude",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Explain the result before naming it.\"}}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "excluded document cannot be refused by shared judge",
+      "expected": false,
+      "actual": true,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Explain the result before naming it.\"}}",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "github ack also waives shell document writes",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false
+    },
+    {
+      "name": "live Copilot raw patch is checked",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "output": {
+        "code": 0,
+        "stdout": "",
+        "stderr": "plain-english: read nothing from a edit call, so this write was not checked. The payload may have changed shape. Re-run with PLAIN_ENGLISH_RECORD=<dir> and open an issue with what it captures.\n"
+      }
+    },
+    {
+      "name": "warning-only chat stays advisory at error threshold",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "findings": [
+        {
+          "id": "reply-pace",
+          "severity": "warn"
+        }
+      ],
+      "reason": "This reply contains writing that reads as machine-generated:\n\n\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line rule-id -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\n  It waives this channel for 10 minutes, then expires on its own."
+    },
+    {
+      "name": "unrelated hook with package name survives reinstall",
+      "expected": true,
+      "actual": false,
+      "pass": false
+    },
+    {
+      "name": "suggested suppression meets reason requirement",
+      "expected": false,
+      "actual": true,
+      "pass": false
+    },
+    {
+      "name": "cursor semantic advisory reaches pre or post",
+      "expected": true,
+      "actual": false,
+      "pass": false
+    },
+    {
+      "name": "vibe semantic advisory reaches pre or post",
+      "expected": true,
+      "actual": false,
+      "pass": false
+    },
+    {
+      "name": "gemini semantic advisory reaches pre or post",
+      "expected": true,
+      "actual": false,
+      "pass": false
+    },
+    {
+      "name": "copilot native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-copilot",
+          "input": {
+            "filePath": "notes.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "copilot native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-copilot",
+          "input": {
+            "filePath": "notes.md",
+            "content": "The cache holds results."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "copilot native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-copilot",
+          "input": {
+            "filePath": "source.ts",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "copilot native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-copilot",
+          "input": {
+            "filePath": "ignored.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "codex native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "patch",
+          "cwd": "{{TMP}}/native-codex",
+          "input": {
+            "files": [
+              {
+                "path": "notes.md",
+                "text": "We leverage this approach."
+              }
+            ]
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "codex native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "patch",
+          "cwd": "{{TMP}}/native-codex",
+          "input": {
+            "files": [
+              {
+                "path": "notes.md",
+                "text": "The cache holds results."
+              }
+            ]
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "codex native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "patch",
+          "cwd": "{{TMP}}/native-codex",
+          "input": {
+            "files": [
+              {
+                "path": "source.ts",
+                "text": "We leverage this approach."
+              }
+            ]
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "codex native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "patch",
+          "cwd": "{{TMP}}/native-codex",
+          "input": {
+            "files": [
+              {
+                "path": "ignored.md",
+                "text": "We leverage this approach."
+              }
+            ]
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "cursor native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-cursor",
+          "input": {
+            "filePath": "notes.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "cursor native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-cursor",
+          "input": {
+            "filePath": "notes.md",
+            "content": "The cache holds results."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "cursor native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-cursor",
+          "input": {
+            "filePath": "source.ts",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "cursor native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-cursor",
+          "input": {
+            "filePath": "ignored.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "vibe native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-vibe",
+          "input": {
+            "filePath": "notes.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "vibe native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-vibe",
+          "input": {
+            "filePath": "notes.md",
+            "content": "The cache holds results."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "vibe native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-vibe",
+          "input": {
+            "filePath": "source.ts",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "vibe native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-vibe",
+          "input": {
+            "filePath": "ignored.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "gemini native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-gemini",
+          "input": {
+            "filePath": "notes.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "gemini native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-gemini",
+          "input": {
+            "filePath": "notes.md",
+            "content": "The cache holds results."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "gemini native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-gemini",
+          "input": {
+            "filePath": "source.ts",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "gemini native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-gemini",
+          "input": {
+            "filePath": "ignored.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "qwen native bad",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-qwen",
+          "input": {
+            "filePath": "notes.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": [
+          "leverage"
+        ]
+      }
+    },
+    {
+      "name": "qwen native clean",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-qwen",
+          "input": {
+            "filePath": "notes.md",
+            "content": "The cache holds results."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "qwen native source",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-qwen",
+          "input": {
+            "filePath": "source.ts",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "qwen native excluded",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {
+        "normalised": {
+          "tool": "write",
+          "cwd": "{{TMP}}/native-qwen",
+          "input": {
+            "filePath": "ignored.md",
+            "content": "We leverage this approach."
+          }
+        },
+        "findings": []
+      }
+    },
+    {
+      "name": "cursor init preserves unrelated package-name hook",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "cursor init preserves ordinary unrelated hook",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "cursor init remains idempotent",
+      "expected": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"preToolUse\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node scripts/other-summary.mjs\"\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Write|Edit|MultiEdit\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event pre\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Shell\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook github --agent cursor --event pre\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event pre\",\n        \"timeout\": 30\n      }\n    ],\n    \"postToolUse\": [\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Write|Edit|MultiEdit\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event post\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Shell\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook github --agent cursor --event post\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event post\",\n        \"timeout\": 30\n      }\n    ],\n    \"stop\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre\",\n        \"timeout\": 60,\n        \"loop_limit\": 5\n      }\n    ],\n    \"subagentStop\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre\",\n        \"timeout\": 60,\n        \"loop_limit\": 5\n      }\n    ]\n  }\n}\n",
+      "actual": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"preToolUse\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node scripts/other-summary.mjs\"\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Write|Edit|MultiEdit\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event pre\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Shell\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook github --agent cursor --event pre\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event pre\",\n        \"timeout\": 30\n      }\n    ],\n    \"postToolUse\": [\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Write|Edit|MultiEdit\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook docs --agent cursor --event post\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"Shell\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook github --agent cursor --event post\",\n        \"timeout\": 30\n      },\n      {\n        \"type\": \"command\",\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook issue --agent cursor --event post\",\n        \"timeout\": 30\n      }\n    ],\n    \"stop\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre\",\n        \"timeout\": 60,\n        \"loop_limit\": 5\n      }\n    ],\n    \"subagentStop\": [\n      {\n        \"type\": \"command\",\n        \"command\": \"node .cursor/hooks/plain-english.mjs hook chat --agent cursor --event pre\",\n        \"timeout\": 60,\n        \"loop_limit\": 5\n      }\n    ]\n  }\n}\n",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "gemini init preserves unrelated package-name hook",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "gemini init preserves ordinary unrelated hook",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "gemini init remains idempotent",
+      "expected": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"BeforeTool\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"write_file|replace\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook github --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"AfterTool\": [\n      {\n        \"matcher\": \"write_file|replace\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook github --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"AfterAgent\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook chat --agent gemini\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "actual": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"BeforeTool\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"write_file|replace\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook github --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue-pre\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event pre\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"AfterTool\": [\n      {\n        \"matcher\": \"write_file|replace\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook docs --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook github --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue-post\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook issue --agent gemini --event post\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"AfterAgent\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .gemini/hooks/plain-english.mjs hook chat --agent gemini\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "qwen init preserves unrelated package-name hook",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "qwen init preserves ordinary unrelated hook",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "qwen init remains idempotent",
+      "expected": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"write_file|edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook docs --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook github --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook issue --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook chat --agent qwen\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ],\n    \"SubagentStop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook chat --agent qwen\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "actual": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"write_file|edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-docs\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook docs --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-github\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook github --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp_.*_save_(issue|comment)\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-issue\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook issue --agent qwen\",\n            \"timeout\": 30000\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook chat --agent qwen\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ],\n    \"SubagentStop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"name\": \"plain-english-chat\",\n            \"command\": \"node .qwen/hooks/plain-english.mjs hook chat --agent qwen\",\n            \"timeout\": 60000\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "codex init preserves unrelated package-name hook",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "codex init preserves ordinary unrelated hook",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "codex init remains idempotent",
+      "expected": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"apply_patch|Write|Edit|MultiEdit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook docs --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      },\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook github --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook issue --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook chat --agent codex\",\n            \"timeout\": 60\n          }\n        ]\n      }\n    ],\n    \"SubagentStop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook chat --agent codex\",\n            \"timeout\": 60\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "actual": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node scripts/other-summary.mjs\"\n          }\n        ]\n      },\n      {\n        \"matcher\": \"apply_patch|Write|Edit|MultiEdit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook docs --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      },\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook github --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      },\n      {\n        \"matcher\": \"mcp__linear__save_issue|mcp__linear__save_comment\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook issue --agent codex\",\n            \"timeout\": 30\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook chat --agent codex\",\n            \"timeout\": 60\n          }\n        ]\n      }\n    ],\n    \"SubagentStop\": [\n      {\n        \"matcher\": \"*\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node \\\"$(git rev-parse --show-toplevel)/.codex/hooks/plain-english.mjs\\\" hook chat --agent codex\",\n            \"timeout\": 60\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "actual Git plain",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "command": "git commit --allow-empty -m \"We leverage this approach.\"",
+        "message": "We leverage this approach.",
+        "extracted": [
+          "We leverage this approach."
+        ]
+      }
+    },
+    {
+      "name": "actual Git global directory option",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "git -C sub commit --allow-empty -m \"We leverage this approach.\"",
+        "message": "We leverage this approach.",
+        "extracted": []
+      }
+    },
+    {
+      "name": "actual Git attached short flag",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "git commit --allow-empty -mWe\\ leverage\\ this\\ approach.",
+        "message": "We leverage this approach.",
+        "extracted": []
+      }
+    },
+    {
+      "name": "actual Git leading whitespace",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "  git commit --allow-empty -m \"We leverage this approach.\"",
+        "message": "We leverage this approach.",
+        "extracted": []
+      }
+    },
+    {
+      "name": "actual Git concatenated quoted argument",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "git commit --allow-empty -m \"We \"'leverage this approach.'",
+        "message": "We leverage this approach.",
+        "extracted": [
+          "We "
+        ]
+      }
+    },
+    {
+      "name": "actual Git directory change",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "cd sub && git commit --allow-empty -F message.txt",
+        "message": "We leverage this approach.",
+        "extracted": []
+      }
+    },
+    {
+      "name": "later unrelated command cannot poison clean commit",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {
+        "command": "git commit --allow-empty -m \"The cache holds results.\" && printf \"%s\\n\" -m \"We leverage this approach.\"",
+        "actualCommitMessage": "The cache holds results.",
+        "extracted": [
+          "The cache holds results.",
+          "We leverage this approach."
+        ]
+      }
+    },
+    {
+      "name": "actual shell redirect control",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {
+        "command": "printf \"%s\\n\" \"We leverage this approach.\" > notes.md",
+        "actualText": "We leverage this approach.\n"
+      }
+    },
+    {
+      "name": "actual shell excluded directory",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {
+        "command": "cd ignored && printf \"%s\\n\" \"We leverage this approach.\" > notes.md",
+        "actualText": "We leverage this approach.\n"
+      }
+    },
+    {
+      "name": "actual shell printf formatting",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {
+        "command": "printf \"We lever%s this approach.\\n\" age > formatted.md",
+        "actualText": "We leverage this approach.\n"
+      }
+    },
+    {
+      "name": "actual shell printf format consumes extra values",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {
+        "command": "printf \"The cache holds results.\\n\" \"We leverage this approach.\" > clean.md",
+        "actualText": "The cache holds results.\n"
+      }
+    },
+    {
+      "name": "docs ack shell file",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "docs ack commit",
+      "expected": "deny",
+      "actual": "deny",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "github ack shell file",
+      "expected": "deny",
+      "actual": "allow",
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "github ack commit",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "warning-only fixture really contains only a warning",
+      "expected": [
+        [
+          "reply-pace",
+          "warn"
+        ]
+      ],
+      "actual": [
+        [
+          "reply-pace",
+          "warn"
+        ]
+      ],
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "warning at error threshold absent",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {
+        "reason": "This reply contains writing that reads as machine-generated:\n\n\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line rule-id -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\n  It waives this channel for 10 minutes, then expires on its own."
+      }
+    },
+    {
+      "name": "warning at error threshold undefined verdict",
+      "expected": "allow",
+      "actual": "deny",
+      "pass": false,
+      "evidence": {
+        "reason": "This reply contains writing that reads as machine-generated:\n\n\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line rule-id -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\n  It waives this channel for 10 minutes, then expires on its own."
+      }
+    },
+    {
+      "name": "warning at error threshold passing verdict",
+      "expected": "allow",
+      "actual": "allow",
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "Cursor history excludes sibling project",
+      "expected": [
+        "Inside the requested repository."
+      ],
+      "actual": [
+        "From the neighbouring repository.",
+        "Inside the requested repository."
+      ],
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini home override follows vendor semantics",
+      "expected": "{{TMP}}/custom/.gemini/.gemini",
+      "actual": "{{TMP}}/custom/.gemini",
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini history agrees with native update and rewind",
+      "expected": [
+        "The corrected response."
+      ],
+      "actual": [
+        "Abandoned response.",
+        "The corrected response.",
+        "We leverage this approach."
+      ],
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini fallback stop ignores abandoned response",
+      "expected": "The corrected response.",
+      "actual": "We leverage this approach.",
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini retained legacy history is readable",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini native loader discovers generated guidance",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini configured filename discovery control",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "Gemini override disagrees with native storage",
+      "expected": "{{TMP}}/custom/.gemini/.gemini",
+      "actual": "{{TMP}}/custom/.gemini",
+      "pass": false,
+      "evidence": {}
+    },
+    {
+      "name": "Cursor native MCP issue name matches hook",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {
+        "matcher": "mcp__linear__save_issue|mcp__linear__save_comment",
+        "nativeName": "MCP:save_issue"
+      }
+    },
+    {
+      "name": "SARIF step cannot veto requested advisory action",
+      "expected": 0,
+      "actual": 1,
+      "pass": false,
+      "evidence": {
+        "findings": 1
+      }
+    },
+    {
+      "name": "action main step advisory control",
+      "expected": 0,
+      "actual": 0,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "cursor semantic-only advice survives full CLI",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {
+        "pre": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "post": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      }
+    },
+    {
+      "name": "cursor deterministic post advice control",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "gemini semantic-only advice survives full CLI",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {
+        "pre": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "post": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      }
+    },
+    {
+      "name": "gemini deterministic post advice control",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "vibe semantic-only advice survives full CLI",
+      "expected": true,
+      "actual": false,
+      "pass": false,
+      "evidence": {
+        "pre": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "post": {
+          "code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      }
+    },
+    {
+      "name": "vibe deterministic post advice control",
+      "expected": true,
+      "actual": true,
+      "pass": true,
+      "evidence": {}
+    },
+    {
+      "name": "rename with no additions is documented coverage limit",
+      "expected": [],
+      "actual": [],
+      "pass": true,
+      "evidence": {}
+    }
+  ]
+}
