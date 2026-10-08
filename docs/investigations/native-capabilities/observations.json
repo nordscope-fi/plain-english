@@ -1,0 +1,3559 @@
+{
+  "schema": 1,
+  "measured_on": "2026-10-08",
+  "source_commit": "f50a52d00d934867fe3a3181120d781c212da7f7",
+  "package_version": "1.12.1",
+  "artifact_status": "built branch; release verification recorded separately",
+  "platform": "macOS arm64",
+  "local_model_checks": false,
+  "observations": [
+    {
+      "agent": "codex",
+      "case": "bad",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 14.75,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "fb14e02a78761a98a6242c31450a2117816f3190e5592f667d7de4f234c20e51"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "fb14e02a78761a98a6242c31450a2117816f3190e5592f667d7de4f234c20e51",
+          "exit_code": 0,
+          "reply_keys": [
+            "hookSpecificOutput"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "62a29b22efb58b3db2db2e327354c572852ab66de942eb35d3615d50ea46e06c"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "62a29b22efb58b3db2db2e327354c572852ab66de942eb35d3615d50ea46e06c",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "block",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "4be7052f18fdb87fb76df6992f85d0358fef77683596838cf20720f753ffdac2"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "4be7052f18fdb87fb76df6992f85d0358fef77683596838cf20720f753ffdac2",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "8541d01d9a7888b03e1003c416bd002c00332d3cdb07468261a5098200bae947",
+      "stderr_hash": "455f36f356c525d427176e220afc0e92d29930bf85bb09d3adfb76474a84fca9",
+      "cli_version": "0.161.0",
+      "file_absent": false
+    },
+    {
+      "agent": "codex",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 11.3,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "ca5659fadfd52882223d4e9fa52eb9cc9e59733eb4f3500d698081015788445b"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "ca5659fadfd52882223d4e9fa52eb9cc9e59733eb4f3500d698081015788445b",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "55964d8e598288e64f980a1fcfa2dd40b21eec8822c96eec4f34534e73e3e472"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "55964d8e598288e64f980a1fcfa2dd40b21eec8822c96eec4f34534e73e3e472",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "f1505f54c8a42a102242544580abe0f71cfd7d0a9b6ca1ab33919d5432913278",
+      "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
+      "cli_version": "0.161.0",
+      "file_absent": false
+    },
+    {
+      "agent": "codex",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 10.41,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "e656a95f81a2cc486817cccc5088ccd2bd02ad5fd90afb59fa599a8468cb07a2"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "e656a95f81a2cc486817cccc5088ccd2bd02ad5fd90afb59fa599a8468cb07a2",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "a4d3633ddf0f3b1e4d450af7e32886e3efc6fdda7ba4eb2c46de1c58698e09b0"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "a4d3633ddf0f3b1e4d450af7e32886e3efc6fdda7ba4eb2c46de1c58698e09b0",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "1b7dd328f2ab696228c310cc23c84262fcb7315bc34a2b0ffbf0eb08bc21050e",
+      "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
+      "cli_version": "0.161.0",
+      "file_absent": false
+    },
+    {
+      "agent": "codex",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 10.6,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "f4fc0bb5f3b30ebaef5bb874beffa644feaaccc4bc430fb59ab342d2f28ebe2b"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "model",
+            "permission_mode",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": "apply_patch",
+          "payload_hash": "f4fc0bb5f3b30ebaef5bb874beffa644feaaccc4bc430fb59ab342d2f28ebe2b",
+          "exit_code": 0,
+          "reply_keys": [
+            "hookSpecificOutput"
+          ],
+          "decision": null,
+          "additional_context": true,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "ffadaa150eb9223f8f924f98500f8bf5cc1a17e4f2556149e8ce108493a60961"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "ffadaa150eb9223f8f924f98500f8bf5cc1a17e4f2556149e8ce108493a60961",
+          "exit_code": 0,
+          "reply_keys": [
+            "systemMessage"
+          ],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "94ec9af26796bc38376e7332524827d910d6440117662c259c8fa63b5379ea07",
+      "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
+      "cli_version": "0.161.0",
+      "file_absent": false
+    },
+    {
+      "agent": "cursor",
+      "case": "bad",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 15.15,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "0b5b8b49da37b03d9dc8367ab6377559078c7284ef44bacab9a5cae2d39b34d7"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "83fc4daaf335537c8b7b95974a8917c721e9208365ca6e0772986c0be30ce0e0"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "14c743fbe197e1fb6a74176e809d3ef7631ad67afa70472d3548ff6955d95b08"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "14c743fbe197e1fb6a74176e809d3ef7631ad67afa70472d3548ff6955d95b08",
+          "exit_code": 0,
+          "reply_keys": [
+            "agent_message",
+            "permission",
+            "user_message"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "a1ad67c1d7c240ac8d8649bfc4aeb9893bdedc2398e41bc234b023d3702943a3",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
+    },
+    {
+      "agent": "cursor",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 10.55,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "79787c08ae4a2ec08eee685c150461ef3b0aadf2e5b9f8927cb28e5b8199f047"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "38cdaf1d9c5e2b8b1fe5c439d4a3835f9611e52cb2e7a09a01930767b5fae828"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "dd73ee6af38d9975f9a675ecd7a100fb79cfd16c4c8c1d276bc37f9cc87b5ec0"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "dd73ee6af38d9975f9a675ecd7a100fb79cfd16c4c8c1d276bc37f9cc87b5ec0",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "9238a1045523e9756d3b0a1b39db00eb8eae990a64626867280bf42aa1b4c32e"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "9238a1045523e9756d3b0a1b39db00eb8eae990a64626867280bf42aa1b4c32e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "4b6de32eb024a03df749817a10c868297b38469750055d566a5630577c66635a",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
+    },
+    {
+      "agent": "cursor",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 18.9,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "8405753e8bb9f1ff66fe94c9ca17e7ffcf59a0ea22e80e260738eb8b87087242"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "795c27d5ce474668d5a667a4163644c600b1e3e8048cb08f1c8a9dac801179e6"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "197afaeb885d813e13eab509f17824275268808be1ffbb7c589f398434fe9e6e"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "197afaeb885d813e13eab509f17824275268808be1ffbb7c589f398434fe9e6e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "a3221cab06dd2f975adab66ac73d08e022ccf27f84f5f065a999fa05b39bcea8"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "a3221cab06dd2f975adab66ac73d08e022ccf27f84f5f065a999fa05b39bcea8",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "e87f40ae8c976e7dc11d447f79d720ba6510a44a0a2bbc9aca15e386adadd3e9",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
+    },
+    {
+      "agent": "cursor",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 18.72,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "f429818ace0053b7f51ed3844e23d1533b56ffd74ccc7de2c1e291c100278387"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Read",
+          "payload_hash": "d57c2eb31beffc669dcad60236287654df03982a025eec553375315628dfd877"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "64f370ce5a1e3a2d212af359fdf4c542ee64a5f86a5d58e5433516b194a37ace"
+        },
+        {
+          "event": "preToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "64f370ce5a1e3a2d212af359fdf4c542ee64a5f86a5d58e5433516b194a37ace",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "1c56d2fe6b2d98aaa84b238832d99c151fc2ebbb91129d096daa6d5d9ff4d68d"
+        },
+        {
+          "event": "postToolUse",
+          "keys": [
+            "conversation_id",
+            "cursor_version",
+            "duration",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool": "Write",
+          "payload_hash": "1c56d2fe6b2d98aaa84b238832d99c151fc2ebbb91129d096daa6d5d9ff4d68d",
+          "exit_code": 0,
+          "reply_keys": [
+            "additional_context"
+          ],
+          "decision": null,
+          "additional_context": true,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "3320ef88cdad45165ddcc052eea96cc55c10337f8d277068f95c732415be456a",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
+    },
+    {
+      "agent": "copilot",
+      "case": "bad",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 14.81,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c338c692a3ba9b3ff6725691dae91276f7ac49459bf9ed76c5888ec260a4c9e3",
+          "exit_code": 0,
+          "reply_keys": [
+            "permissionDecision",
+            "permissionDecisionReason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "d3a5ed1a0d2c7dfab9dab5d37dd3eec8e4b2e7fc772599c00275fa236c40329e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "d3a5ed1a0d2c7dfab9dab5d37dd3eec8e4b2e7fc772599c00275fa236c40329e"
+        }
+      ],
+      "stdout_hash": "a484a546a7694271dc06f52fb16004d15e3a87f5c79f3ff56c2bd2b06d1bafa4",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.0.80",
+      "file_absent": false
+    },
+    {
+      "agent": "copilot",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 13.31,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "46d0a3e739f7e664e5dc5da33429b8622ad6a666277471bd7ab7e4901a4b3182",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "46d0a3e739f7e664e5dc5da33429b8622ad6a666277471bd7ab7e4901a4b3182"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "b4d50107374389753c16dccc6771d73afb2a9ca43424a59a8b891a2d57e2ec9e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "b4d50107374389753c16dccc6771d73afb2a9ca43424a59a8b891a2d57e2ec9e"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "f005bf561156c7c5716bce486a714f40d389d7693859469e3262626cc3a94c77",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "f005bf561156c7c5716bce486a714f40d389d7693859469e3262626cc3a94c77"
+        }
+      ],
+      "stdout_hash": "04d3427bbb5dde49998149db67c2d11db86f6cb13734b737a3d77341d0ab9e05",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.0.80",
+      "file_absent": false
+    },
+    {
+      "agent": "copilot",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 13.42,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "2445dfcfc4255567325cc8b2dcb7117b7d2ab2e976db77cb1fe34f1090faa271",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "2445dfcfc4255567325cc8b2dcb7117b7d2ab2e976db77cb1fe34f1090faa271"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c752e841dc8c5416fac0fb661c6afac24ba1225a47a4b1588641df14d0fadf7b",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c752e841dc8c5416fac0fb661c6afac24ba1225a47a4b1588641df14d0fadf7b"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "552c82a5c375e9c5bfc578d5f96dd2d59549af50e6002f28e94b800484115dc9",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "552c82a5c375e9c5bfc578d5f96dd2d59549af50e6002f28e94b800484115dc9"
+        }
+      ],
+      "stdout_hash": "ae138cadd7d95be59876403283c9b6e3ce84c9aeb7db1e090d211457ebcca728",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.0.80",
+      "file_absent": false
+    },
+    {
+      "agent": "copilot",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 14.92,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "4ae52d00ce2c4e38767480a3decddf0828e3c811d5b230d9f4e278a18f86e15e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "4ae52d00ce2c4e38767480a3decddf0828e3c811d5b230d9f4e278a18f86e15e"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "8cb88e9f8ec8e2d719d2b5cc4506054213b02cda7ecc9df09b060e3290918a6c",
+          "exit_code": 0,
+          "reply_keys": [
+            "additionalContext"
+          ],
+          "decision": null,
+          "additional_context": true,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "8cb88e9f8ec8e2d719d2b5cc4506054213b02cda7ecc9df09b060e3290918a6c"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "934e87bda725e94d57d7cad3a85dd62dcea0d589ba9de69759347daa5e38fb7f",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "934e87bda725e94d57d7cad3a85dd62dcea0d589ba9de69759347daa5e38fb7f"
+        }
+      ],
+      "stdout_hash": "b014d9cf5548fe6f225a2442396c8cc275bfa985be14a1e17cee24c3664cf000",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.0.80",
+      "file_absent": false
+    },
+    {
+      "agent": "vibe",
+      "case": "bad",
+      "exit_code": 1,
+      "timed_out": false,
+      "duration_seconds": 9.72,
+      "file_written_exactly": false,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "c32c037bc5d405facc0a524a6006791e07b16e4c3082f7dad97560952c398e84",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "dc96d4ceb2c1aa31f2b56e351ef68880ae136afad3e441c5e7ba85bce8ee4877",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "dc96d4ceb2c1aa31f2b56e351ef68880ae136afad3e441c5e7ba85bce8ee4877",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "eb261d10449478013b440feb1db1ae4d172f0afecc999d8049bab912735ec751",
+      "cli_version": "2.24.1",
+      "file_absent": true
+    },
+    {
+      "agent": "vibe",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 4.54,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "8eb7de8916e03e20e4070f2024cd044662d35c9b5f2bb9b1d3a8578539a1ff7f",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "8eb7de8916e03e20e4070f2024cd044662d35c9b5f2bb9b1d3a8578539a1ff7f"
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "cb90cbab5e44fe228776e1b9d894085d9dd67a10c9d1d238414b6338ac250662",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "cb90cbab5e44fe228776e1b9d894085d9dd67a10c9d1d238414b6338ac250662"
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "b97c10c9d3655f11fb0edb4fcd27965ac53f863ee94df4276931cea43ca6d377",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "b97c10c9d3655f11fb0edb4fcd27965ac53f863ee94df4276931cea43ca6d377"
+        }
+      ],
+      "stdout_hash": "d263e8a33bafcbcc18448d7499f719cface1b3221090e2942e82452b0e8962d3",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2.24.1",
+      "file_absent": false
+    },
+    {
+      "agent": "vibe",
+      "case": "excluded",
+      "exit_code": 1,
+      "timed_out": false,
+      "duration_seconds": 6.94,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "0341559e2a26674004bed22749f0ad64041f0395bb48cb41f3fca1a8b2456cb6",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "0341559e2a26674004bed22749f0ad64041f0395bb48cb41f3fca1a8b2456cb6"
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "86a5c4d1427b46da6d034631aa5d73efde25afb78c93058e237ece56a43bf60a",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "86a5c4d1427b46da6d034631aa5d73efde25afb78c93058e237ece56a43bf60a"
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "1cd92492a982b3894093775d666145c6da691f665a31670b6a2d780d7c915aee",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "eb2efea9a240bd2df93986cef7152f1882a89e0f25a66357c5311a5f623f0389",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "eb2efea9a240bd2df93986cef7152f1882a89e0f25a66357c5311a5f623f0389"
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "a3f7269bbc1e00132b12db941ed27b9af324afc75622e2e38868425d20529d3a",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "a3f7269bbc1e00132b12db941ed27b9af324afc75622e2e38868425d20529d3a"
+        }
+      ],
+      "stdout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_hash": "eb261d10449478013b440feb1db1ae4d172f0afecc999d8049bab912735ec751",
+      "cli_version": "2.24.1",
+      "file_absent": false
+    },
+    {
+      "agent": "vibe",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 8.82,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "b6d5c3317996e20dc86e54b640fcd58fd6a6ba65210b963df89f656ea46bbe27",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "pre_tool",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "b6d5c3317996e20dc86e54b640fcd58fd6a6ba65210b963df89f656ea46bbe27"
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "336e28210d6453e65d967cd67c84c225849691f78b16a24d4eeb4702babdf517",
+          "exit_code": 0,
+          "reply_keys": [
+            "hook_specific_output"
+          ],
+          "decision": null,
+          "additional_context": true,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_tool",
+          "keys": [
+            "cwd",
+            "duration_ms",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "tool_call_id",
+            "tool_error",
+            "tool_input",
+            "tool_name",
+            "tool_output",
+            "tool_output_text",
+            "tool_status",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "fac51bcd2944edf8cc13cc7b90c105b52505ac73247e3152eaaaad26d19d122c"
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "588d2852511b5a3ac77c4c6223180906abec284c284370562ce9838c88d8c065",
+          "exit_code": 0,
+          "reply_keys": [
+            "system_message"
+          ],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "post_agent",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "parent_session_id",
+            "session_id",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "588d2852511b5a3ac77c4c6223180906abec284c284370562ce9838c88d8c065"
+        }
+      ],
+      "stdout_hash": "321d1d0787e08b8cf9b3729beca8bb8ed31e1690036035f76dfb0ed52d999325",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "2.24.1",
+      "file_absent": false
+    },
+    {
+      "agent": "qwen",
+      "case": "bad",
+      "exit_code": -15,
+      "timed_out": true,
+      "duration_seconds": 95.02,
+      "file_written_exactly": false,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "842c12ed604a68573f9c9d411ab219bcfcbb6424a107bbcef583986cd6454333"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "842c12ed604a68573f9c9d411ab219bcfcbb6424a107bbcef583986cd6454333",
+          "exit_code": 0,
+          "reply_keys": [
+            "hookSpecificOutput"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "770d26bfec17a48180b42bb9acd2a7ff880f7b34509ef641e78c0830eb807ed7"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "770d26bfec17a48180b42bb9acd2a7ff880f7b34509ef641e78c0830eb807ed7",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "block",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "17968d2832a47baeeaf4d1c77a7d13308886e24bb2c642362b05228e7bf46b9a"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "17968d2832a47baeeaf4d1c77a7d13308886e24bb2c642362b05228e7bf46b9a",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "f98bcc042dd8c381256b84cfbf070ccf5496f16dbc512c5a62a967a90414cfad"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "glob",
+          "payload_hash": "1be186940f08162558e31c51d2983349f6aa4beb23961431e6967a9ca66d1def"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "1ab28b2898260a8bb2be7b98a2640e1497cc69902821653a977393a59344044e"
+        }
+      ],
+      "stdout_hash": "2dd02393d72e95b670f84ebb0c1a23e0d9ade965c7926fada2df76e247885e58",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.25.0",
+      "file_absent": true
+    },
+    {
+      "agent": "qwen",
+      "case": "clean",
+      "exit_code": -15,
+      "timed_out": true,
+      "duration_seconds": 95.02,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "730c422cccd5aee25e558b6e6eba5710cf2b0a947d242b749beae2598838b899"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "730c422cccd5aee25e558b6e6eba5710cf2b0a947d242b749beae2598838b899",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "8bb3c52a6c53d5724b5759fb899dbe8b948df65bd30c73f3b1d66a510b133180"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "8bb3c52a6c53d5724b5759fb899dbe8b948df65bd30c73f3b1d66a510b133180",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "block",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "18e3828999eae2fada2ece8da6ef036484db5ceba16822a1e8ec4b1091ca98c8"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "18e3828999eae2fada2ece8da6ef036484db5ceba16822a1e8ec4b1091ca98c8",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "01d1f8ae292e498323db8b86b42a686b39bf3f55b3e745d882e4b2fe8871d983"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "glob",
+          "payload_hash": "d2f25cb4d10bac5e350929abecbb69a1c8299a1f61b6c3918230b0406cc58081"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "glob",
+          "payload_hash": "50848a13c2d424f7a5a74706113a16ad70379acb354d35b9c938639a99e19229"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "e7fb32a2c5c22e50341efbb0d4c51fb5bd543537fcb0e52021081b622300f425"
+        }
+      ],
+      "stdout_hash": "cde76cb9d9f6816cf29ca5385838eb42dab7ccbf49432fe2499a810d7888bbe5",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.25.0",
+      "file_absent": false
+    },
+    {
+      "agent": "qwen",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 31.04,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "f9dbd10dba623e2c9f9794e568f0465e5c4218f13352b2d29621eaeb17295738"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "f9dbd10dba623e2c9f9794e568f0465e5c4218f13352b2d29621eaeb17295738",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "abd76e998b14f13271541056f1d0397dcca4ee57405d1153dc4afe674da6cea7"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "abd76e998b14f13271541056f1d0397dcca4ee57405d1153dc4afe674da6cea7",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "5b2076db3b7caf3d5cc5635c5a9fa8a5cf9a456150876ddbe9dfccc8fe7d01ee"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "837cb1a5276bfcd575c42fc8e78263c667bf98fcd25903acf40dcfd2ec9d6371"
+        }
+      ],
+      "stdout_hash": "9d2a2584d0371bf81c549671c9788b2061e5247aae04af72d30106595e0fea6b",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.25.0",
+      "file_absent": false
+    },
+    {
+      "agent": "qwen",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 38.02,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "03ec7ffabd28d77d021110a3c88e1cee543e929d0357e9d1b46a90175d814e2c"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "write_file",
+          "payload_hash": "03ec7ffabd28d77d021110a3c88e1cee543e929d0357e9d1b46a90175d814e2c",
+          "exit_code": 0,
+          "reply_keys": [
+            "hookSpecificOutput"
+          ],
+          "decision": "allow",
+          "additional_context": true,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "4193dd52b0d7fd46a8753520b223530e0bc53073ab10bd12a03e66b099bed837"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "4193dd52b0d7fd46a8753520b223530e0bc53073ab10bd12a03e66b099bed837",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "d7d4ceaf6d3fb859e0376cdee79acd0566cd4821e20f2e1090dd292e6bd95f00"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool": "read_file",
+          "payload_hash": "752a4f7aaf0c7175d3a6f249a1cff5183907d4b54fe33a5c0aa299878f80389d"
+        }
+      ],
+      "stdout_hash": "8cd0e3998c3af1f029d7f855b024f04db2f459c9fc8910c8534cb2d3520a36e2",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "0.25.0",
+      "file_absent": false
+    },
+    {
+      "agent": "antigravity",
+      "case": "bad",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 10.13,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "f245cc9a9ba71897c8534d9b2c43f8248bab43dea8c092c47673ae939405d55d",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "6773c775265496bc557259f4e18ef24c15c9e9b74d204b172eb40031bf1f9b3c",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "6773c775265496bc557259f4e18ef24c15c9e9b74d204b172eb40031bf1f9b3c"
+        }
+      ],
+      "stdout_hash": "e74792d0d22ef70f7b60953e9f2be21358c6ab2989b7d39b9a547d1b92780d20",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.3.1",
+      "file_absent": false
+    },
+    {
+      "agent": "antigravity",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 9.5,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "de3826c66b46da5e34e60d092d58a1a022fb508dd891a246b5a37de634d20c02"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "de3826c66b46da5e34e60d092d58a1a022fb508dd891a246b5a37de634d20c02"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "de3826c66b46da5e34e60d092d58a1a022fb508dd891a246b5a37de634d20c02",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "de3826c66b46da5e34e60d092d58a1a022fb508dd891a246b5a37de634d20c02"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "18bda2b62802ca986ee1a69385b25d2f947b90751825d913d6d03c2e6c9f9f4c",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "18bda2b62802ca986ee1a69385b25d2f947b90751825d913d6d03c2e6c9f9f4c"
+        }
+      ],
+      "stdout_hash": "5ced3049c5c04726cfb4e6a8a2186611768febae8dcf227724b84030cc1cd4dd",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.3.1",
+      "file_absent": false
+    },
+    {
+      "agent": "antigravity",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 10.49,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "baa1cfd266be687098259f49a997e5e96e5ceb4e380b9caba30ea18d574ba869"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "baa1cfd266be687098259f49a997e5e96e5ceb4e380b9caba30ea18d574ba869"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "baa1cfd266be687098259f49a997e5e96e5ceb4e380b9caba30ea18d574ba869",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "baa1cfd266be687098259f49a997e5e96e5ceb4e380b9caba30ea18d574ba869"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "4394156ee0cba62f3fcea9dea84661cb0d11b16d109525881104215fc6129e1c",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "4394156ee0cba62f3fcea9dea84661cb0d11b16d109525881104215fc6129e1c"
+        }
+      ],
+      "stdout_hash": "04791f7659903249ca4b3fdcf8fd2a14fe995b44430315502a3a56cfc9192db4",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.3.1",
+      "file_absent": false
+    },
+    {
+      "agent": "antigravity",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 13.78,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "7ccf50504864156563a13636c65aa938932b3b6c09ce6384c4cb40a2cfc51e81",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "ask",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "7ccf50504864156563a13636c65aa938932b3b6c09ce6384c4cb40a2cfc51e81"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "7ccf50504864156563a13636c65aa938932b3b6c09ce6384c4cb40a2cfc51e81"
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "7ccf50504864156563a13636c65aa938932b3b6c09ce6384c4cb40a2cfc51e81"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "1f118372926dc55911be58f46fe7f174e413b4bc05b87f81bd6c0e81cb71117a",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool": null,
+          "payload_hash": "1f118372926dc55911be58f46fe7f174e413b4bc05b87f81bd6c0e81cb71117a"
+        }
+      ],
+      "stdout_hash": "b686e79e243127617de2abe63445b710900fcab1da22d194a16fc80e561060f3",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "cli_version": "1.3.1",
+      "file_absent": false
+    }
+  ],
+  "codex_repeated_user_turns": [
+    {
+      "explicit_user_turn": 1,
+      "exit_code": 0,
+      "duration_seconds": 9.05,
+      "events": [
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "91ca1580eae6dac08be96639944ee2478b8d6b786dbc76403b8603e4d24e3e9c"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "91ca1580eae6dac08be96639944ee2478b8d6b786dbc76403b8603e4d24e3e9c",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "block",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "5e00f0df39b38229330647f2df5ce35c8f96a2eefac3ee8003fb7f5327e7a2f7"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "5e00f0df39b38229330647f2df5ce35c8f96a2eefac3ee8003fb7f5327e7a2f7",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "646d074dfda7ae9d4c97d3fcb755c1938a664603e450a698ad3e43804d47f99a",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "explicit_user_turn": 2,
+      "exit_code": 0,
+      "duration_seconds": 9.97,
+      "events": [
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "012fefa8d7f828ae564d2eadc714d7f2e1322ea1e268cb1acae2a756ca56cb24"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "012fefa8d7f828ae564d2eadc714d7f2e1322ea1e268cb1acae2a756ca56cb24",
+          "exit_code": 0,
+          "reply_keys": [
+            "decision",
+            "reason"
+          ],
+          "decision": "block",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "eea4afd0d06e116c3a184a1bc3278121b4abb0ab469e2f28bcd55524df299c69"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "last_assistant_message",
+            "model",
+            "permission_mode",
+            "session_id",
+            "stop_hook_active",
+            "transcript_path",
+            "turn_id"
+          ],
+          "tool": null,
+          "payload_hash": "eea4afd0d06e116c3a184a1bc3278121b4abb0ab469e2f28bcd55524df299c69",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        }
+      ],
+      "stdout_hash": "55781e42e247503ec062baf69b3ff3f9fd609a3791a485ec4e193cd4556b2e6b",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "unavailable": [
+    {
+      "agent": "gemini-cli",
+      "cli_version": "0.63.0",
+      "reason": "OAuth completed, but Code Assist refused this individual account and required migration to Antigravity. No further sign-in attempt in this campaign."
+    }
+  ],
+  "unverified": [
+    "Windows native CLIs",
+    "desktop events",
+    "remote tracker writes",
+    "concurrent session writes",
+    "Antigravity native multiple replacement"
+  ],
+  "excluded": [
+    "Claude CLI",
+    "real model judges"
+  ],
+  "isolation": {
+    "codex": "Generated hook definitions passed as session overrides; --ignore-user-config skipped project hooks on this build. No credential file copied. Canonical fixture paths required.",
+    "cursor": "Read-only process preload returns an empty object for the two global Cursor and imported Claude hook configuration reads. Other configuration, auth and global files stay intact. Project hooks run normally.",
+    "qwen": "Minimal provider/model declarations; environment credentials remain in child memory. Managed npm version pinned to 0.25.0.",
+    "vibe": "Minimal provider/model declarations; dotenv credentials remain in child memory."
+  },
+  "cursor_interactive": {
+    "cli_version": "2026.10.01-e373342",
+    "explicit_user_turns": [
+      {
+        "turn": 1,
+        "events": [
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "b196730d9f72e852c431a8131917f14c100301e2918821199ac3298c34552a87"
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "b196730d9f72e852c431a8131917f14c100301e2918821199ac3298c34552a87",
+            "exit_code": 0,
+            "reply_keys": [
+              "followup_message"
+            ],
+            "decision": null,
+            "additional_context": false,
+            "has_reason": false,
+            "stderr_hash": null
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "c7248a2ae8a1c9821bda9f102a596a0237cc3f5f1b22bd9e46e06ea621418c30"
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "c7248a2ae8a1c9821bda9f102a596a0237cc3f5f1b22bd9e46e06ea621418c30",
+            "exit_code": 0,
+            "reply_keys": [
+              "followup_message"
+            ],
+            "decision": null,
+            "additional_context": false,
+            "has_reason": false,
+            "stderr_hash": null
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "5a8280613fe912ddfe26944e1f49b76f572480b40e360dcc58371c048c87748f"
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "5a8280613fe912ddfe26944e1f49b76f572480b40e360dcc58371c048c87748f",
+            "exit_code": 0,
+            "reply_keys": [],
+            "decision": null,
+            "additional_context": false,
+            "has_reason": false,
+            "stderr_hash": null
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "events": [
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "c9194c86c0c3ef49653676cad41678db37c752889a50a8aa955931a931be3aad"
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "c9194c86c0c3ef49653676cad41678db37c752889a50a8aa955931a931be3aad",
+            "exit_code": 0,
+            "reply_keys": [
+              "followup_message"
+            ],
+            "decision": null,
+            "additional_context": false,
+            "has_reason": false,
+            "stderr_hash": null
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "a8a68665b888c3e5e6b19417359c9fc92ba7f2186bb57445898a02a9b00a2603"
+          },
+          {
+            "event": "stop",
+            "keys": [
+              "cache_read_tokens",
+              "cache_write_tokens",
+              "conversation_id",
+              "cursor_version",
+              "generation_id",
+              "hook_event_name",
+              "input_tokens",
+              "loop_count",
+              "model",
+              "output_tokens",
+              "session_id",
+              "status",
+              "transcript_path",
+              "user_email",
+              "workspace_roots"
+            ],
+            "tool": null,
+            "payload_hash": "a8a68665b888c3e5e6b19417359c9fc92ba7f2186bb57445898a02a9b00a2603",
+            "exit_code": 0,
+            "reply_keys": [],
+            "decision": null,
+            "additional_context": false,
+            "has_reason": false,
+            "stderr_hash": null
+          }
+        ]
+      }
+    ],
+    "session_stopped_after_observation": true,
+    "mode": "interactive terminal; same read-isolation preload as write controls"
+  },
+  "native_configuration_side_effects": {
+    "codex": "CLI added eight trust-only tables for owned disposable fixture directories. These were removed after verification; all other parsed user-configuration values were preserved. Future native runs may add their own trust entries."
+  }
+}
