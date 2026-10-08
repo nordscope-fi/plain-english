@@ -154,8 +154,14 @@ check(wire("claude-code").hookSpecificOutput?.permissionDecision === "ask",
 check(emit("vibe", "pre") === "" &&
       wire("vibe", "post").hook_specific_output?.additional_context?.includes("em-dash"),
   "vibe advises through post_tool additional_context");
-check(wire("copilot").permissionDecision === "ask" && !wire("copilot").hookSpecificOutput,
-  "copilot puts permissionDecision at the top level");
+check(emit("copilot", "pre") === "" &&
+      wire("copilot", "post").additionalContext?.includes("em-dash"),
+  "copilot advises through PostToolUse additionalContext");
+const strictCopilot = JSON.parse(byId("copilot").emit(decide(denyEvent("copilot"), "docs", {
+  projectDir: T, ruleSet: compile({ ...loadDefault(), failOn: "error" }),
+}), "pre").stdout);
+check(strictCopilot.permissionDecision === "deny" && !strictCopilot.hookSpecificOutput,
+  "copilot keeps strict permissionDecision at the top level");
 // Codex fails the hook run outright on `ask`, so its advisory travels as
 // additionalContext on the same pre event.
 const codexPre = wire("codex");
@@ -176,9 +182,9 @@ check(JSON.stringify(Object.keys(codexPre)) === '["hookSpecificOutput"]' &&
       JSON.stringify(Object.keys(codexPre.hookSpecificOutput).sort()) ===
         '["additionalContext","hookEventName"]',
   "codex pre output carries no key Codex would reject");
-check(PROFILES.filter((p) => !["cursor", "vibe", "gemini"].includes(p.id))
+check(PROFILES.filter((p) => !["copilot", "cursor", "vibe", "gemini"].includes(p.id))
       .every((p) => emit(p.id, "post") === ""),
-  "only Cursor, Vibe and Gemini speak after the write");
+  "only Copilot, Cursor, Vibe and Gemini speak after the write");
 
 console.log("\n-- refusal message --");
 

@@ -131,7 +131,10 @@ export const copilot: AgentProfile = {
     }
   },
 
-  supportsAsk: true,
+  // A prompt-mode CLI cannot open the hook permission question. Advisory
+  // findings must not depend on an interactive answer.
+  supportsAsk: false,
+  advisoryPhase: "post",
 
   diagnose(root: string): string[] {
     if (!existsSync(resolve(root, ".github", "hooks", "plain-english.json"))) return [];
@@ -145,7 +148,10 @@ export const copilot: AgentProfile = {
   },
 
   emit(decision: Decision, event: HookEvent) {
-    if (event === "post") return { stdout: "", exitCode: 0 };
+    if (event === "post") {
+      if (!decision.advisory) return { stdout: "", exitCode: 0 };
+      return { stdout: JSON.stringify({ additionalContext: decision.advisory }), exitCode: 0 };
+    }
     // Always exit 0, and this is the one profile where it is not merely tidy.
     //
     // `preToolUse` is the single event Copilot fails CLOSED on: an unexpected
@@ -153,6 +159,7 @@ export const copilot: AgentProfile = {
     // does the opposite. So a crash in this linter would stop the user working,
     // which is the outcome the whole fail-open design exists to prevent.
     if (decision.allow) return { stdout: "", exitCode: 0 };
+    if (decision.decision === "ask") return { stdout: "", exitCode: 0 };
     return {
       stdout: JSON.stringify({
         permissionDecision: decision.decision,
@@ -204,6 +211,19 @@ export const copilot: AgentProfile = {
       powershell: `plain-english hook ${channel} --agent copilot`,
       timeoutSec: 30,
     }));
+    // Post-tool matcher implementations can use native names instead of the
+    // compatibility names. Include both spellings for document and shell tools.
+    const postMatchers = {
+      ...MATCHERS,
+      docs: `${MATCHERS.docs}|create|edit|str_replace_editor|apply_patch`,
+      github: `${MATCHERS.github}|bash|powershell`,
+    };
+    const postEntries = (user: boolean) => Object.entries(postMatchers).map(([channel, matcher]) => ({
+      type: "command", matcher,
+      bash: `${user ? `plain-english hook ${channel} --agent copilot` : command(channel)} --event post`,
+      powershell: `${user ? `plain-english hook ${channel} --agent copilot` : command(channel)} --event post`,
+      timeoutSec: 30,
+    }));
 
     return {
       config: [
@@ -215,6 +235,13 @@ export const copilot: AgentProfile = {
           shape: "flat" as const,
           defaults: { version: 1 },
           entries,
+        },
+        {
+          path: ".github/hooks/plain-english.json",
+          at: ["hooks", "PostToolUse"],
+          shape: "flat" as const,
+          defaults: { version: 1 },
+          entries: postEntries(false),
         },
         {
           // Both stop events. Copilot documents that `Stop` does not carry the
@@ -251,6 +278,14 @@ export const copilot: AgentProfile = {
                 defaults: { version: 1 },
                 entries: userEntries,
               },
+              {
+                path: ".copilot/hooks/plain-english.json",
+                scope: "user" as const,
+                at: ["hooks", "PostToolUse"],
+                shape: "flat" as const,
+                defaults: { version: 1 },
+                entries: postEntries(true),
+              },
             ]
           : []),
       ],
@@ -273,8 +308,8 @@ export const copilot: AgentProfile = {
         "Copilot often writes files through the shell rather than a write tool. Since " +
           "0.6.0 a redirect into a markdown file is read on the github channel, so those " +
           "writes are checked too.",
-        "The cloud agent treats `ask` as `deny`. Under `failOn: never` a finding is " +
-          "advisory in the CLI and blocking in the cloud.",
+        "Advisory findings arrive as context after a successful tool call. Strict " +
+          "findings refuse the call before it runs. Run initialization again after upgrading.",
         "Copilot has no prompt-hook equivalent here, so the semantic layer does not run. " +
           "The deterministic rules do.",
       ],

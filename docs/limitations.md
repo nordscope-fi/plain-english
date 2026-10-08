@@ -149,9 +149,9 @@ All eight profiles install a completed-turn hook, but the table above is deliber
 a claim that every retry has been observed. `lint --chat` is the reliable after-the-fact
 measurement when a vendor event is absent or changes shape.
 
-Two kinds of vendor gate matter before you rely on a refusal. Copilot's cloud coding
-agent treats `ask` as `deny`, so the advisory default is blocking there. Project hooks
-also require vendor trust in Copilot, Codex, Cursor, Vibe, Gemini and Qwen. Codex adds a
+Vendor gates matter before you rely on a refusal. Non-interactive Copilot sessions
+cannot answer `ask`; the adapter uses post-tool context for advice instead. Project hooks
+require vendor trust in Copilot, Codex, Cursor, Vibe, Gemini and Qwen. Codex adds a
 second approval for the exact hook definition. [`agents.md`](agents.md) explains each
 gate and records whether the supporting evidence is observed, source or documentation.
 

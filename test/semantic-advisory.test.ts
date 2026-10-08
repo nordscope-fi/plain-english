@@ -23,7 +23,7 @@ function scenario(agent: string, tool: string, failOn: "never" | "error") {
   return { calls, run };
 }
 
-const agents = [["cursor", "Shell"], ["vibe", "bash"], ["gemini", "run_shell_command"]] as const;
+const agents = [["cursor", "Shell"], ["vibe", "bash"], ["gemini", "run_shell_command"], ["copilot", "Bash"]] as const;
 it.skipIf(process.platform === "win32").each(
   (["warn", "error"] as const).flatMap((threshold) =>
     (["missing", "failed", "passing", "rejecting"] as const).map((outcome) => [threshold, outcome] as const)),

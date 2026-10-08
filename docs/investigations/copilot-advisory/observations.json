@@ -1,0 +1,499 @@
+{
+  "date": "2026-10-08",
+  "cli": "GitHub Copilot 1.0.80",
+  "platform": "macOS arm64",
+  "starting_commit": "a4516d9",
+  "model_judges": "disabled",
+  "installation": "one generated repository installation per fresh disposable project",
+  "observations": [
+    {
+      "agent": "copilot",
+      "case": "baseline-advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 9.76,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "6a3070196c140866eb1908c7d207efe45b8793b0284e0f0b4d8283a5a573041c",
+          "exit_code": 0,
+          "reply_keys": [
+            "permissionDecision",
+            "permissionDecisionReason"
+          ],
+          "decision": "ask",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "632b57dac7c27a5c66955af5f5d07f94cb7dff5e0d92263a8fa0a006e406f0e6",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "632b57dac7c27a5c66955af5f5d07f94cb7dff5e0d92263a8fa0a006e406f0e6"
+        }
+      ],
+      "stdout_hash": "f10ba9b69f6a322acd38013d11d1795c02e60d27ece6ba70583746ba07b34c0f",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "package_version": "1.12.0"
+    },
+    {
+      "agent": "copilot",
+      "case": "bad",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 14.81,
+      "file_written_exactly": false,
+      "file_unchanged": true,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c338c692a3ba9b3ff6725691dae91276f7ac49459bf9ed76c5888ec260a4c9e3",
+          "exit_code": 0,
+          "reply_keys": [
+            "permissionDecision",
+            "permissionDecisionReason"
+          ],
+          "decision": "deny",
+          "additional_context": false,
+          "has_reason": true,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "d3a5ed1a0d2c7dfab9dab5d37dd3eec8e4b2e7fc772599c00275fa236c40329e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "d3a5ed1a0d2c7dfab9dab5d37dd3eec8e4b2e7fc772599c00275fa236c40329e"
+        }
+      ],
+      "stdout_hash": "a484a546a7694271dc06f52fb16004d15e3a87f5c79f3ff56c2bd2b06d1bafa4",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "package_version": "1.12.1"
+    },
+    {
+      "agent": "copilot",
+      "case": "clean",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 13.31,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "46d0a3e739f7e664e5dc5da33429b8622ad6a666277471bd7ab7e4901a4b3182",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "46d0a3e739f7e664e5dc5da33429b8622ad6a666277471bd7ab7e4901a4b3182"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "b4d50107374389753c16dccc6771d73afb2a9ca43424a59a8b891a2d57e2ec9e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "b4d50107374389753c16dccc6771d73afb2a9ca43424a59a8b891a2d57e2ec9e"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "f005bf561156c7c5716bce486a714f40d389d7693859469e3262626cc3a94c77",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "f005bf561156c7c5716bce486a714f40d389d7693859469e3262626cc3a94c77"
+        }
+      ],
+      "stdout_hash": "04d3427bbb5dde49998149db67c2d11db86f6cb13734b737a3d77341d0ab9e05",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "package_version": "1.12.1"
+    },
+    {
+      "agent": "copilot",
+      "case": "excluded",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 13.42,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "2445dfcfc4255567325cc8b2dcb7117b7d2ab2e976db77cb1fe34f1090faa271",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "2445dfcfc4255567325cc8b2dcb7117b7d2ab2e976db77cb1fe34f1090faa271"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c752e841dc8c5416fac0fb661c6afac24ba1225a47a4b1588641df14d0fadf7b",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "c752e841dc8c5416fac0fb661c6afac24ba1225a47a4b1588641df14d0fadf7b"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "552c82a5c375e9c5bfc578d5f96dd2d59549af50e6002f28e94b800484115dc9",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "552c82a5c375e9c5bfc578d5f96dd2d59549af50e6002f28e94b800484115dc9"
+        }
+      ],
+      "stdout_hash": "ae138cadd7d95be59876403283c9b6e3ce84c9aeb7db1e090d211457ebcca728",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "package_version": "1.12.1"
+    },
+    {
+      "agent": "copilot",
+      "case": "advisory",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 14.92,
+      "file_written_exactly": true,
+      "file_unchanged": false,
+      "events": [
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "4ae52d00ce2c4e38767480a3decddf0828e3c811d5b230d9f4e278a18f86e15e",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PreToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name"
+          ],
+          "tool": "Edit",
+          "payload_hash": "4ae52d00ce2c4e38767480a3decddf0828e3c811d5b230d9f4e278a18f86e15e"
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "8cb88e9f8ec8e2d719d2b5cc4506054213b02cda7ecc9df09b060e3290918a6c",
+          "exit_code": 0,
+          "reply_keys": [
+            "additionalContext"
+          ],
+          "decision": null,
+          "additional_context": true,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "PostToolUse",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "timestamp",
+            "tool_input",
+            "tool_name",
+            "tool_result"
+          ],
+          "tool": "Edit",
+          "payload_hash": "8cb88e9f8ec8e2d719d2b5cc4506054213b02cda7ecc9df09b060e3290918a6c"
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "934e87bda725e94d57d7cad3a85dd62dcea0d589ba9de69759347daa5e38fb7f",
+          "exit_code": 0,
+          "reply_keys": [],
+          "decision": null,
+          "additional_context": false,
+          "has_reason": false,
+          "stderr_hash": null
+        },
+        {
+          "event": "Stop",
+          "keys": [
+            "cwd",
+            "hook_event_name",
+            "session_id",
+            "stop_hook_active",
+            "stop_reason",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool": null,
+          "payload_hash": "934e87bda725e94d57d7cad3a85dd62dcea0d589ba9de69759347daa5e38fb7f"
+        }
+      ],
+      "stdout_hash": "b014d9cf5548fe6f225a2442396c8cc275bfa985be14a1e17cee24c3664cf000",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "package_version": "1.12.1"
+    }
+  ],
+  "limitations": [
+    "No hosted cloud execution",
+    "Document edit controls only; shell and issue advice have automated protocol coverage",
+    "Raw payloads, responses and account values are omitted"
+  ]
+}
