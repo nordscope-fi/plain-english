@@ -196,6 +196,10 @@ export async function bundleCli() {
       metafile: true,
       banner: { js: BANNER },
       absWorkingDir: root,
+      // One name per file. Through a Windows junction, a module named by its
+      // linked path and by its real path counted as two, so splitting one off
+      // never shrank the piece that held the other.
+      preserveSymlinks: true,
       logLevel: "silent",
       plugins: [noSourceParser],
     });
@@ -206,7 +210,10 @@ export async function bundleCli() {
         .filter(([input]) => !input.includes(":") && !chosen.has(input))
         .sort((a, b) => b[1].bytesInOutput - a[1].bytesInOutput)
         .map(([input]) => input);
-      if (!largest) throw new Error("A piece of the bundled CLI is over the read limit and cannot be split further.");
+      if (!largest) {
+        const [piece] = Object.entries(result.metafile.outputs).filter(([, o]) => o === output).map(([path]) => path);
+        throw new Error(`A piece of the bundled CLI is over the read limit and cannot be split further: ${piece} (${output.bytes} bytes) holds ${Object.keys(output.inputs).join(", ")}.`);
+      }
       chosen.add(largest);
       const name = largest.replace(/^dist\//, "").replace(/node_modules\//g, "").replace(/\.(?:[cm]?js|json)$/, "").replace(/[^\w/.-]/g, "_");
       entryPoints[`parts/${name}`] = resolve(root, largest);
