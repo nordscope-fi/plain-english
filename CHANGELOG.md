@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-08
+### Fixed
+
+- **The plugin's dialog was written for the model and shown to the person.** An advisory finding opened a dialog titled "Plugin" whose body was the CLI's guidance to Claude, with "Write it anyway?" appended; nothing named the plugin or the file. It now says which plugin is asking, names the file or command, quotes one passage with its rule, and offers two answers: save it as it is, or refuse so Claude rewrites. The guidance for the model travels in the refusal Claude reads, as it did before. Seen on 2.1.293 while Claude edited a README that documents the rules by example. (#76)
+
 ## [1.5.0] - 2026-10-07
 ### Added
 
@@ -579,7 +584,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.1
 [1.5.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.0
 [1.4.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.4.0
 [1.3.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.3.1

@@ -1,5 +1,7 @@
 import { describe, expect, test, tier } from 'claude-code/testing'
 
+import { readPassages } from '../hooks/wire'
+
 tier('user')
 
 const RUN = {
@@ -16,6 +18,33 @@ const DENY = JSON.stringify({
     permissionDecision: 'deny',
     permissionDecisionReason:
       '"Furthermore" (furthermore): start the sentence with its own point.',
+  },
+})
+
+/** The reason the CLI prints for an advisory finding, as `formatReason` lays it out. */
+const ASK_REASON = [
+  'This file contains writing that reads as machine-generated:',
+  '',
+  '  line 3: "Furthermore" (furthermore) Start the sentence with its own point.',
+  '  line 3: "leverage" (leverage) Use \'use\'.',
+  '',
+  'Rewrite the quoted text in plain, direct language.',
+  'Full ruleset: docs/writing-style.md',
+  '',
+  'Narrower ways to allow this, in order of preference:',
+  '  1. <!-- plain-english-disable-next-line furthermore -->',
+  '  2. add the path to `exclude` in .plain-english.yml',
+  '  3. lower the rule to `severity: warn` in .plain-english.yml',
+  '',
+  "Last resort, and the human's call, not yours: touch .plain-english-ack-docs",
+  '  It waives this channel for 10 minutes, then expires on its own.',
+].join('\n')
+
+const ASK = JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: 'PreToolUse',
+    permissionDecision: 'ask',
+    permissionDecisionReason: ASK_REASON,
   },
 })
 
@@ -143,6 +172,84 @@ describe('register', () => {
 
     expect(result.block).toBeUndefined()
     expect(reachedSettings).toBe(true)
+  })
+
+  test('an advisory finding asks the person in their own terms and saves on yes', async ($, on) => {
+    const dialogs: Record<string, unknown>[] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      dialogs.push(question)
+      return { result: { answers: { [String(question['question'])]: 'Save it as it is' } } }
+    })
+
+    const result = await $.tool.call({
+      tool: 'Write',
+      file_path: '/repo/docs/guide.md',
+      content: 'Furthermore, we leverage the cache.',
+    })
+
+    expect(result.deny).toBeUndefined()
+    expect(result.result).toBe('written')
+    expect(dialogs).toHaveLength(1)
+    const question = String(dialogs[0]?.['question'])
+    expect(question).toContain('plain-english found 2 passages in docs/guide.md')
+    expect(question).toContain('line 3: "Furthermore" (furthermore) Start the sentence with its own point.')
+    expect(question, 'the second passage is counted, not shown').not.toContain('leverage')
+    expect(question, 'the model guidance stays out of the dialog').not.toContain('Narrower ways')
+    expect(question).toContain('Save the file as it is?')
+    expect(dialogs[0]?.['header']).toBe('Prose check')
+    const options = dialogs[0]?.['options'] as { label: string }[]
+    expect(options.map((o) => o.label)).toEqual(['Save it as it is', 'Refuse so Claude rewrites'])
+  })
+
+  test('a refusal in the dialog denies the write with the guidance for the model', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'committed' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      expect(String(question['question'])).toContain('the commit message')
+      expect(String(question['question'])).toContain('Run the command as it is?')
+      return { result: { answers: { [String(question['question'])]: 'Refuse so Claude rewrites' } } }
+    })
+
+    const result = await $.tool.call({ tool: 'Bash', command: 'git commit -m "Furthermore"' })
+
+    expect(result.deny).toContain('The user was asked and refused this write.')
+    expect(result.deny).toContain('Narrower ways to allow this')
+  })
+
+  test('a dialog nobody can answer refuses', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => {
+      if (e.tool === 'AskUserQuestion') return { deny: 'no one to ask' }
+      return { result: 'written' }
+    })
+
+    const result = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'x' })
+
+    expect(result.deny).toContain('Furthermore')
+  })
+
+  test('readPassages reads the quoted lines and nothing else', async () => {
+    const passages = readPassages(ASK_REASON)
+    expect(passages).toEqual([
+      {
+        line: 3,
+        match: 'Furthermore',
+        ruleId: 'furthermore',
+        hint: 'Start the sentence with its own point.',
+      },
+      { line: 3, match: 'leverage', ruleId: 'leverage', hint: "Use 'use'." },
+    ])
+    expect(readPassages('plain-english refused this write.')).toEqual([])
   })
 
   test('an adapter that throws lets the write through', async ($, on) => {

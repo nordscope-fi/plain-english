@@ -118,7 +118,7 @@ The [plugin's own guide](integrations/claude-code-plugin/README.md) lists what i
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.5.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.5.1
   with:
     paths: docs README.md
     fail-on: error
@@ -135,7 +135,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.5.0
+    rev: v1.5.1
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
