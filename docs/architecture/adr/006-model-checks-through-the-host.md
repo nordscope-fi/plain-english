@@ -85,8 +85,12 @@ The details that keep behaviour the same:
   `judgeMeasurement` keeps recording each call. A replay sees every earlier
   answer again, so the CLI records usage only for the newest answer in the
   list. Each answer is the newest exactly once.
-- **Older Claude Code.** The mod sets the variable only when `$.model.complete`
-  exists. Without it, the CLI runs as it does today.
+- **Older Claude Code.** A mod cannot test whether `$.model` exists: the engine
+  refuses a module that reads a `$` noun as a value. The plugin already
+  requires Claude Code 2.1.293, whose types include `$.model.complete`. Where
+  the call cannot be made at all, because an engine lacks it or refuses the
+  request, the mod runs the check once more without the variable, so it
+  behaves as it does today.
 
 ### Build order
 

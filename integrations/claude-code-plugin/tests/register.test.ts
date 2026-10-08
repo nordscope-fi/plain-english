@@ -105,6 +105,104 @@ describe('register', () => {
     expect(questions).toBe(1)
     expect(logged).toEqual([row])
   })
+  // ADR-006: the checker hands a model question back, the mod asks the
+  // session's model and runs the checker again with the answer.
+  test('a model question from the checker is answered in the session and replayed', async ($, on) => {
+    const runs: { route?: string; model?: unknown }[] = []
+    let asked: Record<string, unknown> = {}
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('session.model', () => ({ value: 'claude-sonnet-test' }))
+    on('model.complete', ($, e) => {
+      asked = e as unknown as Record<string, unknown>
+      return { value: { isAnswered: true, text: '{"ok": false, "reason": "Lead with the point."}', usage: { input_tokens: 900, output_tokens: 4, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } }
+    })
+    on('process.spawn', async function* ($, e) {
+      const input = JSON.parse(String(e.input)) as Record<string, unknown>
+      runs.push({ route: (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'], model: input['plainEnglishModel'] })
+      yield { stream: 'stdout', text: runs.length === 1
+        ? JSON.stringify({ plainEnglishModelRequest: { key: 'k1', prompt: 'Judge this.', timeoutMs: 1234, deadline: 99 } })
+        : DENY }
+      return { value: { code: 0, signal: null } }
+    })
+    const result = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    expect(result.deny).toContain('Furthermore')
+    expect(runs.length).toBe(2)
+    expect(runs[0]).toEqual({ route: 'host', model: undefined })
+    expect(runs[1]!.model).toEqual({ deadline: 99, answers: [{ key: 'k1', text: '{"ok": false, "reason": "Lead with the point."}', usage: { input_tokens: 900, output_tokens: 4, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } }] })
+    expect(asked['prompt']).toBe('Judge this.')
+    expect(asked['model']).toBe('claude-sonnet-test')
+    expect(asked['timeoutMs']).toBe(1234)
+  })
+  /** A checker that asks `questions` model questions in turn, then decides. */
+  function askingChecker(on: Parameters<TestBody>[1], questions: number, decision: string) {
+    const runs: { route?: string; model?: { deadline?: number; answers: Record<string, unknown>[] } }[] = []
+    on('process.spawn', async function* ($, e) {
+      const input = JSON.parse(String(e.input)) as Record<string, unknown>
+      runs.push({ route: (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'], model: input['plainEnglishModel'] as never })
+      const answered = (input['plainEnglishModel'] as { answers?: unknown[] } | undefined)?.answers?.length ?? 0
+      const routed = (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'] === 'host'
+      const text = routed && answered < questions
+        ? JSON.stringify({ plainEnglishModelRequest: { key: `k${answered + 1}`, prompt: `Question ${answered + 1}.`, timeoutMs: 1000, deadline: 99 } })
+        : decision
+      // An allowed write prints nothing, and the engine refuses an empty chunk.
+      if (text !== '') yield { stream: 'stdout', text }
+      return { value: { code: 0, signal: null } }
+    })
+    return runs
+  }
+  test('two model questions in a row each get an answer, and the third run decides', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('session.model', () => ({ value: 'm' }))
+    const prompts: string[] = []
+    on('model.complete', ($, e) => {
+      prompts.push(String(e.prompt))
+      return { value: { isAnswered: true, text: '{"ok": true}', usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } }
+    })
+    on('classic.Stop', () => ({}))
+    const runs = askingChecker(on, 2, BLOCK)
+    const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'A long reply.' })
+    expect(result.block).toBeDefined()
+    expect(prompts).toEqual(['Question 1.', 'Question 2.'])
+    expect(runs.map(run => run.model?.answers.map(answer => answer['key']))).toEqual([undefined, ['k1'], ['k1', 'k2']])
+  })
+  test('a provider error or a timeout reaches the checker as an unavailable answer', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('session.model', () => ({ value: 'm' }))
+    const replies = [
+      { isAnswered: false, reason: 'api-error', status: 529, error: 'overloaded', usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+      { isAnswered: false, reason: 'aborted', usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+    ]
+    on('model.complete', () => ({ value: replies.shift() as never }))
+    on('tool.call', () => ({ result: 'written' }))
+    const runs = askingChecker(on, 2, '')
+    expect((await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })).result).toBe('written')
+    expect(runs[2]!.model!.answers).toEqual([{ key: 'k1', unavailable: 'failed' }, { key: 'k2', unavailable: 'timed out' }])
+  })
+  test('when the model call cannot be made at all, the check runs the old way', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('session.model', () => ({ value: 'm' }))
+    on('model.complete', () => { throw new Error('model not allowed') })
+    const runs = askingChecker(on, 1, DENY)
+    const result = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    expect(result.deny).toContain('Furthermore')
+    expect(runs).toEqual([{ route: 'host', model: undefined }, { route: undefined, model: undefined }])
+  })
+  test('a checker that keeps asking is unavailable after three runs, and the write goes ahead', async ($, on) => {
+    const logged: string[] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    on('session.model', () => ({ value: 'm' }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('model.complete', () => ({ value: { isAnswered: true, text: '{"ok": true}', usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } }))
+    on('tool.call', () => ({ result: 'written' }))
+    const runs = askingChecker(on, 9, '')
+    expect((await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })).result).toBe('written')
+    expect(runs.length).toBe(3)
+    expect(logged.join('\n')).toContain('kept asking for a model answer')
+  })
   // Issue #116: on 2.1.294 a typed answer resolves `$.ui.ask` to the typed
   // text, while "Chat about this" and Esc both reject the same way.
   test('a typed answer to the write approval reaches the model as the person\'s words', async ($, on) => {
