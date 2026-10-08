@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "description": "Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them: refuses a Markdown write, a commit or pull request message, or a tracker issue that breaks the ruleset, and holds a chat reply that does.",
   "author": { "name": "Nordscope", "url": "https://github.com/nordscope-fi" },
   "homepage": "https://github.com/nordscope-fi/plain-english",

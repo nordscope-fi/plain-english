@@ -169,6 +169,10 @@ Three things differ from the settings-hook install, each observed on 2.1.293:
 - **Nothing is written into the project.** No settings file, no launcher. Updates arrive
   through `claude plugin update`.
 
+Observed on 2.1.294: Claude Code passes a held reply's reason to the model and shows the
+person none of it. The plugin adds one dim row instead. The row names up to three quoted
+passages, and `/plain-english review` opens the full finding.
+
 The plugin now includes the same three output styles and document skill as `init`.
 It also adds declared project vocabulary and loaded writing-profile observations to the conversation.
 Select a style under `/config` > **Output style**, then start a new session.

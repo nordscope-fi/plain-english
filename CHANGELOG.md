@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-10-08
+### Fixed
+
+- The Claude Code plugin reports a held or advised reply in one transcript row. Claude Code 2.1.294 draws each line break in a plugin's row as a replacement character and does not show the person a block's reason. The row now names up to three quoted passages and points to `/plain-english review` for the full finding. Rows and command answers also no longer repeat the plugin's name, which the engine already prints.
+
 ## [1.12.2] - 2026-10-08
 ### Changed
 
@@ -664,7 +669,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.3...HEAD
+[1.12.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.3
 [1.12.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.2
 [1.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.1
 [1.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.0
