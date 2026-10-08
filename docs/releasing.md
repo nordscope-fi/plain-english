@@ -127,6 +127,33 @@ Semver against the CLI and the rules together. A rule change that produces new f
 
 ## Checklist before merging a release
 
+### Dependency runtime compatibility
+
+The package supports Node 20.0.0 and newer. A dependency update must preserve
+that minimum, including its transitive dependencies. Both pull-request and
+release checks install the built tarball with strict engine checking on Node
+20.0.0, then exercise Markdown, visible source text and HTML issue hooks.
+Testing only the latest Node 20 release cannot establish this minimum.
+
+The following updates were deferred after strict installation rejected each
+on Node 20.0.0:
+
+| Dependency | Deferred version | Declared Node requirement |
+|---|---|---|
+| JavaScript source parser, `@babel/parser` | 8.0.6 | `^22.18.0 || >=24.11.0` |
+| HTML parser, `htmlparser2` | 12.0.0 | `>=20.19.0` |
+| Character decoder, `entities` | 8.1.0 | `>=20.19.0` |
+
+The same restriction applies to HTML parser 11. The dependency bot skips
+those incompatible major versions while still proposing compatible updates.
+Revisit the exclusions when changing the package's supported runtime range.
+The declared requirements come from the
+[published JavaScript parser manifest](https://registry.npmjs.org/@babel%2fparser/8.0.6),
+[HTML parser manifest](https://registry.npmjs.org/htmlparser2/12.0.0) and
+[character decoder manifest](https://registry.npmjs.org/entities/8.1.0).
+
+### Release contents
+
 - `CHANGELOG.md` has an entry under `## [Unreleased]`. Dating it is automatic, and `npm version` fails if the section is empty.
 - `npm run render` produced no diff.
 - New or changed rules have corpus cases.
