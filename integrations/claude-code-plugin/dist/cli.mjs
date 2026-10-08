@@ -35449,6 +35449,29 @@ function assistantText(record4) {
   }
   return out;
 }
+function subagentHandback(path2) {
+  if (!path2)
+    return void 0;
+  let last;
+  readJsonl(path2, (record4) => {
+    if (record4["type"] === "assistant")
+      last = record4;
+  });
+  const content3 = last && last["message"]?.["content"];
+  if (!Array.isArray(content3))
+    return void 0;
+  for (const block of content3) {
+    if (!block || typeof block !== "object")
+      continue;
+    const b = block;
+    if (b["type"] !== "tool_use" || b["name"] !== "SubagentHandback")
+      continue;
+    const message = b["input"]?.["message"];
+    if (typeof message === "string" && message.trim())
+      return message;
+  }
+  return void 0;
+}
 function typedUserText(record4) {
   if (record4["type"] !== "user")
     return void 0;
@@ -35524,7 +35547,7 @@ var claudeCodeChat = {
     return out;
   },
   current(payload) {
-    const text4 = field(payload, "last_assistant_message");
+    const text4 = field(payload, "last_assistant_message") ?? subagentHandback(field(payload, "agent_transcript_path"));
     if (!text4)
       return null;
     const reply = {

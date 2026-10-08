@@ -158,6 +158,45 @@ describe("Claude Code transcripts", () => {
     expect(reply?.isSubagent).toBe(false);
   });
 
+  // Claude Code 2.1.294: a subagent ends with a SubagentHandback tool call, and
+  // SubagentStop then carries no last_assistant_message. Seen in three of three
+  // live runs on 2026-10-08; the handback was the last assistant record in the
+  // agent's own transcript when the event fired, with records written after it.
+  it("reads a subagent's handback from its own transcript when the stop event carries no reply", () => {
+    const path = resolve(home, "agent-handback.jsonl");
+    write(
+      path,
+      jsonl([
+        { type: "user", isSidechain: true, message: { role: "user", content: "What is a DNS TTL?" } },
+        { type: "assistant", isSidechain: true, message: { role: "assistant", content: [{ type: "text", text: "Thinking out loud." }] } },
+        {
+          type: "assistant",
+          isSidechain: true,
+          message: { role: "assistant", content: [{ type: "tool_use", name: "SubagentHandback", input: { message: "A TTL is how long a cache may keep a record." } }] },
+        },
+        { type: "user", isSidechain: true, message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+        { type: "attachment", attachment: { type: "hook_success", hookEvent: "SubagentStop" } },
+      ]),
+    );
+    const reply = claudeCodeChat.current({
+      hook_event_name: "SubagentStop",
+      session_id: "s1",
+      agent_id: "a1",
+      transcript_path: "/tmp/parent.jsonl",
+      agent_transcript_path: path,
+    });
+    expect(reply?.text).toBe("A TTL is how long a cache may keep a record.");
+    expect(reply?.isSubagent).toBe(true);
+    expect(reply?.source).toBe(path);
+  });
+
+  it("finds no subagent reply when neither the event nor the agent transcript has one", () => {
+    expect(claudeCodeChat.current({ hook_event_name: "SubagentStop", session_id: "s1", agent_id: "a1" })).toBeNull();
+    expect(claudeCodeChat.current({
+      hook_event_name: "SubagentStop", session_id: "s1", agent_id: "a1", agent_transcript_path: resolve(home, "missing.jsonl"),
+    })).toBeNull();
+  });
+
   it("reads the reader's last question off the transcript, which the stop event omits", () => {
     const path = resolve(home, "s1.jsonl");
     write(
