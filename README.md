@@ -4,25 +4,58 @@
 [![CI](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml/badge.svg)](https://github.com/nordscope-fi/plain-english/actions/workflows/ci.yml)
 [![licence](https://img.shields.io/npm/l/plain-english.svg)](LICENSE)
 
-Catch stock AI phrases, vague claims, and unexplained jargon before readers see them.
+Catch filler and unexplained jargon in your coding agent's writing.
 
-`plain-english` checks prose in much the same way that a code linter checks source files.
-It reports the exact passage, the rule it broke, and a direct rewrite hint.
-It checks Markdown and plain text.
+`plain-english` checks a draft and gives the agent the passage, the rule, and a rewrite
+hint. It can check documents, commit and pull request text, issues, and completed chat
+replies. You control the rules and whether findings block a write.
+
+![Recorded example: Claude Code tries to save an unexplained abbreviation, plain-english refuses it, and Claude adds an explanation.](docs/demo/demo.gif)
+
+## Install in Claude Code
+
+In a Claude Code session, version 2.1.287 or newer:
 
 ```text
-docs/onboarding.md
-  3:1   block  "Furthermore" (furthermore)  Start the sentence with its own point.
-  3:27  block  "boasts" (boasts)  State the number without the verb.
-  6:5    warn  "OIDC" (unglossed-term)  Explain what "OIDC" does before naming it.
-
-2 blocking, 1 warning across 1 file
+/plugin install plain-english --marketplace nordscope-fi/plain-english
 ```
 
-This is a style checker, not an authorship detector. It finds configured patterns no
-matter who wrote them.
+The plugin runs checks automatically. With no project config, findings are advisory.
+See [the plugin guide](integrations/claude-code-plugin/README.md) for configuration and
+supported checks. For another agent, see [the setup below](#add-it-to-a-coding-agent).
 
-## Try it
+## A real draft, checked before it was saved
+
+Claude Code drafted a pull request description. The plugin caught an abbreviation used
+without an explanation and refused the save. Claude revised it without another user
+prompt, and the next save succeeded.
+
+**First draft, excerpt:**
+
+> # Add SARIF output to plain-english
+>
+> This PR adds SARIF output to plain-english, the prose linter for Markdown and plain text. Lint results can now be read by tools that accept SARIF, including GitHub code scanning.
+
+**The finding returned to Claude:**
+
+```text
+line 1: "SARIF" (unglossed-term) "SARIF" is not explained. Say what it does, then name it.
+```
+
+**The agent's next draft, excerpt:**
+
+> # Add Static Analysis Results Interchange Format (SARIF) output to plain-english
+>
+> This PR lets plain-english, the prose linter for Markdown and plain text, write its results in SARIF. SARIF is a standard format for reporting results from code analysis tools. With this change, tools that read SARIF, such as GitHub code scanning, can use plain-english results.
+
+The animation replays text captured from a live run. Warning-level blocking was enabled
+for this example. The [recording notes](docs/demo/README.md) include the full prompt,
+drafts, configuration, and an earlier task that passed without a rewrite.
+
+## Check files yourself
+
+The command-line tool checks Markdown and plain text and reports exact passages and
+rewrite hints:
 
 ```bash
 npm install -D plain-english
@@ -105,13 +138,8 @@ chat replies. Each agent exposes different hook events and trust controls. Read
 For agents without a profile, run the linter after each edit. The
 [post-edit guide](docs/post-edit-lint.md) gives a portable setup.
 
-Claude Code can also install it as a plugin, with nothing written into the project:
-
-```text
-/plugin install plain-english --marketplace nordscope-fi/plain-english
-```
-
-The [plugin's own guide](integrations/claude-code-plugin/README.md) lists what it hooks.
+The [Claude Code plugin](#install-in-claude-code) provides automatic checks without
+writing settings or launchers into the project.
 
 ## Add it to a build
 
@@ -253,6 +281,8 @@ Chat transcripts can contain file contents, command output, and pasted text. Kee
 `lint --chat` on the local machine. Do not run it in a build.
 
 ## Limits
+
+This is a style checker. It finds configured patterns no matter who wrote them.
 
 The rules are opinionated and English-only. False positives are expected. Some words in
 the list are normal in a dialect, profession, or second-language writing style. The tool
