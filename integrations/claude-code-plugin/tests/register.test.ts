@@ -105,6 +105,21 @@ describe('register', () => {
     expect(questions).toBe(1)
     expect(logged).toEqual([row])
   })
+  // Issue #116: on 2.1.294 a typed answer resolves `$.ui.ask` to the typed
+  // text, while "Chat about this" and Esc both reject the same way.
+  test('a typed answer to the write approval reaches the model as the person\'s words', async ($, on) => {
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Keep it, the quote is from the customer' } } }
+    })
+    const result = await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    expect(result.deny).toContain('The user answered instead of choosing: "Keep it, the quote is from the customer"')
+    expect(result.deny).not.toContain('dismissed')
+  })
   test('keeps a capture-failure notice separate from a blocked reply and omits unknown stderr', async ($, on) => {
     const notice = 'plain-english: model usage capture unavailable.'
     const logged: string[] = []

@@ -281,7 +281,9 @@ export const register: Register = on => {
         // dismissed, or no one to ask
       }
       if (answer !== ask.allow) {
-        const decision = answer === ask.refuse ? 'The user was asked and refused this write.' : 'No approval was received. The dialog was unavailable, dismissed, or unanswered.'
+        const decision = answer === ask.refuse ? 'The user was asked and refused this write.'
+          : answer ? `The user answered instead of choosing: ${JSON.stringify(answer)}`
+          : 'No approval was received. The dialog was unavailable, dismissed, or unanswered.'
         return { deny: `${decision}\n\n${verdict.reason}` }
       }
       repairAttempts.delete(repairKey)

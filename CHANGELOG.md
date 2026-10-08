@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-10-08
+### Fixed
+
+- In the Claude Code plugin's approval dialog, an answer typed under "Type something." now reaches the model as the person's words. It used to be reported as a dismissal, and the text was lost. Choosing "Chat about this" still counts as no approval, because Claude Code 2.1.294 reports it exactly as it reports Esc.
+
 ## [1.12.3] - 2026-10-08
 ### Fixed
 
@@ -669,7 +674,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.4...HEAD
+[1.12.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.4
 [1.12.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.3
 [1.12.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.2
 [1.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.1
