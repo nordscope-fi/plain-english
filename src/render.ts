@@ -141,13 +141,10 @@ function readabilityDescription(r: ReadabilityRule): string {
       "Fires when sentence lengths in a document vary less than " +
       `${r.minSpread}, measured as their standard deviation over their mean. ` +
       `Documents under ${r.minSentences ?? 20} sentences are skipped, having no ` +
-      "spread to speak of. Every other readability rule judges one sentence; this " +
-      "judges the set, and catches the document where no single sentence is hard " +
-      "and the short one that lets a reader rest never arrives. Provisional: the " +
-      "figure clears every document in this repository, and the machine-written " +
-      "side of the comparison is one letter, measured at three stages of its own " +
-      "revision. The spread barely moved across those stages while the giveaway " +
-      "words were being taken out."
+      "spread to speak of. This optional rhythm check is off by default. Independent " +
+      "calibration found frequent findings on human-labelled texts, so the threshold " +
+      "does not establish authorship or writing quality. See the calibration record " +
+      "for source identifiers, measurements and sampling limits."
     );
   }
   const known = r.known?.length

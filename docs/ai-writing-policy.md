@@ -24,7 +24,7 @@ Nothing, by itself. Every finding is reported and the command exits 0, so a labe
 
 ## The rules in force
 
-61 word and punctuation rules, 29 of them blocking, plus 17 sentence shapes judged by a model and 4 readability rules.
+61 word and punctuation rules, 29 of them blocking, plus 17 sentence shapes judged by a model and 3 readability rules.
 
 | Term | Tier | Instead |
 |---|---|---|

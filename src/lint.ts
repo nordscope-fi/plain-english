@@ -838,10 +838,8 @@ function readabilityFindings(
     /**
      * How widely the sentence lengths vary.
      *
-     * Every other rule here judges one sentence. This judges the set. Prose a
-     * person edited swings between short and long; generated prose clusters
-     * near one length, and it goes on clustering after the giveaway words are
-     * taken out, which is the whole reason this exists.
+     * Every other rule here judges one sentence. This optional rule judges the
+     * set. Similar lengths describe rhythm, not authorship or writing quality.
      *
      * The figure is the standard deviation over the mean, so it compares a
      * short document with a long one. Sentences under three words are dropped:
