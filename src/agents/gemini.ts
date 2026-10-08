@@ -1,5 +1,6 @@
 /** Google Gemini CLI hooks, following the native BeforeTool/AfterAgent API. */
 
+import { ISSUE_TOOL_PATTERN } from "./issue.ts";
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_MS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
@@ -10,7 +11,7 @@ const RUNNER = runnerPath(".gemini");
 const CHANNELS = [
   { channel: "docs", matcher: "write_file|replace" },
   { channel: "github", matcher: "run_shell_command" },
-  { channel: "issue", matcher: "mcp_.*_save_(issue|comment)" },
+  { channel: "issue", matcher: ISSUE_TOOL_PATTERN },
 ] as const;
 
 export const gemini: AgentProfile = {

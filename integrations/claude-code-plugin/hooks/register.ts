@@ -2,13 +2,11 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { approveTerm } from './approval.mjs'
 import { classifyShellCommand } from './shell.mjs'
+import { ISSUE_TOOLS } from './issue-tools.mjs'
 import { askFor, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
 
 /** Files the docs channel judges. The CLI strips code and frontmatter itself. */
 const MARKDOWN = /\.(md|markdown|mdx)$/i
-
-/** The Linear MCP tools the issue channel judges, as `init` matches them. */
-const ISSUE_TOOLS = /^mcp__linear__save_(issue|comment)$/
 
 /**
  * The CLI as `scripts/build-plugin.mjs` bundles it on every `npm run build`:

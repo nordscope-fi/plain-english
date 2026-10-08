@@ -25,7 +25,7 @@ import { directivesIn, lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
 import { maskNonProse } from "../mask.ts";
 import { matchesAny } from "../glob.ts";
-import { asRecord, parseApplyPatch, pick, pickArray } from "../agents/fields.ts";
+import { asRecord, issueFields, parseApplyPatch, pick, pickArray } from "../agents/fields.ts";
 import { shellFileWrites, publishingCommands, parseCommands } from "../shell.ts";
 import type { NormalisedEvent } from "../agents/profile.ts";
 
@@ -447,8 +447,9 @@ function introducedFinding(file: FileText, finding: Finding): boolean {
   return file.changedRanges.some((r) => r.start < end && r.end > offset);
 }
 
-/** The text a Linear-style issue call would show a reader. */
+/** Text an issue, comment or page write would show a reader. */
 export function extractFromIssue(input: Record<string, unknown>): string[] {
+  input = issueFields(input);
   const parts = [pick(input, "title"), pick(input, "description"), pick(input, "body")];
   for (const p of pickArray(input, "patch")) {
     const entry = asRecord(p);

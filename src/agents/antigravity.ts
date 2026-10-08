@@ -3,6 +3,7 @@
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { ISSUE_TOOL_PATTERN, ISSUE_TOOLS } from "./issue.ts";
 import type { AgentProfile } from "./profile.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
 
@@ -51,7 +52,7 @@ export const antigravity: AgentProfile = {
         // The native matcher sees the relay, not the underlying MCP name.
         // Keep unrelated MCP tools out of the issue channel.
         return { tool: "other", cwd, input:
-          /(?:^|[_:-])save_(?:issue|comment)$/.test(pick(input, "ToolName"))
+          ISSUE_TOOLS.test(pick(input, "ToolName"))
             ? issueFields(asRecord(input["Arguments"])) : {},
         };
       default:
@@ -74,7 +75,7 @@ export const antigravity: AgentProfile = {
     const channels = [
       { channel: "docs", matcher: "write_to_file|replace_file_content|multi_replace_file_content|run_command" },
       { channel: "github", matcher: "run_command" },
-      { channel: "issue", matcher: "call_mcp_tool|.*save_(issue|comment).*" },
+      { channel: "issue", matcher: `^(?:call_mcp_tool|${ISSUE_TOOL_PATTERN.slice(1, -1)})$` },
     ];
     return {
       config: [

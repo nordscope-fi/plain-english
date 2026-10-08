@@ -10,6 +10,7 @@
  * Docs: https://code.claude.com/docs/en/hooks
  */
 
+import { ISSUE_TOOL_PATTERN } from "./issue.ts";
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
@@ -35,7 +36,7 @@ const CHANNELS = [
   },
   {
     channel: "issue",
-    matcher: "mcp__linear__save_issue|mcp__linear__save_comment",
+    matcher: ISSUE_TOOL_PATTERN,
     script: "plain-english-issue.sh",
     ifRule: undefined,
   },

@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-08
+### Added
+
+- Issue hooks check Jira summaries, nested descriptions and comments, plus Confluence page and comment writes. Rich documents contribute visible prose; code, quoted passages and metadata remain outside checks. Every agent uses the same write-tool selection.
+
 ## [1.8.0] - 2026-10-08
 ### Added
 
@@ -629,7 +634,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.9.0
 [1.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.8.0
 [1.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.7.0
 [1.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.6.0

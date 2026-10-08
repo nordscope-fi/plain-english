@@ -14,6 +14,7 @@
  * Docs: https://docs.github.com/en/copilot/reference/hooks-reference
  */
 
+import { ISSUE_TOOL_PATTERN } from "./issue.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve } from "node:path";
@@ -29,7 +30,7 @@ const RUNNER = runnerPath(".github");
 const MATCHERS = {
   docs: "Write|Edit|MultiEdit",
   github: "Bash",
-  issue: "mcp__linear__save_issue|mcp__linear__save_comment",
+  issue: ISSUE_TOOL_PATTERN,
 } as const;
 
 function copilotHome(): string {

@@ -6,8 +6,10 @@ Hook input (contains the tool call, including the title and body being written):
 $ARGUMENTS
 
 Judge ONLY the text this call would put in front of a reader: tool_input.title,
-tool_input.description, tool_input.body, and the new_string / text fields of any
-tool_input.patch entry. Ignore issue IDs, labels and other metadata.
+tool_input.description, tool_input.body, tool_input.summary, fields.summary,
+fields.description, commentBody, content, and new_string / text in patch entries.
+For rich documents, judge visible paragraph and heading text. Ignore HTML attributes,
+rich-text metadata, code, quoted passages, issue IDs, labels and other metadata.
 
 Do NOT judge tool_input.patch old_string or anchor values. That is existing text being
 replaced or located, not text being introduced, so someone fixing one line of an old body

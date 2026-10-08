@@ -17,6 +17,7 @@
  * Docs: https://learn.chatgpt.com/docs/hooks
  */
 
+import { ISSUE_TOOL_PATTERN } from "./issue.ts";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -34,7 +35,7 @@ const command = (channel: string) =>
 const CHANNELS = [
   { channel: "docs", matcher: "apply_patch|Write|Edit|MultiEdit" },
   { channel: "github", matcher: "Bash" },
-  { channel: "issue", matcher: "mcp__linear__save_issue|mcp__linear__save_comment" },
+  { channel: "issue", matcher: ISSUE_TOOL_PATTERN },
 ] as const;
 
 /**

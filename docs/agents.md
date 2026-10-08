@@ -41,6 +41,25 @@ Vibe uses its own CLI and its normal conversation storage behavior.
 Its child disables ordinary project context and prompt detail. Custom agent profiles and administrator settings can still supply context under Vibe's own configuration.
 Pattern checks run everywhere.
 
+## Jira and Confluence writes
+
+The issue channel checks Linear issue and comment writes, Jira creation and edits,
+and Confluence page and comment writes. Jira summaries and nested descriptions
+are included, along with comment bodies and page content. Updating a label or an
+assignee introduces no prose and produces no finding.
+
+Jira rich documents contribute paragraph and heading text. Confluence storage
+HTML contributes visible text with character entities decoded. Code, quoted
+passages, attributes, identifiers and removed patch text are skipped. Unknown
+document containers remain outside coverage. Checks apply to the supplied text;
+they do not fetch an existing page or merge a partial update with server content.
+
+Tool selection follows [Atlassian's write-tool catalog](https://developer.atlassian.com/cloud/rovo-mcp/guides/supported-tools/).
+Document extraction follows the [Atlassian document structure](https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/).
+Deferred tools invoked through a generic execution gateway remain outside coverage
+unless the host exposes a recognised write-tool name. Test the tool names your
+connection exposes after running initialization again.
+
 After upgrading a settings-hook installation, run `plain-english init --agent <id>` again.
 This replaces older independent prompt or judge hooks that cannot read the runtime setting.
 The Claude plugin updates its bundled hooks without writing project settings.
