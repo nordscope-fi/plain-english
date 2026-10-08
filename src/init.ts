@@ -118,7 +118,10 @@ function isOurs(entry: unknown): boolean {
       }
       const script = executable === "node" || executable === "bash" || executable === "sh"
         ? tokens[1] : tokens[0];
-      return /(?:^|[/\\])\.(?:claude|codex|copilot|cursor|github|vibe|gemini|qwen)[/\\]hooks[/\\]plain-english(?:-(?:docs|github|issue|chat|judge))?\.(?:mjs|sh|ps1)$/.test(script ?? "");
+      // Antigravity invokes commands from .agents, so its owned runner is relative.
+      if (script === "hooks/plain-english.mjs" && tokens[2] === "hook" &&
+          tokens.at(-2) === "--agent" && tokens.at(-1) === "antigravity") return true;
+      return /(?:^|[/\\])\.(?:agents|claude|codex|copilot|cursor|github|vibe|gemini|qwen)[/\\]hooks[/\\]plain-english(?:-(?:docs|github|issue|chat|judge))?\.(?:mjs|sh|ps1)$/.test(script ?? "");
     });
   });
 }
@@ -683,7 +686,7 @@ export function init(opts: InitOptions): number {
       const doc = load(path);
       if (doc === null) return 2;
       const current = docs.get(path)!;
-      const next: Json = { ...current };
+      let next: Json = { ...current };
       const changes: string[] = [];
       for (const [key, value] of Object.entries(patch.set)) {
         const before = current[key];
@@ -696,6 +699,20 @@ export function init(opts: InitOptions): number {
             : `${key}=${JSON.stringify(value)} (was ${JSON.stringify(before)})`,
         );
         next[key] = value;
+      }
+      for (const addition of patch.append ?? []) {
+        const before = readAt(next, addition.at);
+        if (before !== undefined && typeof before !== "string" &&
+            !(Array.isArray(before) && before.every((value) => typeof value === "string"))) {
+          process.stderr.write(`plain-english: ${relative(root, path)} ${addition.at.join(".")} is not a filename or filename array, refusing to touch it\n`);
+          return 2;
+        }
+        const existing = typeof before === "string" ? [before] :
+          Array.isArray(before) ? before : addition.defaults ?? [];
+        const merged = [...new Set([...existing, ...addition.values])];
+        if (JSON.stringify(before) === JSON.stringify(merged)) continue;
+        next = writeAt(next, addition.at, merged);
+        changes.push(`${addition.at.join(".")}=${JSON.stringify(merged)}`);
       }
       if (!changes.length) continue;
       docs.set(path, next);

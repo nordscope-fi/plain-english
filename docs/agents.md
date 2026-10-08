@@ -10,6 +10,7 @@ npx plain-english init --agent codex
 npx plain-english init --agent cursor
 npx plain-english init --agent vibe
 npx plain-english init --agent gemini
+npx plain-english init --agent antigravity
 npx plain-english init --agent qwen
 npx plain-english init --agent all
 npx plain-english init --agent cursor --dry-run   # see what would change
@@ -28,6 +29,7 @@ twice and nothing changes the second time.
 | Cursor | `.cursor/hooks.json` | yes | no | no |
 | Mistral Vibe | `.vibe/hooks.toml`, in a folder you have trusted | yes | no | yes, opt-in |
 | Google Gemini CLI | `.gemini/settings.json` | yes | no | no |
+| Google Antigravity CLI | `.agents/hooks.json` | yes | yes | no |
 | Qwen Code | `.qwen/settings.json` | yes | no | no |
 
 The semantic layer asks a model to check sentence shapes that patterns cannot judge.
@@ -46,7 +48,7 @@ The Claude plugin updates its bundled hooks without writing project settings.
 ## What the advisory default means on each agent
 
 `failOn: never` is the default, and it means "tell me, do not stop me". Five of
-the seven agents have no reliable interactive `ask` reply. An adapter that emits
+the eight agents have no reliable interactive `ask` reply. An adapter that emits
 an unsupported value can look installed and report nothing, or can turn advice
 into a refusal in a headless run.
 
@@ -60,6 +62,7 @@ So the advisory finding is fed back to the model as text instead:
 | Cursor | `postToolUse` → `additional_context` | `preToolUse` → `deny` |
 | Mistral Vibe | `post_tool` → `additional_context` | `pre_tool` → `deny` |
 | Google Gemini CLI | `AfterTool` → `additionalContext` | `BeforeTool` → `deny` |
+| Google Antigravity CLI | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
 | Qwen Code | `PreToolUse` → `allow` plus `additionalContext` | `PreToolUse` → `deny` |
 
 Codex and Qwen can attach advice to the pre event. Cursor, Vibe and Gemini use
@@ -251,6 +254,54 @@ Gemini's native file tools are `write_file` and `replace`; shell work uses
 `run_shell_command`. Hook timeouts are milliseconds, unlike the seconds used
 by Codex, Cursor and Vibe.
 
+Personal Google sign-in stopped serving Gemini CLI requests on June 18, 2026,
+including Google AI Pro and Ultra accounts. API key authentication and licensed
+Code Assist accounts remain supported. Personal accounts should migrate to
+Antigravity CLI. [Google's deprecation notice](https://developers.google.com/gemini-code-assist/docs/deprecations/code-assist-individuals).
+
+### Google Antigravity CLI
+
+Reference: [Antigravity hooks](https://antigravity.google/docs/hooks/).
+
+Antigravity reads named hooks from `.agents/hooks.json`. Gemini's hooks in
+`.gemini/settings.json` use a different protocol and cannot be copied directly.
+Run `plain-english init --agent antigravity` after installing `agy` and completing
+its Google sign-in. Existing project instructions in `AGENTS.md` are read by
+Antigravity without conversion. [Official migration guide](https://antigravity.google/docs/cli/gcli-migration/).
+
+The native file tools are `write_to_file`, `replace_file_content`, and
+`multi_replace_file_content`. Shell work uses `run_command`. The adapter reads
+the tool's actual working directory and checks shell writes as well as file
+tools. Hook timeouts are seconds. Advisory tool findings ask for approval and
+strict findings deny the proposed call.
+Antigravity checks use the local rules and do not start a Claude judge process.
+Workspace hook commands run from `.agents`, so their launcher path is relative
+to that directory. The launcher then starts the linter from the workspace root.
+Native issue calls arrive through `call_mcp_tool`; the adapter checks the nested
+arguments only when the underlying tool saves an issue or comment.
+The multiple-replacement parser follows the documented tool format. CLI `1.3.1`
+rejected that tool as unknown during a live check, so only single replacements
+were verified on this build.
+
+The native `Stop` event supports requesting a rewrite for a strict chat finding.
+It has no advisory context output, so advisory chat findings do not interrupt
+the reply. Use local chat linting to inspect those findings.
+
+Verified on CLI `1.3.1`: a strict file write was refused before creation, and a
+strict chat finding requested a rewrite. Follow-up live checks also refused a
+single edit, a shell write, and an issue save through a local mock server.
+Print mode includes the original reply
+and its rewrite in its combined output; a Stop hook cannot retract text already
+printed. The reader uses completed model-response steps from the transcript
+named by the hook. Explicit user-input steps identify turns, so retry feedback
+does not disable checks for the next user request.
+
+History scans use workspace paths from Antigravity's conversation index. The
+reader copies the database and its recent-write log before opening them. History
+scanning needs Node `22.5` or newer. The live chat hook reads one JSON record per
+line (JSONL) without opening the database.
+`PLAIN_ENGLISH_ANTIGRAVITY_HOME` overrides the store path for this linter only.
+
 ### Qwen Code
 
 Reference: [Qwen Code hooks](https://qwenlm.github.io/qwen-code-docs/).
@@ -309,9 +360,11 @@ Two mechanisms, and they do not reach equally far.
 | GitHub Copilot CLI 1.0.78 | `Stop` | **no** | yes, in `events.jsonl` | observed |
 | GitHub Copilot CLI 1.0.78 | `subagentStop` | yes, `response` | not applicable | docs |
 | Cursor CLI 2026.08.04 | no dispatched stop event | not applicable | not applicable | observed, historical |
-| Cursor current | `stop`, `subagentStop` | no, names `transcript_path` | documented | docs, installed by 0.24.0 |
-| Gemini CLI | `AfterAgent` | yes, `prompt_response` | yes | docs |
-| Qwen Code | `Stop`, `SubagentStop` | yes, `last_assistant_message` | documented fallback | docs |
+| Cursor CLI 2026.10.01, interactive | `stop` | no, names `agent_transcript_path` | yes | observed; subagent retry unverified |
+| Cursor CLI 2026.08.25 and 2026.10.01, print | no Stop captured in no-tool controls | not applicable | not applicable | observed |
+| Gemini CLI 0.63.0 | `AfterAgent` | yes, `prompt_response` | source | source; live access unavailable |
+| Google Antigravity CLI 1.3.1 | `Stop` | no, names a transcript | yes | observed rewrite; print retains initial reply |
+| Qwen Code 0.25.0 | `Stop`, `SubagentStop` | yes, `last_assistant_message` | documented fallback | main-loop retry observed; subagent unverified |
 | Mistral Vibe 2.24.1 | `post_agent` | no, names `transcript_path` | yes | observed |
 
 The rows marked observed were run against live binaries with a tracer registered on
@@ -364,14 +417,21 @@ block key.
 reader prefers that over the SQLite store, which can lag the event asking about it.
 Registering both `Stop` and `agentStop` runs the hook twice, so pick one casing.
 
-**Cursor's current contract differs from the older live result.** The 2026.08.04
-binary dispatched neither `stop` nor `afterAgentResponse`; current documentation
-defines `stop` and `subagentStop`, with `followup_message` as the retry response.
-The adapter follows the current contract and reads the named JSONL transcript.
+**Cursor's interactive and print modes differ.** Interactive Stop delivery and a
+rewrite were observed on 2026.10.01-e373342. The payload names
+`agent_transcript_path`; retry generations change their ID and carry `loop_count`.
+The adapter keeps the active user turn across those retries and checks fresh requests.
+No Stop event was captured in no-tool print controls on that build or 2026.08.25.
+Use history linting when the CLI does not dispatch the event.
 
-Still unverified, and worth saying rather than leaving implied: Claude Code and Codex
-`SubagentStop` blocking, Copilot's `subagentStop` payload, Cursor's current stop events,
-and Gemini and Qwen completed-turn retries.
+Still unverified: Claude Code and Codex `SubagentStop` blocking, Copilot's
+`subagentStop` payload, Cursor subagent retries and Gemini completed-turn retries.
+Qwen main-loop retries completed with isolated settings on 0.25.0. Earlier runs
+with the operator's settings timed out; the cause has not been identified.
+
+Gemini distinguishes fresh requests through native IDs or retained user records.
+Without either, different questions get separate checks, but identical repeated
+questions share the temporary retry allowance. Restore readable history to distinguish them.
 
 **Copilot's `modifiedResponse` is deliberately unused.** It would replace a subagent's
 output before the parent sees it, which is a stronger tool than anything else here.
@@ -402,6 +462,7 @@ session write one.
 | GitHub Copilot | `$COPILOT_HOME/session-store.db`, SQLite | `turns.assistant_response`, scoped by `sessions.cwd` | observed, and docs |
 | Mistral Vibe | `$VIBE_HOME/logs/session/session_*/messages.jsonl`, and subagents at `<session>/agents/*/` | `{role:"assistant", content}` as a string, skipping `injected` | observed, and source |
 | Google Gemini CLI | `$GEMINI_CLI_HOME/.gemini/tmp/<project>/chats/*.jsonl` | `type=gemini`, string or text parts, skipping thoughts | docs |
+| Google Antigravity CLI | `~/.gemini/antigravity-cli/brain/<conversation>/.system_generated/logs/transcript_full.jsonl` | completed `PLANNER_RESPONSE` steps from `MODEL`, indexed by `step_index` | observed on CLI 1.3.1 |
 | Qwen Code | `$QWEN_HOME/projects/<project>/chats/*.jsonl`, with subagents beside it | `type=assistant`, `message.parts[].text`, skipping thoughts | docs |
 
 Four things about that table are worth carrying:
@@ -442,8 +503,12 @@ different things get three different names:
 | OpenAI Codex CLI | observed | observed, **with two gates, see below** | observed |
 | GitHub Copilot | observed, including 1.0.80 `file_text` | observed on 1.0.80 with prompt-mode opt-in | observed |
 | Mistral Vibe | observed | observed, **needs a trusted folder, see below** | observed |
-| Google Gemini CLI | docs | docs, **needs project hook trust** | not yet observed |
-| Qwen Code | docs | docs, **needs project hook trust** | not yet observed |
+| Google Gemini CLI | source on 0.63.0 | source and native loader, **needs project hook trust** | unavailable with the measured individual account |
+| Google Antigravity CLI | observed on CLI 1.3.1 | observed strict native write refusal | observed rewrite; print output retains the initial reply |
+| Qwen Code | observed main-loop Stop on 0.25.0 | observed with isolated settings, **needs project hook trust** | document write remains unverified |
+
+The [October integration repair record](integration-repairs.md) separates fresh
+release checks from earlier observations and lists the remaining live coverage gaps.
 
 Cursor's write path was verified against `cursor-agent 2026.08.04-aaa8809` on
 2026-08-09. Its pre/post hooks were checked again on 2026.08.11-e8db854 on
@@ -714,7 +779,7 @@ file and read the output. See [`post-edit-lint.md`](post-edit-lint.md).
 **Editor diagnostics.** See [`editors.md`](editors.md). Several agents read their editor's
 Problems list and treat what they find there as work to do.
 
-Windsurf, Antigravity, Cline, opencode and Amp all have real interception
+Windsurf, Cline, opencode and Amp all have real interception
 points and no profile here yet. Adding one is a file in `src/agents/` plus a row in the
 registry; the deciding does not change.
 

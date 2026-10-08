@@ -81,6 +81,10 @@ export const gemini: AgentProfile = {
         ],
       }));
     return {
+      settings: [{
+        path: ".gemini/settings.json", set: {},
+        append: [{ at: ["context", "fileName"], values: ["AGENTS.md"], defaults: ["GEMINI.md"] }],
+      }],
       config: [
         { path: ".gemini/settings.json", at: ["hooks", "BeforeTool"], shape: "nested", entries: toolEntries("pre") },
         { path: ".gemini/settings.json", at: ["hooks", "AfterTool"], shape: "nested", entries: toolEntries("post") },

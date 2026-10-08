@@ -171,9 +171,16 @@ export function parseCommands(input: string): Command[] {
           } else if (windowsPathPrefix(out)) {
             out += "\\";
             j++;
-          } else {
+          } else if ('\\"$`'.includes(input[j + 1]!)) {
             out += input[j + 1];
             j += 2;
+          } else if (input[j + 1] === "\n") {
+            j += 2;
+          } else {
+            // Double quotes retain backslashes before ordinary characters.
+            // In particular, printf must still receive its \n and \t escapes.
+            out += "\\";
+            j++;
           }
           continue;
         }
@@ -181,7 +188,7 @@ export function parseCommands(input: string): Command[] {
           closed = true;
           break;
         }
-        if (input[j] === "$") expands = true;
+        if (input[j] === "$" || input[j] === "`") expands = true;
         out += input[j];
         j++;
       }
@@ -191,6 +198,19 @@ export function parseCommands(input: string): Command[] {
       }
       word += out;
       quoted = true;
+      i = j + 1;
+      continue;
+    }
+
+    if (c === "`") {
+      expands = true;
+      let j = i + 1;
+      while (j < input.length && input[j] !== "`") {
+        if (input[j] === "\\") j++;
+        j++;
+      }
+      if (j >= input.length) { current.unterminated = true; break; }
+      word += input.slice(i, j + 1);
       i = j + 1;
       continue;
     }
@@ -293,15 +313,49 @@ export function parseCommands(input: string): Command[] {
 /** Flags that carry no content, so a leading one is skipped rather than judged. */
 const ECHO_FLAGS = new Set(["-e", "-n", "-E"]);
 
-/**
- * A format string and nothing else, such as `'%s\n'`.
- *
- * `printf` takes one of these before its values. Judging it would be harmless
- * noise rather than a false positive, but it is noise in a refusal message a
- * human has to read.
- */
-function isFormatOnly(s: string): boolean {
-  return /^[\s%sdifgxbcqu\\n\\t.\-0-9]*$/.test(s) && /%|\\/.test(s);
+/** Literal printf subset: %s, %%, and common escapes. No shell execution. */
+function printfContent(words: Word[]): string {
+  let args = words;
+  if (args[0]?.text === "--") args = args.slice(1);
+  else if (args[0]?.text.startsWith("-")) return "";
+  if (!args.length || args.some((word) => word.expands)) return "";
+  const format = args[0]!.text;
+  const tokens: (string | null)[] = [];
+  let literal = "";
+  let conversions = 0;
+  const escapes: Record<string, string> = {
+    n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", f: "\f", v: "\v", "\\": "\\",
+  };
+  for (let i = 0; i < format.length; i++) {
+    const char = format[i]!;
+    if (char === "%") {
+      const next = format[++i];
+      if (next === "%") literal += "%";
+      else if (next === "s") {
+        tokens.push(literal, null);
+        literal = "";
+        conversions++;
+      } else return "";
+    } else if (char === "\\") {
+      const escaped = escapes[format[++i] ?? ""];
+      if (escaped === undefined) return "";
+      literal += escaped;
+    } else literal += char;
+  }
+  tokens.push(literal);
+  let argument = 1;
+  let size = 0;
+  const result: string[] = [];
+  do {
+    for (const token of tokens) {
+      const text = token === null ? args[argument++]?.text ?? "" : token;
+      size += text.length;
+      // Repeating a long format can multiply a short input into gigabytes.
+      if (size > 256 * 1024) return "";
+      result.push(text);
+    }
+  } while (conversions > 0 && argument < args.length);
+  return result.join("");
 }
 
 /**
@@ -317,12 +371,13 @@ function contentOf(cmd: Command): string {
   const name = cmd.words[0]?.text ?? "";
   if (name !== "printf" && name !== "echo") return "";
 
+  if (name === "printf") return printfContent(cmd.words.slice(1));
+
   const args = cmd.words.slice(1).filter((w) => !ECHO_FLAGS.has(w.text));
   // A value the shell would substitute is not readable here.
   if (args.some((a) => a.expands)) return "";
 
   const texts = args.map((a) => a.text);
-  if (name === "printf" && texts.length > 1 && isFormatOnly(texts[0]!)) texts.shift();
   return texts.join(" ");
 }
 

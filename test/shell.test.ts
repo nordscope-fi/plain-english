@@ -21,8 +21,7 @@ describe("the writes it catches", () => {
   it("reads the command Copilot actually ran", () => {
     const got = one(`printf '%s\\n' "We leverage this approach." > notes.md && echo 'WROTE'`);
     expect(got.path).toBe("notes.md");
-    // The format string is dropped: it is noise in a message a human reads.
-    expect(got.text).toBe("We leverage this approach.");
+    expect(got.text).toBe("We leverage this approach.\n");
   });
 
   it("reads an append", () => {
@@ -60,6 +59,30 @@ describe("the writes it catches", () => {
  * Each of these would be a refused write that was never going to a file. They
  * are the reason this is a scanner and not a regular expression.
  */
+describe("literal printf output", () => {
+  it.each([
+    [`printf 'We lever%s this approach.\\n' age > notes.md`, "We leverage this approach.\n"],
+    [`printf 'The cache holds results.\\n' 'We leverage this approach.' > notes.md`, "The cache holds results.\n"],
+    [`printf '%s:%s\\n' a b c d > notes.md`, "a:b\nc:d\n"],
+    [`printf '%% %s\\t%s\\n' a b > notes.md`, "% a\tb\n"],
+    [`printf '%s/%s' a > notes.md`, "a/"],
+    [`printf -- '-%s' a > notes.md`, "-a"],
+    [`printf "%s\\n" "The cache expires." > notes.md`, "The cache expires.\n"],
+  ])("matches the bytes written by %s", (command, output) => {
+    expect(one(command).text).toBe(output);
+  });
+
+  it.each([
+    `printf '%d' 12 > notes.md`,
+    `printf '%q' 'We leverage this approach.' > notes.md`,
+    `printf '%s' "$(cat private.txt)" > notes.md`,
+    "printf '%s' `cat private.txt` > notes.md",
+    `printf '\\u1234' > notes.md`,
+  ])("does not invent output for unsupported formatting: %s", (command) => {
+    expect(w(command)).toEqual([]);
+  });
+});
+
 describe("the writes it refuses to invent", () => {
   it("does not mistake a redirect inside a quoted string for the target", () => {
     // A pattern reading the first `>` targets README.md. The real target is

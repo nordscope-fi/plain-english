@@ -97,7 +97,10 @@ probe("patch old_string is not judged", {
 
 console.log("\n-- per agent --");
 
-const profileWrite = (id) => ({
+const profileWrite = (id) => id === "antigravity" ? {
+  conversationId: "probe", workspacePaths: [T],
+  toolCall: { name: "write_to_file", args: { TargetFile: `${T}/x.md`, CodeContent: `a ${EM} b` } },
+} : ({
   ...(id === "gemini" || id === "qwen" || id === "vibe"
     ? {
         hook_event_name: id === "gemini" ? "BeforeTool" : id === "qwen" ? "PreToolUse" : "pre_tool",

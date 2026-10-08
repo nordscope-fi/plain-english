@@ -4,6 +4,22 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-08
+### Added
+
+- Antigravity CLI hooks and chat history, including native issue relays and launchers that run from the configuration directory. Local checks use the owner's existing sign-in and require no second agent account.
+- A committed executable for pre-commit installations from Git source. The root manifest supports Markdown and commit-message stages without a build or global package installation.
+
+### Fixed
+
+- Optional diagnostic captures redact native argument fields and rich-content descendants, including Antigravity prose and serialized Copilot arguments. File paths retain the existing scrubbing, and verbatim synthetic fixtures remain explicit.
+- Copilot raw patch edits now retain file destinations and added prose. Cursor issue hooks select native issue and comment tool names.
+- Shell document checks reproduce supported literal printf formats, including substitutions, repeated formats, and escapes. Unsupported conversions remain outside coverage.
+- Chat checks distinguish fresh user turns from Cursor retries even when the host changes generation identifiers. Session identities remain separate, and Gemini ignores injected hook context when finding the latest question.
+- Gemini initialization loads the generated writing instructions while preserving existing filenames. History applies message updates, rewinds, and snapshots, retains legacy sessions, and follows native home-directory semantics.
+- Cursor history uses exact session metadata or exact project-folder names to exclude neighbouring repositories.
+- Refusal remedies now match their channel and failure threshold. Self-lint fails on blocking findings, and optional Action findings-file generation cannot override the requested threshold.
+
 ## [1.7.0] - 2026-10-08
 ### Added
 
@@ -613,7 +629,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.8.0
 [1.7.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.7.0
 [1.6.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.6.0
 [1.5.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.5.1

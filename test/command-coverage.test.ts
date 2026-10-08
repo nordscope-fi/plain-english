@@ -77,4 +77,23 @@ describe("shared shell coverage", () => {
   it("reads attached commit messages after git options and whitespace", () => {
     expect(extractFromBash('  git -c user.name=Example commit -m"We leverage this."')).toContain("We leverage this.");
   });
+  it("keeps later message flags outside a clean commit", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-command-boundary-")); dirs.push(dir);
+    const event = { tool: "bash" as const, cwd: dir, input: {
+      command: 'git commit -m "The cache holds results." && echo -m "We leverage this."',
+    } };
+    expect(extractFromBash(event.input.command)).toEqual(["The cache holds results."]);
+    expect(decide(event, "github", { projectDir: dir, ruleSet: rules }).decision).toBe("allow");
+  });
+  it("joins adjacent quoted fragments in a commit message", () => {
+    expect(extractFromBash('git -c user.name=Example commit -m "We "leverage" this."')).toEqual(["We leverage this."]);
+  });
+  it("preserves exclusions after a directory change", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-command-exclude-")); dirs.push(dir);
+    mkdirSync(resolve(dir, "nested"));
+    const scoped = compile({ ...loadDefault(), failOn: "error", exclude: ["nested/secret.md"] });
+    const event = { tool: "bash" as const, cwd: dir, input: { command: "cd nested && printf '%s\\n' 'We leverage this.' > secret.md" } };
+    expect(decide(event, "github", { projectDir: dir, ruleSet: scoped }).decision).toBe("allow");
+    expect(decide(event, "github", { projectDir: dir, ruleSet: rules }).decision).toBe("deny");
+  });
 });

@@ -105,9 +105,14 @@ function parseCommands(input) {
           } else if (windowsPathPrefix(out)) {
             out += "\\";
             j++;
-          } else {
+          } else if ('\\"$`'.includes(input[j + 1])) {
             out += input[j + 1];
             j += 2;
+          } else if (input[j + 1] === "\n") {
+            j += 2;
+          } else {
+            out += "\\";
+            j++;
           }
           continue;
         }
@@ -115,7 +120,7 @@ function parseCommands(input) {
           closed = true;
           break;
         }
-        if (input[j] === "$") expands = true;
+        if (input[j] === "$" || input[j] === "`") expands = true;
         out += input[j];
         j++;
       }
@@ -125,6 +130,21 @@ function parseCommands(input) {
       }
       word += out;
       quoted = true;
+      i = j + 1;
+      continue;
+    }
+    if (c === "`") {
+      expands = true;
+      let j = i + 1;
+      while (j < input.length && input[j] !== "`") {
+        if (input[j] === "\\") j++;
+        j++;
+      }
+      if (j >= input.length) {
+        current.unterminated = true;
+        break;
+      }
+      word += input.slice(i, j + 1);
       i = j + 1;
       continue;
     }
@@ -209,17 +229,63 @@ function parseCommands(input) {
   return commands;
 }
 var ECHO_FLAGS = /* @__PURE__ */ new Set(["-e", "-n", "-E"]);
-function isFormatOnly(s) {
-  return /^[\s%sdifgxbcqu\\n\\t.\-0-9]*$/.test(s) && /%|\\/.test(s);
+function printfContent(words) {
+  let args = words;
+  if (args[0]?.text === "--") args = args.slice(1);
+  else if (args[0]?.text.startsWith("-")) return "";
+  if (!args.length || args.some((word) => word.expands)) return "";
+  const format = args[0].text;
+  const tokens = [];
+  let literal = "";
+  let conversions = 0;
+  const escapes = {
+    n: "\n",
+    t: "	",
+    r: "\r",
+    a: "\x07",
+    b: "\b",
+    f: "\f",
+    v: "\v",
+    "\\": "\\"
+  };
+  for (let i = 0; i < format.length; i++) {
+    const char = format[i];
+    if (char === "%") {
+      const next = format[++i];
+      if (next === "%") literal += "%";
+      else if (next === "s") {
+        tokens.push(literal, null);
+        literal = "";
+        conversions++;
+      } else return "";
+    } else if (char === "\\") {
+      const escaped = escapes[format[++i] ?? ""];
+      if (escaped === void 0) return "";
+      literal += escaped;
+    } else literal += char;
+  }
+  tokens.push(literal);
+  let argument = 1;
+  let size = 0;
+  const result = [];
+  do {
+    for (const token of tokens) {
+      const text = token === null ? args[argument++]?.text ?? "" : token;
+      size += text.length;
+      if (size > 256 * 1024) return "";
+      result.push(text);
+    }
+  } while (conversions > 0 && argument < args.length);
+  return result.join("");
 }
 function contentOf(cmd) {
   if (cmd.heredocs.length) return cmd.heredocs.join("\n");
   const name = cmd.words[0]?.text ?? "";
   if (name !== "printf" && name !== "echo") return "";
+  if (name === "printf") return printfContent(cmd.words.slice(1));
   const args = cmd.words.slice(1).filter((w) => !ECHO_FLAGS.has(w.text));
   if (args.some((a) => a.expands)) return "";
   const texts = args.map((a) => a.text);
-  if (name === "printf" && texts.length > 1 && isFormatOnly(texts[0])) texts.shift();
   return texts.join(" ");
 }
 function shellFileWrites(input, baseDir) {

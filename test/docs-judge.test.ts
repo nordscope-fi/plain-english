@@ -66,7 +66,7 @@ function runHook(input: string, opts: { withClaude: boolean; agent?: string; cha
     cwd: dir,
     input,
     encoding: "utf8",
-    env: { ...process.env, PLAIN_ENGLISH_VIBE_JUDGE: "0", ...opts.extraEnv, PATH, NO_COLOR: "1" },
+    env: { ...process.env, PLAIN_ENGLISH_CHAT_JUDGE: "0", PLAIN_ENGLISH_VIBE_JUDGE: "0", ...opts.extraEnv, PATH, NO_COLOR: "1" },
   });
   let called = false;
   try {

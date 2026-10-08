@@ -11,6 +11,7 @@ import { codexChat } from "./codex.ts";
 import { copilotChat } from "./copilot.ts";
 import { cursorChat } from "./cursor.ts";
 import { geminiChat } from "./gemini.ts";
+import { antigravityChat } from "./antigravity.ts";
 import { qwenChat } from "./qwen.ts";
 import { vibeChat } from "./vibe.ts";
 import type { ChatReader, ReadOptions, Reply } from "./reader.ts";
@@ -22,6 +23,7 @@ export const READERS: readonly ChatReader[] = [
   cursorChat,
   vibeChat,
   geminiChat,
+  antigravityChat,
   qwenChat,
 ];
 

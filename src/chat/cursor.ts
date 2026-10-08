@@ -56,13 +56,35 @@ function projectsDir(): string {
  *
  * `~/.cursor/chats/<hash>/<uuid>/meta.json` carries a `cwd`, and the project
  * directory name is the path with its separators flattened. The name is used
- * only as a hint: a reply is kept when the requested directory appears in it,
- * so a scan scoped to one repository does not read every project on disk.
+ * only as an exact fallback when the session has no project metadata. Flattened
+ * names cannot distinguish a child directory from a similarly named sibling.
  */
 function looksLikeProject(name: string, cwd: string | undefined): boolean {
   if (!cwd) return true;
-  const flattened = cwd.replace(/^\//, "").replace(/[/.]/g, "-");
-  return name.includes(flattened) || flattened.includes(name.replace(/^-/, ""));
+  const flattened = cwd.replace(/[\\/]+$/, "").replace(/^[\\/]/, "").replace(/[\\/.]/g, "-");
+  return name.replace(/^-/, "") === flattened;
+}
+
+function sessionDirectories(): Map<string, string> {
+  const result = new Map<string, string>();
+  const root = resolve(cursorHome(), "chats");
+  let hashes;
+  try { hashes = readdirSync(root, { withFileTypes: true }); }
+  catch { return result; }
+  for (const hash of hashes) {
+    if (!hash.isDirectory()) continue;
+    let sessions;
+    try { sessions = readdirSync(resolve(root, hash.name), { withFileTypes: true }); }
+    catch { continue; }
+    for (const session of sessions) {
+      if (!session.isDirectory()) continue;
+      try {
+        const meta = JSON.parse(readFileSync(resolve(root, hash.name, session.name, "meta.json"), "utf8"));
+        if (typeof meta.cwd === "string") result.set(session.name, meta.cwd);
+      } catch { /* Absent metadata leaves exact folder matching in charge. */ }
+    }
+  }
+  return result;
 }
 
 interface Found {
@@ -74,9 +96,9 @@ function transcripts(cwd: string | undefined, sinceDays: number | undefined, now
   const root = projectsDir();
   if (!existsSync(root)) return [];
   const out: Found[] = [];
+  const directories = sessionDirectories();
   for (const project of readdirSync(root, { withFileTypes: true })) {
     if (!project.isDirectory()) continue;
-    if (!looksLikeProject(project.name, cwd)) continue;
     const dir = resolve(root, project.name, "agent-transcripts");
     let sessions;
     try {
@@ -86,6 +108,8 @@ function transcripts(cwd: string | undefined, sinceDays: number | undefined, now
     }
     for (const session of sessions) {
       if (!session.isDirectory()) continue;
+      const actual = directories.get(session.name);
+      if (actual ? !inScope(actual, cwd) : !looksLikeProject(project.name, cwd)) continue;
       const file = resolve(dir, session.name, `${session.name}.jsonl`);
       let mtime: number;
       try {
@@ -177,7 +201,7 @@ export const cursorChat: ChatReader = {
   },
 
   turnId(payload: Record<string, unknown>): string | undefined {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+    return latestUserTurnId(field(payload, "agent_transcript_path", "transcript_path", "transcriptPath"), (record) => {
       return record["role"] === "user";
     });
   },

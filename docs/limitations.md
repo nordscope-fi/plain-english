@@ -89,10 +89,11 @@ A style reaches the main conversation and a **fork**, which inherits the parent'
 | Claude Code | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes | observed |
 | Codex | `Stop`, `SubagentStop` (`last_assistant_message`) | yes | yes | main loop observed; subagent docs |
 | GitHub Copilot | `Stop` names an event stream; `subagentStop` carries the reply | yes | yes | main loop observed; subagent docs |
-| Cursor | `stop`, `subagentStop` name `transcript_path` | yes | yes | current docs |
+| Cursor | `stop`, `subagentStop` name a transcript | interactive | unverified | interactive main loop observed; no-tool print controls omitted Stop |
 | Mistral Vibe | `post_agent` names `transcript_path` | yes | agent-wide event | observed |
-| Gemini CLI | `AfterAgent` carries `prompt_response` | yes | vendor event | docs |
-| Qwen Code | `Stop`, `SubagentStop` carry or name the reply | yes | yes | docs |
+| Gemini CLI | `AfterAgent` carries `prompt_response` | source | vendor event | source; live access unavailable |
+| Google Antigravity CLI | `Stop` names a transcript | yes | unverified | main-loop rewrite observed; print retains initial reply |
+| Qwen Code | `Stop`, `SubagentStop` carry or name the reply | yes | unverified | isolated main-loop retry observed |
 
 The distinction in the last column matters. A documented event can still be missing from
 a particular build, as Cursor's older command-line tool demonstrated.
@@ -105,6 +106,11 @@ session does retry when the hook returns the documented flat block body. Under
 `claude -p`, treat the chat channel as advisory whatever `failOn` says.
 
 Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A temporary state file keyed on the user turn, when the payload or transcript supplies one, and expiring after ten minutes. And `.plain-english-ack-chat`, which waives the channel like any other.
+
+Cursor retry generations share their active user turn. Fresh requests use the
+native generation or a retained user record. Gemini uses native IDs or retained
+user records too. When neither is available, identical questions cannot be
+distinguished and share the temporary retry allowance.
 
 The bound is two blocks a turn, and the second one is narrow. A block that named nothing but a dash is asking for a substitution, so the reply that comes back is the same reply with different characters, and nothing has yet judged whether a reader could follow it. Across the 218 replies the gate judged in the three days to 2026-08-19 it blocked 69, and 38 of those said nothing but that. So the second block is available only after a punctuation-only first one, and only when the rewrite fails something else. The state file records that it has been used, which is what stops a third.
 
@@ -131,14 +137,15 @@ It is a monitoring event, and a monitoring event that fires per streamed chunk i
 The deterministic rules run identically everywhere. The rest does not.
 
 Extra model checks assess sentence shapes a pattern cannot judge. Claude Code enables them by default.
-Vibe remains opt-in; other agents require `modelChecks: true` and an installed Claude CLI.
+Antigravity runs local checks only. Vibe remains opt-in; other agents require `modelChecks: true` and an installed Claude CLI.
 `modelChecks: false` disables extra calls in the updated shared hooks.
 Older settings-hook installations must rerun `init` to remove independent model hooks.
 Model calls send prose through the configured provider and use the operator's account.
 Claude checks disable local session persistence and automatic project customization loading. Vibe and providers keep their normal storage policies. Vibe custom profiles and administrator settings can still add their own context.
 Excluded prose is removed before these calls. Missing tools, timeouts, and unreadable model results leave pattern checks in force and produce a notice.
 
-All seven profiles install a completed-turn hook, but the table above is deliberately not
+
+All eight profiles install a completed-turn hook, but the table above is deliberately not
 a claim that every retry has been observed. `lint --chat` is the reliable after-the-fact
 measurement when a vendor event is absent or changes shape.
 

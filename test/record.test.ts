@@ -45,6 +45,32 @@ function capture(dir: string, content: string, verbatim = false) {
 }
 
 describe("a capture keeps the shape and drops the prose", () => {
+  it.each([
+    { toolCall: { name: "write_to_file", args: { CodeContent: "synthetic confidential copy", ReplacementContent: "synthetic confidential copy", ToolName: "save_issue", Arguments: { summary: "synthetic confidential copy" } } } },
+    { toolName: "write", toolArgs: JSON.stringify({ content: "synthetic confidential copy" }) },
+    { tool_input: { summary: "synthetic confidential copy", commentBody: "synthetic confidential copy", fields: { description: { type: "doc", content: [{ text: "synthetic confidential copy" }] } }, content: { storage: { value: "synthetic confidential copy", representation: "storage" } } } },
+    { tool_input: { future_vendor_field: "synthetic confidential copy", accessToken: "synthetic confidential copy" } },
+  ])("redacts native argument bags and nested rich prose in %j", raw => {
+    inTmp(dir => {
+      const options = { dir, agent: "synthetic", channel: "docs", event: "pre" as const, projectDir: dir, version: "test" };
+      const parsed = { tool: "other" as const, input: {} };
+      const decision = { allow: true, decision: "allow" as const, findings: [] };
+      const body = buildCapture(raw, parsed, decision, "", options)!;
+      expect(body).not.toContain("synthetic confidential copy");
+      expect(body).toContain("sha256:");
+      expect(buildCapture(raw, parsed, decision, "", { ...options, verbatim: true })).toContain("synthetic confidential copy");
+    });
+  });
+
+  it("keeps scrubbed native file paths while removing their content", () => {
+    inTmp(dir => {
+      const raw = { toolCall: { name: "write_to_file", args: { TargetFile: resolve(dir, "notes.md"), CodeContent: "synthetic confidential copy" } } };
+      const body = buildCapture(raw, { tool: "other", input: {} }, { allow: true, decision: "allow", findings: [] }, "", { dir, agent: "antigravity", channel: "docs", event: "pre", projectDir: dir, version: "test" })!;
+      expect(body).toContain("{{TMP}}/notes.md");
+      expect(body).not.toContain("synthetic confidential copy");
+    });
+  });
+
   it("records the field names, which is the whole point", () => {
     inTmp((dir) => {
       const { json } = capture(dir, "We leverage this.");

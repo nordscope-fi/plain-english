@@ -636,7 +636,7 @@ function decideSingle(
   // Strict mode refuses outright. Otherwise the finding is surfaced to the
   // human, who can wave it through without editing config or removing a hook.
   const decision: HookDecision = ruleSet.failOn === "never" ? "ask" : "deny";
-  const reason = formatReason(errors, channel, label);
+  const reason = formatReason(errors, channel, label, ruleSet.failOn);
   // Carried on both paths. A profile whose agent honours `ask` uses `reason`;
   // one whose agent does not uses `advisory` to say the same thing as text.
   return { allow: false, decision, reason, advisory: reason, findings, ...timedOut };
@@ -727,7 +727,7 @@ export function orderForChat(findings: Finding[]): Finding[] {
     .map((x) => x.f);
 }
 
-export function formatReason(errors: Finding[], channel: Channel, label?: string): string {
+export function formatReason(errors: Finding[], channel: Channel, label?: string, failOn: RuleSet["failOn"] = "error"): string {
   const ordered = channel === "chat" ? orderForChat(errors) : errors;
   const shown = ordered.slice(0, 5);
   const lines = shown.map((f) => {
@@ -735,6 +735,11 @@ export function formatReason(errors: Finding[], channel: Channel, label?: string
     return `  line ${f.line}: ${JSON.stringify(f.match)} (${f.ruleId})${hint}`;
   });
   const more = ordered.length > shown.length ? `\n  ...and ${ordered.length - shown.length} more` : "";
+  const remedies = channel === "docs" ? [
+    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + ": replace this with your reason -->",
+    "  2. add the path to `exclude` in .plain-english.yml",
+  ] : [];
+  remedies.push(`  ${remedies.length + 1}. set the reported rules to \`severity: ${failOn === "warn" ? "off" : "warn"}\` in .plain-english.yml`);
 
   return [
     `${label ?? CHANNEL_LABEL[channel]} contains writing that reads as machine-generated:`,
@@ -745,9 +750,7 @@ export function formatReason(errors: Finding[], channel: Channel, label?: string
     "Full ruleset: docs/writing-style.md",
     "",
     "Narrower ways to allow this, in order of preference:",
-    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + ": replace this with your reason -->",
-    "  2. add the path to `exclude` in .plain-english.yml",
-    "  3. lower the rule to `severity: warn` in .plain-english.yml",
+    ...remedies,
     "",
     `Last resort, and the human's call, not yours: touch .plain-english-ack-${channel}`,
     `  It waives this channel for ${ACK_WINDOW_MS / 60000} minutes, then expires on its own.`,
