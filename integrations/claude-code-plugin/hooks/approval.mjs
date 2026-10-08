@@ -4692,9 +4692,9 @@ function _visit(path, item, visitor) {
 
 // node_modules/yaml/browser/dist/parse/cst.js
 var BOM = "\uFEFF";
-var DOCUMENT = "";
-var FLOW_END = "";
-var SCALAR2 = "";
+var DOCUMENT = "\u0002";
+var FLOW_END = "\u0018";
+var SCALAR2 = "\u001F";
 function tokenType(source) {
   switch (source) {
     case BOM:
