@@ -137,7 +137,7 @@ def run(agent,case):
  content=(root/file).read_text() if (root/file).exists() else None
  records=[json.loads(p.read_text()) for p in sorted((root/'event-metadata').glob('*.json'))]
  result={'agent':agent,'case':case,'exit_code':process.returncode,'timed_out':timeout,'duration_seconds':round(time.monotonic()-started,2),'file_written_exactly':content==required+'\n','file_unchanged':content=='This is the original sentence.\n','file_absent':content is None,'events':records,'stdout_hash':hashlib.sha256(out.encode()).hexdigest(),'stderr_hash':hashlib.sha256(err.encode()).hexdigest()}
- result['control_observed']=bool(any('exit_code' in e for e in records) and (any(e.get('decision')=='deny' for e in records) and not result['file_written_exactly'] if case=='bad' else result['file_written_exactly']))
+ result['control_observed']=bool(any('exit_code' in e for e in records) and (any(e.get('decision')=='deny' and e['event'] in ['PreToolUse','preToolUse','pre_tool'] for e in records) and not result['file_written_exactly'] if case=='bad' else result['file_written_exactly']))
  # Raw responses stay private and are never part of the published evidence.
  if ARGS.keep_private_output:
   private=root/'private-output'
@@ -172,7 +172,10 @@ def repeated_codex_chat():
     except ValueError:continue
     if row.get('type')=='thread.started':session=row['thread_id']
   events=[json.loads(p.read_text()) for p in sorted(set((root/'event-metadata').glob('*.json'))-before)]
-  result={'explicit_user_turn':turn,'exit_code':process.returncode,'timed_out':timed_out,'duration_seconds':round(time.monotonic()-start,2),'events':events,'stdout_hash':hashlib.sha256(out.encode()).hexdigest(),'stderr_hash':hashlib.sha256(err.encode()).hexdigest()};results.append(result)
+  result={'explicit_user_turn':turn,'exit_code':process.returncode,'timed_out':timed_out,'duration_seconds':round(time.monotonic()-start,2),'events':events,'stdout_hash':hashlib.sha256(out.encode()).hexdigest(),'stderr_hash':hashlib.sha256(err.encode()).hexdigest()}
+  stops=[e for e in events if e['event']=='Stop' and e.get('exit_code')==0]
+  result['control_observed']=bool(any(e.get('rewrite_requested') for e in stops) and stops and stops[-1].get('reply_keys')==[])
+  results.append(result)
   if not session or timed_out:break
  return results
 
@@ -184,3 +187,4 @@ if __name__=='__main__':
  ARGS.output.write_text(json.dumps(report,indent=2)+'\n')
  print('Fixture directory: '+str(BASE))
  if not all(row['control_observed'] for row in results):raise SystemExit(2)
+ if ARGS.repeat_codex_chat and (len(report['repeated_user_turns'])!=2 or not all(row['control_observed'] for row in report['repeated_user_turns'])):raise SystemExit(2)
