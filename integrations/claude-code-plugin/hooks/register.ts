@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import { approveTerm } from './approval.mjs'
 import { classifyShellCommand } from './shell.mjs'
 import { ISSUE_TOOLS } from './issue-tools.mjs'
-import { askFor, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
+import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
 
 /** Files the docs channel judges. The CLI strips code and frontmatter itself. */
 const MARKDOWN = /\.(md|markdown|mdx)$/i
@@ -167,9 +167,18 @@ async function adapter(
     }
   }
   for (const notice of new Set(ran.stderr.split(/\r?\n/).map(line => line.trim()))) {
-    if (SAFE_CHECK_NOTICES.has(notice)) $.ui.log(notice)
+    if (SAFE_CHECK_NOTICES.has(notice)) log($, notice)
   }
   return ran.stdout
+}
+
+/**
+ * One transcript row. `$.ui.log` draws a single line: Claude Code 2.1.294
+ * shows a line break inside it as U+FFFD and puts the plugin's name in front
+ * of the row itself, so the text carries neither (issue #80).
+ */
+function log($: EngineInterface, text: string): void {
+  $.ui.log(oneLine(text).replace(/^plain-english: /, ''))
 }
 
 async function session($: EngineInterface): Promise<{ id: string; cwd: string }> {
@@ -209,7 +218,7 @@ async function judgeReply<E extends { last_assistant_message?: string }, R exten
   const payload = e as unknown as Record<string, unknown>
   const stdout = await adapter($, 'chat', payload, cwd, CHAT_TIMEOUT_MS, next.signal)
   const verdict = readChatVerdict(stdout)
-  if (verdict.notice !== undefined) $.ui.log(verdict.notice)
+  if (verdict.notice !== undefined) log($, noticeLine(verdict.notice, verdict.kind === 'block'))
   if (verdict.kind === 'block') {
     record({ channel: 'chat', reason: verdict.reason, strict: true, event: payload, cwd, key: '' })
     return { block: verdict.reason }
@@ -279,7 +288,7 @@ export const register: Register = on => {
     }
     return next(e)
   }).catch(($, e, next) => {
-    $.ui.log(`plain-english: check unavailable; the write was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
+    log($, `check unavailable; the write was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
     return next(e)
   })
 
@@ -289,14 +298,14 @@ export const register: Register = on => {
     current = finding
     $.ui.invalidate('ui.render')
   })).catch(($, e, next) => {
-    $.ui.log(`plain-english: reply check unavailable; the reply was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
+    log($, `reply check unavailable; the reply was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
     return next(e)
   })
   on('classic.SubagentStop', ($, e, next) => judgeReply($, e, next, finding => {
     current = finding
     $.ui.invalidate('ui.render')
   })).catch(($, e, next) => {
-    $.ui.log(`plain-english: reply check unavailable; the reply was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
+    log($, `reply check unavailable; the reply was allowed. ${next.error.message ?? 'The checker did not finish.'}`)
     return next(e)
   })
 
@@ -320,7 +329,7 @@ export const register: Register = on => {
       if (text === '') return base
       return { ...base, blocks: [...base.blocks.filter(block => block.name !== 'plainEnglishProject'), { name: 'plainEnglishProject', text }] }
     } catch (error) {
-      $.ui.log(`plain-english: project writing guidance unavailable. ${String(error)}`)
+      log($, `project writing guidance unavailable. ${String(error)}`)
       return base
     }
   })
@@ -332,18 +341,18 @@ export const register: Register = on => {
       return {}
     }
     if (e.args.trim() === 'status') {
-      return { text: `plain-english: repair ${repair ? 'on' : 'off'} for this session. ${current === undefined ? 'No recent findings.' : `${readPassages(current.reason).length} quoted findings in the most recent check.`} Extra model checks follow project configuration; this command does not change them.` }
+      return { text: `repair ${repair ? 'on' : 'off'} for this session. ${current === undefined ? 'No recent findings.' : `${readPassages(current.reason).length} quoted findings in the most recent check.`} Extra model checks follow project configuration; this command does not change them.` }
     }
     if (e.args.trim() === 'repair on' || e.args.trim() === 'repair off') {
       repair = e.args.trim() === 'repair on'
       repairAttempts.clear()
-      return { text: `plain-english: repair ${repair ? 'on' : 'off'} for this session. ${repair ? 'Advisory writes get one correction attempt before asking you. Required checks still refuse.' : 'Advisory writes ask you immediately.'}` }
+      return { text: `repair ${repair ? 'on' : 'off'} for this session. ${repair ? 'Advisory writes get one correction attempt before asking you. Required checks still refuse.' : 'Advisory writes ask you immediately.'}` }
     }
     let paths: string[]
     try {
       paths = readPaths(e.args)
     } catch (error) {
-      return { text: `plain-english: ${String(error)}` }
+      return { text: String(error) }
     }
     try {
       const ran = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'lint', ...paths.map(path => path.startsWith('-') ? `./${path}` : path)], {
@@ -352,11 +361,11 @@ export const register: Register = on => {
       })
       const text = (ran.stdout + ran.stderr).trim()
       if (ran.exitCode !== 0 && (ran.exitCode !== 1 || text === '')) {
-        return { text: `plain-english: check unavailable (exit ${ran.exitCode}).${text === '' ? '' : '\n' + text}` }
+        return { text: `check unavailable (exit ${ran.exitCode}).${text === '' ? '' : '\n' + text}` }
       }
-      return { text: text === '' ? 'plain-english: no findings.' : text }
+      return { text: text === '' ? 'no findings.' : text }
     } catch (error) {
-      return { text: `plain-english: check unavailable. ${String(error)}` }
+      return { text: `check unavailable. ${String(error)}` }
     }
   })
 

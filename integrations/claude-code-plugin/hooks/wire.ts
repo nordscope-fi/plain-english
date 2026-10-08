@@ -157,6 +157,32 @@ export function readPassages(reason: string): Passage[] {
   return passages
 }
 
+/**
+ * Text fit for `$.ui.log`, which draws one transcript row: line breaks and
+ * other control characters become spaces. Claude Code 2.1.294 draws a line
+ * break inside a row as U+FFFD (issue #80).
+ */
+export function oneLine(text: string): string {
+  return text.replace(/[\x00-\x1f\x7f]+/g, ' ').replace(/ {2,}/g, ' ').trim()
+}
+
+/**
+ * The transcript row for a reply check's notice. The engine hands a mod's
+ * block reason to the model and draws none of it, so this row is what the
+ * person sees of a held reply. It names up to three quoted passages, or the
+ * notice's first line when it quotes none, and points at the pane that holds
+ * the whole finding.
+ */
+export function noticeLine(notice: string, held: boolean): string {
+  const passages = readPassages(notice)
+  const shown = passages.slice(0, 3).map(passage => `${JSON.stringify(passage.match)} (${passage.ruleId})`)
+  const more = passages.length > shown.length ? ` and ${passages.length - shown.length} more` : ''
+  const what = shown.length > 0
+    ? `${shown.join(', ')}${more}.`
+    : notice.split('\n').find(line => line.trim() !== '') ?? notice
+  return oneLine(`${held ? 'held this reply for a rewrite' : 'advice on this reply'}: ${what} /plain-english review shows the full finding.`)
+}
+
 /** The dialog an advisory finding opens: its text, its chip and its two answers. */
 export interface Ask {
   question: string

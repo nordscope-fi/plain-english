@@ -75,6 +75,8 @@ const PANE = {
 describe('register', () => {
   test('shows one safe model-failure notice without changing allow, advisory or deny decisions', async ($, on) => {
     const notice = 'plain-english: extra model check could not start; pattern checks still apply.'
+    // The engine names the plugin in front of each row, so the row omits it.
+    const row = 'extra model check could not start; pattern checks still apply.'
     const logged: string[] = []
     let stdout = ''
     let questions = 0
@@ -91,17 +93,17 @@ describe('register', () => {
     const event = { tool: 'Write' as const, file_path: '/repo/a.md', content: 'Clear words.' }
     expect((await $.tool.call(event)).result).toBe('written')
     expect(questions).toBe(0)
-    expect(logged).toEqual([notice])
+    expect(logged).toEqual([row])
     logged.length = 0
     stdout = ASK
     expect((await $.tool.call(event)).result).toBe('written')
     expect(questions).toBe(1)
-    expect(logged).toEqual([notice])
+    expect(logged).toEqual([row])
     logged.length = 0
     stdout = DENY
     expect((await $.tool.call(event)).deny).toContain('Furthermore')
     expect(questions).toBe(1)
-    expect(logged).toEqual([notice])
+    expect(logged).toEqual([row])
   })
   test('keeps a capture-failure notice separate from a blocked reply and omits unknown stderr', async ($, on) => {
     const notice = 'plain-english: model usage capture unavailable.'
@@ -112,7 +114,60 @@ describe('register', () => {
     on('classic.Stop', () => ({}))
     const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'A long reply.' })
     expect(result.block).toBe('reply-length: 300 words of prose, over 250.')
-    expect(logged).toEqual([notice])
+    expect(logged).toEqual(['model usage capture unavailable.'])
+  })
+  // Issue #80: `$.ui.log` draws one row, and 2.1.294 shows each line break in
+  // it as U+FFFD. The engine does not draw a mod's block reason to the person,
+  // so this row is all they see of a held reply.
+  test('a held reply is reported in one transcript row, with the full reason kept for the model', async ($, on) => {
+    const reason = ASK_REASON.replace('This file', 'This reply')
+    const logged: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: JSON.stringify({ decision: 'block', reason, systemMessage: reason }) } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('classic.Stop', () => ({}))
+    const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'Furthermore, we leverage it.' })
+    expect(result.block).toBe(reason)
+    expect(logged).toEqual(['held this reply for a rewrite: "Furthermore" (furthermore), "leverage" (leverage). /plain-english review shows the full finding.'])
+  })
+  test('advice on an allowed reply is one transcript row', async ($, on) => {
+    const reason = ['This reply contains writing that reads as machine-generated:', '', '  line 1: "delve" (delve) Use \'look at\'.', '  line 2: "seamless" (seamless) Say what happens.', '  line 4: "robust" (robust) Name the property.', '  line 5: "utilize" (utilize) Use \'use\'.', '', 'Rewrite the quoted text.'].join('\n')
+    const logged: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: JSON.stringify({ systemMessage: reason }) } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    let reachedSettings = false
+    on('classic.Stop', () => { reachedSettings = true; return {} })
+    const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'We delve.' })
+    expect(result.block).toBeUndefined()
+    expect(reachedSettings).toBe(true)
+    expect(logged).toEqual(['advice on this reply: "delve" (delve), "seamless" (seamless), "robust" (robust) and 1 more. /plain-english review shows the full finding.'])
+  })
+  test('a held reply with no quoted passage reports its first line', async ($, on) => {
+    const reason = 'reply-length: 300 words of prose, over 250.\n\nCut it down.'
+    const logged: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: JSON.stringify({ decision: 'block', reason, systemMessage: reason }) } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('classic.Stop', () => ({}))
+    await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'A long reply.' })
+    expect(logged).toEqual(['held this reply for a rewrite: reply-length: 300 words of prose, over 250. /plain-english review shows the full finding.'])
+  })
+  test('an unavailable check is reported in one row even when the checker printed several lines', async ($, on) => {
+    const logged: string[] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, exitCode: 3, stdout: '', stderr: 'first line\nsecond line\r\nthird' } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('tool.call', () => ({ result: 'written' }))
+    on('classic.Stop', () => ({}))
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'x' })
+    await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'x' })
+    expect(logged.length).toBe(2)
+    for (const line of logged) {
+      expect(line).toContain('check unavailable')
+      expect(line).not.toMatch(/[\r\n]/)
+    }
   })
   test('runs write and reply model checks through the descendant cancellation wrapper', async ($, on) => {
     const calls: string[][] = []
@@ -453,6 +508,16 @@ describe('register', () => {
     const answer = await $.command.run({ command: 'plain-english', args: 'docs' })
     expect(answer.text).toContain('check unavailable')
     expect(answer.text).not.toContain('no findings')
+  })
+  // Claude Code 2.1.294 prints a command's text after the plugin's name, so
+  // text that starts with the name reads "plain-english: plain-english: ...".
+  test('command answers leave the plugin name to the engine', async ($, on) => {
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: '' } }))
+    for (const args of ['status', 'repair on', 'repair off', 'docs']) {
+      const answer = await $.command.run({ command: 'plain-english', args })
+      expect(answer.text, args).not.toMatch(/^plain-english:/)
+    }
   })
   test('a Markdown write the adapter refuses is denied with its reason', async ($, on) => {
     const argv: string[][] = []
