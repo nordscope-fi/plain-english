@@ -324,3 +324,9 @@ redundant.
    agents that write files through the shell. A reply value that fails the hook
    rather than being ignored. And a recorder leaking an email address into a
    file designed to be safe to publish.
+
+## Versioned native measurements
+
+The [8 October 2026 capability report](investigations/native-capabilities/README.md)
+records native write controls, retry behavior and unavailable contexts. It
+includes a repeatable fixture procedure and metadata-only observations.
