@@ -25,6 +25,7 @@
  * Docs: https://docs.mistral.ai/vibe/code/cli/hooks
  */
 
+import { ISSUE_TOOL_PATTERN } from "./issue.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
@@ -46,7 +47,7 @@ const RUNNER = runnerPath(".vibe");
 const CHANNELS = [
   { channel: "docs", match: "re:(write_file|edit)", timeout: 30 },
   { channel: "github", match: "bash", timeout: 30 },
-  { channel: "issue", match: "re:.*_save_(issue|comment)", timeout: 30 },
+  { channel: "issue", match: `re:${ISSUE_TOOL_PATTERN}`, timeout: 30 },
 ] as const;
 
 /** The events that carry a payload this package can read. */

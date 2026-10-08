@@ -12,6 +12,8 @@
  * pass, which is the failure mode worth avoiding.
  */
 
+import { contentText, issueText } from "./issue.ts";
+
 /** The first key present with a string value, or "". */
 export function pick(input: Record<string, unknown>, ...keys: string[]): string {
   for (const k of keys) {
@@ -76,20 +78,21 @@ function parseArgs(v: unknown): Record<string, unknown> {
 }
 
 /**
- * Linear-shaped issue fields, renamed to the canonical spelling.
- *
- * Shared across every profile on purpose: these names come from the Linear MCP
- * server, not from the agent, so all four see the same keys.
+ * Reader-visible fields from Linear, Jira and Confluence, in canonical form.
+ * Each supplied prose field is retained; unrelated IDs and attributes are not.
  */
 export function issueFields(input: Record<string, unknown>): Record<string, unknown> {
+  const fields = asRecord(input["fields"]);
+  const description = [issueText(input["description"]), issueText(fields["description"])].filter(Boolean).join("\n\n");
+  const body = [issueText(input["body"]), issueText(input["commentBody"]), contentText(input["content"], input["contentFormat"])].filter(Boolean).join("\n\n");
   return {
-    title: pick(input, "title"),
-    description: pick(input, "description"),
-    body: pick(input, "body"),
+    title: [pick(input, "title"), pick(input, "summary"), pick(fields, "summary")].filter(Boolean).join("\n\n"),
+    description,
+    body,
     patch: pickArray(input, "patch").map((p) => {
       const e = asRecord(p);
       // new_string / text only. old_string is text being replaced.
-      return { newString: pick(e, "new_string"), text: pick(e, "text") };
+      return { newString: pick(e, "newString", "new_string"), text: pick(e, "text") };
     }),
   };
 }
