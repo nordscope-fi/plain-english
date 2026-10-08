@@ -307,6 +307,9 @@ export function scopedDocsFiles(
     ? [...extractPatchesFromBash(command, projectDir, event.cwd, options), ...(command.length <= MAX_COMMAND_BYTES ? shellFileWrites(command, event.cwd || projectDir) : [])]
     : extractFromFileWrite(event, projectDir, options);
   return filterScopedFiles(raw, projectDir, ruleSet).filter((file) => {
+    // Model requests are capped at this size. Avoid parsing a document twice
+    // for a request the caller must discard, especially on slower machines.
+    if (file.text.length > MAX_COMMAND_BYTES) return false;
     if (directivesIn(file.text).some((directive) => directive.scope === "file")) return false;
     const prose = maskNonProse(file.text, { maskComments: true });
     return file.changedRanges

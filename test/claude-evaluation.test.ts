@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -17,15 +17,21 @@ function trace(events: unknown[]) {
 }
 
 const SCRIPT = resolve(import.meta.dirname, "../scripts/evaluation/claude.mjs");
-function prepared() {
+function prepared(runtimeAvailable = true) {
   const dir = mkdtempSync(resolve(tmpdir(), "pe-benchmark-run-"));
   dirs.push(dir);
-  const bin = resolve(dir, "bin"); mkdirSync(bin);
-  const fake = resolve(bin, "claude");
-  writeFileSync(fake, '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.fixture"; else exit 87; fi\n');
-  chmodSync(fake, 0o755);
+  const bin = resolve(dir, "bin space & literal"); mkdirSync(bin);
+  const fake = resolve(bin, "claude.mjs");
+  function setVersion(version: string, available = true) {
+    writeFileSync(fake, available
+      ? `if (process.argv[2] === "--version") console.log(${JSON.stringify(version)}); else process.exit(87);\n`
+      : "process.exit(87);\n");
+  }
+  setVersion("2.1.fixture", runtimeAvailable);
   const env = { ...process.env, PATH: bin, PLAIN_ENGLISH_CHAT_JUDGE: "1" };
-  execFileSync(process.execPath, [SCRIPT, "prepare", "--out", dir, "--limit", "2"], { env });
+  execFileSync(process.execPath, [SCRIPT, "prepare", "--out", dir, "--limit", "2", "--claude-command", fake], { env });
+  const identity = JSON.parse(readFileSync(resolve(dir, "identity.json"), "utf8"));
+  expect(identity.runtime.claudeVersion).toBe(runtimeAvailable ? "2.1.fixture" : null);
   const cases = JSON.parse(readFileSync(resolve(dir, "cases.json"), "utf8"));
   function cached(mode: string, names = cases.map((item: { id: string }) => item.id), cost: unknown = 0.1, model = "fixture-model") {
     writeFileSync(resolve(dir, `${mode}-result.json`), JSON.stringify({
@@ -40,8 +46,9 @@ function prepared() {
     }));
   }
   for (const mode of ["ordinary", "guidance", "checks"]) cached(mode);
-  const run = (extra: string[] = []) => spawnSync(process.execPath, [SCRIPT, "run", "--out", dir, "--limit", "2", ...extra], { env, encoding: "utf8" });
-  return { dir, bin, cases, cached, run };
+  const run = (extra: string[] = []) => spawnSync(process.execPath, [SCRIPT, "run", "--out", dir, "--limit", "2",
+    ...(extra.includes("--claude-command") ? [] : ["--claude-command", fake]), ...extra], { env, encoding: "utf8" });
+  return { dir, fake, cases, cached, run, setVersion };
 }
 
 describe("Claude writing benchmark", () => {
@@ -116,10 +123,17 @@ describe("Claude writing benchmark", () => {
 
   it("rejects cached generations after the Claude executable changes version", () => {
     const fixture = prepared();
-    writeFileSync(resolve(fixture.bin, "claude"), '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "2.1.other"; else exit 87; fi\n');
+    fixture.setVersion("2.1.other");
     const result = fixture.run();
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Inputs changed");
+  });
+
+  it("refuses to compare cached generations when the executable identity is unavailable", () => {
+    const fixture = prepared(false);
+    const result = fixture.run();
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Claude executable version is unavailable");
   });
 
   it("rejects comparisons when the observed default model changes between modes", () => {
@@ -132,7 +146,7 @@ describe("Claude writing benchmark", () => {
 
   it("accepts an explicitly selected Claude executable without shell expansion", () => {
     const fixture = prepared();
-    const result = fixture.run(["--claude-command", resolve(fixture.bin, "claude")]);
+    const result = fixture.run(["--claude-command", fixture.fake]);
     expect(result.status).toBe(0);
   });
 

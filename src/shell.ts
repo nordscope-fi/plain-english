@@ -48,6 +48,11 @@ interface Command {
   unterminated: boolean;
 }
 
+/** Native Windows paths use backslashes as separators, including attached file flags. */
+function windowsPathPrefix(text: string): boolean {
+  return /^(?:-[FC]|--(?:file|body-file|notes-file)=)?(?:[A-Za-z]:|\\\\)/.test(text);
+}
+
 const SEPARATORS = new Set([";", "\n", "&"]);
 
 /**
@@ -117,6 +122,16 @@ export function parseCommands(input: string): Command[] {
     }
 
     if (c === "\\") {
+      if (/^(?:-[FC]|--(?:file|body-file|notes-file)=)?$/.test(word) && input[i + 1] === "\\" && /[A-Za-z0-9]/.test(input[i + 2] ?? "")) {
+        word += "\\\\";
+        i += 2;
+        continue;
+      }
+      if (windowsPathPrefix(word)) {
+        word += c;
+        i++;
+        continue;
+      }
       // A line continuation joins, anything else is a literal next character.
       if (input[i + 1] === "\n") {
         i += 2;
@@ -150,8 +165,16 @@ export function parseCommands(input: string): Command[] {
       let closed = false;
       while (j < input.length) {
         if (input[j] === "\\" && j + 1 < input.length) {
-          out += input[j + 1];
-          j += 2;
+          if (!out && input[j + 1] === "\\" && /[A-Za-z0-9]/.test(input[j + 2] ?? "")) {
+            out = "\\\\";
+            j += 2;
+          } else if (windowsPathPrefix(out)) {
+            out += "\\";
+            j++;
+          } else {
+            out += input[j + 1];
+            j += 2;
+          }
           continue;
         }
         if (input[j] === '"') {
@@ -357,15 +380,16 @@ export function shellFileWrites(input: string, baseDir?: string): ShellWrite[] {
 
 /** Lexical directory resolution without Node dependencies, also usable in mods. */
 function resolveDirectory(base: string, path: string): string {
-  const windows = /^[A-Za-z]:[\\/]/.test(base) || /^[A-Za-z]:[\\/]/.test(path);
+  const windows = /^[A-Za-z]:[\\/]|^\\\\/.test(base) || /^[A-Za-z]:[\\/]|^\\\\/.test(path);
   const slash = windows ? "\\" : "/";
   const absolute = /^[A-Za-z]:[\\/]|^[\\/]/.test(path);
   const joined = absolute ? path : base + slash + path;
-  const prefix = windows ? (/^[A-Za-z]:/.exec(joined)?.[0] ?? "") + slash : joined.startsWith("/") ? "/" : "";
+  const network = windows && joined.startsWith("\\\\");
+  const prefix = network ? slash + slash : windows ? (/^[A-Za-z]:/.exec(joined)?.[0] ?? "") + slash : joined.startsWith("/") ? "/" : "";
   const parts: string[] = [];
   for (const part of joined.replace(/^[A-Za-z]:/, "").split(/[\\/]+/)) {
     if (!part || part === ".") continue;
-    if (part === "..") { if (parts.length) parts.pop(); }
+    if (part === "..") { if (parts.length > (network ? 2 : 0)) parts.pop(); }
     else parts.push(part);
   }
   return prefix + parts.join(slash);

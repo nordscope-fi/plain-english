@@ -23972,6 +23972,9 @@ import { homedir as homedir10 } from "node:os";
 import { dirname as dirname3, resolve as resolve14, sep } from "node:path";
 
 // dist/shell.js
+function windowsPathPrefix(text4) {
+  return /^(?:-[FC]|--(?:file|body-file|notes-file)=)?(?:[A-Za-z]:|\\\\)/.test(text4);
+}
 var SEPARATORS = /* @__PURE__ */ new Set([";", "\n", "&"]);
 function parseCommands(input) {
   const commands = [];
@@ -24030,6 +24033,16 @@ function parseCommands(input) {
       continue;
     }
     if (c === "\\") {
+      if (/^(?:-[FC]|--(?:file|body-file|notes-file)=)?$/.test(word2) && input[i + 1] === "\\" && /[A-Za-z0-9]/.test(input[i + 2] ?? "")) {
+        word2 += "\\\\";
+        i += 2;
+        continue;
+      }
+      if (windowsPathPrefix(word2)) {
+        word2 += c;
+        i++;
+        continue;
+      }
       if (input[i + 1] === "\n") {
         i += 2;
         continue;
@@ -24060,8 +24073,16 @@ function parseCommands(input) {
       let closed = false;
       while (j < input.length) {
         if (input[j] === "\\" && j + 1 < input.length) {
-          out += input[j + 1];
-          j += 2;
+          if (!out && input[j + 1] === "\\" && /[A-Za-z0-9]/.test(input[j + 2] ?? "")) {
+            out = "\\\\";
+            j += 2;
+          } else if (windowsPathPrefix(out)) {
+            out += "\\";
+            j++;
+          } else {
+            out += input[j + 1];
+            j += 2;
+          }
           continue;
         }
         if (input[j] === '"') {
@@ -24223,17 +24244,18 @@ function shellFileWrites(input, baseDir) {
   return out;
 }
 function resolveDirectory(base, path2) {
-  const windows = /^[A-Za-z]:[\\/]/.test(base) || /^[A-Za-z]:[\\/]/.test(path2);
+  const windows = /^[A-Za-z]:[\\/]|^\\\\/.test(base) || /^[A-Za-z]:[\\/]|^\\\\/.test(path2);
   const slash = windows ? "\\" : "/";
   const absolute = /^[A-Za-z]:[\\/]|^[\\/]/.test(path2);
   const joined = absolute ? path2 : base + slash + path2;
-  const prefix = windows ? (/^[A-Za-z]:/.exec(joined)?.[0] ?? "") + slash : joined.startsWith("/") ? "/" : "";
+  const network = windows && joined.startsWith("\\\\");
+  const prefix = network ? slash + slash : windows ? (/^[A-Za-z]:/.exec(joined)?.[0] ?? "") + slash : joined.startsWith("/") ? "/" : "";
   const parts = [];
   for (const part of joined.replace(/^[A-Za-z]:/, "").split(/[\\/]+/)) {
     if (!part || part === ".")
       continue;
     if (part === "..") {
-      if (parts.length)
+      if (parts.length > (network ? 2 : 0))
         parts.pop();
     } else
       parts.push(part);
@@ -24396,6 +24418,8 @@ function scopedDocsFiles(event, ruleSet, explicitProjectDir, options = {}) {
   const command3 = pick2(event.input, "command");
   const raw = event.tool === "bash" ? [...extractPatchesFromBash(command3, projectDir, event.cwd, options), ...command3.length <= MAX_COMMAND_BYTES ? shellFileWrites(command3, event.cwd || projectDir) : []] : extractFromFileWrite(event, projectDir, options);
   return filterScopedFiles(raw, projectDir, ruleSet).filter((file) => {
+    if (file.text.length > MAX_COMMAND_BYTES)
+      return false;
     if (directivesIn(file.text).some((directive) => directive.scope === "file"))
       return false;
     const prose = maskNonProse(file.text, { maskComments: true });

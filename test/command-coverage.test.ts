@@ -5,11 +5,38 @@ import { resolve } from "node:path";
 import { vibe } from "../src/agents/vibe.ts";
 import { claudeCode } from "../src/agents/claude-code.ts";
 import { decide, extractFromBash } from "../src/adapters/hook.ts";
+import { publishingCommands } from "../src/shell.ts";
 import { compile, loadDefault } from "../src/rules.ts";
 const dirs: string[] = [];
 const rules = compile({ ...loadDefault(), failOn: "error" });
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 describe("shared shell coverage", () => {
+  it("preserves attached network message-file paths", () => {
+    const path = String.raw`\\server\share\message.txt`;
+    const git = publishingCommands(`git commit -F${path}`, String.raw`C:\repo`);
+    const gh = publishingCommands(`gh issue create --body-file=${path}`, String.raw`C:\repo`);
+    expect(git[0]!.args[0]!.text).toBe(`-F${path}`);
+    expect(gh[0]!.args[0]!.text).toBe(`--body-file=${path}`);
+  });
+  it("preserves a network directory selected by git", () => {
+    const dir = String.raw`\\server\share\repo`;
+    const commands = publishingCommands(`git -C ${dir} commit -F message.txt`, String.raw`C:\repo`);
+    expect(commands[0]!.cwd).toBe(dir);
+  });
+  it("still decodes escaped spaces in a POSIX file path", () => {
+    const commands = publishingCommands(String.raw`git commit -F /tmp/message\ file.txt`, "/repo");
+    expect(commands[0]!.args.map((word) => word.text)).toEqual(["-F", "/tmp/message file.txt"]);
+  });
+  it("preserves a quoted Windows body-file path", () => {
+    const path = String.raw`D:\notes\body file.md`;
+    const commands = publishingCommands(`gh pr create --body-file "${path}"`, String.raw`C:\repo`);
+    expect(commands[0]!.args.map((word) => word.text)).toEqual(["--body-file", path]);
+  });
+  it("preserves an unquoted Windows message-file path", () => {
+    const path = String.raw`C:\Users\runner\AppData\Local\Temp\message.txt`;
+    const commands = publishingCommands(`git commit -F ${path}`, String.raw`C:\repo`);
+    expect(commands[0]!.args.map((word) => word.text)).toEqual(["-F", path]);
+  });
   it("reads a literal heredoc used as an inline commit message", () => {
     expect(extractFromBash(`git commit -m "$(cat <<'EOF'\nWe leverage this.\nEOF\n)"`)).toContain("We leverage this.");
   });

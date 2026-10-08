@@ -22,6 +22,13 @@ function edit(before: string, oldString: string, newString: string) {
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
 describe("edits keep their document context", () => {
+  it("skips oversized documents before preparing a model request", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-context-")); dirs.push(dir);
+    const event = claudeCode.parse({ cwd: dir, tool_name: "Write", tool_input: {
+      file_path: "notes.md", content: "The cache holds parsed results for an hour.\n".repeat(6000),
+    } });
+    expect(scopedDocsFiles(event, rules, dir)).toHaveLength(0);
+  });
   it("resolves a relative edit against the tool directory", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-context-")); dirs.push(dir);
     const nested = resolve(dir, "nested"); mkdirSync(nested);

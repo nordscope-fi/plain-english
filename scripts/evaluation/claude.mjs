@@ -115,10 +115,17 @@ export function blindReviews(cases, outputs, seed) {
   return { reviews: reviews.sort((a, b) => a.id.localeCompare(b.id)), keys };
 }
 
+/** Execute native binaries and Node launchers without a platform shell. */
+function runClaude(command, args, options) {
+  return /\.(?:mjs|cjs|js)$/i.test(command)
+    ? execFileSync(process.execPath, [command, ...args], options)
+    : execFileSync(command, args, options);
+}
+
 function runtimeIdentity(command) {
   let claudeVersion = null;
   try {
-    claudeVersion = execFileSync(command, ["--version"], { encoding: "utf8", timeout: 5000 }).trim().split(/\s+/)[0];
+    claudeVersion = runClaude(command, ["--version"], { encoding: "utf8", timeout: 5000 }).trim().split(/\s+/)[0] || null;
   } catch { /* Preparing offline is allowed; running requires the same identity. */ }
   return { claudeVersion, providerFlags: Object.fromEntries([
     "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
@@ -155,6 +162,9 @@ async function main(args) {
   mkdirSync(out, { recursive: true, mode: 0o700 });
   const pluginHash = pluginFingerprint(resolve(ROOT, "integrations/claude-code-plugin"));
   const identity = { cases: cases.map((row) => row.caseHash), guidanceHash: sha256(guidance), pluginHash, benchmarkHash: sha256(readFileSync(import.meta.filename)), runtime: runtimeIdentity(claudeCommand) };
+  if (command === "run" && !identity.runtime.claudeVersion) {
+    throw new Error("Claude executable version is unavailable; refusing to generate or compare results.");
+  }
   const identityPath = resolve(out, "identity.json");
   if (existsSync(identityPath) && stableJson(JSON.parse(readFileSync(identityPath, "utf8"))) !== stableJson(identity)) {
     throw new Error("Inputs changed. Choose a new output directory to keep the comparison reproducible.");
@@ -183,7 +193,7 @@ async function main(args) {
     if (!existsSync(resultPath)) {
       if (spent >= budget) throw new Error("Cost ceiling reached; partial results retained");
       try {
-        execFileSync(claudeCommand, ["plugin", "eval", resolve(out, mode), "--ablation", "none", "--runs", "1",
+        runClaude(claudeCommand, ["plugin", "eval", resolve(out, mode), "--ablation", "none", "--runs", "1",
           "--trust-plugin", "--no-publish", "--keep-temp", "--max-cost-usd", String(budget - spent), "--json", resultPath],
           { stdio: "inherit", env: { ...process.env, CLAUDECODE: "" } });
       } catch (error) { if (!existsSync(resultPath)) throw error; }
