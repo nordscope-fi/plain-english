@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.13.3] - 2026-10-08
+### Added
+
+- The Claude Code plugin has an icon for the Claude directory: a white speech bubble with an orange tick, on the blue gradient of the Nordscope palette.
+
 ## [1.13.2] - 2026-10-08
 ### Fixed
 
@@ -689,7 +694,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.3...HEAD
+[1.13.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.3
 [1.13.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.2
 [1.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.1
 [1.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.0

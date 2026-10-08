@@ -63,6 +63,24 @@ describe("the plugin's hook files as the directory reads them", () => {
   });
 });
 
+/**
+ * The directory's icon rule, read on 2026-10-08: a square PNG at
+ * `.claude-plugin/icon.png`, 512 to 2048 px a side, under 2 MB. It keeps the
+ * first icon it sees, so a wrong file here cannot be corrected later.
+ */
+describe("the plugin's directory icon", () => {
+  it("is a square PNG of 512 to 2048 px, under 2 MB, where the directory looks", () => {
+    const icon = readFileSync(resolve(PLUGIN, ".claude-plugin/icon.png"));
+    expect(icon.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const width = icon.readUInt32BE(16);
+    const height = icon.readUInt32BE(20);
+    expect(width).toBe(height);
+    expect(width).toBeGreaterThanOrEqual(512);
+    expect(width).toBeLessThanOrEqual(2048);
+    expect(icon.length).toBeLessThan(2 * 1024 * 1024);
+  });
+});
+
 describe("the Claude Code plugin", () => {
   it("creates approved vocabulary in a configuration the checker can actually load", async () => {
     const { approveTerm } = await import("../scripts/approve-term.mjs");
