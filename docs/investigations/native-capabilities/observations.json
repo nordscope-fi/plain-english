@@ -3528,5 +3528,8 @@
     ],
     "session_stopped_after_observation": true,
     "mode": "interactive terminal; same read-isolation preload as write controls"
+  },
+  "native_configuration_side_effects": {
+    "codex": "CLI added eight trust-only tables for owned disposable fixture directories. These were removed after verification; all other parsed user-configuration values were preserved. Future native runs may add their own trust entries."
   }
 }

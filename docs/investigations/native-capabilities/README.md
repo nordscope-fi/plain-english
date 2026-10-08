@@ -109,8 +109,13 @@ To reproduce its measured version, add `--qwen-managed-version 0.25.0` and
 
 Raw output is discarded by default. `--keep-private-output` saves it inside
 an owned fixture directory for debugging; it can contain personal data and
-must not be committed. Global settings and authentication files are never
-rewritten, copied or linked by this procedure.
+must not be committed. The fixture code does not edit global hook registrations or copy/link
+authentication files. Native CLIs retain their ordinary account and session
+behavior: Codex added trust entries for disposable directories to its user
+configuration despite `--ignore-user-config`. Treat the flag as neither a
+project-hook isolation guarantee nor a promise of no configuration writes.
+The eight trust-only entries created by this campaign were removed afterward;
+all other parsed configuration values were preserved.
 
 ## Limits
 
