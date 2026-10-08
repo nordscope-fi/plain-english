@@ -134,7 +134,8 @@ describe("the host model route for reply checks", () => {
   it("asks before it saves any turn state, so a stopped run leaves nothing behind", () => {
     const state = mkdtempSync(resolve(tmpdir(), "pe-host-state-"));
     try {
-      const env = { TMPDIR: state };
+      // Node reads TMPDIR on POSIX and TEMP, then TMP, on Windows.
+      const env = { TMPDIR: state, TEMP: state, TMP: state };
       const first = request(runHook(stop(), { channel: "chat", env }).stdout);
       expect(readdirSync(state)).toEqual([]);
       const refuse = '{"ok": false, "reason": "Lead with the cache lifetime."}';
