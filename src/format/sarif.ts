@@ -108,7 +108,8 @@ export function toSarif(
                 startColumn: f.column,
                 // SARIF's endColumn is exclusive, so this is the character
                 // after the match rather than the last one in it.
-                endColumn: f.column + [...f.match].length,
+                ...(f.endLine !== undefined ? { endLine: f.endLine } : {}),
+                endColumn: f.endColumn ?? f.column + [...f.match].length,
                 snippet: { text: f.lineText },
               },
             },

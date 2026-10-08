@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI, Antigravity and Qwen Code.",
   "keywords": [
     "linter",
@@ -47,12 +47,21 @@
   },
   "main": "dist/lint.js",
   "types": "dist/lint.d.ts",
+  "typesVersions": {
+    "*": {
+      "source-prose": ["dist/source-prose.d.ts"]
+    }
+  },
   "exports": {
     ".": {
       "types": "./dist/lint.d.ts",
       "default": "./dist/lint.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./source-prose": {
+      "types": "./dist/source-prose.d.ts",
+      "default": "./dist/source-prose.js"
+    }
   },
   "files": [
     "dist",
@@ -81,6 +90,8 @@
     "posttest": "npm run probe"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.9",
+    "entities": "^7.0.1",
     "htmlparser2": "^10.1.0",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-frontmatter": "^2.0.1",

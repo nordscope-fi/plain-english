@@ -10,6 +10,7 @@ Start with the [README](../README.md). These go deeper.
 | [agents.md](agents.md) | Wiring up Claude Code, Copilot, Codex, Cursor, Vibe, Gemini or Qwen, or working out why a hook is not firing. Per-agent detail, trust requirements and evidence level. |
 | [post-edit-lint.md](post-edit-lint.md) | Your agent has no adapter here. Tell it to run the linter after it edits instead. |
 | [editors.md](editors.md) | Getting findings into your editor's Problems list, as plain text or as a findings file GitHub can read. |
+| [source-prose.md](source-prose.md) | Checking customer-facing strings in TypeScript and React files, with findings at the original source lines. |
 | [writing-style.md](writing-style.md) | You want the full rule list. Generated from `rules/default.yml`; never edited by hand. |
 | [ai-writing-policy.md](ai-writing-policy.md) | An example of what `plain-english policy` writes. This one is this repository's own. |
 

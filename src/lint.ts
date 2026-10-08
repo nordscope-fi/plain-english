@@ -25,6 +25,9 @@ export interface Finding {
   match: string;
   line: number;
   column: number;
+  /** Exclusive source end when an adapter maps decoded text back to code. */
+  endLine?: number;
+  endColumn?: number;
   /** The full source line, for context in the report. */
   lineText: string;
   message?: string;
