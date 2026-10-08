@@ -1,6 +1,6 @@
 # ADR-006: Model checks run through the Claude Code mod when it can make the call
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-08
 
 ## Context

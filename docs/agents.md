@@ -37,6 +37,8 @@ The shared command now scopes the prose and reads configuration before making th
 Claude Code enables it by default. Vibe remains opt-in through `PLAIN_ENGLISH_VIBE_JUDGE=1`.
 Set `modelChecks: true` to enable it explicitly, or `modelChecks: false` to disable it even when Vibe's environment setting is on.
 Other agents omit model calls by default; explicit opt-in uses an installed Claude CLI.
+The Claude Code plugin asks the session's own model and starts no second process.
+Claude Code settings hooks still start `claude -p` for each question.
 Vibe uses its own CLI and its normal conversation storage behavior.
 Its child disables ordinary project context and prompt detail. Custom agent profiles and administrator settings can still supply context under Vibe's own configuration.
 Pattern checks run everywhere.
