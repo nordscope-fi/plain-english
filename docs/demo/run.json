@@ -1,0 +1,156 @@
+{
+  "captured_at": "2026-10-08T05:03:17.339653+00:00",
+  "plain_english_version": "1.5.0",
+  "claude_code_version": "2.1.293",
+  "prompt": "Draft a short pull request description for adding SARIF output to plain-english. Save it as announcement.md in the working directory, then return the description.\n\nThe change has these facts:\n- plain-english is a prose linter for Markdown and plain text.\n- The command npx plain-english lint docs --format sarif writes SARIF 2.1.0 output to standard output.\n- Every finding includes its rule ID, severity, file, line, column, and rewrite hint.\n- Blocking findings become error results; warnings become warning results.\n- An incomplete scan is marked as unsuccessful instead of being reported as a complete check.\n- The output can be uploaded to GitHub code scanning.\n- The normal scan runs locally and sends no text to a model.\n\nUse only these facts. Include the command unchanged. Write for developers reviewing the change. Do not invent test results or performance claims.\n",
+  "system_prompt": "You are a writing assistant. Follow the user instructions and use the available tools to save the requested file.",
+  "configuration": {
+    "baseline": "Plugin not loaded. Project config used failOn: error, which has no effect without the plugin.",
+    "checked": "version: 1\nextends: default\nfailOn: warn\n"
+  },
+  "baseline": {
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "elapsed_seconds": 8.85,
+    "exit_code": 0,
+    "writes": [
+      {
+        "tool": "Write",
+        "file": "announcement.md",
+        "content": "# Add SARIF output to plain-english\n\n## Summary\n\nThis PR adds a SARIF output format to plain-english, the prose linter for Markdown and plain text.\n\n```sh\nnpx plain-english lint docs --format sarif\n```\n\nThis command writes SARIF 2.1.0 output to standard output. You can upload the output to GitHub code scanning.\n\n## What's in the output\n\n- **Finding details:** Every finding includes its rule ID, severity, file, line, column, and rewrite hint.\n- **Severity mapping:** Blocking findings become `error` results. Warnings become `warning` results.\n- **Incomplete scans:** If a scan doesn't finish, the output marks it as unsuccessful. It is not reported as a complete check.\n\n## Privacy\n\nThe normal scan runs locally. It sends no text to a model.\n\n## Review notes\n\n- Check that the severity mapping matches what you expect: blocking findings → `error`, warnings → `warning`.\n- Check that an incomplete scan shows up as unsuccessful and not as a passing, complete check.\n",
+        "refused": false,
+        "feedback": "File created successfully at: announcement.md (file state is current in your context — no need to Read it back)"
+      }
+    ]
+  },
+  "checked": {
+    "models": [
+      "claude-opus-5-5"
+    ],
+    "elapsed_seconds": 46.57,
+    "exit_code": 0,
+    "writes": [
+      {
+        "tool": "Write",
+        "file": "announcement.md",
+        "content": "# Add SARIF output to plain-english\n\n## Summary\n\nThis PR adds SARIF output to plain-english, the prose linter for Markdown and plain text. Lint results can now be read by tools that accept SARIF, including GitHub code scanning.\n\n## Usage\n\n```sh\nnpx plain-english lint docs --format sarif\n```\n\nThis writes SARIF 2.1.0 output to standard output.\n\n## What the output contains\n\n- **Finding details:** Every finding includes its rule ID, severity, file, line, column, and rewrite hint.\n- **Severity mapping:** Blocking findings become `error` results. Warnings become `warning` results.\n- **Incomplete scans:** If a scan does not finish, the run is marked as unsuccessful. It is not reported as a complete check.\n\n## Integration\n\nYou can upload the output to GitHub code scanning.\n\n## Privacy\n\nThe normal scan runs locally and sends no text to a model.\n\n## Review notes\n\n- Check that the severity mapping (blocking → `error`, warning → `warning`) matches what you expect.\n- Check that an incomplete scan is marked as unsuccessful and not as a passing check.\n",
+        "refused": true,
+        "feedback": "<tool_use_error>This file contains writing that reads as machine-generated:\n\n  line 1: \"SARIF\" (unglossed-term) \"SARIF\" is not explained. Say what it does, then name it.\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line unglossed-term -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\n  It waives this channel for 10 minutes, then expires on its own.</tool_use_error>"
+      },
+      {
+        "tool": "Write",
+        "file": "announcement.md",
+        "content": "# Add Static Analysis Results Interchange Format (SARIF) output to plain-english\n\n## Summary\n\nThis PR lets plain-english, the prose linter for Markdown and plain text, write its results in SARIF. SARIF is a standard format for reporting results from code analysis tools. With this change, tools that read SARIF, such as GitHub code scanning, can use plain-english results.\n\n## Usage\n\n```sh\nnpx plain-english lint docs --format sarif\n```\n\nThis writes SARIF 2.1.0 output to standard output.\n\n## What the output contains\n\n- **Finding details:** Every finding includes its rule ID, severity, file, line, column, and rewrite hint.\n- **Severity mapping:** Blocking findings become `error` results. Warnings become `warning` results.\n- **Incomplete scans:** If a scan does not finish, the run is marked as unsuccessful. It is not reported as a complete check.\n\n## Integration\n\nYou can upload the output to GitHub code scanning.\n\n## Privacy\n\nThe normal scan runs locally and sends no text to a model.\n\n## Review notes\n\n- Check that the severity mapping (blocking → `error`, warning → `warning`) matches what you expect.\n- Check that an incomplete scan is marked as unsuccessful and not as a passing check.\n",
+        "refused": false,
+        "feedback": "File created successfully at: announcement.md (file state is current in your context — no need to Read it back)"
+      }
+    ]
+  },
+  "lint": {
+    "baseline": {
+      "exit_code": 1,
+      "results": {
+        "errorCount": 0,
+        "warnCount": 1,
+        "files": [
+          {
+            "file": "announcement.md",
+            "findings": [
+              {
+                "ruleId": "unglossed-term",
+                "severity": "warn",
+                "match": "SARIF",
+                "line": 1,
+                "column": 7,
+                "lineText": "# Add SARIF output to plain-english",
+                "message": "\"SARIF\" is not explained. Say what it does, then name it.",
+                "link": "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "refused": {
+      "exit_code": 1,
+      "results": {
+        "errorCount": 0,
+        "warnCount": 1,
+        "files": [
+          {
+            "file": "announcement.md",
+            "findings": [
+              {
+                "ruleId": "unglossed-term",
+                "severity": "warn",
+                "match": "SARIF",
+                "line": 1,
+                "column": 7,
+                "lineText": "# Add SARIF output to plain-english",
+                "message": "\"SARIF\" is not explained. Say what it does, then name it.",
+                "link": "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "saved": {
+      "exit_code": 0,
+      "results": {
+        "errorCount": 0,
+        "warnCount": 0,
+        "files": []
+      }
+    }
+  },
+  "plugin_source_sha256": {
+    "hooks/register.ts": "dc29aaf7587ddf909512de154e16776100af2f6ed70286ae728325002a1e866f",
+    "hooks/wire.ts": "9ace6109c4da71e7aface4df9b55b2e249f7b987f470d7b16114d918e8a43cbf",
+    "dist/cli.mjs": "1162a8f54b23ab7f4a3d36b4d1ed94ecf835a91764214278939aa4b102e55dcd",
+    "rules/default.yml": "5ccd9ec957df1e5059189c73809cb5b9dda47c630ce27d53643388f6c9f2cb65",
+    ".claude-plugin/plugin.json": "3359b7f6d320505a50353fb03cfad5a33c64ee6f28c2b059bced6fbeb24312bf"
+  },
+  "earlier_task": {
+    "prompt": "Write a short launch announcement for developers about the new plain-english plugin for Claude Code. Save it as announcement.md in the working directory, then return the announcement.\n\nUse only these facts:\n- It checks Markdown writes, commit and pull request text, tracker issues, and completed chat replies.\n- Each finding names the passage, rule, and rewrite hint.\n- It runs checks locally. The normal scan sends no text to a model.\n- Project vocabulary and exceptions can be configured.\n- Blocking is opt-in. With no project config, findings are advisory.\n- Installation requires Claude Code 2.1.287 or newer.\n- Installation command: /plugin install plain-english --marketplace nordscope-fi/plain-english\n\nWrite for developers who are tired of editing filler out of agent-generated documentation. Include the installation command unchanged. Do not invent benchmarks, testimonials, or features.\n",
+    "baseline": {
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "elapsed_seconds": 9.31,
+      "exit_code": 0,
+      "writes": [
+        {
+          "tool": "Write",
+          "file": "announcement.md",
+          "content": "# plain-english: a Claude Code plugin that flags filler\n\nIf you spend time cutting filler out of agent-written docs, commit messages, and PR descriptions, plain-english can help. It's a new plugin for Claude Code that checks text as it's written and points out what to fix.\n\n## What it checks\n\n- Markdown files the agent writes\n- Commit messages and pull request text\n- Tracker issues\n- Chat replies, once they're complete\n\n## What a finding contains\n\nEach finding gives you three things:\n\n- **The passage** that triggered it\n- **The rule** it broke\n- **A rewrite hint** for fixing it\n\n## How it runs\n\nThe checks run on your machine. A normal scan doesn't send any text to a model.\n\n## Configuration\n\nYou can set your project's vocabulary and exceptions, so the plugin doesn't flag terms your team uses on purpose.\n\nBlocking is off unless you turn it on. If your project has no config, findings are advisory only.\n\n## Install\n\nYou need Claude Code 2.1.287 or newer.\n\n```\n/plugin install plain-english --marketplace nordscope-fi/plain-english\n```\n",
+          "refused": false,
+          "feedback": "File created successfully at: announcement.md (file state is current in your context — no need to Read it back)"
+        }
+      ]
+    },
+    "checked": {
+      "models": [
+        "claude-opus-5-5"
+      ],
+      "elapsed_seconds": 16.27,
+      "exit_code": 0,
+      "writes": [
+        {
+          "tool": "Write",
+          "file": "announcement.md",
+          "content": "# plain-english: a plugin for Claude Code that catches filler\n\nIf you spend time cutting filler out of agent-written docs, commit messages, and PR descriptions, plain-english can help. It's a new plugin for Claude Code that checks agent output for filler and shows you how to fix each problem it finds.\n\n## What it checks\n\n- Markdown files written by the agent\n- Commit messages and pull request text\n- Tracker issues\n- Finished chat replies\n\nEach finding names the passage, the rule it breaks, and a hint for rewriting it.\n\n## How it works\n\n- **Checks run locally.** A normal scan sends no text to a model.\n- **You can set your own vocabulary.** Add your project's terms and exceptions so it doesn't flag words your team uses on purpose.\n- **Findings are advisory by default.** Without project config, it reports problems but doesn't block anything. You have to turn blocking on yourself.\n\n## Install\n\nYou need Claude Code 2.1.287 or newer.\n\n```\n/plugin install plain-english --marketplace nordscope-fi/plain-english\n```\n",
+          "refused": false,
+          "feedback": "File created successfully at: announcement.md (file state is current in your context — no need to Read it back)"
+        }
+      ]
+    },
+    "result": "Both first drafts passed the file checks without a rewrite."
+  },
+  "presentation": {
+    "format": "Animated replay of captured text, not a screen recording.",
+    "excerpts": "The README and animation show the title and opening paragraph from the checked run.",
+    "scope": "One task demonstrates a refused save and a successful retry. No quality benchmark is claimed."
+  }
+}
