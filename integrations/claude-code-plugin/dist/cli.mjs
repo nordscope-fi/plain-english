@@ -17,7 +17,11 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 var __commonJS = (cb, mod) => function __require2() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  try {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  } catch (e) {
+    throw mod = 0, e;
+  }
 };
 var __export = (target, all3) => {
   for (var name in all3)
@@ -142,13 +146,13 @@ var require_format = __commonJS({
 var require_identity = __commonJS({
   "node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
-    var ALIAS = Symbol.for("yaml.alias");
-    var DOC = Symbol.for("yaml.document");
-    var MAP = Symbol.for("yaml.map");
-    var PAIR = Symbol.for("yaml.pair");
-    var SCALAR = Symbol.for("yaml.scalar");
-    var SEQ = Symbol.for("yaml.seq");
-    var NODE_TYPE = Symbol.for("yaml.node.type");
+    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
+    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
+    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
+    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
+    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
+    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
+    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
     var isAlias = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === ALIAS;
     var isDocument2 = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === DOC;
     var isMap = (node3) => !!node3 && typeof node3 === "object" && node3[NODE_TYPE] === MAP;
@@ -200,9 +204,9 @@ var require_visit = __commonJS({
   "node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var BREAK = Symbol("break visit");
-    var SKIP3 = Symbol("skip children");
-    var REMOVE = Symbol("remove node");
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP3 = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove node");
     function visit2(node3, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node3)) {
@@ -762,36 +766,38 @@ var require_Alias = __commonJS({
           if (node3.anchor === this.source)
             found = node3;
         }
+        if (found && ctx) {
+          const { anchors: anchors2, doc: doc2, maxAliasCount } = ctx;
+          let data = anchors2.get(found);
+          if (!data) {
+            toJS.toJS(found, null, ctx);
+            data = anchors2.get(found);
+          }
+          if (data?.res === void 0) {
+            const msg = "This should not happen: Alias anchor was not resolved?";
+            throw new ReferenceError(msg);
+          }
+          if (maxAliasCount >= 0) {
+            data.count += 1;
+            if (data.aliasCount === 0)
+              data.aliasCount = getAliasCount(doc2, found, anchors2);
+            if (data.count * data.aliasCount > maxAliasCount) {
+              const msg = "Excessive alias count indicates a resource exhaustion attack";
+              throw new ReferenceError(msg);
+            }
+          }
+        }
         return found;
       }
       toJSON(_arg, ctx) {
         if (!ctx)
           return { source: this.source };
-        const { anchors: anchors2, doc, maxAliasCount } = ctx;
-        const source = this.resolve(doc, ctx);
+        const source = this.resolve(ctx.doc, ctx);
         if (!source) {
           const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
           throw new ReferenceError(msg);
         }
-        let data = anchors2.get(source);
-        if (!data) {
-          toJS.toJS(source, null, ctx);
-          data = anchors2.get(source);
-        }
-        if (data?.res === void 0) {
-          const msg = "This should not happen: Alias anchor was not resolved?";
-          throw new ReferenceError(msg);
-        }
-        if (maxAliasCount >= 0) {
-          data.count += 1;
-          if (data.aliasCount === 0)
-            data.aliasCount = getAliasCount(doc, source, anchors2);
-          if (data.count * data.aliasCount > maxAliasCount) {
-            const msg = "Excessive alias count indicates a resource exhaustion attack";
-            throw new ReferenceError(msg);
-          }
-        }
-        return data.res;
+        return ctx.anchors.get(source).res;
       }
       toString(ctx, _onComment, _onChompKeep) {
         const src = `*${this.source}`;
@@ -4793,37 +4799,38 @@ var require_resolve_flow_scalar = __commonJS({
       }
       if (badChar)
         onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`);
-      return foldLines(source);
+      return unfoldLines(source);
     }
     function singleQuotedValue(source, onError) {
       if (source[source.length - 1] !== "'" || source.length === 1)
         onError(source.length, "MISSING_CHAR", "Missing closing 'quote");
-      return foldLines(source.slice(1, -1)).replace(/''/g, "'");
+      return unfoldLines(source.slice(1, -1)).replace(/''/g, "'");
     }
-    function foldLines(source) {
-      let first, line;
-      try {
-        first = new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-        line = new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
-      } catch {
-        first = /(.*?)[ \t]*\r?\n/sy;
-        line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
-      }
-      let match = first.exec(source);
+    function unfoldLines(source) {
+      const line = /(.*?)\r?\n/sy;
+      let match = line.exec(source);
       if (!match)
         return source;
-      let res = match[1];
+      let trimEnd, trimBoth;
+      try {
+        trimEnd = new RegExp("(?<![ 	])[ 	]+$");
+        trimBoth = new RegExp("^[ 	]+|(?<![ 	])[ 	]+$", "g");
+      } catch {
+        trimEnd = /[ \t]+$/;
+        trimBoth = /^[ \t]+|[ \t]+$/g;
+      }
+      let res = match[1].replace(trimEnd, "");
       let sep4 = " ";
-      let pos = first.lastIndex;
-      line.lastIndex = pos;
+      let pos = line.lastIndex;
       while (match = line.exec(source)) {
-        if (match[1] === "") {
+        const lm = match[1].replace(trimBoth, "");
+        if (lm === "") {
           if (sep4 === "\n")
             res += sep4;
           else
             sep4 = "\n";
         } else {
-          res += sep4 + match[1];
+          res += sep4 + lm;
           sep4 = " ";
         }
         pos = line.lastIndex;
@@ -5662,9 +5669,9 @@ var require_cst_stringify = __commonJS({
 var require_cst_visit = __commonJS({
   "node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
-    var BREAK = Symbol("break visit");
-    var SKIP3 = Symbol("skip children");
-    var REMOVE = Symbol("remove item");
+    var BREAK = /* @__PURE__ */ Symbol("break visit");
+    var SKIP3 = /* @__PURE__ */ Symbol("skip children");
+    var REMOVE = /* @__PURE__ */ Symbol("remove item");
     function visit2(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
