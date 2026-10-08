@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.13.4] - 2026-10-08
+### Fixed
+
+- The Claude Code plugin's directory listing describes what the plugin does by default: it asks before saving a file with a finding and holds a reply with a clear tell. It used to say the plugin refuses such writes, which happens only when a project sets `failOn: error`. The listing's documentation, support, privacy and terms links are now set explicitly, so the directory no longer guesses them from the README.
+
 ## [1.13.3] - 2026-10-08
 ### Added
 
@@ -694,7 +699,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.4...HEAD
+[1.13.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.4
 [1.13.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.3
 [1.13.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.2
 [1.13.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.1
