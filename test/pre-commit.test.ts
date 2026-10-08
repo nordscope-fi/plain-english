@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -18,7 +18,9 @@ describe("pre-commit Git-source installation", () => {
     const root = mkdtempSync(resolve(tmpdir(), "pe-pre-commit-")); fixtures.push(root);
     // Copy only the committed, self-contained executable and its runtime data.
     // There is no top-level dist, dependency installation, or PATH fallback.
-    for (const path of [pkg.bin["plain-english-pre-commit"], "integrations/claude-code-plugin/rules/default.yml", "integrations/claude-code-plugin/package.json"]) {
+    // The executable imports its vendored packages from dist/vendor beside it.
+    const vendored = readdirSync(resolve(REPO, "integrations/claude-code-plugin/dist/vendor")).map((name) => `integrations/claude-code-plugin/dist/vendor/${name}`);
+    for (const path of [pkg.bin["plain-english-pre-commit"], ...vendored, "integrations/claude-code-plugin/rules/default.yml", "integrations/claude-code-plugin/package.json"]) {
       const target = resolve(root, "package", path); mkdirSync(dirname(target), { recursive: true });
       copyFileSync(resolve(REPO, path), target);
     }

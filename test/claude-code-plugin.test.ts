@@ -11,7 +11,7 @@
  * CI's drift job fails on a bundle nobody committed.
  */
 
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -49,6 +49,26 @@ describe("the plugin's hook files as the directory reads them", () => {
     for (const file of HOOK_FILES) {
       const longest = Math.max(...readFileSync(resolve(PLUGIN, file), "utf8").split("\n").map((line) => line.length));
       expect(longest, file).toBeLessThanOrEqual(1000);
+    }
+  });
+
+  it("keep invisible and control characters out of the bundled checker too", () => {
+    const dist = resolve(PLUGIN, "dist");
+    for (const entry of readdirSync(dist, { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
+      const path = resolve(entry.parentPath, entry.name);
+      const lines = readFileSync(path, "utf8").split("\n");
+      expect(lines.flatMap((line, index) => INVISIBLE.test(line) ? [index + 1] : []), path).toEqual([]);
+    }
+  });
+
+  it("keep every bundled file under the directory's 1 MiB read limit", () => {
+    // Held as "Files or downloads the validator couldn't inspect" at 1.7 MB.
+    const dist = resolve(PLUGIN, "dist");
+    const files = readdirSync(dist, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
+    expect(files.length).toBeGreaterThan(1);
+    for (const file of files) {
+      const path = resolve(file.parentPath, file.name);
+      expect(statSync(path).size, path).toBeLessThan(1024 * 1024);
     }
   });
 

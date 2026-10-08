@@ -18,7 +18,7 @@
  * makes the word invisible to a word-boundary regex while looking identical to
  * a reader.
  */
-const ZERO_WIDTH = /[​‌‍⁠﻿]/g;
+const ZERO_WIDTH = /[\u200b\u200c\u200d\u2060\ufeff]/g;
 
 /** Dash characters a reader sees as an em dash. */
 const DASH_VARIANTS: Record<string, string> = {
@@ -97,7 +97,7 @@ export function stripZeroWidth(text: string): Compacted {
   const map: number[] = [];
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
-    if (/[​‌‍⁠﻿]/.test(ch)) continue;
+    if (/[\u200b\u200c\u200d\u2060\ufeff]/.test(ch)) continue;
     map.push(i);
     out += ch;
   }
