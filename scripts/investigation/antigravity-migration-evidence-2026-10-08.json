@@ -1,0 +1,261 @@
+{
+  "date": "2026-10-08",
+  "packageVersion": "1.6.0",
+  "cliVersion": "1.3.1",
+  "interactionDataImprovementConsent": "opted out before completing onboarding",
+  "authentication": {
+    "status": "SUCCESS",
+    "response": "OK",
+    "exitCode": 0
+  },
+  "strictWrite": {
+    "decision": "deny",
+    "fileCreated": false
+  },
+  "advisoryWrite": {
+    "decision": "ask",
+    "approvalPromptObserved": true,
+    "oneTimeApprovalGranted": true,
+    "expectedFileCreated": true
+  },
+  "chatRewrite": {
+    "turnsTestedInSameConversation": 2,
+    "continueDecisions": 2,
+    "combinedPrintOutputRetainsOriginal": true
+  },
+  "repository": {
+    "installed": true,
+    "trustedWorkspace": true,
+    "nativePreToolHookCount": 3,
+    "nativeStopHookCount": 1
+  },
+  "verification": {
+    "testFiles": 25,
+    "testsPassed": 875,
+    "adapterProbes": "passed",
+    "build": "passed",
+    "generatedFiles": "passed",
+    "policy": "passed",
+    "proseBlockingThreshold": "passed",
+    "newPublicGuidesWarningThreshold": "passed",
+    "packageContents": "passed"
+  },
+  "claudeInvoked": false,
+  "hooks": [
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 0,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "allow",
+      "exitCode": 0
+    },
+    {
+      "channel": "docs",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "modelName",
+        "stepIdx",
+        "toolCall",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": "write_to_file",
+      "argumentKeys": [
+        "CodeContent",
+        "Description",
+        "Overwrite",
+        "TargetFile",
+        "toolAction",
+        "toolSummary"
+      ],
+      "executionNum": null,
+      "terminationReason": null,
+      "fullyIdle": null,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "deny",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 0,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "allow",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 0,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "continue",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 1,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "allow",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 0,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "continue",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 1,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "allow",
+      "exitCode": 0
+    },
+    {
+      "channel": "docs",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "modelName",
+        "stepIdx",
+        "toolCall",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": "write_to_file",
+      "argumentKeys": [
+        "CodeContent",
+        "Description",
+        "Overwrite",
+        "TargetFile",
+        "toolAction",
+        "toolSummary"
+      ],
+      "executionNum": null,
+      "terminationReason": null,
+      "fullyIdle": null,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "ask",
+      "exitCode": 0
+    },
+    {
+      "channel": "chat",
+      "eventKeys": [
+        "artifactDirectoryPath",
+        "conversationId",
+        "error",
+        "executionNum",
+        "fullyIdle",
+        "modelName",
+        "terminationReason",
+        "transcriptPath",
+        "workspacePaths"
+      ],
+      "toolName": null,
+      "argumentKeys": [],
+      "executionNum": 0,
+      "terminationReason": "NO_TOOL_CALL",
+      "fullyIdle": true,
+      "transcriptFilename": "transcript_full.jsonl",
+      "decision": "allow",
+      "exitCode": 0
+    }
+  ],
+  "limits": [
+    "Native edit, shell, and issue dispatch were covered by local protocol tests, not live vendor operations.",
+    "No remote issues or comments were sent.",
+    "No subagents were spawned.",
+    "Desktop and Windows behavior were not tested live.",
+    "The optional vendor print timeout was exceeded on one successful resumed run."
+  ]
+}

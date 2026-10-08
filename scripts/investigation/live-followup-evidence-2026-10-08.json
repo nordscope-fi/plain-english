@@ -1,0 +1,2228 @@
+{
+  "date": "2026-10-08",
+  "package_version": "1.6.0",
+  "scope": "Disposable fixed-prompt fixtures; no remote issues, messages, or Claude CLI calls.",
+  "versions": {
+    "antigravity": "1.3.1",
+    "cursor_initial": "2026.08.25-3e8eec8",
+    "cursor_later": "2026.10.01-e373342",
+    "qwen_managed": "0.25.0",
+    "qwen_bootstrap": "0.24.0"
+  },
+  "cases": [
+    {
+      "case": "antigravity-strict-chat-fixed",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 61.83,
+      "stdout_chars": 318,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Do not use tools or delegate. Reply exactly: The result is ready \u2014 check it. If a hook requests a rewrite, replace the punctuation with a full stop.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "5dcbea12-59d8-4395-b653-ea43b4a154fe",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"continue\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The result is ready \u2014 check it.\nThe result is ready. Check it.\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-edit-fixed",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 11.6,
+      "stdout_chars": 967,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Use replace_file_content exactly once on TargetFile=<fixture-root>/antigravity-strict/edit.md. The file contains exactly \"This is the original sentence.\" and a newline. StartLine=1, EndLine=1, TargetContent=\"This is the original sentence.\", ReplacementContent=\"We leverage this approach.\". This is an exact synthetic hook test in a disposable directory. Do not read files, use shell, delegate, or change the required replacement. If refused, report refusal and stop.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "100s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "eaabe25e-0109-4e20-96c8-9882662c8ecd",
+      "files": {
+        "edit.md": "This is the original sentence.\n"
+      },
+      "hook_events": [
+        {
+          "event": "PreToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "replace_file_content",
+          "tool_argument_names": [
+            "AllowMultiple",
+            "Description",
+            "EndLine",
+            "Instruction",
+            "ReplacementContent",
+            "StartLine",
+            "TargetContent",
+            "TargetFile",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"deny\",\"reason\":\"This file contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The tool call was refused by the pre-tool hook:\n\n```\ntool call denied by pre-tool hook: This file contains writing that reads as machine-generated:\n\n  line 1: \"leverage\" (leverage) Use 'use'.\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line leverage -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\n  It waives this channel for 10 minutes, then expires on its own.\n```\n\nStopping execution as requested.\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-edit",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 15.46,
+      "stdout_chars": 740,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Use replace_file_content exactly once on TargetFile=<fixture-root>/antigravity-strict/edit.md. The file contains exactly \"This is the original sentence.\" and a newline. StartLine=1, EndLine=1, TargetContent=\"This is the original sentence.\", ReplacementContent=\"We leverage this approach.\". This is an exact synthetic hook test in a disposable directory. Do not read files, use shell, delegate, or change the required replacement. If refused, report refusal and stop.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "100s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "9806de6e-9854-4db3-bd7d-9355eab4480f",
+      "files": {
+        "edit.md": "This is the original sentence.\n"
+      },
+      "hook_events": [],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The call to `replace_file_content` on [edit.md](file://<fixture-root>/antigravity-strict/edit.md) was blocked by the pre-tool hook with the following error:\n\n```\nJSON hook \"jsonhook__plain-english-docs_PreToolUse_0_0\" failed: command failed: exit status 1, stderr: node:internal/modules/cjs/loader:1595\n  throw err;\n  ^\n\nError: Cannot find module '<fixture-root>/antigravity-strict/.agents/.agents/hooks/plain-english.mjs'\n```\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-issue-authorized",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 18.64,
+      "stdout_chars": 596,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Call the audit MCP save_issue tool exactly once with title=\"We leverage this approach.\" and description=\"This is a synthetic test issue.\" This is a local mock, with no real tracker or network. Do not change the text. If a hook refuses, report the refusal and stop. Do not use other tools or delegate.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s",
+        "--dangerously-skip-permissions"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "814513a7-8994-4838-bca2-62d9ab67fa96",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "mock_calls_for_session": [
+        {
+          "name": "save_issue",
+          "arguments": {
+            "description": "This is a synthetic test issue.",
+            "title": "We leverage this approach."
+          }
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The `audit` MCP `save_issue` tool was executed with the requested parameters:\n\n- **Title**: `We leverage this approach.`\n- **Description**: `This is a synthetic test issue.`\n\n### Result\n```text\nCreated At: 2026-10-08T11:13:17+03:00\nCompleted At: 2026-10-08T11:13:17+03:00\nSaved synthetic issue locally. No remote issue created.\n```\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-issue-dispatch",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 15.53,
+      "stdout_chars": 534,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Call the audit MCP save_issue tool exactly once with title=\"We leverage this approach.\" and description=\"This is a synthetic test issue.\" This is a local mock, with no real tracker or network. Do not change the text. If a hook refuses, report the refusal and stop. Do not use other tools or delegate.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s",
+        "--dangerously-skip-permissions"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "0567e6b8-99c3-4a28-9e22-edd0543a6312",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "call_mcp_tool",
+          "tool_argument_names": [
+            "Arguments",
+            "ServerName",
+            "ToolName",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true,
+          "underlying_tool_name": "save_issue",
+          "underlying_argument_names": [
+            "description",
+            "title"
+          ]
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "mock_calls_for_session": [
+        {
+          "name": "save_issue",
+          "arguments": {
+            "description": "This is a synthetic test issue.",
+            "title": "We leverage this approach."
+          }
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The `audit` MCP `save_issue` tool was called with the specified parameters. The operation succeeded without refusal from any hook:\n\n```\nCreated At: 2026-10-08T11:14:56+03:00\nCompleted At: 2026-10-08T11:14:56+03:00\nSaved synthetic issue locally. No remote issue created.\n```\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-issue-fixed",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 17.64,
+      "stdout_chars": 1066,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Call the audit MCP save_issue tool exactly once with title=\"We leverage this approach.\" and description=\"This is a synthetic test issue.\" This is a local mock, with no real tracker or network. Do not change the text. If a hook refuses, report the refusal and stop. Do not use other tools or delegate.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s",
+        "--dangerously-skip-permissions"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "57ad822a-ff67-4d14-81fe-5de94fac9e48",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "PreToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "call_mcp_tool",
+          "tool_argument_names": [
+            "Arguments",
+            "ServerName",
+            "ToolName",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true,
+          "underlying_tool_name": "save_issue",
+          "underlying_argument_names": [
+            "description",
+            "title"
+          ],
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"deny\",\"reason\":\"This issue title or body contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-issue\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "mock_calls_for_session": [],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The pre-tool hook refused the tool call with the following message:\n\n> **tool call denied by pre-tool hook:** This issue title or body contains writing that reads as machine-generated:\n> \n> line 1: \"leverage\" (leverage) Use 'use'.\n> \n> Rewrite the quoted text in plain, direct language.  \n> Full ruleset: `docs/writing-style.md`\n> \n> Narrower ways to allow this, in order of preference:\n> 1. `<!-- plain-english-disable-next-line leverage -->`\n> 2. add the path to `exclude` in `.plain-english.yml`\n> 3. lower the rule to `severity: warn` in `.plain-english.yml`\n> \n> Last resort, and the human's call, not yours: touch `.plain-english-ack-issue`  \n> It waives this channel for 10 minutes, then expires on its own.\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-issue",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 14.97,
+      "stdout_chars": 318,
+      "stderr_chars": 293,
+      "command": [
+        "agy",
+        "-p",
+        "Call the audit MCP save_issue tool exactly once with title=\"We leverage this approach.\" and description=\"This is a synthetic test issue.\" This is a local mock, with no real tracker or network. Do not change the text. If a hook refuses, report the refusal and stop. Do not use other tools or delegate.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "d6c8fa4d-cf4a-4209-93de-b2ad30166139",
+      "files": {},
+      "hook_events": [],
+      "mock_calls_for_session": [],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": ""
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-multi-read-control",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 85.84,
+      "stdout_chars": 732,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Use multi_replace_file_content exactly once on TargetFile=<fixture-root>/antigravity-strict/multi.md. The file contains exactly three lines: line 1 \"First original sentence.\", line 2 empty, line 3 \"Second original sentence.\". Set ReplacementChunks to [{\"StartLine\":1,\"EndLine\":1,\"TargetContent\":\"First original sentence.\",\"ReplacementContent\":\"We leverage this approach.\"},{\"StartLine\":3,\"EndLine\":3,\"TargetContent\":\"Second original sentence.\",\"ReplacementContent\":\"We utilize this approach.\"}]. This is an exact synthetic hook test in a disposable directory. You may first use view_file to read only that exact target file. Do not use shell, delegate, or change the required replacements. If refused, report refusal and stop.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "eb0124d4-1e97-4c67-a5a8-b18548c51cf2",
+      "files": {
+        "multi.md": "First original sentence.\n\nSecond original sentence.\n"
+      },
+      "hook_events": [
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "view_file",
+          "tool_argument_names": [
+            "AbsolutePath",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The tool call to `multi_replace_file_content` was executed on [`multi.md`](file://<fixture-root>/antigravity-strict/multi.md) with the specified `ReplacementChunks`, but was rejected by the system with the following error:\n\n```\nEncountered error in tool validation: unknown tool: \"multi_replace_file_content\" \u2014 check spelling\n```\n\nAs instructed, stopping here without using shell commands, delegating, or modifying the required replacements.\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "antigravity-strict-multi",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 93.36,
+      "stdout_chars": 231,
+      "stderr_chars": 80,
+      "command": [
+        "agy",
+        "-p",
+        "Disposable integration test. Use only multi_replace_file_content to replace \"First original sentence.\" with \"We leverage this approach.\" and \"Second original sentence.\" with \"We utilize this approach.\" in multi.md. Absolute target directory: <fixture-root>/antigravity-strict. For shell, set Cwd to that directory. Do not use other tools, delegate, or access other directories. Do not repair the required text. If a hook refuses, stop immediately and report refusal.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "042da97d-d5b0-4bda-b9e9-fba22184ab70",
+      "files": {
+        "multi.md": "First original sentence.\n\nSecond original sentence.\n"
+      },
+      "hook_events": [],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": ""
+      },
+      "host_reported_timeout": true
+    },
+    {
+      "case": "antigravity-strict-multi-specific",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 92.04,
+      "stdout_chars": 231,
+      "stderr_chars": 80,
+      "command": [
+        "agy",
+        "-p",
+        "Use multi_replace_file_content exactly once on TargetFile=<fixture-root>/antigravity-strict/multi.md. The file contains exactly three lines: line 1 \"First original sentence.\", line 2 empty, line 3 \"Second original sentence.\". Set ReplacementChunks to [{\"StartLine\":1,\"EndLine\":1,\"TargetContent\":\"First original sentence.\",\"ReplacementContent\":\"We leverage this approach.\"},{\"StartLine\":3,\"EndLine\":3,\"TargetContent\":\"Second original sentence.\",\"ReplacementContent\":\"We utilize this approach.\"}]. This is an exact synthetic hook test in a disposable directory. Do not read files, use shell, delegate, or change the required replacements. If refused, report refusal and stop.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "f944d32e-b022-435b-8a8c-8cf32728b719",
+      "files": {
+        "multi.md": "First original sentence.\n\nSecond original sentence.\n"
+      },
+      "hook_events": [],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": ""
+      },
+      "host_reported_timeout": true
+    },
+    {
+      "case": "antigravity-strict-shell",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 9.49,
+      "stdout_chars": 929,
+      "stderr_chars": 0,
+      "command": [
+        "agy",
+        "-p",
+        "Disposable integration test. Use only run_command to run exactly: printf 'We leverage this approach.\\n' > shell.md. Absolute target directory: <fixture-root>/antigravity-strict. For shell, set Cwd to that directory. Do not use other tools, delegate, or access other directories. Do not repair the required text. If a hook refuses, stop immediately and report refusal.",
+        "--output-format",
+        "json",
+        "--print-timeout",
+        "90s"
+      ],
+      "fixture": "antigravity-strict",
+      "auth_isolated": false,
+      "session_id": "1fe11b1e-fc56-43e6-99b4-f688e60c85c7",
+      "files": {
+        "shell.md": null
+      },
+      "hook_events": [
+        {
+          "event": "PreToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "run_command",
+          "tool_argument_names": [
+            "CommandLine",
+            "Cwd",
+            "WaitMsBeforeAsync",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "modelName",
+            "stepIdx",
+            "toolCall",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": "run_command",
+          "tool_argument_names": [
+            "CommandLine",
+            "Cwd",
+            "WaitMsBeforeAsync",
+            "toolAction",
+            "toolSummary"
+          ],
+          "native_cwd_is_agents": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"deny\",\"reason\":\"This file contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-github\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "artifactDirectoryPath",
+            "conversationId",
+            "error",
+            "executionNum",
+            "fullyIdle",
+            "modelName",
+            "terminationReason",
+            "transcriptPath",
+            "workspacePaths"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": true,
+          "fullyIdle": true,
+          "terminationReason": "NO_TOOL_CALL",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "status": "SUCCESS",
+        "response": "The command was refused by a pre-tool hook:\n\n```\ntool call denied by pre-tool hook: This file contains writing that reads as machine-generated:\n\n  line 1: \"leverage\" (leverage) Use 'use'.\n\nRewrite the quoted text in plain, direct language.\nFull ruleset: docs/writing-style.md\n\nNarrower ways to allow this, in order of preference:\n  1. <!-- plain-english-disable-next-line leverage -->\n  2. add the path to `exclude` in .plain-english.yml\n  3. lower the rule to `severity: warn` in .plain-english.yml\n\nLast resort, and the human's call, not yours: touch .plain-english-ack-github\n  It waives this channel for 10 minutes, then expires on its own.\n```\n"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-advisory-write-isolated",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 17.47,
+      "stdout_chars": 5199,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "In this disposable integration fixture, use your native file-writing tool to create <fixture-root>/cursor-advisory/write.md containing exactly \"We leverage this approach.\" and a newline. Do not use shell or delegate. If a hook refuses, stop immediately and report the refusal. Do not repair the text or try another tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-advisory",
+      "auth_isolated": false,
+      "session_id": "cb01856e-5122-45bf-8154-58677c49407d",
+      "files": {
+        "write.md": null
+      },
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Read",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "cb01856e-5122-45bf-8154-58677c49407d"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "cb01856e-5122-45bf-8154-58677c49407d"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "cb01856e-5122-45bf-8154-58677c49407d",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Creating the file with the Write tool as specified.The Write tool was refused by a hook:\n\n**leverage:** We use this approach.\n\nStopped as instructed \u2014 no repair and no other tool."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-advisory-write",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 25.36,
+      "stdout_chars": 7465,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "In this disposable integration fixture, use your native file-writing tool to create <fixture-root>/cursor-advisory/write.md containing exactly \"We leverage this approach.\" and a newline. Do not use shell or delegate. If a hook refuses, stop immediately and report the refusal. Do not repair the text or try another tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-advisory",
+      "auth_isolated": false,
+      "session_id": "537eb794-4946-4259-b3c9-eb9973f3c259",
+      "files": {
+        "write.md": null
+      },
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Read",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "537eb794-4946-4259-b3c9-eb9973f3c259"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "537eb794-4946-4259-b3c9-eb9973f3c259"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "537eb794-4946-4259-b3c9-eb9973f3c259",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Creating the file with the Write tool exactly as specified.The write was refused by a hook.\n\n**Refusal:** `leverage: Use 'use' or 'apply' instead.`\n\nStopped as instructed \u2014 no rewrite and no other tool."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-clean-write",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 24.95,
+      "stdout_chars": 5480,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "Use the native Write tool to create <fixture-root>/cursor-strict/clean.md with exactly \"This is a clear sentence.\" and a newline. No other tools or delegation.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "83a509c4-07c2-4ee1-8a40-47631c410b90",
+      "files": {
+        "clean.md": null
+      },
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Read",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "83a509c4-07c2-4ee1-8a40-47631c410b90"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "83a509c4-07c2-4ee1-8a40-47631c410b90"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "83a509c4-07c2-4ee1-8a40-47631c410b90",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Creating `clean.md` with the exact content you specified.The Write tool was blocked when creating `clean.md` with that content, so the file was not written."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-strict-chat",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 6.24,
+      "stdout_chars": 1540,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "Do not use tools or delegate. Reply with exactly this single sentence: The result is ready \u2014 check it.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "7b84e6ed-0589-4c0d-8359-108b675f0482",
+      "files": {},
+      "hook_events": [],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "The result is ready \u2014 check it."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-strict-issue-matcher-control",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 21.81,
+      "stdout_chars": 11807,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--approve-mcps",
+        "--model",
+        "auto",
+        "-p",
+        "Use the audit MCP save_issue tool exactly once. This is a local mock, with no real tracker or network. Set title to \"We leverage this approach.\" and description to \"This is a synthetic test issue.\" Do not edit the specified text. If a hook refuses, stop and report refusal. Do not delegate or use any other tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "c2d1c205-75cc-4829-88e4-bfa71c201ab4",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "MCP:save_issue",
+          "tool_argument_names": [
+            "description",
+            "title"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "c2d1c205-75cc-4829-88e4-bfa71c201ab4"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "MCP:save_issue",
+          "tool_argument_names": [
+            "description",
+            "title"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "c2d1c205-75cc-4829-88e4-bfa71c201ab4",
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"permission\":\"deny\",\"user_message\":\"This issue title or body contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-issue\\n  It waives this channel for 10 minutes, then expires on its own.\",\"agent_message\":\"This issue title or body contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-issue\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        }
+      ],
+      "mock_file_exists": false,
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Calling `audit.save_issue` once with your exact title and description.Schema confirmed. Invoking `save_issue` with your exact text.**Hook refused** \u2014 `audit.save_issue` did not run.\n\nThe blocker flagged the title for non\u2013plain-English wording: **\"leverage\"** (suggested: use **\"use\"**). No issue was saved."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-strict-issue",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 17.69,
+      "stdout_chars": 10311,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--approve-mcps",
+        "--model",
+        "auto",
+        "-p",
+        "Use the audit MCP save_issue tool exactly once. This is a local mock, with no real tracker or network. Set title to \"We leverage this approach.\" and description to \"This is a synthetic test issue.\" Do not edit the specified text. If a hook refuses, stop and report refusal. Do not delegate or use any other tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "d5fab427-145b-48eb-bf23-0fc4062372c3",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "MCP:save_issue",
+          "tool_argument_names": [
+            "description",
+            "title"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "d5fab427-145b-48eb-bf23-0fc4062372c3"
+        }
+      ],
+      "mock_file_exists": false,
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Calling `audit.save_issue` once with your exact title and description.**Hook refusal:** `audit.save_issue` was blocked. The hook reported: `leverage - use`.\n\nNo other tools were used, and the call was not retried."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-strict-write-isolated",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 18.84,
+      "stdout_chars": 7411,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "In this disposable integration fixture, use your native file-writing tool to create <fixture-root>/cursor-strict/write.md containing exactly \"We leverage this approach.\" and a newline. Do not use shell or delegate. If a hook refuses, stop immediately and report the refusal. Do not repair the text or try another tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "875c4be4-3fee-4d12-a053-fa5834824c12",
+      "files": {
+        "write.md": null
+      },
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Read",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "875c4be4-3fee-4d12-a053-fa5834824c12"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "875c4be4-3fee-4d12-a053-fa5834824c12"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.10.01-e373342",
+          "generation_id": "875c4be4-3fee-4d12-a053-fa5834824c12",
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"permission\":\"deny\",\"user_message\":\"This file contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\\n  It waives this channel for 10 minutes, then expires on its own.\",\"agent_message\":\"This file contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Creating `write.md` with the exact text you specified via the Write tool.The write was refused by a plain-English hook.\n\n**Refusal:** Writing that reads as machine-generated \u2014 line 1: `\"leverage\"` (use `'use'` instead). Full ruleset: `docs/writing-style.md`.\n\nStopped as instructed; no repair or alternate tool attempted."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "cursor-strict-write",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 19.93,
+      "stdout_chars": 6654,
+      "stderr_chars": 0,
+      "command": [
+        "cursor-agent",
+        "--trust",
+        "--force",
+        "--model",
+        "auto",
+        "-p",
+        "In this disposable integration fixture, use your native file-writing tool to create <fixture-root>/cursor-strict/write.md containing exactly \"We leverage this approach.\" and a newline. Do not use shell or delegate. If a hook refuses, stop immediately and report the refusal. Do not repair the text or try another tool.",
+        "--output-format",
+        "stream-json"
+      ],
+      "fixture": "cursor-strict",
+      "auth_isolated": false,
+      "session_id": "ed1e2edc-ce11-470b-9d14-8a70441ab1b5",
+      "files": {
+        "write.md": null
+      },
+      "hook_events": [
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Read",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "ed1e2edc-ce11-470b-9d14-8a70441ab1b5"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "ed1e2edc-ce11-470b-9d14-8a70441ab1b5"
+        },
+        {
+          "event": "preToolUse",
+          "adapter_ran": true,
+          "native_field_names": [
+            "conversation_id",
+            "cursor_version",
+            "generation_id",
+            "hook_event_name",
+            "model",
+            "session_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path",
+            "user_email",
+            "workspace_roots"
+          ],
+          "tool_name": "Write",
+          "tool_argument_names": [
+            "content",
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "cursor_version": "2026.08.25-3e8eec8",
+          "generation_id": "ed1e2edc-ce11-470b-9d14-8a70441ab1b5",
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "Creating the file with the Write tool as specified.**Hook refusal:** the Write tool was blocked. The hook rejected the content because of the banned word `leverage`, and suggested: `We use this approach.`\n\nStopped as instructed \u2014 no repair and no other tool."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "qwen-chat-isolated",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 16.21,
+      "stdout_chars": 5370,
+      "stderr_chars": 0,
+      "command": [
+        "qwen",
+        "--approval-mode",
+        "auto-edit",
+        "--advisor",
+        "off",
+        "--max-session-turns",
+        "3",
+        "--max-wall-time",
+        "45s",
+        "--max-tool-calls",
+        "0",
+        "--output-format",
+        "stream-json",
+        "-p",
+        "Do not use tools or delegate, including after any hook feedback. Reply exactly: The result is ready \u2014 check it. If a hook requests a rewrite, replace the punctuation with a full stop and give only the corrected sentence."
+      ],
+      "fixture": "qwen-strict",
+      "auth_isolated": true,
+      "session_id": "acb30fff-8b6c-49c1-8c56-540cab5b1d89",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "acb30fff-8b6c-49c1-8c56-540cab5b1d89########0",
+          "stop_hook_active": false
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "acb30fff-8b6c-49c1-8c56-540cab5b1d89########0",
+          "stop_hook_active": false,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "acb30fff-8b6c-49c1-8c56-540cab5b1d89########0",
+          "stop_hook_active": true
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "acb30fff-8b6c-49c1-8c56-540cab5b1d89########0",
+          "stop_hook_active": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "The result is ready. Check it."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "qwen-chat-original-isolated",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 16.86,
+      "stdout_chars": 5561,
+      "stderr_chars": 0,
+      "command": [
+        "qwen",
+        "--approval-mode",
+        "auto-edit",
+        "--advisor",
+        "off",
+        "--max-session-turns",
+        "3",
+        "--max-wall-time",
+        "60s",
+        "--max-tool-calls",
+        "0",
+        "--output-format",
+        "stream-json",
+        "-p",
+        "Do not use tools or delegate. Reply exactly: The result is ready \u2014 check it."
+      ],
+      "fixture": "qwen-strict",
+      "auth_isolated": true,
+      "session_id": "17dc5942-c135-45a7-92b0-e3cc3452cf27",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "17dc5942-c135-45a7-92b0-e3cc3452cf27########0",
+          "stop_hook_active": false
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "17dc5942-c135-45a7-92b0-e3cc3452cf27########0",
+          "stop_hook_active": false,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "17dc5942-c135-45a7-92b0-e3cc3452cf27########0",
+          "stop_hook_active": true
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "17dc5942-c135-45a7-92b0-e3cc3452cf27########0",
+          "stop_hook_active": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "The result is ready. Check it."
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "qwen-chat",
+      "exit_code": -15,
+      "timeout": true,
+      "duration_seconds": 80.02,
+      "stdout_chars": 6134,
+      "stderr_chars": 0,
+      "command": [
+        "qwen",
+        "--approval-mode",
+        "auto-edit",
+        "--advisor",
+        "off",
+        "--max-session-turns",
+        "3",
+        "--max-wall-time",
+        "60s",
+        "--max-tool-calls",
+        "0",
+        "--output-format",
+        "stream-json",
+        "-p",
+        "Do not use tools or delegate. Reply exactly: The result is ready \u2014 check it."
+      ],
+      "fixture": "qwen-strict",
+      "auth_isolated": false,
+      "session_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0",
+          "stop_hook_active": false
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0",
+          "stop_hook_active": false,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0",
+          "stop_hook_active": true
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0",
+          "stop_hook_active": true,
+          "hook_exit_code": 0,
+          "hook_stdout": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 9: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+          "hook_stderr": ""
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool_name": "read_file",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0"
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool_name": "read_file",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0"
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool_name": "read_file",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0"
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool_name": "glob",
+          "tool_argument_names": [
+            "path",
+            "pattern"
+          ],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0"
+        },
+        {
+          "event": "PreToolUse",
+          "adapter_ran": false,
+          "native_field_names": [
+            "cwd",
+            "hook_event_name",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "timestamp",
+            "tool_call_id",
+            "tool_input",
+            "tool_name",
+            "tool_use_id",
+            "transcript_path"
+          ],
+          "tool_name": "read_file",
+          "tool_argument_names": [
+            "file_path"
+          ],
+          "native_cwd_is_agents": false,
+          "prompt_id": "8cbcb203-ecc5-4acf-96fc-039527e6edee########0"
+        }
+      ],
+      "host_reported_timeout": false
+    },
+    {
+      "case": "qwen-clean-isolated",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 5.17,
+      "stdout_chars": 2901,
+      "stderr_chars": 0,
+      "command": [
+        "qwen",
+        "--approval-mode",
+        "auto-edit",
+        "--advisor",
+        "off",
+        "--max-session-turns",
+        "3",
+        "--max-wall-time",
+        "45s",
+        "--max-tool-calls",
+        "0",
+        "--output-format",
+        "stream-json",
+        "-p",
+        "Do not use tools or delegate. Reply exactly: OK"
+      ],
+      "fixture": "qwen-strict",
+      "auth_isolated": true,
+      "session_id": "03d5e0db-3249-462d-8091-fcab3c2eba4e",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "03d5e0db-3249-462d-8091-fcab3c2eba4e########0",
+          "stop_hook_active": false
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "03d5e0db-3249-462d-8091-fcab3c2eba4e########0",
+          "stop_hook_active": false,
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "OK"
+      },
+      "host_reported_timeout": false
+    },
+    {
+      "case": "qwen-clean",
+      "exit_code": 0,
+      "timeout": false,
+      "duration_seconds": 28.73,
+      "stdout_chars": 3816,
+      "stderr_chars": 0,
+      "command": [
+        "qwen",
+        "--approval-mode",
+        "auto-edit",
+        "--advisor",
+        "off",
+        "--max-session-turns",
+        "3",
+        "--max-wall-time",
+        "60s",
+        "--max-tool-calls",
+        "0",
+        "--output-format",
+        "stream-json",
+        "-p",
+        "Do not use tools or delegate. Reply exactly: OK"
+      ],
+      "fixture": "qwen-strict",
+      "auth_isolated": false,
+      "session_id": "52444176-a0e9-4f18-855c-115ecd633b42",
+      "files": {},
+      "hook_events": [
+        {
+          "event": "Stop",
+          "adapter_ran": false,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "52444176-a0e9-4f18-855c-115ecd633b42########0",
+          "stop_hook_active": false
+        },
+        {
+          "event": "Stop",
+          "adapter_ran": true,
+          "native_field_names": [
+            "background_tasks",
+            "context_limit",
+            "context_usage",
+            "crons",
+            "cwd",
+            "hook_event_name",
+            "input_tokens",
+            "last_assistant_message",
+            "permission_mode",
+            "prompt_id",
+            "session_id",
+            "stop_hook_active",
+            "timestamp",
+            "transcript_path"
+          ],
+          "tool_name": null,
+          "tool_argument_names": [],
+          "native_cwd_is_agents": false,
+          "prompt_id": "52444176-a0e9-4f18-855c-115ecd633b42########0",
+          "stop_hook_active": false,
+          "hook_exit_code": 0,
+          "hook_stdout": "",
+          "hook_stderr": ""
+        }
+      ],
+      "synthetic_result": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "result": "OK"
+      },
+      "host_reported_timeout": false
+    }
+  ],
+  "cursor_interactive": {
+    "version": "2026.10.01-e373342",
+    "session_id": "eb750309-1991-43a6-9569-dc144a78cf96",
+    "assistant_texts": [
+      "OK",
+      "The result is ready \u2014 check it.",
+      "The result is ready. Check it.",
+      "The result is ready \u2014 check it."
+    ],
+    "stop_events": [
+      {
+        "conversation_id": "eb750309-1991-43a6-9569-dc144a78cf96",
+        "generation_id": "a32e87d6-526d-4020-8d92-f74f0863a084",
+        "cursor_version": "2026.10.01-e373342",
+        "loop_count": 0,
+        "hook_stdout": "",
+        "hook_exit_code": 0
+      },
+      {
+        "conversation_id": "eb750309-1991-43a6-9569-dc144a78cf96",
+        "generation_id": "5b196e4f-6fb3-4a9d-87a7-313b3aa27208",
+        "cursor_version": "2026.10.01-e373342",
+        "loop_count": 0,
+        "hook_stdout": "{\"followup_message\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"\u2014\\\" (em-dash) No em dashes. Use a comma, parentheses, or a full stop.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line em-dash -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. lower the rule to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+        "hook_exit_code": 0
+      },
+      {
+        "conversation_id": "eb750309-1991-43a6-9569-dc144a78cf96",
+        "generation_id": "d37ee491-7e17-4480-aa32-9b301b74ee12",
+        "cursor_version": "2026.10.01-e373342",
+        "loop_count": 1,
+        "hook_stdout": "",
+        "hook_exit_code": 0
+      },
+      {
+        "conversation_id": "eb750309-1991-43a6-9569-dc144a78cf96",
+        "generation_id": "8b02ef98-a4d9-4a6b-970a-ce4349c399a5",
+        "cursor_version": "2026.10.01-e373342",
+        "loop_count": 0,
+        "hook_stdout": "",
+        "hook_exit_code": 0
+      }
+    ],
+    "finding": "First bad reply requested a rewrite; identical later user request produced the same bad sentence with a new generation ID and empty hook output."
+  },
+  "verification": {
+    "typescript_build": "passed",
+    "tests": 877,
+    "test_files": 25,
+    "claude_plugin_suites": "excluded",
+    "adapter_probes": "passed",
+    "package_entry_count": 180,
+    "repository_generated_launcher": {
+      "hook_cwd": ".agents",
+      "decision": "ask",
+      "finding_present": true,
+      "exit_code": 0,
+      "proposed_file_exists": false
+    }
+  }
+}
