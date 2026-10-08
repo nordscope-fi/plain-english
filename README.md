@@ -14,7 +14,7 @@ replies. You control the rules and whether findings block a write.
 
 ## Install in Claude Code
 
-In a Claude Code session, version 2.1.287 or newer:
+In a Claude Code session, version 2.1.293 or newer:
 
 ```text
 /plugin install plain-english --marketplace nordscope-fi/plain-english
@@ -152,7 +152,7 @@ writing settings or launchers into the project.
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.6.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.7.0
   with:
     paths: docs README.md
     fail-on: error
@@ -169,7 +169,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.6.0
+    rev: v1.7.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

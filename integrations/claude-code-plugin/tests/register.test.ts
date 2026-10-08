@@ -1,8 +1,20 @@
-import { describe, expect, test, tier } from 'claude-code/testing'
+import { describe, expect, test, tier, type TestBody } from 'claude-code/testing'
 
 import { readPassages } from '../hooks/wire'
 
 tier('user')
+
+/** One output fixture answers either local commands or streaming model checks. */
+function onProcess(on: Parameters<TestBody>[1], respond: (engine: Parameters<TestBody>[0], event: { argv: readonly string[]; init?: { stdin?: string } }) => { value?: { exitCode: number; stdout: string; stderr: string }; deny?: string }) {
+  on('process.run', ($, e) => respond($, e))
+  on('process.spawn', async function* ($, e) {
+    const result = respond($, { argv: e.argv, init: { stdin: e.input } })
+    if (result.value === undefined) throw new Error(result.deny ?? 'Process refused')
+    if (result.value.stdout !== '') yield { stream: 'stdout', text: result.value.stdout }
+    if (result.value.stderr !== '') yield { stream: 'stderr', text: result.value.stderr }
+    return { value: { code: result.value.exitCode, signal: null } }
+  })
+}
 
 const RUN = {
   exitCode: 0,
@@ -61,11 +73,82 @@ const PANE = {
 } as const
 
 describe('register', () => {
+  test('shows one safe model-failure notice without changing allow, advisory or deny decisions', async ($, on) => {
+    const notice = 'plain-english: extra model check could not start; pattern checks still apply.'
+    const logged: string[] = []
+    let stdout = ''
+    let questions = 0
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout, stderr: `${notice}\nPRIVATE_PROMPT\n${notice}\n` } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      questions++
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Save it as it is' } } }
+    })
+    const event = { tool: 'Write' as const, file_path: '/repo/a.md', content: 'Clear words.' }
+    expect((await $.tool.call(event)).result).toBe('written')
+    expect(questions).toBe(0)
+    expect(logged).toEqual([notice])
+    logged.length = 0
+    stdout = ASK
+    expect((await $.tool.call(event)).result).toBe('written')
+    expect(questions).toBe(1)
+    expect(logged).toEqual([notice])
+    logged.length = 0
+    stdout = DENY
+    expect((await $.tool.call(event)).deny).toContain('Furthermore')
+    expect(questions).toBe(1)
+    expect(logged).toEqual([notice])
+  })
+  test('keeps a capture-failure notice separate from a blocked reply and omits unknown stderr', async ($, on) => {
+    const notice = 'plain-english: model usage capture unavailable.'
+    const logged: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: BLOCK, stderr: `${notice}\r\n${notice}\r\nPRIVATE_PROMPT\r\n${notice} PRIVATE_PROMPT\r\n` } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('classic.Stop', () => ({}))
+    const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'A long reply.' })
+    expect(result.block).toBe('reply-length: 300 words of prose, over 250.')
+    expect(logged).toEqual([notice])
+  })
+  test('runs write and reply model checks through the descendant cancellation wrapper', async ($, on) => {
+    const calls: string[][] = []
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, ($, e) => {
+      calls.push([...e.argv])
+      return { value: { ...RUN, stdout: '' } }
+    })
+    on('tool.call', () => ({ result: 'written' }))
+    on('classic.Stop', () => ({}))
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })
+    await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'Clear words.' })
+    expect(calls.length).toBe(2)
+    for (const argv of calls) {
+      expect(argv[1]?.endsWith('/hooks/run-checker.mjs')).toBe(true)
+      expect(argv[2]?.endsWith('/dist/cli.mjs')).toBe(true)
+    }
+    expect(calls[0]?.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+    expect(calls[1]?.slice(3)).toEqual(['hook', 'chat', '--agent', 'claude-code'])
+  })
+  test('counts checker output limits in bytes and reports unavailable', async ($, on) => {
+    let logged = ''
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: '🙂'.repeat(1_048_577) } }))
+    on('ui.log', ($, e) => { logged = e.text; return { value: undefined } })
+    on('tool.call', () => ({ result: 'written' }))
+    await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })
+    expect(logged).toContain('checker output exceeded 4 MB')
+  })
   test('approval does not save an exception for a rule removed since the finding', async ($, on) => {
     let saved = false
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', ($, e) => ({ value: e.argv.includes('explain')
+    onProcess(on, ($, e) => ({ value: e.argv.includes('explain')
       ? { ...RUN, exitCode: 2, stdout: '', stderr: 'no rule old-custom-rule' }
       : { ...RUN, stdout: ASK.replaceAll('furthermore', 'old-custom-rule') } }))
     on('fs.exists', () => ({ value: false }))
@@ -89,7 +172,7 @@ describe('register', () => {
     let saved = false
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('fs.exists', () => ({ value: false }))
     on('fs.stat', () => ({ value: { kind: 'dir', isLink: confirmed, size: 0, mtimeMs: 0, realPath: confirmed ? '/elsewhere' : '/repo' } }))
     on('fs.write', () => { saved = true; return { value: undefined } })
@@ -113,7 +196,7 @@ describe('register', () => {
     let saved = false
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo/sub' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('fs.exists', ($, e) => ({ value: e.path === '/repo/.plain-english.yaml' }))
     on('fs.stat', ($, e) => ({ value: { kind: 'dir', isLink: false, size: 0, mtimeMs: 0, realPath: e.path } }))
     on('fs.write', () => { saved = true; return { value: undefined } })
@@ -133,7 +216,7 @@ describe('register', () => {
   test('oversized project guidance leaves the existing context intact and explains the skip', async ($, on) => {
     let notice = ''
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: 'x'.repeat(32_769) } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: 'x'.repeat(32_769) } }))
     on('ui.log', ($, e) => {
       notice = e.text
       return { value: undefined }
@@ -149,7 +232,7 @@ describe('register', () => {
     let stdout = '[]'
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout } }))
     on('ui.log', ($, e) => {
       logged = e.text
       return { value: undefined }
@@ -165,7 +248,7 @@ describe('register', () => {
   test('project writing guidance joins context without replacing existing instructions', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
     let args: string[] = []
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       args = [...e.argv]
       return { value: { ...RUN, stdout: 'Our readers know BuildKit. Preserve approved quotations.' } }
     })
@@ -178,7 +261,7 @@ describe('register', () => {
   })
   test('review also shows a refused reply without offering a one-time write bypass', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: JSON.stringify({ decision: 'block', reason: ASK_REASON }) } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: JSON.stringify({ decision: 'block', reason: ASK_REASON }) } }))
     on('classic.Stop', () => ({}))
     await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'Furthermore.' })
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
@@ -191,7 +274,7 @@ describe('register', () => {
     let dialogs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: DENY } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: DENY } }))
     on('tool.call', ($, e) => {
       if (e.tool === 'AskUserQuestion') dialogs += 1
       return { result: 'written' }
@@ -207,7 +290,7 @@ describe('register', () => {
   })
   test('a manual check that cannot start returns an unavailable notice', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ deny: 'node not found' }))
+    onProcess(on, () => ({ deny: 'node not found' }))
     const answer = await $.command.run({ command: 'plain-english', args: 'docs' })
     expect(answer.text).toContain('check unavailable')
   })
@@ -215,7 +298,7 @@ describe('register', () => {
     const notices: string[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, exitCode: 2, stdout: '', stderr: 'Invalid configuration' } }))
+    onProcess(on, () => ({ value: { ...RUN, exitCode: 2, stdout: '', stderr: 'Invalid configuration' } }))
     on('ui.log', ($, e) => {
       notices.push(e.text)
       return { value: undefined }
@@ -230,7 +313,7 @@ describe('register', () => {
     let copied = ''
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', () => ({ deny: 'dismissed' }))
     on('ui.copy', ($, e) => {
       copied = e.text
@@ -250,7 +333,7 @@ describe('register', () => {
     let dialogs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('fs.exists', () => ({ value: true }))
     on('fs.stat', ($, e) => ({ value: { kind: e.path === '/repo' ? 'dir' : 'file', isLink: false, size: 20, mtimeMs: 0, realPath: e.path } }))
     on('fs.read', () => ({ value: 'extends: default\nchat:\n  failOn: never\n' }))
@@ -283,7 +366,7 @@ describe('register', () => {
   test('keeping once permits only the identical advisory write and consumes approval', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', ($, e) => e.tool === 'AskUserQuestion' ? { deny: 'dismissed' } : { result: 'written' })
     const call = { tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' }
     await $.tool.call(call)
@@ -302,7 +385,7 @@ describe('register', () => {
   test('review opens a pane containing the current quoted findings', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', () => ({ deny: 'no one to ask' }))
     let opened = ''
     on('ui.open', ($, e) => {
@@ -322,19 +405,19 @@ describe('register', () => {
     let args: string[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       args = [...e.argv]
       return { value: { ...RUN, stdout: DENY } }
     })
     on('tool.call', () => ({ result: 'written' }))
     const answer = await $.tool.call({ tool: 'Bash', command: 'printf "%s" "Furthermore." > "notes.md"' })
     expect(answer.deny).toContain('Furthermore')
-    expect(args.slice(2)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+    expect(args.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
   })
   test('manual paths preserve quoted spaces and flag-looking filenames', async ($, on) => {
     let args: string[] = []
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       args = [...e.argv]
       return { value: { ...RUN, stdout: '' } }
     })
@@ -345,7 +428,7 @@ describe('register', () => {
     let dialogs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
       dialogs += 1
@@ -366,7 +449,7 @@ describe('register', () => {
   })
   test('an empty failed manual check reports unavailable, not clean', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, exitCode: 2, stdout: '' } }))
+    onProcess(on, () => ({ value: { ...RUN, exitCode: 2, stdout: '' } }))
     const answer = await $.command.run({ command: 'plain-english', args: 'docs' })
     expect(answer.text).toContain('check unavailable')
     expect(answer.text).not.toContain('no findings')
@@ -376,7 +459,7 @@ describe('register', () => {
     const stdin: string[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       argv.push([...e.argv])
       stdin.push(e.init?.stdin ?? '')
       return { value: { ...RUN, stdout: DENY } }
@@ -390,7 +473,7 @@ describe('register', () => {
     })
 
     expect(result.deny).toContain('Furthermore')
-    expect(argv[0]?.slice(2)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+    expect(argv[0]?.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
     const payload = JSON.parse(stdin[0] ?? '{}')
     expect(payload.tool_name).toBe('Write')
     expect(payload.tool_input).toEqual({
@@ -404,7 +487,7 @@ describe('register', () => {
     let runs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => {
+    onProcess(on, () => {
       runs += 1
       return { value: { ...RUN, stdout: '' } }
     })
@@ -424,7 +507,7 @@ describe('register', () => {
     let runs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => {
+    onProcess(on, () => {
       runs += 1
       return { value: { ...RUN, stdout: '' } }
     })
@@ -439,7 +522,7 @@ describe('register', () => {
     let stdout = DENY
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout } }))
     on('tool.call', () => ({ result: 'committed' }))
 
     const refused = await $.tool.call({ tool: 'Bash', command: 'git commit -m "Furthermore"' })
@@ -453,7 +536,7 @@ describe('register', () => {
   test('a reply the adapter blocks holds the turn with the reason', async ($, on) => {
     const stdin: string[] = []
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       stdin.push(e.init?.stdin ?? '')
       return { value: { ...RUN, stdout: BLOCK } }
     })
@@ -479,7 +562,7 @@ describe('register', () => {
 
   test('a reply the adapter passes goes on to the settings hooks', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: '' } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: '' } }))
     let reachedSettings = false
     on('classic.Stop', () => {
       reachedSettings = true
@@ -499,7 +582,7 @@ describe('register', () => {
     const dialogs: Record<string, unknown>[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
@@ -530,7 +613,7 @@ describe('register', () => {
   test('a refusal in the dialog denies the write with the guidance for the model', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'committed' }
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
@@ -548,7 +631,7 @@ describe('register', () => {
   test('a dialog nobody can answer refuses', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => ({ value: { ...RUN, stdout: ASK } }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
     on('tool.call', ($, e) => {
       if (e.tool === 'AskUserQuestion') return { deny: 'no one to ask' }
       return { result: 'written' }
@@ -577,7 +660,7 @@ describe('register', () => {
   test('an adapter that throws lets the write through', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    on('process.run', () => {
+    onProcess(on, () => {
       throw new Error('node: not found')
     })
     on('tool.call', () => ({ result: 'written' }))
@@ -595,7 +678,7 @@ describe('register', () => {
     const argv: string[][] = []
     on('session.cwd', () => ({ value: '/repo' }))
     on('command.register', ($, e) => ({ value: { command: e.name } }))
-    on('process.run', ($, e) => {
+    onProcess(on, ($, e) => {
       argv.push([...e.argv])
       return { value: { ...RUN, stdout: 'docs/a.md\n  3:1 block "Furthermore"\n' } }
     })
