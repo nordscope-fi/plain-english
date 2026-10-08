@@ -4,6 +4,15 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-08
+### Added
+
+- `plain-english approve` checks and saves one approved project term. It takes its request as JSON on standard input, checks first without writing, and writes only when the config is unchanged since the check. The Claude Code plugin's review panel uses it.
+
+### Changed
+
+- The Claude Code plugin's mod no longer reads or writes files. Approving a term from the review panel now asks the checker to do the file work, so the mod no longer bundles a YAML library. See ADR-007.
+
 ## [1.13.4] - 2026-10-08
 ### Fixed
 
@@ -699,7 +708,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.4...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.0
 [1.13.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.4
 [1.13.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.3
 [1.13.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.2

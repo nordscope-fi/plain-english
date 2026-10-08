@@ -77,7 +77,7 @@ Every program is `node`, the runtime Claude Code itself uses. No shell is starte
 | Where in `hooks/register.ts` | Command | Why |
 | --- | --- | --- |
 | `runChecker`, through `$.process.spawn` | `node hooks/run-checker.mjs dist/cli.mjs hook <channel> --agent claude-code`, with the event as JSON on standard input | Runs the bundled checker on one proposed write or finished reply. `<channel>` is one of `docs`, `github`, `issue` or `chat`. |
-| term approval, through `$.process.run` | `node dist/cli.mjs explain <rule>` | Confirms the rule still exists before an exception for it is saved. `<rule>` is a rule identifier from the finding. |
+| term approval, through `$.process.run` | `node dist/cli.mjs approve`, with the request as JSON on standard input | Checks and then saves one approved term in the project config. The mod runs it twice: once to check, and once to write after you confirm. |
 | `prompt.context`, through `$.process.run` | `node dist/cli.mjs guidance` | Reads the project's declared vocabulary to add to the conversation. |
 | `/plain-english`, through `$.process.run` | `node dist/cli.mjs lint <paths>` | Checks files you name. `<paths>` are the paths you typed. |
 
@@ -89,9 +89,11 @@ Only the extra model checks send anything, and only to Claude. Through `$.model.
 
 The mod reads no credential. It reads no environment variable, token or key. `hooks/run-checker.mjs` reads one variable, `PLAIN_ENGLISH_CHECK_TIMEOUT_MS`, which the mod itself sets. The ruleset in `rules/default.yml` contains words such as "secret" and "token" only inside example sentences, and names `github.com` only in documentation links.
 
-### Files the mod writes
+### Files written
 
-- **The project's plain-english config, usually `.plain-english.yml`.** Written only when you approve a term in the review panel and then confirm it in a dialog. It adds one exception for that term, and the checker reads it on its next run. Before writing, the mod checks that the project folder and the file have not changed since you confirmed. It never writes Claude Code's own settings, instruction files or build files.
+The mod itself reads and writes no files. The checker it starts writes two kinds:
+
+- **The project's plain-english config, usually `.plain-english.yml`.** Written only when you approve a term in the review panel and then confirm it in a dialog. `node dist/cli.mjs approve` adds one exception for that term, and the checker reads it on its next run. The write step refuses unless the project folder and the file are byte for byte what the check step saw. It refuses an inherited or linked config too. It never writes Claude Code's own settings, instruction files or build files.
 - **Temporary files** in the system's temporary folder, holding turn identifiers and small counters that stop a reply being held twice.
 
 ### Events that see other content
@@ -103,7 +105,7 @@ The mod reads no credential. It reads no environment variable, token or key. `ho
 
 ### Bundled code
 
-`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies into one unminified file by `scripts/build-plugin.mjs`. It is too large for the directory to scan, so a reviewer reads it. The same build is published on npm with a signed record of the GitHub build that produced it. `hooks/approval.mjs` bundles the `yaml` library, which edits the config file while keeping your comments. That library copies its nodes with `Object.create` and `Object.getOwnPropertyDescriptors`, and defines properties on them. That is the reflective code the directory reports, and the plugin's own code does not use it.
+`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies into one unminified file by `scripts/build-plugin.mjs`. It is too large for the directory to scan, so a reviewer reads it. The same build is published on npm with a signed record of the GitHub build that produced it.
 
 ## Configuration
 

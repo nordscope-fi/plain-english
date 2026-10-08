@@ -1,6 +1,5 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { approveTerm } from './approval.mjs'
 import { classifyShellCommand } from './shell.mjs'
 import { ISSUE_TOOLS } from './issue-tools.mjs'
 import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
@@ -48,60 +47,34 @@ interface ReviewFinding {
   key: string
 }
 
-/** Use the local effective config, or ask for a manual edit of an inherited one. */
-async function approvalConfig($: EngineInterface, directory: string): Promise<{ path: string; exists: boolean }> {
-  const separator = directory.includes('\\') ? '\\' : '/'
-  const join = (dir: string, file: string) => `${dir.replace(/[\\/]$/, '')}${separator}${file}`
-  for (const name of ['.plain-english.yml', '.plain-english.yaml']) {
-    const path = join(directory, name)
-    if (await $.fs.exists(path)) return { path, exists: true }
-  }
-  let ancestor = directory
-  for (;;) {
-    const cut = Math.max(ancestor.lastIndexOf('/'), ancestor.lastIndexOf('\\'))
-    const parent = cut < 0 ? ancestor : cut === 0 ? separator : cut === 2 && /^[A-Za-z]:[\\/]/.test(ancestor) ? ancestor.slice(0, 3) : ancestor.slice(0, cut)
-    if (parent === ancestor || parent === '') break
-    ancestor = parent
-    for (const name of ['.plain-english.yml', '.plain-english.yaml']) {
-      if (await $.fs.exists(join(ancestor, name))) throw new Error('This project uses an inherited configuration. Add the scoped term to that configuration by hand; no child configuration was created.')
-    }
-  }
-  return { path: join(directory, '.plain-english.yml'), exists: false }
+/** One step of a term approval, as the checker reports it (ADR-007). */
+interface ApprovalStep { root: string; config: string; exists: boolean; hash: string; modelVocabulary: boolean }
+
+/**
+ * Asks the checker to run one approval step. The request goes on standard
+ * input, so the command is fixed text; the checker does every file read and
+ * write, and the mod reads and writes no file of its own.
+ */
+async function approvalStep($: EngineInterface, cwd: string, request: Record<string, unknown>): Promise<ApprovalStep> {
+  const ran = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'approve'], { cwd, stdin: JSON.stringify(request), timeoutMs: 5_000 })
+  if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || 'The approval check did not run.')
+  let answer: Record<string, unknown>
+  try { answer = JSON.parse(ran.stdout) as Record<string, unknown> } catch { throw new Error('The approval check returned an unreadable answer.') }
+  if (answer['ok'] !== true) throw new Error(typeof answer['message'] === 'string' ? answer['message'] : 'This term cannot be approved.')
+  return answer as unknown as ApprovalStep
 }
 
 /** Only a deliberate, confirmed user action can save project vocabulary. */
 async function approveProjectTerm($: EngineInterface, finding: ReviewFinding, term: string, ruleId: string, reason: string): Promise<string> {
   try {
-    const root = await $.fs.stat(finding.cwd, { resolve: true })
-    if (root.realPath === undefined || root.kind !== 'dir') throw new Error('Cannot locate the project directory.')
-    const { path, exists } = await approvalConfig($, root.realPath)
-    if (exists) {
-      const stat = await $.fs.stat(path, { resolve: true })
-      if (stat.isLink || stat.kind !== 'file' || stat.realPath !== path) throw new Error('Review the linked configuration by hand.')
-    }
-    const original = exists ? await $.fs.read(path) : ''
-    const updated = approveTerm(original, term, ruleId, reason)
-    const explained = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'explain', ruleId], { cwd: root.realPath, timeoutMs: 5_000 })
-    if (explained.exitCode !== 0 || explained.stdout.includes('(sentence shape)')) throw new Error(explained.stderr.trim() || 'This rule cannot be approved as project vocabulary.')
-    const modelVocabulary = ruleId === 'unglossed-term' ? ' The extra model check and writing guidance will also treat this term as known vocabulary.' : ''
-    const configName = path.split(/[\\/]/).pop()
-    const answer = await $.ui.ask(`Approve ${JSON.stringify(term)} project-wide for the ${ruleId} rule? This waives that rule on every line containing this exact term, across the project. Other rules still apply.${modelVocabulary} This saves an exception in ${configName}. Reason: ${reason}`, {
+    const request = { term, rule: ruleId, reason }
+    const checked = await approvalStep($, finding.cwd, { ...request, phase: 'check' })
+    const modelVocabulary = checked.modelVocabulary ? ' The extra model check and writing guidance will also treat this term as known vocabulary.' : ''
+    const answer = await $.ui.ask(`Approve ${JSON.stringify(term)} project-wide for the ${ruleId} rule? This waives that rule on every line containing this exact term, across the project. Other rules still apply.${modelVocabulary} This saves an exception in ${checked.config}. Reason: ${reason}`, {
       header: 'Approve term', options: ['Approve for this project', 'Cancel'],
     })
     if (answer !== 'Approve for this project') return 'Project vocabulary was not changed.'
-    const currentRoot = await $.fs.stat(finding.cwd, { resolve: true })
-    if (currentRoot.kind !== 'dir' || currentRoot.realPath !== root.realPath) throw new Error('The project directory changed. Review the destination again before saving.')
-    const currentConfig = await approvalConfig($, root.realPath)
-    if (currentConfig.path !== path || currentConfig.exists !== exists) throw new Error('The effective configuration changed. Review it again before saving.')
-    const stillExists = await $.fs.exists(path)
-    if (stillExists !== exists || (exists && await $.fs.read(path) !== original)) throw new Error('The configuration changed. Review it again before saving.')
-    if (exists) {
-      const stat = await $.fs.stat(path, { resolve: true })
-      if (stat.isLink || stat.realPath !== path) throw new Error('The configuration destination changed.')
-    }
-    const stillExplained = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'explain', ruleId], { cwd: root.realPath, timeoutMs: 5_000 })
-    if (stillExplained.exitCode !== 0 || stillExplained.stdout.includes('(sentence shape)')) throw new Error(stillExplained.stderr.trim() || 'This rule is no longer available for a vocabulary exception.')
-    await $.fs.write(path, updated)
+    await approvalStep($, finding.cwd, { ...request, phase: 'write', expect: checked })
     $.ui.invalidate('prompt.context')
     return `Approved ${JSON.stringify(term)} for ${ruleId} across this project. Other rules still apply. Retry the checked write.`
   } catch (error) {

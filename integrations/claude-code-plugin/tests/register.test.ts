@@ -312,42 +312,53 @@ describe('register', () => {
     await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })
     expect(logged).toContain('checker output exceeded 4 MB')
   })
-  test('approval does not save an exception for a rule removed since the finding', async ($, on) => {
-    let saved = false
+  /**
+   * The checker's half of a term approval (ADR-007): `approve` answers each
+   * step from `answers`, every other run is the write check. The file checks
+   * themselves are covered against real files in test/approve.test.ts.
+   */
+  function approvalChecker(on: Parameters<TestBody>[1], answers: { check: Record<string, unknown>; write?: Record<string, unknown> }, check = ASK) {
+    const steps: Record<string, unknown>[] = []
+    onProcess(on, ($, e) => {
+      if (!e.argv.includes('approve')) return { value: { ...RUN, stdout: check } }
+      const request = JSON.parse(String(e.init?.stdin)) as Record<string, unknown>
+      steps.push(request)
+      return { value: { ...RUN, stdout: JSON.stringify(request['phase'] === 'write' ? answers.write : answers.check) } }
+    })
+    return steps
+  }
+  const CHECKED = { ok: true, root: '/repo', config: '.plain-english.yml', exists: false, hash: 'h', modelVocabulary: false }
+  test('approval shows the checker\'s refusal and asks nothing when the check fails', async ($, on) => {
+    let dialogs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    onProcess(on, ($, e) => ({ value: e.argv.includes('explain')
-      ? { ...RUN, exitCode: 2, stdout: '', stderr: 'no rule old-custom-rule' }
-      : { ...RUN, stdout: ASK.replaceAll('furthermore', 'old-custom-rule') } }))
-    on('fs.exists', () => ({ value: false }))
-    on('fs.stat', ($, e) => ({ value: { kind: 'dir', isLink: false, size: 0, mtimeMs: 0, realPath: e.path } }))
-    on('fs.write', () => { saved = true; return { value: undefined } })
+    const steps = approvalChecker(on, { check: { ok: false, message: 'no rule old-custom-rule' } }, ASK.replaceAll('furthermore', 'old-custom-rule'))
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      dialogs += 1
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
       return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
     })
     await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
+    dialogs = 0
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
     await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
     await ui.press({ key: 'approve-term-0' })
-    expect(saved).toBe(false)
+    expect(steps.map(step => step['phase'])).toEqual(['check'])
+    expect(dialogs).toBe(0)
     expect(await ui.find({ type: 'Text', text: /no rule old-custom-rule/ })).toBeDefined()
     await ui.unmount()
   })
-  test('approval rechecks the project destination after confirmation before creating a config', async ($, on) => {
+  test('approval writes only after confirmation, sends what the check saw, and shows a refusal from the write', async ($, on) => {
     let confirmed = false
-    let saved = false
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
-    on('fs.exists', () => ({ value: false }))
-    on('fs.stat', () => ({ value: { kind: 'dir', isLink: confirmed, size: 0, mtimeMs: 0, realPath: confirmed ? '/elsewhere' : '/repo' } }))
-    on('fs.write', () => { saved = true; return { value: undefined } })
+    const steps = approvalChecker(on, { check: CHECKED, write: { ok: false, message: 'The configuration changed. Review it again before saving.' } })
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
       if (!String(question['question']).includes('project-wide')) return { deny: 'dismissed' }
+      expect(steps.map(step => step['phase'])).toEqual(['check'])
       confirmed = true
       return { result: { answers: { [String(question['question'])]: 'Approve for this project' } } }
     })
@@ -356,18 +367,15 @@ describe('register', () => {
     await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
     await ui.press({ key: 'approve-term-0' })
     expect(confirmed).toBe(true)
-    expect(saved).toBe(false)
-    expect(await ui.find({ type: 'Text', text: /project directory changed/ })).toBeDefined()
+    expect(steps.map(step => step['phase'])).toEqual(['check', 'write'])
+    expect(steps[1]!['expect']).toEqual(CHECKED)
+    expect(await ui.find({ type: 'Text', text: /configuration changed/ })).toBeDefined()
     await ui.unmount()
   })
-  test('approval refuses to shadow an inherited project configuration', async ($, on) => {
-    let saved = false
+  test('approval shows the checker\'s refusal to shadow an inherited configuration', async ($, on) => {
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo/sub' }))
-    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
-    on('fs.exists', ($, e) => ({ value: e.path === '/repo/.plain-english.yaml' }))
-    on('fs.stat', ($, e) => ({ value: { kind: 'dir', isLink: false, size: 0, mtimeMs: 0, realPath: e.path } }))
-    on('fs.write', () => { saved = true; return { value: undefined } })
+    const steps = approvalChecker(on, { check: { ok: false, message: 'This project uses an inherited configuration. Add the scoped term to that configuration by hand; no child configuration was created.' } })
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
@@ -377,7 +385,7 @@ describe('register', () => {
     const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
     await ui.input({ key: 'exception-reason', text: 'Team vocabulary' })
     await ui.press({ key: 'approve-term-0' })
-    expect(saved).toBe(false)
+    expect(steps.map(step => step['phase'])).toEqual(['check'])
     expect(await ui.find({ type: 'Text', text: /inherited configuration/ })).toBeDefined()
     await ui.unmount()
   })
@@ -497,18 +505,10 @@ describe('register', () => {
     await ui.unmount()
   })
   test('term approval requires a reason and confirmation before saving a scoped exception', async ($, on) => {
-    let saved = ''
     let dialogs = 0
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
-    onProcess(on, () => ({ value: { ...RUN, stdout: ASK } }))
-    on('fs.exists', () => ({ value: true }))
-    on('fs.stat', ($, e) => ({ value: { kind: e.path === '/repo' ? 'dir' : 'file', isLink: false, size: 20, mtimeMs: 0, realPath: e.path } }))
-    on('fs.read', () => ({ value: 'extends: default\nchat:\n  failOn: never\n' }))
-    on('fs.write', ($, e) => {
-      saved = String(e.text)
-      return { value: undefined }
-    })
+    const steps = approvalChecker(on, { check: { ...CHECKED, exists: true, modelVocabulary: false }, write: { ...CHECKED, exists: true } })
     on('tool.call', ($, e) => {
       if (e.tool !== 'AskUserQuestion') return { result: 'written' }
       const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
@@ -519,16 +519,14 @@ describe('register', () => {
     await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Furthermore.' })
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
     await ui.press({ key: 'approve-term-0' })
-    expect(saved).toBe('')
+    expect(steps).toEqual([])
     expect(dialogs).toBe(0)
     await ui.input({ key: 'exception-reason', text: 'Our readers use this term' })
     await ui.press({ key: 'approve-term-0' })
     expect(await ui.find({ type: 'Text', text: /^Project vocabulary was not changed:/ })).toBeUndefined()
     expect(dialogs).toBe(1)
-    expect(saved).toContain('failOn: never')
-    expect(saved).toContain('Furthermore')
-    expect(saved).toContain('furthermore')
-    expect(saved).toContain('Our readers use this term')
+    expect(steps.map(step => step['phase'])).toEqual(['check', 'write'])
+    expect(steps[1]).toMatchObject({ term: 'Furthermore', rule: 'furthermore', reason: 'Our readers use this term' })
     await ui.unmount()
   })
   test('keeping once permits only the identical advisory write and consumes approval', async ($, on) => {

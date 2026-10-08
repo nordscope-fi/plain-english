@@ -17,6 +17,7 @@ import { antigravityCwd } from "./agents/antigravity.ts";
 import { chatTurnId } from "./chat/turn.ts";
 import { renderAll, renderPrompts, writeTargets } from "./render.ts";
 import { projectGuidance } from "./guidance.ts";
+import { approveInProject, type ApprovalRequest } from "./approve.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import {
   decide,
@@ -88,6 +89,32 @@ function parseArgs(argv: string[]): Args {
     else positionals.push(a);
   }
   return { command, positionals, flags };
+}
+
+/**
+ * One step of a project term approval (ADR-007). The request arrives on
+ * standard input, so the plugin's command line stays fixed text. A refusal is
+ * an answer, printed as JSON with exit 0; only a malformed request exits 2.
+ */
+async function cmdApprove(args: Args): Promise<number> {
+  if (args.positionals.length || Object.keys(args.flags).length) {
+    process.stderr.write("plain-english: approve takes no arguments. Send the request as JSON on standard input.\n");
+    return 2;
+  }
+  let request: ApprovalRequest;
+  try {
+    request = JSON.parse(await readStdin()) as ApprovalRequest;
+  } catch {
+    process.stderr.write("plain-english: approve needs a JSON request on standard input.\n");
+    return 2;
+  }
+  if (!request || (request.phase !== "check" && request.phase !== "write") ||
+    typeof request.term !== "string" || typeof request.rule !== "string" || typeof request.reason !== "string") {
+    process.stderr.write("plain-english: approve needs phase (check or write), term, rule and reason.\n");
+    return 2;
+  }
+  process.stdout.write(JSON.stringify(approveInProject(process.cwd(), request, (directory) => resolveRuleSet(directory))) + "\n");
+  return 0;
 }
 
 function readStdin(): Promise<string> {
@@ -1063,6 +1090,8 @@ USAGE
   plain-english doctor               environment dump for bug reports
   plain-english init                 wire this repo up
   plain-english hook <CHANNEL>       hook adapter (docs|github|issue|chat)
+  plain-english approve              approve one project term; JSON request on
+                                     stdin (used by the Claude Code plugin)
 
 LINT OPTIONS
   --format text|json|unix|github|sarif
@@ -1371,6 +1400,8 @@ async function main(): Promise<number> {
         return cmdDoctor();
       case "hook":
         return await cmdHook(args);
+      case "approve":
+        return await cmdApprove(args);
       case "init": {
         // `--claude-code` is still accepted and still does nothing: init wrote
         // the Claude Code hooks unconditionally long before there was a second
