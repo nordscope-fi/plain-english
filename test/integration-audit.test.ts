@@ -161,7 +161,9 @@ describe("Gemini logical history", () => {
 describe("Cursor project scope", () => {
   it("excludes a sibling prefix and prefers exact session metadata", () => {
     setEnv("CURSOR_HOME", resolve(root, "cursor"));
-    const repo = resolve(root, "repo");
+    // Logical project paths need not exist. Keep the folder-name fixture valid
+    // on Windows too, where a physical temporary path contains a drive colon.
+    const repo = "/audit/repo";
     const writeTranscript = (cwd: string, id: string, text: string) => {
       const name = cwd.replace(/^\//, "").replace(/[/.]/g, "-");
       const path = resolve(root, "cursor/projects", name, "agent-transcripts", id);
