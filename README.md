@@ -149,10 +149,13 @@ writing settings or launchers into the project.
 
 ## Add it to a build
 
+For copy stored in JavaScript or TypeScript, use `lint src --source-prose`.
+The [source guide](docs/source-prose.md) covers React text, escapes and source positions.
+
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.9.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.10.0
   with:
     paths: docs README.md
     fail-on: error
@@ -169,7 +172,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.9.0
+    rev: v1.10.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

@@ -55,6 +55,7 @@ import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, DOCS_JUDGE_CALL_MS, nextJ
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
+import { lintSourceText, SOURCE_PROSE_EXTENSIONS, SourceProseError } from "./source-prose.ts";
 
 interface Args {
   command: string;
@@ -70,6 +71,7 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a.startsWith("--")) {
+      if (a === "--source-prose") { flags["source-prose"] = true; continue; }
       const eq = a.indexOf("=");
       if (eq > 0) flags[a.slice(2, eq)] = a.slice(eq + 1);
       else {
@@ -95,7 +97,7 @@ function readStdin(): Promise<string> {
   });
 }
 
-function walk(target: string, out: string[] = []): string[] {
+function walk(target: string, out: string[] = [], sourceProse = false): string[] {
   const st = statSync(target);
   if (st.isFile()) {
     out.push(target);
@@ -104,8 +106,8 @@ function walk(target: string, out: string[] = []): string[] {
   for (const entry of readdirSync(target, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
     const full = resolve(target, entry.name);
-    if (entry.isDirectory()) walk(full, out);
-    else if (MARKDOWN.has(extname(entry.name).toLowerCase())) out.push(full);
+    if (entry.isDirectory()) walk(full, out, sourceProse);
+    else if (MARKDOWN.has(extname(entry.name).toLowerCase()) || (sourceProse && SOURCE_PROSE_EXTENSIONS.has(extname(entry.name).toLowerCase()))) out.push(full);
   }
   return out;
 }
@@ -268,6 +270,11 @@ async function cmdLint(args: Args): Promise<number> {
   const ruleSet = resolveRuleSet(root);
   const format = String(args.flags["format"] ?? "text");
   const failOn = String(args.flags["fail-on"] ?? ruleSet.failOn);
+  if (args.flags["source-prose"] !== undefined && ![true, false, "true", "false"].includes(args.flags["source-prose"])) throw new RuleError("--source-prose takes no value. Put the file or directory after the flag.");
+  const sourceProse = args.flags["source-prose"] === true || args.flags["source-prose"] === "true";
+  if (sourceProse && args.flags["chat"]) throw new RuleError("--source-prose checks source files and cannot be combined with --chat.");
+  const scan = (text: string, file: string) => sourceProse && (file === "<stdin>" || SOURCE_PROSE_EXTENSIONS.has(extname(file).toLowerCase()))
+    ? lintSourceText(text, ruleSet, { filename: file === "<stdin>" ? "copy.tsx" : file }) : lintText(text, ruleSet);
 
   if (args.flags["chat"]) return cmdLintChat(args, root, ruleSet, format, failOn);
 
@@ -283,7 +290,7 @@ async function cmdLint(args: Args): Promise<number> {
 
   if (!args.positionals.length || args.positionals[0] === "-") {
     const text = await readStdin();
-    const res = lintText(text, ruleSet);
+    const res = scan(text, "<stdin>");
     noteStalled("<stdin>", res.timedOut);
     suppressed.push(...res.suppressed);
     all.push({ file: "<stdin>", findings: res.findings });
@@ -294,11 +301,11 @@ async function cmdLint(args: Args): Promise<number> {
         process.stderr.write(`plain-english: no such path: ${target}\n`);
         return 2;
       }
-      for (const file of walk(abs)) {
+      for (const file of walk(abs, [], sourceProse)) {
         const rel = relative(root, file);
         if (matchesAny(rel, ruleSet.exclude)) continue;
         const text = readFileSync(file, "utf8");
-        const res = lintText(text, ruleSet);
+        const res = scan(text, file);
         noteStalled(file, res.timedOut);
         suppressed.push(...res.suppressed);
         all.push({ file, findings: res.findings });
@@ -1042,6 +1049,8 @@ LINT OPTIONS
   --show-suppressed                  what the config's allow entries hid, per
                                      entry and per rule, and which of them hid
                                      nothing at all
+  --source-prose                     also check strings and JSX text in JS/TS
+                                     files; findings use original source lines
 
 LINT --chat OPTIONS
   Reads the session transcripts each agent writes to local disk. Local only:
@@ -1378,7 +1387,7 @@ async function main(): Promise<number> {
         return 2;
     }
   } catch (e) {
-    if (e instanceof RuleError) {
+    if (e instanceof RuleError || e instanceof SourceProseError) {
       process.stderr.write(`plain-english: ${e.message}\n`);
       return 2;
     }
