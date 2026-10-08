@@ -175,7 +175,7 @@ describe("Cursor project scope", () => {
     const meta = resolve(root, "cursor/chats/hash/sibling"); mkdirSync(meta, { recursive: true });
     writeFileSync(resolve(meta, "meta.json"), JSON.stringify({ cwd: repo + "-other" }));
     expect(cursorChat.read({ cwd: repo }).map((r) => r.text)).toEqual(["Inside the requested repository."]);
-    writeFileSync(resolve(meta, "meta.json"), JSON.stringify({ cwd: resolve(repo, "child") }));
+    writeFileSync(resolve(meta, "meta.json"), JSON.stringify({ cwd: repo + "/child" }));
     expect(cursorChat.read({ cwd: repo })).toHaveLength(2);
   });
 });
