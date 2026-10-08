@@ -140,7 +140,8 @@
       ],
       "stdout_hash": "8541d01d9a7888b03e1003c416bd002c00332d3cdb07468261a5098200bae947",
       "stderr_hash": "455f36f356c525d427176e220afc0e92d29930bf85bb09d3adfb76474a84fca9",
-      "cli_version": "0.161.0"
+      "cli_version": "0.161.0",
+      "file_absent": false
     },
     {
       "agent": "codex",
@@ -232,7 +233,8 @@
       ],
       "stdout_hash": "f1505f54c8a42a102242544580abe0f71cfd7d0a9b6ca1ab33919d5432913278",
       "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
-      "cli_version": "0.161.0"
+      "cli_version": "0.161.0",
+      "file_absent": false
     },
     {
       "agent": "codex",
@@ -324,7 +326,8 @@
       ],
       "stdout_hash": "1b7dd328f2ab696228c310cc23c84262fcb7315bc34a2b0ffbf0eb08bc21050e",
       "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
-      "cli_version": "0.161.0"
+      "cli_version": "0.161.0",
+      "file_absent": false
     },
     {
       "agent": "codex",
@@ -420,7 +423,8 @@
       ],
       "stdout_hash": "94ec9af26796bc38376e7332524827d910d6440117662c259c8fa63b5379ea07",
       "stderr_hash": "1aa26269eb1cc57f86b235a03cda53c004edb5b1e9fc99d4da4f00843293d721",
-      "cli_version": "0.161.0"
+      "cli_version": "0.161.0",
+      "file_absent": false
     },
     {
       "agent": "cursor",
@@ -522,7 +526,8 @@
       ],
       "stdout_hash": "a1ad67c1d7c240ac8d8649bfc4aeb9893bdedc2398e41bc234b023d3702943a3",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2026.10.01-e373342"
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
     },
     {
       "agent": "cursor",
@@ -668,7 +673,8 @@
       ],
       "stdout_hash": "4b6de32eb024a03df749817a10c868297b38469750055d566a5630577c66635a",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2026.10.01-e373342"
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
     },
     {
       "agent": "cursor",
@@ -814,7 +820,8 @@
       ],
       "stdout_hash": "e87f40ae8c976e7dc11d447f79d720ba6510a44a0a2bbc9aca15e386adadd3e9",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2026.10.01-e373342"
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
     },
     {
       "agent": "cursor",
@@ -962,7 +969,8 @@
       ],
       "stdout_hash": "3320ef88cdad45165ddcc052eea96cc55c10337f8d277068f95c732415be456a",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2026.10.01-e373342"
+      "cli_version": "2026.10.01-e373342",
+      "file_absent": false
     },
     {
       "agent": "copilot",
@@ -1032,7 +1040,8 @@
       ],
       "stdout_hash": "a484a546a7694271dc06f52fb16004d15e3a87f5c79f3ff56c2bd2b06d1bafa4",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.0.80"
+      "cli_version": "1.0.80",
+      "file_absent": false
     },
     {
       "agent": "copilot",
@@ -1146,7 +1155,8 @@
       ],
       "stdout_hash": "04d3427bbb5dde49998149db67c2d11db86f6cb13734b737a3d77341d0ab9e05",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.0.80"
+      "cli_version": "1.0.80",
+      "file_absent": false
     },
     {
       "agent": "copilot",
@@ -1260,7 +1270,8 @@
       ],
       "stdout_hash": "ae138cadd7d95be59876403283c9b6e3ce84c9aeb7db1e090d211457ebcca728",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.0.80"
+      "cli_version": "1.0.80",
+      "file_absent": false
     },
     {
       "agent": "copilot",
@@ -1376,7 +1387,8 @@
       ],
       "stdout_hash": "b014d9cf5548fe6f225a2442396c8cc275bfa985be14a1e17cee24c3664cf000",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.0.80"
+      "cli_version": "1.0.80",
+      "file_absent": false
     },
     {
       "agent": "vibe",
@@ -1456,7 +1468,8 @@
       ],
       "stdout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stderr_hash": "eb261d10449478013b440feb1db1ae4d172f0afecc999d8049bab912735ec751",
-      "cli_version": "2.24.1"
+      "cli_version": "2.24.1",
+      "file_absent": true
     },
     {
       "agent": "vibe",
@@ -1582,7 +1595,8 @@
       ],
       "stdout_hash": "d263e8a33bafcbcc18448d7499f719cface1b3221090e2942e82452b0e8962d3",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2.24.1"
+      "cli_version": "2.24.1",
+      "file_absent": false
     },
     {
       "agent": "vibe",
@@ -1781,7 +1795,8 @@
       ],
       "stdout_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "stderr_hash": "eb261d10449478013b440feb1db1ae4d172f0afecc999d8049bab912735ec751",
-      "cli_version": "2.24.1"
+      "cli_version": "2.24.1",
+      "file_absent": false
     },
     {
       "agent": "vibe",
@@ -1911,7 +1926,8 @@
       ],
       "stdout_hash": "321d1d0787e08b8cf9b3729beca8bb8ed31e1690036035f76dfb0ed52d999325",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "2.24.1"
+      "cli_version": "2.24.1",
+      "file_absent": false
     },
     {
       "agent": "qwen",
@@ -2122,7 +2138,8 @@
       ],
       "stdout_hash": "2dd02393d72e95b670f84ebb0c1a23e0d9ade965c7926fada2df76e247885e58",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "0.25.0"
+      "cli_version": "0.25.0",
+      "file_absent": true
     },
     {
       "agent": "qwen",
@@ -2349,7 +2366,8 @@
       ],
       "stdout_hash": "cde76cb9d9f6816cf29ca5385838eb42dab7ccbf49432fe2499a810d7888bbe5",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "0.25.0"
+      "cli_version": "0.25.0",
+      "file_absent": false
     },
     {
       "agent": "qwen",
@@ -2489,7 +2507,8 @@
       ],
       "stdout_hash": "9d2a2584d0371bf81c549671c9788b2061e5247aae04af72d30106595e0fea6b",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "0.25.0"
+      "cli_version": "0.25.0",
+      "file_absent": false
     },
     {
       "agent": "qwen",
@@ -2631,7 +2650,8 @@
       ],
       "stdout_hash": "8cd0e3998c3af1f029d7f855b024f04db2f459c9fc8910c8534cb2d3520a36e2",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "0.25.0"
+      "cli_version": "0.25.0",
+      "file_absent": false
     },
     {
       "agent": "antigravity",
@@ -2706,7 +2726,8 @@
       ],
       "stdout_hash": "e74792d0d22ef70f7b60953e9f2be21358c6ab2989b7d39b9a547d1b92780d20",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.3.1"
+      "cli_version": "1.3.1",
+      "file_absent": false
     },
     {
       "agent": "antigravity",
@@ -2820,7 +2841,8 @@
       ],
       "stdout_hash": "5ced3049c5c04726cfb4e6a8a2186611768febae8dcf227724b84030cc1cd4dd",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.3.1"
+      "cli_version": "1.3.1",
+      "file_absent": false
     },
     {
       "agent": "antigravity",
@@ -2934,7 +2956,8 @@
       ],
       "stdout_hash": "04791f7659903249ca4b3fdcf8fd2a14fe995b44430315502a3a56cfc9192db4",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.3.1"
+      "cli_version": "1.3.1",
+      "file_absent": false
     },
     {
       "agent": "antigravity",
@@ -3051,7 +3074,8 @@
       ],
       "stdout_hash": "b686e79e243127617de2abe63445b710900fcab1da22d194a16fc80e561060f3",
       "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "cli_version": "1.3.1"
+      "cli_version": "1.3.1",
+      "file_absent": false
     }
   ],
   "codex_repeated_user_turns": [
