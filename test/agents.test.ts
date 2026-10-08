@@ -174,10 +174,31 @@ describe("each profile speaks its own wire format", () => {
 
   it("copilot puts the decision at the top level", () => {
     inTmp((dir) => {
-      const out = refusal(dir, "copilot");
-      expect(out.permissionDecision).toBe("ask");
+      const profile = byId("copilot")!;
+      const decision = decide(profile.parse(write(dir)), "docs", { projectDir: dir, ruleSet: compile({ ...loadDefault(), failOn: "error" }) });
+      const out = JSON.parse(profile.emit(decision, "pre").stdout);
+      expect(out.permissionDecision).toBe("deny");
       expect(out.permissionDecisionReason).toContain("leverage");
       expect(out.hookSpecificOutput).toBeUndefined();
+    });
+  });
+
+  it("copilot advisory findings allow a write and arrive after it succeeds", () => {
+    inTmp((dir) => {
+      const profile = byId("copilot")!;
+      const decision = decide(profile.parse(write(dir)), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(profile.emit(decision, "pre")).toEqual({ stdout: "", exitCode: 0 });
+      const post = profile.emit(decision, "post");
+      expect(post.exitCode).toBe(0);
+      expect(JSON.parse(post.stdout)).toEqual({ additionalContext: expect.stringContaining("leverage") });
+    });
+  });
+
+  it("copilot sends no post-tool advice for a clean write", () => {
+    inTmp((dir) => {
+      const profile = byId("copilot")!;
+      const decision = decide(profile.parse({ ...write(dir), tool_input: { file_path: resolve(dir, "doc.md"), content: "This is a clear sentence." } }), "docs", { projectDir: dir, ruleSet: advisory });
+      expect(profile.emit(decision, "post")).toEqual({ stdout: "", exitCode: 0 });
     });
   });
 
@@ -241,7 +262,7 @@ describe("each profile speaks its own wire format", () => {
 describe("the advisory tier reaches agents that discard `ask`", () => {
   it("declares which agents honour ask", () => {
     expect(byId("claude-code")!.supportsAsk).toBe(true);
-    expect(byId("copilot")!.supportsAsk).toBe(true);
+    expect(byId("copilot")!.supportsAsk).toBe(false);
     expect(byId("codex")!.supportsAsk).toBe(false);
     expect(byId("cursor")!.supportsAsk).toBe(false);
     expect(byId("gemini")!.supportsAsk).toBe(false);
@@ -281,11 +302,12 @@ describe("the advisory tier reaches agents that discard `ask`", () => {
     const ctx = { prompts: { docs: "", github: "", issue: "" }, model: "m" };
     const events = (id: string) =>
       byId(id)!.plan(ctx).config.map((c) => c.at.join("."));
-    for (const id of ["codex", "claude-code", "copilot", "qwen"]) {
+    for (const id of ["codex", "claude-code", "qwen"]) {
       expect(events(id).some((e) => /post/i.test(e)), `${id} installs a post hook`).toBe(false);
       expect(events(id).some((e) => /pretooluse/i.test(e)), `${id} has no pre hook`).toBe(true);
     }
     expect(events("cursor")).toContain("hooks.postToolUse");
+    expect(events("copilot")).toContain("hooks.PostToolUse");
     expect(events("gemini")).toContain("hooks.AfterTool");
   });
 
@@ -640,10 +662,9 @@ describe("the registry stays consistent with itself", () => {
   });
 
   it("records what the installer cannot do for the user", () => {
-    // Codex will not run an unapproved hook and Copilot's cloud agent turns an
-    // ask into a deny. Both are silent surprises unless init says so.
+    // Codex needs hook approval; Copilot prompt mode needs repository trust.
     expect(byId("codex")!.plan({ prompts: {}, model: "m" }).notes.join(" ")).toContain("/hooks");
-    expect(byId("copilot")!.plan({ prompts: {}, model: "m" }).notes.join(" ")).toContain("deny");
+    expect(byId("copilot")!.plan({ prompts: {}, model: "m" }).notes.join(" ")).toContain("GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true");
   });
 });
 

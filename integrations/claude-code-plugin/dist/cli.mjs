@@ -42113,7 +42113,10 @@ var copilot = {
         return { tool: "other", cwd, input: issueFields(input) };
     }
   },
-  supportsAsk: true,
+  // A prompt-mode CLI cannot open the hook permission question. Advisory
+  // findings must not depend on an interactive answer.
+  supportsAsk: false,
+  advisoryPhase: "post",
   diagnose(root) {
     if (!existsSync14(resolve16(root, ".github", "hooks", "plain-english.json")))
       return [];
@@ -42125,9 +42128,14 @@ var copilot = {
     ];
   },
   emit(decision, event) {
-    if (event === "post")
-      return { stdout: "", exitCode: 0 };
+    if (event === "post") {
+      if (!decision.advisory)
+        return { stdout: "", exitCode: 0 };
+      return { stdout: JSON.stringify({ additionalContext: decision.advisory }), exitCode: 0 };
+    }
     if (decision.allow)
+      return { stdout: "", exitCode: 0 };
+    if (decision.decision === "ask")
       return { stdout: "", exitCode: 0 };
     return {
       stdout: JSON.stringify({
@@ -42179,6 +42187,18 @@ var copilot = {
       powershell: `plain-english hook ${channel} --agent copilot`,
       timeoutSec: 30
     }));
+    const postMatchers = {
+      ...MATCHERS,
+      docs: `${MATCHERS.docs}|create|edit|str_replace_editor|apply_patch`,
+      github: `${MATCHERS.github}|bash|powershell`
+    };
+    const postEntries = (user) => Object.entries(postMatchers).map(([channel, matcher]) => ({
+      type: "command",
+      matcher,
+      bash: `${user ? `plain-english hook ${channel} --agent copilot` : command2(channel)} --event post`,
+      powershell: `${user ? `plain-english hook ${channel} --agent copilot` : command2(channel)} --event post`,
+      timeoutSec: 30
+    }));
     return {
       config: [
         {
@@ -42189,6 +42209,13 @@ var copilot = {
           shape: "flat",
           defaults: { version: 1 },
           entries
+        },
+        {
+          path: ".github/hooks/plain-english.json",
+          at: ["hooks", "PostToolUse"],
+          shape: "flat",
+          defaults: { version: 1 },
+          entries: postEntries(false)
         },
         {
           // Both stop events. Copilot documents that `Stop` does not carry the
@@ -42223,6 +42250,14 @@ var copilot = {
             shape: "flat",
             defaults: { version: 1 },
             entries: userEntries
+          },
+          {
+            path: ".copilot/hooks/plain-english.json",
+            scope: "user",
+            at: ["hooks", "PostToolUse"],
+            shape: "flat",
+            defaults: { version: 1 },
+            entries: postEntries(true)
           }
         ] : []
       ],
@@ -42236,7 +42271,7 @@ var copilot = {
         "Copilot prompt mode skips repository hooks until this folder is trusted. For a vetted non-interactive run, set GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true.",
         "The cloud coding agent reads .github/hooks/ from the default branch, so this takes effect there once it is merged.",
         "Copilot often writes files through the shell rather than a write tool. Since 0.6.0 a redirect into a markdown file is read on the github channel, so those writes are checked too.",
-        "The cloud agent treats `ask` as `deny`. Under `failOn: never` a finding is advisory in the CLI and blocking in the cloud.",
+        "Advisory findings arrive as context after a successful tool call. Strict findings refuse the call before it runs. Run initialization again after upgrading.",
         "Copilot has no prompt-hook equivalent here, so the semantic layer does not run. The deterministic rules do."
       ]
     };

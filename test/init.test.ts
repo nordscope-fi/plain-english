@@ -584,9 +584,10 @@ describe("init --user", () => {
     const config = copilotPlan(true).config;
     const user = config.filter((c) => c.scope === "user");
     const repo = config.filter((c) => (c.scope ?? "repo") === "repo");
-    expect(user).toHaveLength(1);
+    expect(user).toHaveLength(2);
     expect(repo.length).toBeGreaterThan(0);
     expect(user[0]!.path).toBe(".copilot/hooks/plain-english.json");
+    expect(user.map(c => c.at.join("."))).toEqual(["hooks.PreToolUse", "hooks.PostToolUse"]);
     // The user-scoped copy is an explicit compatibility fallback for older
     // Copilot builds. It calls the global binary because it cannot rely on a
     // repository-relative launcher from a home-directory hook.

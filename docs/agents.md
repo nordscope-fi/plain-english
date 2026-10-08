@@ -24,7 +24,7 @@ twice and nothing changes the second time.
 | Agent | Config written | Can refuse a write | Honours `ask` | Semantic layer |
 |---|---|---|---|---|
 | Claude Code | `.claude/settings.json` + generated launchers in `.claude/hooks/` | yes | yes | yes, shared command |
-| GitHub Copilot | `.github/hooks/plain-english.json` | yes | yes | no |
+| GitHub Copilot | `.github/hooks/plain-english.json` | yes | no, advice after the tool | no |
 | OpenAI Codex CLI | `.codex/hooks.json` | yes, in a trusted folder you have approved | no | no |
 | Cursor | `.cursor/hooks.json` | yes | no | no |
 | Mistral Vibe | `.vibe/hooks.toml`, in a folder you have trusted | yes | no | yes, opt-in |
@@ -66,8 +66,8 @@ The Claude plugin updates its bundled hooks without writing project settings.
 
 ## What the advisory default means on each agent
 
-`failOn: never` is the default, and it means "tell me, do not stop me". Five of
-the eight agents have no reliable interactive `ask` reply. An adapter that emits
+`failOn: never` is the default, and it means "tell me, do not stop me". Six of
+the eight adapters avoid `ask`, which requires an interactive answer. An adapter that emits
 an unsupported value can look installed and report nothing, or can turn advice
 into a refusal in a headless run.
 
@@ -76,7 +76,7 @@ So the advisory finding is fed back to the model as text instead:
 | Agent | `failOn: never` | `failOn: error` |
 |---|---|---|
 | Claude Code | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
-| GitHub Copilot | `PreToolUse` → `ask` | `PreToolUse` → `deny` |
+| GitHub Copilot | `PostToolUse` → `additionalContext` | `PreToolUse` → `deny` |
 | OpenAI Codex CLI | `PreToolUse` → `additionalContext` | `PreToolUse` → `deny` |
 | Cursor | `postToolUse` → `additional_context` | `preToolUse` → `deny` |
 | Mistral Vibe | `post_tool` → `additional_context` | `pre_tool` → `deny` |
@@ -84,7 +84,7 @@ So the advisory finding is fed back to the model as text instead:
 | Google Antigravity CLI | `PreToolUse` → `ask`, a human decides | `PreToolUse` → `deny` |
 | Qwen Code | `PreToolUse` → `allow` plus `additionalContext` | `PreToolUse` → `deny` |
 
-Codex and Qwen can attach advice to the pre event. Cursor, Vibe and Gemini use
+Codex and Qwen can attach advice to the pre event. Copilot, Cursor, Vibe and Gemini use
 their documented post-tool context field, so `init` installs both halves for
 them. Codex accepts `additionalContext` on the pre event too, verified against
 0.147.0: the text arrives as a developer message before the write.
@@ -189,9 +189,11 @@ interactive session, or set `GITHUB_COPILOT_PROMPT_MODE_REPO_HOOKS=true` for a
 non-interactive run whose hook files you have already reviewed. Without either,
 Copilot skips the repository hook. `plain-english doctor` reports that state.
 
-**The cloud agent treats `ask` as `deny`.** Under the default `failOn: never` a finding is
-advisory in the CLI and blocking in the cloud. If that is not what you want, exclude the
-paths rather than relying on `failOn`.
+**A non-interactive run cannot answer `ask`.** The 1.0.80 CLI refused the
+advisory control in prompt mode. Advisory findings now use post-tool context;
+strict findings still refuse the call before it runs. Initialize again after
+upgrading to install the new post hooks. The same output is documented for the
+cloud agent, but this campaign did not run a hosted job.
 
 Copilot is also the one agent whose pre-tool-call hook fails closed: an unexpected
 non-zero exit refuses the write rather than allowing it. This package never exits non-zero

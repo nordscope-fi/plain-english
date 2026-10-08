@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-10-08
+### Fixed
+
+- Copilot advisory findings use context after the tool succeeds. Prompt-mode runs no longer refuse a write because there is no person to answer a hook permission question. Strict checks still refuse before the tool runs. Initialize again to install the post-tool hooks.
+
 ## [1.12.0] - 2026-10-08
 ### Added
 
@@ -654,7 +659,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.1
 [1.12.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.0
 [1.11.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.11.0
 [1.10.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.10.1
