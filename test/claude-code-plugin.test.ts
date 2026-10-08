@@ -25,6 +25,41 @@ function json(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 }
 
+/**
+ * What the Claude directory's validator held on 2026-10-08 (main @ 608bae2):
+ * invisible characters in a string, a hook file that looks minified, and a
+ * web address in a hook file read together with a key-looking read. The hook
+ * files are the code a reviewer reads, so they stay plain text a person can.
+ */
+describe("the plugin's hook files as the directory reads them", () => {
+  // Control characters, zero-width and direction marks, line and paragraph separators, byte-order mark.
+  const INVISIBLE = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u2064\\uFEFF]");
+  const HOOK_FILES = ["hooks/register.ts", "hooks/wire.ts", "hooks/run-checker.mjs", "hooks/shell.mjs", "hooks/approval.mjs", "hooks/issue-tools.mjs"];
+
+  it("contain no invisible or control characters", () => {
+    for (const file of HOOK_FILES) {
+      const lines = readFileSync(resolve(PLUGIN, file), "utf8").split("\n");
+      const found = lines.flatMap((line, index) =>
+        INVISIBLE.test(line) ? [`${file}:${index + 1}`] : []);
+      expect(found, file).toEqual([]);
+    }
+  });
+
+  it("have no line long enough to read as minified", () => {
+    for (const file of HOOK_FILES) {
+      const longest = Math.max(...readFileSync(resolve(PLUGIN, file), "utf8").split("\n").map((line) => line.length));
+      expect(longest, file).toBeLessThanOrEqual(1000);
+    }
+  });
+
+  it("ship the issue-tool name pattern without an HTML library or a web address", () => {
+    const issueTools = readFileSync(resolve(PLUGIN, "hooks/issue-tools.mjs"), "utf8");
+    expect(issueTools).not.toMatch(/htmlparser2|node_modules/);
+    expect(issueTools).not.toMatch(/https?:\/\//);
+    expect(issueTools).toContain("ISSUE_TOOLS");
+  });
+});
+
 describe("the Claude Code plugin", () => {
   it("creates approved vocabulary in a configuration the checker can actually load", async () => {
     const { approveTerm } = await import("../scripts/approve-term.mjs");

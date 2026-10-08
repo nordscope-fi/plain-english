@@ -1,10 +1,7 @@
 /** Shared write-tool selection and visible Jira/Confluence text extraction. */
 import { parseDocument } from "htmlparser2";
 
-const WRITE_NAMES = "save_(?:issue|comment)|createJiraIssue|editJiraIssue|addOrEditJiraIssueComment|createConfluenceContent|updateConfluenceContent|createConfluenceComment|updateConfluenceComment";
-/** Anchored: read tools and names ending in `_preview` must not be selected. */
-export const ISSUE_TOOL_PATTERN = `^(?:.*[_:]|MCP:)?(?:${WRITE_NAMES})$`;
-export const ISSUE_TOOLS = new RegExp(ISSUE_TOOL_PATTERN);
+export { ISSUE_TOOL_PATTERN, ISSUE_TOOLS } from "./issue-tools.ts";
 
 const LIMIT = 256 * 1024;
 const BLOCKS = new Set(["p", "div", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "td", "th", "br", "hr"]);

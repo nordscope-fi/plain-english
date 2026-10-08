@@ -66,6 +66,45 @@ A failed checker produces a notice rather than a clean result. If the bundled CL
 
 On macOS, cancellation and timeouts were verified to stop the checker and its model child on Claude Code 2.1.293 and 2.1.294. Linux uses the same handling to stop a group of related processes and is checked in CI. Windows uses a process-tree termination command, but native Windows cancellation has not been verified. The checker wrapper also enforces its own timeout. Optional maintainer measurements record provider-reported usage and API price estimates without recording source prose. A missing measurement remains unknown; a reported price is not an account charge.
 
+## For reviewers: every program, file and outbound call
+
+This section answers the Claude directory's checks one call at a time. Paths are relative to the plugin folder.
+
+### Programs the mod starts
+
+Every program is `node`, the runtime Claude Code itself uses. No shell is started, so no command line is parsed or expanded. Each command is fixed text, apart from the values marked as variable below.
+
+| Where in `hooks/register.ts` | Command | Why |
+| --- | --- | --- |
+| `runChecker`, through `$.process.spawn` | `node hooks/run-checker.mjs dist/cli.mjs hook <channel> --agent claude-code`, with the event as JSON on standard input | Runs the bundled checker on one proposed write or finished reply. `<channel>` is one of `docs`, `github`, `issue` or `chat`. |
+| term approval, through `$.process.run` | `node dist/cli.mjs explain <rule>` | Confirms the rule still exists before an exception for it is saved. `<rule>` is a rule identifier from the finding. |
+| `prompt.context`, through `$.process.run` | `node dist/cli.mjs guidance` | Reads the project's declared vocabulary to add to the conversation. |
+| `/plain-english`, through `$.process.run` | `node dist/cli.mjs lint <paths>` | Checks files you name. `<paths>` are the paths you typed. |
+
+`hooks/run-checker.mjs` starts the checker as a child process and stops it, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, as the fallback for an extra model check when `$.model.complete` cannot be made.
+
+### What leaves the machine, and where it goes
+
+Only the extra model checks send anything, and only to Claude. Through `$.model.complete`, the session's own model and account receive the text being checked: a proposed document, a commit or issue text, or a finished reply and your last question. The fallback `claude -p` sends the same text to the same account. Neither the mod nor the checker makes any other network request. Set `modelChecks: false` to keep everything on the machine.
+
+The mod reads no credential. It reads no environment variable, token or key. `hooks/run-checker.mjs` reads one variable, `PLAIN_ENGLISH_CHECK_TIMEOUT_MS`, which the mod itself sets. The ruleset in `rules/default.yml` contains words such as "secret" and "token" only inside example sentences, and names `github.com` only in documentation links.
+
+### Files the mod writes
+
+- **The project's plain-english config, usually `.plain-english.yml`.** Written only when you approve a term in the review panel and then confirm it in a dialog. It adds one exception for that term, and the checker reads it on its next run. Before writing, the mod checks that the project folder and the file have not changed since you confirmed. It never writes Claude Code's own settings, instruction files or build files.
+- **Temporary files** in the system's temporary folder, holding turn identifiers and small counters that stop a reply being held twice.
+
+### Events that see other content
+
+- `tool.call`: reads proposed writes, commands and tracker-tool calls. It can refuse one or ask you about it, and never changes the call's input.
+- `classic.Stop` and `classic.SubagentStop`: read finished replies, and can hold one for a rewrite.
+- `prompt.context`: adds one section with your project's declared vocabulary. It leaves the existing context in place.
+- `command.run`: answers `/plain-english`, which the mod registers on `session.start`.
+
+### Bundled code
+
+`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies into one unminified file by `scripts/build-plugin.mjs`. It is too large for the directory to scan, so a reviewer reads it. The same build is published on npm with a signed record of the GitHub build that produced it. `hooks/approval.mjs` bundles the `yaml` library, which edits the config file while keeping your comments. That library copies its nodes with `Object.create` and `Object.getOwnPropertyDescriptors`, and defines properties on them. That is the reflective code the directory reports, and the plugin's own code does not use it.
+
 ## Configuration
 
 The CLI reads `.plain-english.yml` in the project as it does everywhere else. With no file, a finding is advisory and the mod asks before the write. To make findings refuse outright, set `failOn: error` there. Chat has its own setting and blocks errors by default. Set `chat.failOn: never` to report chat findings without holding the reply. Extra model checks follow `modelChecks`: `false` disables them, `true` enables them, and omission retains the Claude Code default. The [adoption guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/adopting.md#3-write-a-project-config) walks through the file, and the [vocabulary section](https://github.com/nordscope-fi/plain-english#configure-project-vocabulary) of the main README covers project terms.

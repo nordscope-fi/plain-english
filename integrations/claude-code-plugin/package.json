@@ -1,6 +1,6 @@
 {
   "name": "plain-english-claude-code-plugin",
-  "version": "1.13.1",
+  "version": "1.13.2",
   "private": true,
   "type": "module",
   "description": "Carries the version the bundled plain-english CLI reports. Written by scripts/build-plugin.mjs."
