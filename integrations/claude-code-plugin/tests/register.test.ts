@@ -73,6 +73,47 @@ const PANE = {
 } as const
 
 describe('register', () => {
+  test('shows one safe model-failure notice without changing allow, advisory or deny decisions', async ($, on) => {
+    const notice = 'plain-english: extra model check could not start; pattern checks still apply.'
+    const logged: string[] = []
+    let stdout = ''
+    let questions = 0
+    on('session.id', () => ({ value: 's1' }))
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout, stderr: `${notice}\nPRIVATE_PROMPT\n${notice}\n` } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('tool.call', ($, e) => {
+      if (e.tool !== 'AskUserQuestion') return { result: 'written' }
+      questions++
+      const question = (e as { questions: Record<string, unknown>[] }).questions[0] ?? {}
+      return { result: { answers: { [String(question['question'])]: 'Save it as it is' } } }
+    })
+    const event = { tool: 'Write' as const, file_path: '/repo/a.md', content: 'Clear words.' }
+    expect((await $.tool.call(event)).result).toBe('written')
+    expect(questions).toBe(0)
+    expect(logged).toEqual([notice])
+    logged.length = 0
+    stdout = ASK
+    expect((await $.tool.call(event)).result).toBe('written')
+    expect(questions).toBe(1)
+    expect(logged).toEqual([notice])
+    logged.length = 0
+    stdout = DENY
+    expect((await $.tool.call(event)).deny).toContain('Furthermore')
+    expect(questions).toBe(1)
+    expect(logged).toEqual([notice])
+  })
+  test('keeps a capture-failure notice separate from a blocked reply and omits unknown stderr', async ($, on) => {
+    const notice = 'plain-english: model usage capture unavailable.'
+    const logged: string[] = []
+    on('session.cwd', () => ({ value: '/repo' }))
+    onProcess(on, () => ({ value: { ...RUN, stdout: BLOCK, stderr: `${notice}\r\n${notice}\r\nPRIVATE_PROMPT\r\n${notice} PRIVATE_PROMPT\r\n` } }))
+    on('ui.log', ($, e) => { logged.push(e.text); return { value: undefined } })
+    on('classic.Stop', () => ({}))
+    const result = await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'A long reply.' })
+    expect(result.block).toBe('reply-length: 300 words of prose, over 250.')
+    expect(logged).toEqual([notice])
+  })
   test('runs write and reply model checks through the descendant cancellation wrapper', async ($, on) => {
     const calls: string[][] = []
     on('session.id', () => ({ value: 's1' }))

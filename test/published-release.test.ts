@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 // @ts-expect-error maintainer JavaScript release helper
 import * as release from "../scripts/verify-published-release.mjs";
 const { verifyPublishedRelease } = release;
@@ -106,15 +107,15 @@ describe("published release identity", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-published-cli-")); dirs.push(dir);
     const { dist, attestations } = fixture();
     const path = resolve(dir, "dist.json"); writeFileSync(path, JSON.stringify(dist));
-    const shim = resolve(dir, "registry.mjs");
+    const shim = resolve(dir, "registry # fixture.mjs");
     writeFileSync(shim, `globalThis.fetch = async () => new Response(${JSON.stringify(JSON.stringify(attestations))});\n`);
-    const run = (commit: string) => spawnSync(process.execPath, ["--import", shim,
+    const run = (commit: string) => spawnSync(process.execPath, ["--import", pathToFileURL(shim).href,
       resolve(import.meta.dirname, "../scripts/verify-published-release.mjs"), path, VERSION, commit], { encoding: "utf8" });
     const accepted = run(COMMIT);
-    expect(accepted.status).toBe(0);
+    expect(accepted.status, accepted.stderr || accepted.error?.message).toBe(0);
     expect(accepted.stdout).toContain("Published release identity matches");
     const rejected = run("a".repeat(40));
-    expect(rejected.status).toBe(1);
+    expect(rejected.status, rejected.stderr || rejected.error?.message).toBe(1);
     expect(rejected.stderr).toContain("Published source commit differs");
   });
 });

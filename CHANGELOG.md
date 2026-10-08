@@ -16,6 +16,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 - The writing comparison uses 24 distinct task contracts and checks background measurement completeness before reporting a total. Two fresh released-plugin samples found factual failures in every mode; the results support no writing advantage claim.
 - The release guide separates repository marketplace publication from an account-owner directory submission and explains that the bundled CLI can require review on later versions too.
 - A release retry verifies the already published npm artifact against the original release commit and resumes uploading GitHub assets. A different commit or missing provenance is refused.
+- Successful native checks show known failure notices once, without forwarding unrelated diagnostic text or repeating the plugin name. Check decisions are preserved.
 
 ## [1.6.0] - 2026-10-08
 ### Added

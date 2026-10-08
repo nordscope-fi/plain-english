@@ -26,6 +26,16 @@ const CLI = 'dist/cli.mjs'
 const TOOL_TIMEOUT_MS = 20_000
 const CHAT_TIMEOUT_MS = 60_000
 
+/** Fixed CLI diagnostics only; checker stderr can otherwise contain private text. */
+const SAFE_CHECK_NOTICES = new Set([
+  'plain-english: extra model check could not start; pattern checks still apply.',
+  'plain-english: extra model check timed out; pattern checks still apply.',
+  'plain-english: extra model check failed; pattern checks still apply.',
+  'plain-english: extra model check returned no usable answer; pattern checks still apply.',
+  'plain-english: model usage capture unavailable.',
+  'plain-english: configuration unavailable; using local built-in pattern checks as advice only.',
+])
+
 const COMMAND = 'plain-english'
 const PANE = 'plain-english-review'
 
@@ -158,7 +168,9 @@ async function adapter(
       }
     }
   }
-  if (ran.stderr.trim() !== '') $.ui.log(`plain-english: ${ran.stderr.trim()}`)
+  for (const notice of new Set(ran.stderr.split(/\r?\n/).map(line => line.trim()))) {
+    if (SAFE_CHECK_NOTICES.has(notice)) $.ui.log(notice)
+  }
   return ran.stdout
 }
 
