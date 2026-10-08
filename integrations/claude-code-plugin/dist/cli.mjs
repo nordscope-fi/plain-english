@@ -41639,7 +41639,7 @@ function projectGuidance(set) {
 // dist/approve.js
 var import_yaml3 = __toESM(require_dist(), 1);
 import { createHash as createHash3 } from "node:crypto";
-import { existsSync as existsSync13, lstatSync, readFileSync as readFileSync11, realpathSync as realpathSync2, statSync as statSync10, writeFileSync as writeFileSync3 } from "node:fs";
+import { closeSync, constants, existsSync as existsSync13, lstatSync, openSync, readFileSync as readFileSync11, realpathSync as realpathSync2, statSync as statSync10, writeFileSync as writeFileSync3 } from "node:fs";
 import { basename as basename4, dirname as dirname4, join } from "node:path";
 var CONFIG_NAMES = [".plain-english.yml", ".plain-english.yaml"];
 function approveTerm(text4, term, ruleId, reason) {
@@ -41672,10 +41672,18 @@ function approveTerm(text4, term, ruleId, reason) {
   doc.addIn(["allow"], entry);
   return doc.toString();
 }
+function present(path2) {
+  try {
+    lstatSync(path2);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function approvalConfig(directory) {
   for (const name of CONFIG_NAMES) {
     const path2 = join(directory, name);
-    if (existsSync13(path2))
+    if (present(path2))
       return { path: path2, exists: true };
   }
   let ancestor = directory;
@@ -41716,7 +41724,12 @@ function approveInProject(cwd, request, ruleSetFor2) {
       if (!seen || seen.root !== state.root || seen.config !== state.config || seen.exists !== state.exists || seen.hash !== state.hash) {
         throw new Error("The configuration changed. Review it again before saving.");
       }
-      writeFileSync3(path2, updated);
+      const fd = openSync(path2, exists ? constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0) : "wx", 420);
+      try {
+        writeFileSync3(fd, updated);
+      } finally {
+        closeSync(fd);
+      }
     }
     return { ok: true, ...state, modelVocabulary: request.rule === "unglossed-term" };
   } catch (error) {
@@ -43718,7 +43731,7 @@ function renderPolicy(set, scan) {
 
 // dist/adapters/judge-measurement.js
 import { randomUUID } from "node:crypto";
-import { appendFileSync, closeSync, constants, openSync } from "node:fs";
+import { appendFileSync, closeSync as closeSync2, constants as constants2, openSync as openSync2 } from "node:fs";
 import { isAbsolute as isAbsolute3 } from "node:path";
 var TOKEN_FIELDS = ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"];
 var MODEL_FIELDS = ["inputTokens", "outputTokens", "cacheReadInputTokens", "cacheCreationInputTokens", "webSearchRequests", "costUSD", "contextWindow", "maxOutputTokens"];
@@ -43775,7 +43788,7 @@ function receiptAppender(env) {
     try {
       if (!isAbsolute3(path2))
         throw new Error("absolute receipt destination required");
-      fd = openSync(path2, constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0), 384);
+      fd = openSync2(path2, constants2.O_WRONLY | constants2.O_APPEND | constants2.O_CREAT | (constants2.O_NOFOLLOW ?? 0), 384);
       appendFileSync(fd, JSON.stringify({ schemaVersion: 1, ...receipt }) + "\n");
       return true;
     } catch {
@@ -43786,7 +43799,7 @@ function receiptAppender(env) {
     } finally {
       if (fd !== void 0) {
         try {
-          closeSync(fd);
+          closeSync2(fd);
         } catch {
         }
       }

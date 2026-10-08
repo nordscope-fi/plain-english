@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, constants, existsSync, lstatSync, openSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { isMap, isSeq, parseDocument } from "yaml";
 import type { RuleSet } from "./rules.ts";
@@ -43,11 +43,25 @@ export function approveTerm(text: string, term: string, ruleId: string, reason: 
   return doc.toString();
 }
 
+/**
+ * Whether anything stands at `path`, a link included. `existsSync` follows a
+ * link, so a link to a missing file would read as "no config" and the write
+ * would create the link's target (found by a security review of 83ad212).
+ */
+function present(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The project's own config, or a refusal when an ancestor's would govern it. */
 function approvalConfig(directory: string): { path: string; exists: boolean } {
   for (const name of CONFIG_NAMES) {
     const path = join(directory, name);
-    if (existsSync(path)) return { path, exists: true };
+    if (present(path)) return { path, exists: true };
   }
   let ancestor = directory;
   while (dirname(ancestor) !== ancestor) {
@@ -103,7 +117,15 @@ export function approveInProject(cwd: string, request: ApprovalRequest, ruleSetF
       if (!seen || seen.root !== state.root || seen.config !== state.config || seen.exists !== state.exists || seen.hash !== state.hash) {
         throw new Error("The configuration changed. Review it again before saving.");
       }
-      writeFileSync(path, updated);
+      // Never through a link, and never over a file that appeared after the
+      // check: a new config is created exclusively, an existing one is opened
+      // without following a link.
+      const fd = openSync(path, exists ? constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0) : "wx", 0o644);
+      try {
+        writeFileSync(fd, updated);
+      } finally {
+        closeSync(fd);
+      }
     }
     return { ok: true, ...state, modelVocabulary: request.rule === "unglossed-term" };
   } catch (error) {

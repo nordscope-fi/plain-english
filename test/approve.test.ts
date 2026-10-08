@@ -72,6 +72,17 @@ describe("plain-english approve", () => {
     expect(approve({ ...REQUEST, phase: "check" })).toMatchObject({ ok: false });
   });
 
+  // Security review of 83ad212: a link to a missing file reads as "no config"
+  // to a check that follows links, and the write then created its target.
+  it("refuses a link at the config path that points to a missing file, and creates nothing", () => {
+    const target = resolve(outer, "planted.yml");
+    symlinkSync(target, resolve(project, ".plain-english.yml"));
+    expect(approve({ ...REQUEST, phase: "check" })).toMatchObject({ ok: false });
+    const forged = { ok: true, root: project, config: ".plain-english.yml", exists: false, hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" };
+    expect(approve({ ...REQUEST, phase: "write", expect: forged })).toMatchObject({ ok: false });
+    expect(existsSync(target)).toBe(false);
+  });
+
   it("refuses a sentence-shape rule and a rule that does not exist", () => {
     expect(approve({ ...REQUEST, rule: "binary-contrast", phase: "check" })).toMatchObject({ ok: false });
     const unknown = approve({ ...REQUEST, rule: "no-such-rule", phase: "check" });
