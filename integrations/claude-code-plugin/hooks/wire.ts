@@ -21,9 +21,38 @@ export type ChatVerdict =
   | { kind: 'pass'; notice?: string }
   | { kind: 'block'; reason: string; notice?: string }
 
-/** Commands the github channel judges; every other Bash call is skipped here. */
-export const WRITE_COMMAND =
-  /(^|[;&|]\s*)(git\s+commit\b|gh\s+pr\s+(create|edit|comment|review)\b|gh\s+issue\s+(create|edit|comment)\b|gh\s+release\s+(create|edit)\b)/i
+/** Tokenize user paths without evaluating shell expressions or expanding variables. */
+export function readPaths(input: string): string[] {
+  const paths: string[] = []
+  let word = ''
+  let quote = ''
+  let active = false
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i]!
+    if (char === '\\' && quote !== "'") {
+      if (++i >= input.length) throw new Error('A path ends with an unfinished escape.')
+      word += input[i]
+      active = true
+    } else if (quote !== '') {
+      if (char === quote) quote = ''
+      else word += char
+    } else if (char === '"' || char === "'") {
+      quote = char
+      active = true
+    } else if (/\s/.test(char)) {
+      if (active) paths.push(word)
+      word = ''
+      active = false
+    } else {
+      word += char
+      active = true
+    }
+  }
+  if (quote !== '') throw new Error('A quoted path is missing its closing quote.')
+  if (active) paths.push(word)
+  if (paths.some(path => path === '')) throw new Error('A path cannot be empty.')
+  return paths.length === 0 ? ['.'] : paths
+}
 
 /** The three keys `tool.call` carries beside the tool's own arguments. */
 const RESERVED = new Set(['tool', 'tool_use_id', 'agentId'])

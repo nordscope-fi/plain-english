@@ -93,6 +93,8 @@ export interface ChatReader {
    * reply and not the question that prompted it.
    */
   lastAsk?(payload: Record<string, unknown>): string | undefined;
+  /** Stable identity of the latest human turn, unchanged by assistant retries. */
+  turnId?(payload: Record<string, unknown>): string | undefined;
 }
 
 /** Read a string field, trying each name, since agents disagree on casing. */
@@ -172,4 +174,19 @@ export function withinDays(at: string | undefined, days: number | undefined, now
   const t = Date.parse(at);
   if (Number.isNaN(t)) return true;
   return now - t <= days * 24 * 60 * 60 * 1000;
+}
+
+/** Recover turn identity from a transcript without hashing private message text. */
+export function latestUserTurnId(
+  path: string | undefined,
+  isHuman: (record: Record<string, unknown>) => boolean,
+): string | undefined {
+  if (!path) return undefined;
+  let latest: string | undefined;
+  readJsonl(path, (record, line) => {
+    if (record["isMeta"] === true || record["isSidechain"] === true || record["toolUseResult"] !== undefined) return;
+    if (!isHuman(record)) return;
+    latest = `${path}:${field(record, "uuid", "id", "turn_id", "turnId") ?? line}`;
+  });
+  return latest;
 }

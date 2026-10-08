@@ -26,6 +26,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
   field,
+  latestUserTurnId,
   hasSegment,
   inScope,
   readJsonl,
@@ -209,6 +210,10 @@ export const claudeCodeChat: ChatReader = {
       line: 0,
     };
     return reply;
+  },
+
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path"), (record) => typedUserText(record) !== undefined);
   },
 
   lastAsk(payload: Record<string, unknown>): string | undefined {

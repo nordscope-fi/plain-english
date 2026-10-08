@@ -24,7 +24,7 @@ import { resolve } from "node:path";
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
-import { asRecord, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
+import { asRecord, editFields, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerPath } from "./runner.ts";
 
 const RUNNER = runnerPath(".codex");
@@ -115,7 +115,7 @@ export const codex: AgentProfile = {
       case "Write":
         return { tool: "write", cwd, input: { filePath, content: pick(input, "content") } };
       case "Edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "MultiEdit":
         return {
           tool: "multi-edit",
@@ -123,7 +123,7 @@ export const codex: AgentProfile = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick(asRecord(e), "new_string"),
+              ...editFields(asRecord(e)),
             })),
           },
         };

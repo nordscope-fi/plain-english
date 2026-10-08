@@ -18,14 +18,15 @@
  * Fail-open throughout. An internal error must never block a commit.
  */
 
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, resolve, sep } from "node:path";
-import { lintText, type Finding } from "../lint.ts";
+import { dirname, resolve, sep } from "node:path";
+import { directivesIn, lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
+import { maskNonProse } from "../mask.ts";
 import { matchesAny } from "../glob.ts";
 import { asRecord, parseApplyPatch, pick, pickArray } from "../agents/fields.ts";
-import { shellFileWrites } from "../shell.ts";
+import { shellFileWrites, publishingCommands, parseCommands } from "../shell.ts";
 import type { NormalisedEvent } from "../agents/profile.ts";
 
 export type Channel = "docs" | "github" | "issue" | "chat";
@@ -191,34 +192,45 @@ export const MAX_COMMAND_BYTES = 256 * 1024;
  * The text a Bash command would publish. Returns an empty array for read-only
  * commands so `gh pr view` never gets judged on somebody else's prose.
  */
-export function extractFromBash(cmd: string): string[] {
+export function extractFromBash(cmd: string, cwd = process.cwd()): string[] {
   if (cmd.length > MAX_COMMAND_BYTES) return [];
-  if (!WRITE_COMMAND.test(cmd)) return [];
   const parts: string[] = [];
-
-  for (const body of heredocBodies(cmd)) parts.push(body);
-
-  INLINE_FLAG.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = INLINE_FLAG.exec(cmd)) !== null) {
-    const value = m[2] ?? m[3] ?? m[4];
-    if (value) parts.push(value.replace(/\\(["\\$`])/g, "$1"));
-  }
-
-  FILE_FLAG.lastIndex = 0;
-  while ((m = FILE_FLAG.exec(cmd)) !== null) {
-    const raw = m[2] ?? m[3] ?? m[4];
-    if (!raw) continue;
-    const path = expandHome(raw);
-    try {
-      // An unreadable path is not an error. The commit may create it later, or
-      // the guard may simply be running somewhere else.
-      parts.push(readFileSync(path, "utf8"));
-    } catch {
-      /* fail-open */
+  const inline = new Set(["-m", "--message", "-t", "--title", "-b", "--body", "-n", "--notes", "--subject"]);
+  const file = new Set(["-F", "--file", "--body-file", "--notes-file"]);
+  for (const command of publishingCommands(cmd, cwd)) {
+    for (const body of command.heredocs) if (body.trim()) parts.push(body);
+    for (let i = 0; i < command.args.length; i++) {
+      const word = command.args[i]!;
+      if (word.expands) continue;
+      let flag = word.text;
+      let value = "";
+      const equals = flag.indexOf("=");
+      if (equals > 0) { value = flag.slice(equals + 1); flag = flag.slice(0, equals); }
+      else {
+        const attached = /^-(?:[aqsv]*)([mF])([\s\S]*)$/.exec(flag) ?? /^-([tbn])([\s\S]+)$/.exec(flag);
+        if (attached) { flag = "-" + attached[1]; value = attached[2] ?? ""; }
+      }
+      if (!inline.has(flag) && !file.has(flag)) continue;
+      if (!value) {
+        const next = command.args[++i];
+        if (!next) continue;
+        if (next.expands) {
+          // A quoted heredoc passed through cat contains literal message text.
+          // Other substitutions remain unknown; never execute the command.
+          if (inline.has(flag) && /^\$\([ \t]*cat[ \t]+<<-?[ \t]*['"]/.test(next.text) && next.text.endsWith(")")) {
+            parts.push(...heredocBodies(next.text));
+          }
+          continue;
+        }
+        value = next.text;
+      }
+      if (inline.has(flag)) parts.push(value);
+      else {
+        try { parts.push(readFileSync(resolve(command.cwd, expandHome(value)), "utf8")); }
+        catch { /* An unavailable message file must not stop the command. */ }
+      }
     }
   }
-
   return parts.filter((p) => p.trim() !== "");
 }
 
@@ -226,6 +238,8 @@ export function extractFromBash(cmd: string): string[] {
 export interface FileText {
   path: string;
   text: string;
+  /** Inserted character ranges in the proposed complete document. */
+  changedRanges?: { start: number; end: number }[];
 }
 
 /**
@@ -244,12 +258,25 @@ export interface FileText {
  * that turned out to be false. A heredoc opening with `*** Begin Patch` is
  * unambiguous.
  */
-export function extractPatchesFromBash(cmd: string): FileText[] {
+export function extractPatchesFromBash(cmd: string, projectDir?: string, cwd?: string, options: { alreadyApplied?: boolean } = {}): FileText[] {
   if (cmd.length > MAX_COMMAND_BYTES) return [];
   if (!cmd.includes("*** Begin Patch")) return [];
-  return heredocBodies(cmd)
-    .filter((body) => body.trimStart().startsWith("*** Begin Patch"))
-    .flatMap((body) => parseApplyPatch(body));
+  const out: FileText[] = [];
+  let directory: string | undefined = cwd || projectDir || process.cwd();
+  for (const command of parseCommands(cmd)) {
+    if (command.unterminated) continue;
+    if (command.words[0]?.text === "cd") {
+      const target = command.words[1];
+      directory = target && !target.expands && command.words.length === 2 && directory
+        ? resolve(directory, target.text) : undefined;
+      continue;
+    }
+    if (command.words[0]?.text !== "apply_patch" || !directory) continue;
+    const files = command.heredocs.filter((body) => body.trimStart().startsWith("*** Begin Patch"))
+      .flatMap((body) => parseApplyPatch(body));
+    out.push(...(projectDir ? extractFromFileWrite({ tool: "patch", cwd: directory, input: { files } }, projectDir, options) : files));
+  }
+  return out;
 }
 
 /**
@@ -263,8 +290,41 @@ function judgeable(files: FileText[], projectDir: string): FileText[] {
     (f) =>
       f.path !== "" &&
       MARKDOWN.test(f.path) &&
-      (!isAbsolute(f.path) || isUnderProject(f.path, projectDir)),
+      isUnderProject(resolve(projectDir, f.path), projectDir),
   );
+}
+
+/** New prose eligible for a model check after project scope and inline waivers. */
+export function scopedDocsFiles(
+  event: NormalisedEvent,
+  ruleSet: RuleSet,
+  explicitProjectDir?: string,
+  options: { alreadyApplied?: boolean } = {},
+): FileText[] {
+  const projectDir = projectDirFor(event, explicitProjectDir);
+  const command = pick(event.input, "command");
+  const raw = event.tool === "bash"
+    ? [...extractPatchesFromBash(command, projectDir, event.cwd, options), ...(command.length <= MAX_COMMAND_BYTES ? shellFileWrites(command, event.cwd || projectDir) : [])]
+    : extractFromFileWrite(event, projectDir, options);
+  return filterScopedFiles(raw, projectDir, ruleSet).filter((file) => {
+    // Model requests are capped at this size. Avoid parsing a document twice
+    // for a request the caller must discard, especially on slower machines.
+    if (file.text.length > MAX_COMMAND_BYTES) return false;
+    if (directivesIn(file.text).some((directive) => directive.scope === "file")) return false;
+    const prose = maskNonProse(file.text, { maskComments: true });
+    return file.changedRanges
+      ? file.changedRanges.some((range) => prose.slice(range.start, range.end).trim())
+      : !!prose.trim();
+  });
+}
+
+function filterScopedFiles(files: FileText[], projectDir: string, ruleSet: RuleSet): FileText[] {
+  const base = resolve(projectDir);
+  return judgeable(files, projectDir).filter((f) => {
+    const abs = resolve(base, f.path);
+    const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
+    return !matchesAny(rel, ruleSet.exclude);
+  });
 }
 
 /**
@@ -273,29 +333,118 @@ function judgeable(files: FileText[], projectDir: string): FileText[] {
  * Keeping them paired is what lets a patch touching both a README and a source
  * file have only the README judged.
  */
-export function extractFromFileWrite(event: NormalisedEvent): FileText[] {
+export function extractFromFileWrite(event: NormalisedEvent, projectDir = projectDirFor(event), options: { alreadyApplied?: boolean } = {}): FileText[] {
   const input = event.input;
-  const path = pick(input, "filePath");
+  const rawPath = pick(input, "filePath");
+  const path = rawPath ? resolve(event.cwd || projectDir, rawPath) : "";
 
   switch (event.tool) {
     case "write":
       return [{ path, text: pick(input, "content") }];
     case "edit":
-      // Only the inserted side.
-      return [{ path, text: pick(input, "newString") }];
+      return [contextualEdit(path, [input], projectDir, options.alreadyApplied)];
     case "multi-edit":
-      return pickArray(input, "edits").map((e) => ({
-        path,
-        text: pick(asRecord(e), "newString"),
-      }));
+      return [contextualEdit(path, pickArray(input, "edits").map(asRecord), projectDir, options.alreadyApplied)];
     case "patch":
       return pickArray(input, "files").map((f) => {
         const entry = asRecord(f);
-        return { path: pick(entry, "path"), text: pick(entry, "text") };
+        const rawTarget = pick(entry, "path");
+        const target = rawTarget ? resolve(event.cwd || projectDir, rawTarget) : "";
+        const rawSource = pick(entry, "sourcePath");
+        const source = rawSource ? resolve(event.cwd || projectDir, rawSource) : target;
+        const edits = pickArray(entry, "edits").map(asRecord);
+        if (source !== target && MARKDOWN.test(target) && !MARKDOWN.test(source) && isUnderProject(source, projectDir)) {
+          try {
+            const proposed = edits.length ? contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied).text : readFileSync(source, "utf8");
+            return { path: target, text: proposed };
+          } catch { /* The source may not exist until the pending tool runs. */ }
+        }
+        return edits.length ? { ...contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied), path: target } : { path: target, text: pick(entry, "text") };
       });
     default:
       return [];
   }
+}
+
+/** Apply known edits in memory so fences and definitions remain available. */
+function contextualEdit(path: string, edits: Record<string, unknown>[], projectDir: string, alreadyApplied = false): FileText {
+  const fallback = { path, text: edits.map((e) => {
+    const next = pick(e, "newString");
+    if (!("changedRanges" in e)) return next;
+    return pickArray(e, "changedRanges").map(asRecord).flatMap((r) =>
+      typeof r["start"] === "number" && typeof r["end"] === "number" ? [next.slice(r["start"], r["end"])] : [],
+    ).join("\n");
+  }).join("\n") };
+  if (!isUnderProject(resolve(projectDir, path), projectDir)) return fallback;
+  let text: string;
+  try { text = readFileSync(resolve(projectDir, path), "utf8"); }
+  catch { return fallback; }
+  let ranges: { start: number; end: number }[] = [];
+  if (alreadyApplied) {
+    for (const edit of edits) {
+      const next = pick(edit, "newString");
+      if (!next) continue;
+      if (!text.includes(next)) return fallback;
+      if (edit["replaceAll"] !== true && text.indexOf(next) !== text.lastIndexOf(next)) return fallback;
+      let from = 0;
+      do {
+        const start = text.indexOf(next, from);
+        if (start < 0) break;
+        const changed = pickArray(edit, "changedRanges").map(asRecord);
+        if ("changedRanges" in edit) {
+          for (const range of changed) {
+            if (typeof range["start"] === "number" && typeof range["end"] === "number") {
+              ranges.push({ start: start + range["start"], end: start + range["end"] });
+            }
+          }
+        } else ranges.push({ start, end: start + next.length });
+        from = start + next.length;
+      } while (edit["replaceAll"] === true);
+    }
+    return { path, text, changedRanges: ranges };
+  }
+  for (const edit of edits) {
+    let old = pick(edit, "oldString");
+    const next = pick(edit, "newString");
+    // A patch line is terminated in the envelope even when the source ends at EOF.
+    if ("changedRanges" in edit && old.endsWith("\n") && !text.includes(old) && text.endsWith(old.slice(0, -1))) old = old.slice(0, -1);
+    if (!old || !text.includes(old)) return fallback;
+    let from = 0;
+    const all = edit["replaceAll"] === true;
+    // A single replacement must identify one occurrence, just like the tool.
+    if (!all && text.indexOf(old) !== text.lastIndexOf(old)) return fallback;
+    do {
+      const start = text.indexOf(old, from);
+      if (start < 0) break;
+      const end = start + old.length;
+      const delta = next.length - old.length;
+      ranges = ranges.flatMap((r) => {
+        if (r.end <= start) return [r];
+        if (r.start >= end) return [{ start: r.start + delta, end: r.end + delta }];
+        return [];
+      });
+      text = text.slice(0, start) + next + text.slice(end);
+      const changed = pickArray(edit, "changedRanges").map(asRecord);
+      if (changed.length) {
+        for (const r of changed) {
+          if (typeof r["start"] === "number" && typeof r["end"] === "number") {
+            ranges.push({ start: start + r["start"], end: start + r["end"] });
+          }
+        }
+      } else if (!("changedRanges" in edit)) ranges.push({ start, end: start + next.length });
+      from = start + next.length;
+    } while (all);
+  }
+  return { path, text, changedRanges: ranges };
+}
+
+function introducedFinding(file: FileText, finding: Finding): boolean {
+  if (!file.changedRanges) return true;
+  const lines = file.text.split("\n");
+  let offset = finding.column - 1;
+  for (let i = 0; i < finding.line - 1; i++) offset += (lines[i]?.length ?? 0) + 1;
+  const end = offset + Math.max(1, finding.match.length);
+  return file.changedRanges.some((r) => r.start < end && r.end > offset);
 }
 
 /** The text a Linear-style issue call would show a reader. */
@@ -309,11 +458,25 @@ export function extractFromIssue(input: Record<string, unknown>): string[] {
   return parts.filter((p) => p.trim() !== "");
 }
 
+/** Resolve existing ancestors as well, so a symlink cannot escape project scope. */
+function canonicalAncestor(path: string): string {
+  let candidate = resolve(path);
+  for (;;) {
+    try { return realpathSync(candidate); }
+    catch {
+      const parent = dirname(candidate);
+      if (parent === candidate) return candidate;
+      candidate = parent;
+    }
+  }
+}
+
 function isUnderProject(file: string, projectDir: string): boolean {
-  if (!projectDir) return true; // no scope signal, judge it
-  const f = resolve(file);
-  const p = resolve(projectDir);
-  return f === p || f.startsWith(p.endsWith(sep) ? p : p + sep);
+  if (!projectDir) return true;
+  const within = (f: string, p: string) => f === p || f.startsWith(p.endsWith(sep) ? p : p + sep);
+  // Check lexical traversal first, then the actual destination of symlinks.
+  return within(resolve(file), resolve(projectDir)) &&
+    within(canonicalAncestor(file), canonicalAncestor(projectDir));
 }
 
 /**
@@ -372,7 +535,27 @@ function noteIfUnreadable(event: NormalisedEvent, files: FileText[]): void {
 export function decide(
   event: NormalisedEvent,
   channel: Channel,
-  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number } = {},
+  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean } = {},
+): Decision {
+  const primary = decideSingle(event, channel, opts);
+  if (channel !== "github" || event.tool !== "bash") return primary;
+  const docs = decideSingle(event, "docs", opts);
+  const decisions = [primary, docs];
+  const ranked = decisions.find((d) => d.decision === "deny") ?? decisions.find((d) => d.decision === "ask") ?? primary;
+  const reasons = decisions.filter((d) => !d.allow).map((d) => d.reason).filter(Boolean).join("\n\n");
+  const timedOut = [...new Set(decisions.flatMap((d) => d.timedOut ?? []))];
+  return {
+    allow: decisions.every((d) => d.allow), decision: ranked.decision,
+    findings: decisions.flatMap((d) => d.findings),
+    ...(reasons ? { reason: reasons, advisory: reasons } : {}),
+    ...(timedOut.length ? { timedOut } : {}),
+  };
+}
+
+function decideSingle(
+  event: NormalisedEvent,
+  channel: Channel,
+  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean } = {},
 ): Decision {
   const projectDir = projectDirFor(event, opts.projectDir);
   const allow = (): Decision => ({ allow: true, decision: "allow", findings: [] });
@@ -382,26 +565,17 @@ export function decide(
   let label = CHANNEL_LABEL[channel];
 
   if (channel === "docs") {
-    const raw = extractFromFileWrite(event);
+    const cmd = pick(event.input, "command");
+    const raw = event.tool === "bash"
+      ? [...extractPatchesFromBash(cmd, projectDir, event.cwd, opts), ...(cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd, event.cwd || projectDir) : [])]
+      : extractFromFileWrite(event, projectDir, opts);
     noteIfUnreadable(event, raw);
     files = judgeable(raw, projectDir);
     if (!files.length) return allow();
   } else if (channel === "github") {
     if (event.tool !== "bash") return allow();
     const cmd = pick(event.input, "command");
-    texts = extractFromBash(cmd);
-    // One shell command can carry a commit message, a patch and a redirect into
-    // a file. Judge each, and let the file pipeline scope the last two.
-    //
-    // The redirect matters because agents write prose that way. Copilot CLI,
-    // asked to edit a markdown file, ran `printf ... > notes.md` rather than
-    // using a write tool, so the docs channel never saw it.
-    files = judgeable(
-      [...extractPatchesFromBash(cmd), ...(cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd) : [])],
-      projectDir,
-    );
-    // Naming it a commit message would be wrong when what was caught is a file.
-    if (files.length && !texts.length) label = CHANNEL_LABEL["docs"];
+    texts = extractFromBash(cmd, event.cwd || projectDir);
   } else if (channel === "chat") {
     // A stop event carries no tool input. `decideChat` in ./chat.ts takes the
     // reply text directly, and the CLI routes there instead. Reaching here
@@ -416,26 +590,21 @@ export function decide(
   // A file the project has excluded is never judged, whichever channel it
   // arrives through.
   if (files.length) {
-    const base = resolve(projectDir);
-    files = files.filter((f) => {
-      const abs = resolve(base, f.path);
-      const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
-      return !matchesAny(rel, ruleSet.exclude);
-    });
-    texts = [...texts, ...files.map((f) => f.text)];
+    files = filterScopedFiles(files, projectDir, ruleSet);
   }
 
   texts = texts.filter((t) => t.trim() !== "");
-  if (!texts.length) return allow();
+  if (!texts.length && !files.some((f) => f.text.trim())) return allow();
 
   const findings: Finding[] = [];
   const stalled = new Set<string>();
-  for (const text of texts) {
+  for (const file of [...texts.map((text) => ({ path: "", text })), ...files]) {
+    const text = file.text;
     // A hook payload is one edit, so the budget is tighter than the CLI's: an
     // agent kills the hook well before a minute, and a write held up for even a
     // few seconds is worse than a term slipping through. Fail-open on exhaustion.
     const res = lintText(text, ruleSet, { budgetMs: opts.budgetMs ?? HOOK_BUDGET_MS });
-    findings.push(...res.findings);
+    findings.push(...res.findings.filter((f) => introducedFinding(file, f)));
     for (const id of res.timedOut) stalled.add(id);
   }
 
@@ -576,7 +745,7 @@ export function formatReason(errors: Finding[], channel: Channel, label?: string
     "Full ruleset: docs/writing-style.md",
     "",
     "Narrower ways to allow this, in order of preference:",
-    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + " -->",
+    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + ": replace this with your reason -->",
     "  2. add the path to `exclude` in .plain-english.yml",
     "  3. lower the rule to `severity: warn` in .plain-english.yml",
     "",

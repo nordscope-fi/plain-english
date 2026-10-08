@@ -272,3 +272,33 @@ The output without the signal must win more than 70% of correctness-gated compar
 with a 95% Wilson lower bound above 50%. The signal may appear in no more than 5% of
 eligible human source text. The analysis marks promotion as passed only on the frozen
 holdout when every check passes.
+
+
+## Claude plugin comparison with public tasks
+
+`claude.mjs` prepares 48 synthetic tasks from six writing templates. It compares ordinary Claude, generated writing guidance, and the same guidance with the native plugin checks. Each run uses the native evaluation command's isolated workspace and normal configured model. No private transcripts or repository documents enter the task set.
+
+```sh
+node scripts/evaluation/claude.mjs prepare --out /tmp/pe-writing-smoke --limit 2
+node scripts/evaluation/claude.mjs run --out /tmp/pe-writing-smoke --limit 2 --max-cost-usd 1
+```
+
+The first command prepares cases without model calls. The second uses your Claude account. Reports stay local. The cost limit is checked between model runs, so one in-flight run can exceed it. Resume with identical inputs and the same output directory; changed inputs require a new directory.
+
+The three modes receive identical tasks. Guidance and checks receive identical appended instructions, copied from the generated output style and document skill. Ordinary Claude receives neither. The check mode carries the plugin; the other modes carry an empty benchmark plugin. All modes allow no task tools. This measures completed writing and reply checks, while native unit tests cover refused writes, review actions, and repair controls.
+
+Results retain final replies, missing protected literals, elapsed time, reported usage, turn counts, and estimated cost. Unavailable interruption telemetry remains unknown. Background model checks may use additional account usage that the outer runner does not include. The saved traces support inspection without inventing measurements.
+
+`blind-review.json` hides mode names and leaves correctness, completeness, and preference judgments empty. Give that file to reviewers and keep `review-key.json` separate. Reject factual additions, lost qualifications, and missing requirements before choosing a preferred answer. Literal matching alone cannot certify those properties.
+
+This is a development smoke comparison. Eight variants of a template are not eight independent writing situations. Run repeated samples and use the existing independent review and held-out evaluation process before claiming a writing advantage.
+
+The native case format and isolation follow [Claude's evaluation reference](https://code.claude.com/docs/en/plugin-evals).
+
+### Development smoke, 2026-10-08
+
+Claude Code 2.1.294 completed six tasks in each mode, producing 18 replies with the recorded model `claude-opus-5-5`. Every reply retained the required literals. Independent correctness and preference review remains pending.
+
+Manual inspection found defects in the mode with checks. Its status reply said the remaining jobs had no problems without supporting evidence. Its decision reply described 89 unused exports when the task required 8 of an allowance of 100. Its backup reply inferred that the source was the only good copy. These observations are examples of failures, not a complete correctness assessment.
+
+Reported generation costs were about $0.27 for ordinary writing, $0.41 for guidance, and $0.42 for checks. Separate background checks are excluded and their cost is unknown. Outputs, traces, review pairs, and generation identity stay outside the repository. This run supports no superiority claim. It predates the final Windows path and runtime-identity fixes and the early oversized-document guard. Its recorded snapshot must not be presented as an evaluation of those later changes.

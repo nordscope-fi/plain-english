@@ -82,7 +82,7 @@ Two mechanics catch people out. A style is part of the system prompt, which Clau
 
 A style reaches the main conversation and a **fork**, which inherits the parent's full system prompt. It does not reach a **subagent**, which runs its own.
 
-**A stop hook** reads the finished reply and can hand a finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. `plain-english init` installs it on the events below. Under the default `failOn: never` it reports and holds up nothing; `failOn: error` makes a finding block the turn.
+**A stop hook** reads the finished reply and can hand a finding back to the model, which then writes again. That is weaker than a refused write, since the words already exist, and much stronger than a prompt, since something measures them. `plain-english init` installs it on the events below. Chat uses its own threshold, `chat.failOn`, which defaults to `error`. Set it to `never` to report findings without blocking a reply. The top-level `failOn` controls document and message writes.
 
 | Agent | Completed-turn source | Main loop | Subagents | Evidence |
 |---|---|---|---|---|
@@ -104,7 +104,7 @@ hook in print mode and does not act on the block: the turn ends anyway. An inter
 session does retry when the hook returns the documented flat block body. Under
 `claude -p`, treat the chat channel as advisory whatever `failOn` says.
 
-Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A state file beside the ack file, keyed on the prompt id and expiring on the same ten-minute clock. And `.plain-english-ack-chat`, which waives the channel like any other.
+Blocking a reply can loop: the model rewrites, the rewrite trips another rule, and it blocks again. Three guards stop that. `stop_hook_active`, which Claude Code and Copilot both document and which says the current turn already exists because a hook blocked the last one. A temporary state file keyed on the user turn, when the payload or transcript supplies one, and expiring after ten minutes. And `.plain-english-ack-chat`, which waives the channel like any other.
 
 The bound is two blocks a turn, and the second one is narrow. A block that named nothing but a dash is asking for a substitution, so the reply that comes back is the same reply with different characters, and nothing has yet judged whether a reader could follow it. Across the 218 replies the gate judged in the three days to 2026-08-19 it blocked 69, and 38 of those said nothing but that. So the second block is available only after a punctuation-only first one, and only when the rewrite fails something else. The state file records that it has been used, which is what stops a third.
 
@@ -130,12 +130,13 @@ It is a monitoring event, and a monitoring event that fires per streamed chunk i
 
 The deterministic rules run identically everywhere. The rest does not.
 
-The semantic layer judges the ten sentence shapes a pattern cannot reach. Claude Code
-runs it through prompt hooks. Vibe has an optional local judge, disabled unless
-`PLAIN_ENGLISH_VIBE_JUDGE=1` is set. Copilot's prompt hooks submit text at session start;
-they are not a model judge. Codex, Cursor, Gemini and Qwen have none wired here. On those six
-default paths, the sentence shapes are guidance in `AGENTS.md` and nothing measures them
-during a write.
+Extra model checks assess sentence shapes a pattern cannot judge. Claude Code enables them by default.
+Vibe remains opt-in; other agents require `modelChecks: true` and an installed Claude CLI.
+`modelChecks: false` disables extra calls in the updated shared hooks.
+Older settings-hook installations must rerun `init` to remove independent model hooks.
+Model calls send prose through the configured provider and use the operator's account.
+Claude checks disable local session persistence and automatic project customization loading. Vibe and providers keep their normal storage policies. Vibe custom profiles and administrator settings can still add their own context.
+Excluded prose is removed before these calls. Missing tools, timeouts, and unreadable model results leave pattern checks in force and produce a notice.
 
 All seven profiles install a completed-turn hook, but the table above is deliberately not
 a claim that every retry has been observed. `lint --chat` is the reliable after-the-fact

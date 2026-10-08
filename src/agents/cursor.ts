@@ -23,7 +23,7 @@
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
-import { asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { asRecord, editFields, issueFields, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
 
 const RUNNER = runnerPath(".cursor");
@@ -63,7 +63,7 @@ export const cursor: AgentProfile = {
         return {
           tool: "edit",
           cwd,
-          input: { filePath, newString: pick(input, "new_string", "new_str", "replacement") },
+          input: { filePath, ...editFields(input) },
         };
       case "MultiEdit":
         return {
@@ -72,7 +72,7 @@ export const cursor: AgentProfile = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick(asRecord(e), "new_string", "new_str"),
+              ...editFields(asRecord(e)),
             })),
           },
         };
@@ -87,6 +87,7 @@ export const cursor: AgentProfile = {
   // "`ask` is accepted by the schema but not enforced for preToolUse today",
   // per Cursor's own hooks documentation. It degrades to allow.
   supportsAsk: false,
+  advisoryPhase: "post",
 
   emit(decision: Decision, event: HookEvent) {
     // Current Cursor documents additional_context on postToolUse, not on the

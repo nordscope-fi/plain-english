@@ -7467,7 +7467,7 @@ var require_dist = __commonJS({
 
 // dist/cli.js
 import { readFileSync as readFileSync15, readdirSync as readdirSync12, statSync as statSync12, existsSync as existsSync15, mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "node:fs";
-import { delimiter, extname as extname3, relative as relative6, resolve as resolve19, dirname as dirname4, isAbsolute as isAbsolute5 } from "node:path";
+import { delimiter, extname as extname3, relative as relative6, resolve as resolve19, dirname as dirname5, isAbsolute as isAbsolute4, basename as basename4 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // node_modules/mdast-util-to-string/lib/index.js
@@ -18369,10 +18369,10 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set basename(basename4) {
-    assertNonEmpty(basename4, "basename");
-    assertPart(basename4, "basename");
-    this.path = default2.join(this.dirname || "", basename4);
+  set basename(basename5) {
+    assertNonEmpty(basename5, "basename");
+    assertPart(basename5, "basename");
+    this.path = default2.join(this.dirname || "", basename5);
   }
   /**
    * Get the parent path (example: `'~'`).
@@ -18393,9 +18393,9 @@ var VFile = class {
    * @returns {undefined}
    *   Nothing.
    */
-  set dirname(dirname5) {
+  set dirname(dirname6) {
     assertPath(this.basename, "dirname");
-    this.path = default2.join(dirname5 || "", this.basename);
+    this.path = default2.join(dirname6 || "", this.basename);
   }
   /**
    * Get the extname (including dot) (example: `'.js'`).
@@ -19779,6 +19779,7 @@ var KNOWN_TOP_LEVEL = /* @__PURE__ */ new Set([
   "allow",
   "exclude",
   "failOn",
+  "modelChecks",
   "punctuation",
   "rules",
   "readability",
@@ -19817,10 +19818,14 @@ function toRuleSet(raw) {
   if (failOn !== void 0 && !["error", "warn", "never"].includes(String(failOn))) {
     throw new RuleError(`failOn must be error, warn or never (got ${String(failOn)})`);
   }
+  if (raw.modelChecks !== void 0 && typeof raw.modelChecks !== "boolean") {
+    throw new RuleError("modelChecks must be true or false");
+  }
   const profile = readWritingProfileConfig(raw.profile);
   return {
     version: 1,
     failOn: failOn ?? "never",
+    ...raw.modelChecks !== void 0 ? { modelChecks: raw.modelChecks } : {},
     meta: {
       title: typeof meta.title === "string" ? meta.title : "Writing style",
       intro: typeof meta.intro === "string" ? meta.intro : ""
@@ -19941,6 +19946,7 @@ function merge(base, overlay) {
   return {
     version: 1,
     failOn: overlay.failOn ?? base.failOn,
+    ...(overlay.modelChecks ?? base.modelChecks) !== void 0 ? { modelChecks: overlay.modelChecks ?? base.modelChecks } : {},
     meta: overlay.meta.title ? overlay.meta : base.meta,
     rules: [...byId2.values()],
     readability: [...readability.values()],
@@ -20687,6 +20693,19 @@ function withinDays(at, days, now) {
     return true;
   return now - t <= days * 24 * 60 * 60 * 1e3;
 }
+function latestUserTurnId(path2, isHuman) {
+  if (!path2)
+    return void 0;
+  let latest;
+  readJsonl(path2, (record2, line) => {
+    if (record2["isMeta"] === true || record2["isSidechain"] === true || record2["toolUseResult"] !== void 0)
+      return;
+    if (!isHuman(record2))
+      return;
+    latest = `${path2}:${field(record2, "uuid", "id", "turn_id", "turnId") ?? line}`;
+  });
+  return latest;
+}
 
 // dist/chat/claude-code.js
 function configDir() {
@@ -20844,6 +20863,9 @@ var claudeCodeChat = {
     };
     return reply;
   },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path"), (record2) => typedUserText(record2) !== void 0);
+  },
   lastAsk(payload) {
     const path2 = field(payload, "transcript_path");
     if (!path2)
@@ -20971,6 +20993,19 @@ var codexChat = {
     }
     return out;
   },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      const data = record2["payload"];
+      if (!data || typeof data !== "object")
+        return false;
+      const p = data;
+      if (record2["type"] === "event_msg" && p["type"] === "user_message")
+        return true;
+      if (record2["type"] !== "response_item" || p["type"] !== "message" || p["role"] !== "user")
+        return false;
+      return Array.isArray(p["content"]) && p["content"].some((b) => b && typeof b === "object" && b["type"] === "input_text");
+    });
+  },
   current(payload) {
     const session = field(payload, "session_id") ?? "";
     const isSubagent = payload["hook_event_name"] === "SubagentStop";
@@ -21082,6 +21117,11 @@ var copilotChat = {
       out.push(reply);
     }
     return out;
+  },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      return record2["type"] === "user.message";
+    });
   },
   current(payload) {
     const session = field(payload, "sessionId", "session_id") ?? "";
@@ -21231,6 +21271,11 @@ var cursorChat = {
     }
     return out;
   },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      return record2["role"] === "user";
+    });
+  },
   current(payload) {
     const path2 = field(payload, "agent_transcript_path", "transcript_path");
     if (!path2)
@@ -21366,6 +21411,11 @@ var geminiChat = {
     const now = Date.now();
     return files(options, now).flatMap((file) => replies(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)));
   },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      return record2["type"] === "user";
+    });
+  },
   current(payload) {
     const direct = field(payload, "prompt_response");
     const path2 = field(payload, "transcript_path") ?? "";
@@ -21477,6 +21527,11 @@ var qwenChat = {
     const now = Date.now();
     return files2(options, now).flatMap((file) => replies2(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)));
   },
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      return record2["type"] === "user";
+    });
+  },
   current(payload) {
     const direct = field(payload, "last_assistant_message");
     const subagent = payload["hook_event_name"] === "SubagentStop";
@@ -21500,6 +21555,7 @@ import { homedir as homedir7 } from "node:os";
 import { resolve as resolve9 } from "node:path";
 
 // dist/chat/budget.js
+var DOCS_JUDGE_CALL_MS = 15e3;
 var CHAT_JUDGE_CALL_MS = 25e3;
 var CHAT_JUDGE_PIPELINE_MS = 45e3;
 var CHAT_HOOK_TIMEOUT_MS = 6e4;
@@ -21560,142 +21616,122 @@ function issueFields(input) {
     })
   };
 }
+function editFields(input) {
+  return {
+    newString: pick2(input, "new_string", "newString", "new_str", "replacement"),
+    oldString: pick2(input, "old_string", "oldString", "old_str", "search"),
+    replaceAll: input["replace_all"] === true || input["replaceAll"] === true
+  };
+}
 function parseApplyPatch(patch3) {
   return patch3.trimStart().startsWith("*** Begin Patch") ? parseEnvelope(patch3) : parseUnifiedDiff(patch3);
 }
 function parseEnvelope(patch3) {
   const files3 = [];
   let current;
+  let removed = "";
+  let added = "";
+  let ranges = [];
+  const finishHunk = () => {
+    if (current?.sourcePath && (removed || added)) {
+      (current.edits ??= []).push({ oldString: removed, newString: added, changedRanges: ranges });
+    }
+    removed = "";
+    added = "";
+    ranges = [];
+  };
   for (const line of patch3.split(/\r?\n/)) {
-    const header = /^\*\*\* (?:Add|Update) File: (.+)$/.exec(line);
-    if (header?.[1]) {
-      current = { path: header[1].trim(), text: [] };
+    const header = /^\*\*\* (Add|Update) File: (.+)$/.exec(line);
+    if (header?.[2]) {
+      finishHunk();
+      current = { path: header[2].trim(), text: "" };
+      if (header[1] === "Update")
+        current.sourcePath = current.path;
       files3.push(current);
       continue;
     }
-    if (line.startsWith("***")) {
+    if (line.startsWith("*** Move to:") && current) {
+      current.path = line.slice("*** Move to:".length).trim();
+      continue;
+    }
+    if (line.startsWith("***") || line.startsWith("@@")) {
+      finishHunk();
       if (/^\*\*\* (?:End Patch|Delete File)/.test(line))
         current = void 0;
       continue;
     }
-    if (line.startsWith("@@"))
+    if (!current)
       continue;
-    if (line.startsWith("+") && current)
-      current.text.push(line.slice(1));
+    if (line.startsWith("+")) {
+      const value2 = line.slice(1);
+      current.text += (current.text ? "\n" : "") + value2;
+      ranges.push({ start: added.length, end: added.length + value2.length });
+      added += value2 + "\n";
+    } else if (line.startsWith("-"))
+      removed += line.slice(1) + "\n";
+    else if (line.startsWith(" ")) {
+      removed += line.slice(1) + "\n";
+      added += line.slice(1) + "\n";
+    }
   }
-  return files3.map((f) => ({ path: f.path, text: f.text.join("\n") }));
+  finishHunk();
+  return files3;
 }
 function parseUnifiedDiff(patch3) {
   const files3 = [];
   let current;
+  let sourcePath;
+  let removed = "";
+  let added = "";
+  let ranges = [];
+  const finishHunk = () => {
+    if (current?.sourcePath && (removed || added)) {
+      (current.edits ??= []).push({ oldString: removed, newString: added, changedRanges: ranges });
+    }
+    removed = "";
+    added = "";
+    ranges = [];
+  };
   for (const line of patch3.split(/\r?\n/)) {
+    if (line.startsWith("--- ")) {
+      finishHunk();
+      const raw = line.slice(4).trim().split("	")[0] ?? "";
+      sourcePath = raw === "/dev/null" ? void 0 : raw.replace(/^[ab]\//, "");
+      continue;
+    }
     if (line.startsWith("+++ ")) {
+      finishHunk();
       const raw = line.slice(4).trim().split("	")[0] ?? "";
       if (raw === "/dev/null") {
         current = void 0;
         continue;
       }
-      current = { path: raw.replace(/^[ab]\//, ""), text: [] };
+      current = { path: raw.replace(/^[ab]\//, ""), text: "" };
+      if (sourcePath)
+        current.sourcePath = sourcePath;
       files3.push(current);
       continue;
     }
-    if (line.startsWith("--- ") || line.startsWith("@@") || line.startsWith("diff ") || line.startsWith("index ") || line.startsWith("\\ ")) {
+    if (line.startsWith("@@") || line.startsWith("diff ") || line.startsWith("index ")) {
+      finishHunk();
       continue;
     }
-    if (line.startsWith("+") && current)
-      current.text.push(line.slice(1));
+    if (line.startsWith("\\ ") || !current)
+      continue;
+    if (line.startsWith("+")) {
+      const value2 = line.slice(1);
+      current.text += (current.text ? "\n" : "") + value2;
+      ranges.push({ start: added.length, end: added.length + value2.length });
+      added += value2 + "\n";
+    } else if (line.startsWith("-"))
+      removed += line.slice(1) + "\n";
+    else if (line.startsWith(" ")) {
+      removed += line.slice(1) + "\n";
+      added += line.slice(1) + "\n";
+    }
   }
-  return files3.map((f) => ({ path: f.path, text: f.text.join("\n") }));
-}
-
-// dist/adapters/judge.js
-import { spawnSync } from "node:child_process";
-var JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
-var JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
-function isJudge(env = process.env) {
-  return env[JUDGE_MARKER] === "1";
-}
-function lastAsked(payload, reader) {
-  for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
-    const v = payload[key];
-    if (typeof v === "string" && v.trim())
-      return v;
-  }
-  try {
-    return reader?.lastAsk?.(payload);
-  } catch {
-    return void 0;
-  }
-}
-function judgeInput(reply, ask, findings) {
-  return [
-    "What the reader last said:",
-    (ask ?? "(not available)").slice(0, 4e3),
-    "",
-    "What the linter measured:",
-    ...findings.map((f) => `- ${f.ruleId}: ${f.message ?? ""}`.trimEnd()),
-    "",
-    "The reply:",
-    reply.text.slice(0, 2e4)
-  ].join("\n");
-}
-var DOCS_MAX_JUDGE_BYTES = 256 * 1024;
-function overDocsJudgeLimit(payload) {
-  return payload.length > DOCS_MAX_JUDGE_BYTES;
-}
-function parseVerdict(stdout) {
-  const text4 = stdout.trim();
-  if (!text4)
-    return void 0;
-  const start = text4.indexOf("{");
-  const end = text4.lastIndexOf("}");
-  if (start === -1 || end <= start)
-    return void 0;
-  let body;
-  try {
-    body = JSON.parse(text4.slice(start, end + 1));
-  } catch {
-    return void 0;
-  }
-  if (typeof body !== "object" || body === null)
-    return void 0;
-  const ok3 = body["ok"];
-  if (typeof ok3 !== "boolean")
-    return void 0;
-  if (ok3)
-    return { ok: true };
-  const reason = body["reason"];
-  if (typeof reason !== "string" || !reason.trim())
-    return void 0;
-  return { ok: false, reason: reason.trim() };
-}
-function usableReason(reason, ruleSet) {
-  return lintText(reason, ruleSet, { allowInlineSuppression: false }).errorCount === 0;
-}
-function runJudge(input, opts) {
-  const env = opts.env ?? process.env;
-  if (isJudge(env))
-    return void 0;
-  if (!opts.prompt.includes("$ARGUMENTS"))
-    return void 0;
-  const filled = opts.prompt.replace("$ARGUMENTS", input);
-  let out;
-  try {
-    out = spawnSync(opts.command, [...opts.args, filled], {
-      encoding: "utf8",
-      timeout: opts.timeoutMs ?? JUDGE_TIMEOUT_MS,
-      cwd: opts.cwd,
-      env: { ...env, [JUDGE_MARKER]: "1" },
-      // A judge that inherits stdin can block on it forever.
-      stdio: ["ignore", "pipe", "pipe"],
-      maxBuffer: 4 * 1024 * 1024
-    });
-  } catch {
-    return void 0;
-  }
-  if (out.error || out.status !== 0)
-    return void 0;
-  return parseVerdict(out.stdout ?? "");
+  finishHunk();
+  return files3;
 }
 
 // dist/agents/runner.js
@@ -21883,7 +21919,7 @@ var vibe = {
         return { tool: "write", cwd, input: { filePath, content: pick2(input, "content") } };
       case "edit":
       case "Edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick2(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "bash":
       case "Bash":
         return { tool: "bash", cwd, input: { command: pick2(input, "command") } };
@@ -21895,6 +21931,7 @@ var vibe = {
   // would fail schema validation, and a pre_tool reply that fails validation is
   // treated as a hook failure rather than being ignored.
   supportsAsk: false,
+  advisoryPhase: "post",
   emit(decision, event) {
     if (event === "post") {
       if (!decision.advisory)
@@ -21979,19 +22016,6 @@ var vibe = {
               timeout: c.timeout,
               description: `plain-english ${c.channel} advisory context`
             })),
-            // The semantic tier, one per channel that has a prompt to run.
-            ...judged.map((c) => ({
-              name: `plain-english-${c.channel}-judge`,
-              type: "pre_tool",
-              match: c.match,
-              // Through `node`, not by shebang. Windows honours neither the
-              // shebang nor the exec bit, so a bare path here is a hook that
-              // fails to spawn on one platform and reports nothing, which is
-              // the silent-and-installed failure this package exists to avoid.
-              command: `node .vibe/hooks/plain-english-judge.mjs ${c.channel}`,
-              timeout: 60,
-              description: `plain-english ${c.channel} judge, opt-in`
-            })),
             {
               name: "plain-english-chat",
               type: "post_agent",
@@ -22003,8 +22027,7 @@ var vibe = {
         }
       ],
       shims: [
-        { path: RUNNER, body: HOOK_RUNNER },
-        ...judged.length ? [{ path: ".vibe/hooks/plain-english-judge.mjs", body: JUDGE }] : []
+        { path: RUNNER, body: HOOK_RUNNER }
       ],
       // The prompts travel as plain files rather than being pasted into the
       // shim. A rendered ruleset is markdown full of quotes and newlines, and a
@@ -22017,80 +22040,11 @@ var vibe = {
         "Vibe reads .vibe/hooks.toml only in a folder you have trusted. Start a session here and accept the trust prompt, or run `vibe --trust` once. Untrusted, it finds no hooks and says nothing.",
         "The writing style reaches Vibe through AGENTS.md, which init has already updated. Unlike a Claude Code output style, it reaches subagents too.",
         "Do not move the style into .vibe/prompts/. A file there replaces Vibe's whole system prompt rather than adding to it.",
-        "The semantic judge is off by default, because it costs a model call on every matching tool call. Turn it on with PLAIN_ENGLISH_VIBE_JUDGE=1."
+        "Extra model checks are off by default. Enable them with modelChecks: true in .plain-english.yml or PLAIN_ENGLISH_VIBE_JUDGE=1. modelChecks: false overrides the environment."
       ]
     };
   }
 };
-var JUDGE = [
-  "#!/usr/bin/env node",
-  "// Generated by plain-english. Semantic judge for Mistral Vibe.",
-  "//",
-  "// Vibe has no prompt hook, so this asks Vibe itself. Off unless",
-  "// PLAIN_ENGLISH_VIBE_JUDGE=1, because it costs a model call per tool call.",
-  'import { readFileSync } from "node:fs";',
-  'import { spawnSync } from "node:child_process";',
-  'import { dirname, join } from "node:path";',
-  'import { fileURLToPath } from "node:url";',
-  "",
-  "// Silence is the only safe failure. Exit 0 saying nothing.",
-  "const quiet = () => process.exit(0);",
-  "",
-  'if (process.env.PLAIN_ENGLISH_VIBE_JUDGE !== "1") quiet();',
-  "",
-  'const channel = process.argv[2] || "docs";',
-  "const here = dirname(fileURLToPath(import.meta.url));",
-  "let prompt, payload;",
-  "try {",
-  '  prompt = readFileSync(join(here, "plain-english-" + channel + ".prompt.md"), "utf8");',
-  '  payload = readFileSync(0, "utf8");',
-  "} catch {",
-  "  quiet();",
-  "}",
-  "",
-  "// Size guard, matching the Claude Code docs path. A large file overflows the",
-  "// model with `Prompt is too long`, so above this it passes on its size alone.",
-  `if (payload.length > ${DOCS_MAX_JUDGE_BYTES}) quiet();`,
-  "",
-  "// One question, not a session: a single turn with every tool switched off and",
-  "// a price ceiling, so a runaway cannot bill anybody.",
-  "//",
-  "// The judge runs in the same working directory, so its own session reads this",
-  "// repository's .vibe/hooks.toml and fires these same hooks. Switching the",
-  "// judge off for the child is what stops a hook that spawns a model call that",
-  "// spawns a hook. Disabling the tools is not enough on its own: that is a flag",
-  "// on this one call, and the recursion would come back the day it changes.",
-  "const run = spawnSync(",
-  '  "vibe",',
-  '  ["-p", "--output", "text", "--max-turns", "1", "--disabled-tools", "*", "--max-price", "0.05"],',
-  "  {",
-  '    input: prompt.replace("$ARGUMENTS", payload),',
-  '    encoding: "utf8",',
-  "    timeout: 55000,",
-  '    env: { ...process.env, PLAIN_ENGLISH_VIBE_JUDGE: "0" },',
-  "  },",
-  ");",
-  "if (run.error || run.status !== 0 || !run.stdout) quiet();",
-  "",
-  "// The model was asked for only JSON. Models add a sentence anyway, so take",
-  "// the outermost braces rather than trusting all of stdout to parse.",
-  'const open = run.stdout.indexOf("{");',
-  'const close = run.stdout.lastIndexOf("}");',
-  "if (open < 0 || close <= open) quiet();",
-  "",
-  "let verdict;",
-  "try {",
-  "  verdict = JSON.parse(run.stdout.slice(open, close + 1));",
-  "} catch {",
-  "  quiet();",
-  "}",
-  'if (!verdict || verdict.ok !== false || typeof verdict.reason !== "string") quiet();',
-  "",
-  `// Vibe already wraps this as "Tool 'X' was denied by hook 'Y': {reason}",`,
-  "// so the reason must not name this package or the hook.",
-  'process.stdout.write(JSON.stringify({ decision: "deny", reason: verdict.reason }));',
-  ""
-].join("\n");
 
 // dist/chat/vibe.js
 function sessionsDir2() {
@@ -22191,6 +22145,11 @@ var vibeChat = {
    * of the four other agents there is no fast path here, and the transcript is
    * the only source. The last assistant reply in it is the turn that just ended.
    */
+  turnId(payload) {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record2) => {
+      return record2["role"] === "user";
+    });
+  },
   current(payload) {
     const path2 = field(payload, "transcript_path");
     if (!path2)
@@ -22460,7 +22419,7 @@ function vocabularyForPrompt(set) {
   }
   return `PROJECT VOCABULARY. This project's readers already know these, so never ask for a gloss or an explanation of them: ${parts.join(", ")}.`;
 }
-function renderPrompts(set) {
+function renderPrompts(set, inputFormat = "tool") {
   const words = ruleListForPrompt(set);
   const shapes = structureListForPrompt(set);
   const vocabulary = vocabularyForPrompt(set);
@@ -22474,15 +22433,26 @@ function renderPrompts(set) {
     "",
     "You are a plain-English gate for a markdown file about to be written or edited.",
     "",
-    "Hook input (contains the tool call, including tool_input.file_path and the content being written):",
-    "$ARGUMENTS",
-    "",
-    'First check tool_input.file_path. Respond immediately with {"ok": true} and do no further',
-    "judgment if ANY of these hold: the path is not inside {{PROJECT_DIR}}; it does not end in",
-    ".md, .markdown or .mdx; its basename is CLAUDE.md or writing-style.md (those two document the",
-    "banned terms on purpose as a reference list).",
-    "",
-    "Otherwise judge ONLY the content or new_string being written. Flag:",
+    ...inputFormat === "prose" ? [
+      "Input contains files already scoped to the project, with excluded and reference files removed:",
+      "$ARGUMENTS",
+      "",
+      "Each files entry has a project-relative path and text. Text is the proposed complete document.",
+      "If changedRanges is present, its start/end values are zero-based character offsets",
+      "with an exclusive end. Judge ONLY prose overlapping those ranges. Use the surrounding",
+      "document to understand code blocks, quotations, definitions and accepted terminology.",
+      "Without changedRanges, judge the complete text. Flag:"
+    ] : [
+      "Hook input (contains the tool call, including tool_input.file_path and the content being written):",
+      "$ARGUMENTS",
+      "",
+      'First check tool_input.file_path. Respond immediately with {"ok": true} and do no further',
+      "judgment if ANY of these hold: the path is not inside {{PROJECT_DIR}}; it does not end in",
+      ".md, .markdown or .mdx; its basename is CLAUDE.md or writing-style.md (those two document the",
+      "banned terms on purpose as a reference list).",
+      "",
+      "Otherwise judge ONLY the content or new_string being written. Flag:"
+    ],
     `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     ...shapeLine,
@@ -22536,17 +22506,25 @@ function renderPrompts(set) {
     "You are a plain-English gate for a git or GitHub write action (commit message, PR",
     "description or comment, issue body, release notes) about to run as a shell command.",
     "",
-    "Hook input (contains the tool call, including tool_input.command):",
-    "$ARGUMENTS",
-    "",
-    "First check tool_input.command. If it is NOT a 'git commit', 'gh pr create/edit/comment/review',",
-    "'gh issue create/edit/comment' or 'gh release create/edit' invocation, respond immediately with",
-    '{"ok": true} and do no further judgment. Read-only commands (git log, git status, gh pr view,',
-    "ls, grep, npm) are never judged: their output is other people's prose.",
-    "",
-    "Otherwise judge ONLY the message text the command introduces: the -m/--message value, the",
-    "--title/--body value, a heredoc body, or the contents of a file passed with -F/--file/",
-    "--body-file/--notes-file. Ignore branch names, flags, file paths and commit hashes. Flag:",
+    ...inputFormat === "prose" ? [
+      "Input contains a texts list extracted from the writing command. Read-only commands",
+      "produce no input. Branch names, flags, file paths and commit hashes were removed.",
+      "$ARGUMENTS",
+      "",
+      "Judge ONLY the texts being introduced. Flag:"
+    ] : [
+      "Hook input (contains the tool call, including tool_input.command):",
+      "$ARGUMENTS",
+      "",
+      "First check tool_input.command. If it is NOT a 'git commit', 'gh pr create/edit/comment/review',",
+      "'gh issue create/edit/comment' or 'gh release create/edit' invocation, respond immediately with",
+      '{"ok": true} and do no further judgment. Read-only commands (git log, git status, gh pr view,',
+      "ls, grep, npm) are never judged: their output is other people's prose.",
+      "",
+      "Otherwise judge ONLY the message text the command introduces: the -m/--message value, the",
+      "--title/--body value, a heredoc body, or the contents of a file passed with -F/--file/",
+      "--body-file/--notes-file. Ignore branch names, flags, file paths and commit hashes. Flag:"
+    ],
     `- Banned terms: \`${words}\``,
     `- Sentence shapes: ${shapes}`,
     "",
@@ -22562,17 +22540,26 @@ function renderPrompts(set) {
     "",
     "You are a plain-English gate for an issue or comment about to be saved to a tracker.",
     "",
-    "Hook input (contains the tool call, including the title and body being written):",
-    "$ARGUMENTS",
-    "",
-    "Judge ONLY the text this call would put in front of a reader: tool_input.title,",
-    "tool_input.description, tool_input.body, and the new_string / text fields of any",
-    "tool_input.patch entry. Ignore issue IDs, labels and other metadata.",
-    "",
-    "Do NOT judge tool_input.patch old_string or anchor values. That is existing text being",
-    "replaced or located, not text being introduced, so someone fixing one line of an old body",
-    "must not be blocked by the rest of it.",
-    "",
+    ...inputFormat === "prose" ? [
+      "Input contains a texts list of the title, body and newly inserted patch text.",
+      "Removed text, location anchors, issue IDs, labels and other metadata were removed.",
+      "$ARGUMENTS",
+      "",
+      "Judge ONLY those texts being introduced.",
+      ""
+    ] : [
+      "Hook input (contains the tool call, including the title and body being written):",
+      "$ARGUMENTS",
+      "",
+      "Judge ONLY the text this call would put in front of a reader: tool_input.title,",
+      "tool_input.description, tool_input.body, and the new_string / text fields of any",
+      "tool_input.patch entry. Ignore issue IDs, labels and other metadata.",
+      "",
+      "Do NOT judge tool_input.patch old_string or anchor values. That is existing text being",
+      "replaced or located, not text being introduced, so someone fixing one line of an old body",
+      "must not be blocked by the rest of it.",
+      ""
+    ],
     "Standard platform terminology for the tools this project uses is assumed vocabulary and does",
     "not need expanding. Only genuinely obscure internal shorthand (project-specific codenames, and",
     "acronyms that are not standard industry or product terms) needs a gloss. Flag:",
@@ -22920,6 +22907,22 @@ function writeTargets(targets) {
   return changed;
 }
 
+// dist/guidance.js
+function projectGuidance(set) {
+  const defaultNames = new Set(loadDefault().readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []));
+  const names = [...new Set(set.readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []))].filter((name) => !defaultNames.has(name));
+  const vocabulary = vocabularyForPrompt(set);
+  const notes = set.profileGuidance ?? [];
+  if (!names.length && !vocabulary && !notes.length)
+    return "";
+  return [
+    "Plain English project guidance. Preserve facts, qualifications, and the reader's requested form.",
+    ...names.length ? [`Project readers already know these names: ${names.join(", ")}.`] : [],
+    ...vocabulary ? [vocabulary] : [],
+    ...notes
+  ].join("\n");
+}
+
 // dist/policy.js
 import { execFileSync } from "node:child_process";
 import { readdirSync as readdirSync10, readFileSync as readFileSync14 } from "node:fs";
@@ -22950,12 +22953,13 @@ var CHANNELS2 = [
   }
 ];
 var CHAT_SHIM = "plain-english-chat.sh";
-function shim(channel) {
+function shim(channel, model) {
+  const modelFlag = model ? " --model '" + model.replaceAll("'", "'\\''") + "'" : "";
   return `#!/usr/bin/env bash
 # Generated by \`plain-english init\`. Thin shim: all logic lives in the package,
 # so upstream fixes arrive with an npm update instead of a copy-paste.
 # Fail-open by contract; the CLI never exits non-zero on this path.
-exec node "$CLAUDE_PROJECT_DIR/${RUNNER2}" hook ${channel} --agent claude-code
+exec node "$CLAUDE_PROJECT_DIR/${RUNNER2}" hook ${channel} --agent claude-code${modelFlag}
 `;
 }
 var claudeCode = {
@@ -22973,7 +22977,7 @@ var claudeCode = {
       case "Write":
         return { tool: "write", cwd, input: { filePath, content: pick2(input, "content") } };
       case "Edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick2(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "MultiEdit":
         return {
           tool: "multi-edit",
@@ -22981,7 +22985,7 @@ var claudeCode = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick2(asRecord(e), "new_string")
+              ...editFields(asRecord(e))
             }))
           }
         };
@@ -23046,35 +23050,9 @@ var claudeCode = {
               {
                 type: "command",
                 command: `$CLAUDE_PROJECT_DIR/.claude/hooks/${c.script}`,
+                timeout: 20,
                 ...c.ifRule ? { if: c.ifRule } : {}
-              },
-              // The docs channel runs its semantic pass inside the command hook
-              // above, behind a size guard, so it no longer needs a prompt hook.
-              // A prompt hook hands the whole file to a model before any package
-              // code runs, and a large one failed with `Prompt is too long`; the
-              // command hook reads the payload first and declines the model call
-              // when it is too large. The other channels carry a commit message
-              // or an issue body, never a large file, and keep the prompt hook.
-              ...c.channel === "docs" ? [] : [
-                {
-                  type: "prompt",
-                  // Deliberately NOT the absolute path.
-                  //
-                  // .claude/settings.json is usually committed, so writing
-                  // the machine's own directory layout into it breaks the
-                  // file for every other contributor and leaks a local path
-                  // into what may be a public repo. That is the same fault
-                  // this package was built to remove.
-                  //
-                  // The prompt does not need the path anyway: the command
-                  // hook scopes by path, and its `if` rule scopes by file
-                  // type, both before the prompt is ever reached.
-                  prompt: (ctx.prompts[c.channel] ?? "").replaceAll("{{PROJECT_DIR}}", "this repository"),
-                  model: ctx.model,
-                  timeout: 30,
-                  continueOnBlock: true
-                }
-              ]
+              }
             ]
           }))
         },
@@ -23133,7 +23111,7 @@ var claudeCode = {
         { path: RUNNER2, body: HOOK_RUNNER },
         ...CHANNELS2.map((c) => ({
           path: `.claude/hooks/${c.script}`,
-          body: shim(c.channel)
+          body: shim(c.channel, ctx.model)
         })),
         { path: `.claude/hooks/${CHAT_SHIM}`, body: shim("chat") }
       ],
@@ -23243,7 +23221,7 @@ var codex = {
       case "Write":
         return { tool: "write", cwd, input: { filePath, content: pick2(input, "content") } };
       case "Edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick2(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "MultiEdit":
         return {
           tool: "multi-edit",
@@ -23251,7 +23229,7 @@ var codex = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick2(asRecord(e), "new_string")
+              ...editFields(asRecord(e))
             }))
           }
         };
@@ -23476,7 +23454,7 @@ var copilot = {
         return {
           tool: "edit",
           cwd,
-          input: { filePath, newString: pick2(input, "new_string", "newString", "new_str") }
+          input: { filePath, ...editFields(input) }
         };
       case "multiedit":
         return {
@@ -23485,7 +23463,7 @@ var copilot = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick2(asRecord(e), "new_string", "newString")
+              ...editFields(asRecord(e))
             }))
           }
         };
@@ -23657,7 +23635,7 @@ var cursor = {
         return {
           tool: "edit",
           cwd,
-          input: { filePath, newString: pick2(input, "new_string", "new_str", "replacement") }
+          input: { filePath, ...editFields(input) }
         };
       case "MultiEdit":
         return {
@@ -23666,7 +23644,7 @@ var cursor = {
           input: {
             filePath,
             edits: pickArray(input, "edits").map((e) => ({
-              newString: pick2(asRecord(e), "new_string", "new_str")
+              ...editFields(asRecord(e))
             }))
           }
         };
@@ -23680,6 +23658,7 @@ var cursor = {
   // "`ask` is accepted by the schema but not enforced for preToolUse today",
   // per Cursor's own hooks documentation. It degrades to allow.
   supportsAsk: false,
+  advisoryPhase: "post",
   emit(decision, event) {
     if (event === "post") {
       if (!decision.advisory)
@@ -23786,7 +23765,7 @@ var gemini = {
       case "write_file":
         return { tool: "write", cwd, input: { filePath, content: pick2(input, "content") } };
       case "replace":
-        return { tool: "edit", cwd, input: { filePath, newString: pick2(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "run_shell_command":
         return { tool: "bash", cwd, input: { command: pick2(input, "command") } };
       default:
@@ -23796,6 +23775,7 @@ var gemini = {
   // BeforeTool has no interactive ask response. Advisory text is delivered by
   // the matching AfterTool hook through additionalContext.
   supportsAsk: false,
+  advisoryPhase: "post",
   emit(decision, event) {
     if (event === "post") {
       if (!decision.advisory)
@@ -23874,7 +23854,7 @@ var qwen = {
       case "write_file":
         return { tool: "write", cwd, input: { filePath, content: pick2(input, "content") } };
       case "edit":
-        return { tool: "edit", cwd, input: { filePath, newString: pick2(input, "new_string") } };
+        return { tool: "edit", cwd, input: { filePath, ...editFields(input) } };
       case "run_shell_command":
         return { tool: "bash", cwd, input: { command: pick2(input, "command") } };
       default:
@@ -23978,7 +23958,7 @@ function resolveProfile(explicit, raw = {}, env = process.env) {
 // dist/init.js
 import { chmodSync, existsSync as existsSync14, mkdirSync as mkdirSync2, readdirSync as readdirSync9, readFileSync as readFileSync13, statSync as statSync11, writeFileSync as writeFileSync3 } from "node:fs";
 import { homedir as homedir11 } from "node:os";
-import { dirname as dirname3, relative as relative3, resolve as resolve16 } from "node:path";
+import { dirname as dirname4, relative as relative3, resolve as resolve16 } from "node:path";
 
 // dist/adapters/chat.js
 import { readFileSync as readFileSync12, readdirSync as readdirSync8, statSync as statSync10, unlinkSync, utimesSync, writeFileSync as writeFileSync2 } from "node:fs";
@@ -23987,11 +23967,14 @@ import { tmpdir as tmpdir2 } from "node:os";
 import { resolve as resolve15 } from "node:path";
 
 // dist/adapters/hook.js
-import { readFileSync as readFileSync11, statSync as statSync9 } from "node:fs";
+import { readFileSync as readFileSync11, realpathSync, statSync as statSync9 } from "node:fs";
 import { homedir as homedir10 } from "node:os";
-import { isAbsolute as isAbsolute3, resolve as resolve14, sep } from "node:path";
+import { dirname as dirname3, resolve as resolve14, sep } from "node:path";
 
 // dist/shell.js
+function windowsPathPrefix(text4) {
+  return /^(?:-[FC]|--(?:file|body-file|notes-file)=)?(?:[A-Za-z]:|\\\\)/.test(text4);
+}
 var SEPARATORS = /* @__PURE__ */ new Set([";", "\n", "&"]);
 function parseCommands(input) {
   const commands = [];
@@ -24050,6 +24033,16 @@ function parseCommands(input) {
       continue;
     }
     if (c === "\\") {
+      if (/^(?:-[FC]|--(?:file|body-file|notes-file)=)?$/.test(word2) && input[i + 1] === "\\" && /[A-Za-z0-9]/.test(input[i + 2] ?? "")) {
+        word2 += "\\\\";
+        i += 2;
+        continue;
+      }
+      if (windowsPathPrefix(word2)) {
+        word2 += c;
+        i++;
+        continue;
+      }
       if (input[i + 1] === "\n") {
         i += 2;
         continue;
@@ -24080,8 +24073,16 @@ function parseCommands(input) {
       let closed = false;
       while (j < input.length) {
         if (input[j] === "\\" && j + 1 < input.length) {
-          out += input[j + 1];
-          j += 2;
+          if (!out && input[j + 1] === "\\" && /[A-Za-z0-9]/.test(input[j + 2] ?? "")) {
+            out = "\\\\";
+            j += 2;
+          } else if (windowsPathPrefix(out)) {
+            out += "\\";
+            j++;
+          } else {
+            out += input[j + 1];
+            j += 2;
+          }
           continue;
         }
         if (input[j] === '"') {
@@ -24208,17 +24209,25 @@ function contentOf(cmd) {
     texts.shift();
   return texts.join(" ");
 }
-function shellFileWrites(input) {
+function shellFileWrites(input, baseDir) {
   const out = [];
+  let cwd = baseDir;
   for (const cmd of parseCommands(input)) {
     if (cmd.unterminated)
       continue;
+    if (cmd.words[0]?.text === "cd" && cwd !== void 0) {
+      const target = cmd.words[1];
+      if (target && !target.expands && cmd.words.length === 2)
+        cwd = resolveDirectory(cwd, target.text);
+      continue;
+    }
+    const targetPath = (path2) => cwd === void 0 ? path2 : resolveDirectory(cwd, path2);
     const text4 = contentOf(cmd);
     if (!text4.trim())
       continue;
     const plain = cmd.redirects.filter((r) => !r.exotic && !r.target.expands && r.target.text);
     if (plain.length === 1) {
-      out.push({ path: plain[0].target.text, text: text4 });
+      out.push({ path: targetPath(plain[0].target.text), text: text4 });
       continue;
     }
     if (plain.length > 1)
@@ -24230,7 +24239,71 @@ function shellFileWrites(input) {
     const targets = cmd.words.slice(1).filter((w) => !w.text.startsWith("-"));
     if (targets.length !== 1 || targets[0].expands)
       continue;
-    out.push({ path: targets[0].text, text: text4 });
+    out.push({ path: targetPath(targets[0].text), text: text4 });
+  }
+  return out;
+}
+function resolveDirectory(base, path2) {
+  const windows = /^[A-Za-z]:[\\/]|^\\\\/.test(base) || /^[A-Za-z]:[\\/]|^\\\\/.test(path2);
+  const slash = windows ? "\\" : "/";
+  const absolute = /^[A-Za-z]:[\\/]|^[\\/]/.test(path2);
+  const joined = absolute ? path2 : base + slash + path2;
+  const network = windows && joined.startsWith("\\\\");
+  const prefix = network ? slash + slash : windows ? (/^[A-Za-z]:/.exec(joined)?.[0] ?? "") + slash : joined.startsWith("/") ? "/" : "";
+  const parts = [];
+  for (const part of joined.replace(/^[A-Za-z]:/, "").split(/[\\/]+/)) {
+    if (!part || part === ".")
+      continue;
+    if (part === "..") {
+      if (parts.length > (network ? 2 : 0))
+        parts.pop();
+    } else
+      parts.push(part);
+  }
+  return prefix + parts.join(slash);
+}
+function gitCommand(cmd, cwd) {
+  let i = 1;
+  while (i < cmd.words.length) {
+    const option = cmd.words[i].text;
+    if (!option.startsWith("-"))
+      return { subcommand: option, index: i, cwd };
+    if (option === "-C" || option === "-c" || option === "--git-dir" || option === "--work-tree") {
+      const value2 = cmd.words[++i];
+      if (!value2 || value2.expands)
+        return { subcommand: "", index: i, cwd };
+      if (option === "-C")
+        cwd = resolveDirectory(cwd, value2.text);
+    } else if (option.startsWith("-C") && option.length > 2)
+      cwd = resolveDirectory(cwd, option.slice(2));
+    i++;
+  }
+  return { subcommand: "", index: i, cwd };
+}
+function publishingCommands(input, baseDir = process.cwd()) {
+  const out = [];
+  let cwd = baseDir;
+  for (const cmd of parseCommands(input)) {
+    if (cmd.unterminated || cmd.words[0]?.expands)
+      continue;
+    const name = cmd.words[0]?.text;
+    if (name === "cd") {
+      const target = cmd.words[1];
+      if (target && !target.expands && cmd.words.length === 2)
+        cwd = resolveDirectory(cwd, target.text);
+      continue;
+    }
+    if (name === "git") {
+      const git = gitCommand(cmd, cwd);
+      if (git.subcommand === "commit")
+        out.push({ args: cmd.words.slice(git.index + 1), cwd: git.cwd, heredocs: cmd.heredocs });
+    } else if (name === "gh") {
+      const kind = cmd.words[1]?.text;
+      const action = cmd.words[2]?.text;
+      const actions = kind === "pr" ? ["create", "edit", "comment", "review"] : kind === "issue" ? ["create", "edit", "comment"] : kind === "release" ? ["create", "edit"] : [];
+      if (action && actions.includes(action))
+        out.push({ args: cmd.words.slice(3), cwd, heredocs: cmd.heredocs });
+    }
   }
   return out;
 }
@@ -24242,9 +24315,6 @@ function isChannel(v) {
 }
 var HOOK_BUDGET_MS = 500;
 var POST_BUDGET_MS = 5e3;
-var WRITE_COMMAND = /(^|[;&|]\s*)(git\s+commit\b|gh\s+pr\s+(create|edit|comment|review)\b|gh\s+issue\s+(create|edit|comment)\b|gh\s+release\s+(create|edit)\b)/i;
-var FILE_FLAG = /(?:^|\s)(?:-F|--file|--body-file|--notes-file)[=\s]+("([^"]+)"|'([^']+)'|([^\s"']+))/g;
-var INLINE_FLAG = /(?:^|\s)(?:-m|--message|-t|--title|-b|--body|-n|--notes|--subject)[=\s]+("((?:[^"\\]|\\.)*)"|'([^']*)'|([^\s"']+))/g;
 var MARKDOWN2 = /\.(md|markdown|mdx)$/i;
 var HEREDOC = /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1\r?\n([\s\S]*?)\r?\n[ \t]*\2\b/g;
 function expandHome(p) {
@@ -24265,65 +24335,229 @@ function heredocBodies(cmd) {
   return out;
 }
 var MAX_COMMAND_BYTES = 256 * 1024;
-function extractFromBash(cmd) {
+function extractFromBash(cmd, cwd = process.cwd()) {
   if (cmd.length > MAX_COMMAND_BYTES)
     return [];
-  if (!WRITE_COMMAND.test(cmd))
-    return [];
   const parts = [];
-  for (const body of heredocBodies(cmd))
-    parts.push(body);
-  INLINE_FLAG.lastIndex = 0;
-  let m;
-  while ((m = INLINE_FLAG.exec(cmd)) !== null) {
-    const value2 = m[2] ?? m[3] ?? m[4];
-    if (value2)
-      parts.push(value2.replace(/\\(["\\$`])/g, "$1"));
-  }
-  FILE_FLAG.lastIndex = 0;
-  while ((m = FILE_FLAG.exec(cmd)) !== null) {
-    const raw = m[2] ?? m[3] ?? m[4];
-    if (!raw)
-      continue;
-    const path2 = expandHome(raw);
-    try {
-      parts.push(readFileSync11(path2, "utf8"));
-    } catch {
+  const inline = /* @__PURE__ */ new Set(["-m", "--message", "-t", "--title", "-b", "--body", "-n", "--notes", "--subject"]);
+  const file = /* @__PURE__ */ new Set(["-F", "--file", "--body-file", "--notes-file"]);
+  for (const command3 of publishingCommands(cmd, cwd)) {
+    for (const body of command3.heredocs)
+      if (body.trim())
+        parts.push(body);
+    for (let i = 0; i < command3.args.length; i++) {
+      const word2 = command3.args[i];
+      if (word2.expands)
+        continue;
+      let flag = word2.text;
+      let value2 = "";
+      const equals = flag.indexOf("=");
+      if (equals > 0) {
+        value2 = flag.slice(equals + 1);
+        flag = flag.slice(0, equals);
+      } else {
+        const attached = /^-(?:[aqsv]*)([mF])([\s\S]*)$/.exec(flag) ?? /^-([tbn])([\s\S]+)$/.exec(flag);
+        if (attached) {
+          flag = "-" + attached[1];
+          value2 = attached[2] ?? "";
+        }
+      }
+      if (!inline.has(flag) && !file.has(flag))
+        continue;
+      if (!value2) {
+        const next2 = command3.args[++i];
+        if (!next2)
+          continue;
+        if (next2.expands) {
+          if (inline.has(flag) && /^\$\([ \t]*cat[ \t]+<<-?[ \t]*['"]/.test(next2.text) && next2.text.endsWith(")")) {
+            parts.push(...heredocBodies(next2.text));
+          }
+          continue;
+        }
+        value2 = next2.text;
+      }
+      if (inline.has(flag))
+        parts.push(value2);
+      else {
+        try {
+          parts.push(readFileSync11(resolve14(command3.cwd, expandHome(value2)), "utf8"));
+        } catch {
+        }
+      }
     }
   }
   return parts.filter((p) => p.trim() !== "");
 }
-function extractPatchesFromBash(cmd) {
+function extractPatchesFromBash(cmd, projectDir, cwd, options = {}) {
   if (cmd.length > MAX_COMMAND_BYTES)
     return [];
   if (!cmd.includes("*** Begin Patch"))
     return [];
-  return heredocBodies(cmd).filter((body) => body.trimStart().startsWith("*** Begin Patch")).flatMap((body) => parseApplyPatch(body));
+  const out = [];
+  let directory = cwd || projectDir || process.cwd();
+  for (const command3 of parseCommands(cmd)) {
+    if (command3.unterminated)
+      continue;
+    if (command3.words[0]?.text === "cd") {
+      const target = command3.words[1];
+      directory = target && !target.expands && command3.words.length === 2 && directory ? resolve14(directory, target.text) : void 0;
+      continue;
+    }
+    if (command3.words[0]?.text !== "apply_patch" || !directory)
+      continue;
+    const files3 = command3.heredocs.filter((body) => body.trimStart().startsWith("*** Begin Patch")).flatMap((body) => parseApplyPatch(body));
+    out.push(...projectDir ? extractFromFileWrite({ tool: "patch", cwd: directory, input: { files: files3 } }, projectDir, options) : files3);
+  }
+  return out;
 }
 function judgeable(files3, projectDir) {
-  return files3.filter((f) => f.path !== "" && MARKDOWN2.test(f.path) && (!isAbsolute3(f.path) || isUnderProject(f.path, projectDir)));
+  return files3.filter((f) => f.path !== "" && MARKDOWN2.test(f.path) && isUnderProject(resolve14(projectDir, f.path), projectDir));
 }
-function extractFromFileWrite(event) {
+function scopedDocsFiles(event, ruleSet, explicitProjectDir, options = {}) {
+  const projectDir = projectDirFor(event, explicitProjectDir);
+  const command3 = pick2(event.input, "command");
+  const raw = event.tool === "bash" ? [...extractPatchesFromBash(command3, projectDir, event.cwd, options), ...command3.length <= MAX_COMMAND_BYTES ? shellFileWrites(command3, event.cwd || projectDir) : []] : extractFromFileWrite(event, projectDir, options);
+  return filterScopedFiles(raw, projectDir, ruleSet).filter((file) => {
+    if (file.text.length > MAX_COMMAND_BYTES)
+      return false;
+    if (directivesIn(file.text).some((directive) => directive.scope === "file"))
+      return false;
+    const prose = maskNonProse(file.text, { maskComments: true });
+    return file.changedRanges ? file.changedRanges.some((range) => prose.slice(range.start, range.end).trim()) : !!prose.trim();
+  });
+}
+function filterScopedFiles(files3, projectDir, ruleSet) {
+  const base = resolve14(projectDir);
+  return judgeable(files3, projectDir).filter((f) => {
+    const abs = resolve14(base, f.path);
+    const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
+    return !matchesAny(rel, ruleSet.exclude);
+  });
+}
+function extractFromFileWrite(event, projectDir = projectDirFor(event), options = {}) {
   const input = event.input;
-  const path2 = pick2(input, "filePath");
+  const rawPath = pick2(input, "filePath");
+  const path2 = rawPath ? resolve14(event.cwd || projectDir, rawPath) : "";
   switch (event.tool) {
     case "write":
       return [{ path: path2, text: pick2(input, "content") }];
     case "edit":
-      return [{ path: path2, text: pick2(input, "newString") }];
+      return [contextualEdit(path2, [input], projectDir, options.alreadyApplied)];
     case "multi-edit":
-      return pickArray(input, "edits").map((e) => ({
-        path: path2,
-        text: pick2(asRecord(e), "newString")
-      }));
+      return [contextualEdit(path2, pickArray(input, "edits").map(asRecord), projectDir, options.alreadyApplied)];
     case "patch":
       return pickArray(input, "files").map((f) => {
         const entry = asRecord(f);
-        return { path: pick2(entry, "path"), text: pick2(entry, "text") };
+        const rawTarget = pick2(entry, "path");
+        const target = rawTarget ? resolve14(event.cwd || projectDir, rawTarget) : "";
+        const rawSource = pick2(entry, "sourcePath");
+        const source = rawSource ? resolve14(event.cwd || projectDir, rawSource) : target;
+        const edits = pickArray(entry, "edits").map(asRecord);
+        if (source !== target && MARKDOWN2.test(target) && !MARKDOWN2.test(source) && isUnderProject(source, projectDir)) {
+          try {
+            const proposed = edits.length ? contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied).text : readFileSync11(source, "utf8");
+            return { path: target, text: proposed };
+          } catch {
+          }
+        }
+        return edits.length ? { ...contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied), path: target } : { path: target, text: pick2(entry, "text") };
       });
     default:
       return [];
   }
+}
+function contextualEdit(path2, edits, projectDir, alreadyApplied = false) {
+  const fallback = { path: path2, text: edits.map((e) => {
+    const next2 = pick2(e, "newString");
+    if (!("changedRanges" in e))
+      return next2;
+    return pickArray(e, "changedRanges").map(asRecord).flatMap((r) => typeof r["start"] === "number" && typeof r["end"] === "number" ? [next2.slice(r["start"], r["end"])] : []).join("\n");
+  }).join("\n") };
+  if (!isUnderProject(resolve14(projectDir, path2), projectDir))
+    return fallback;
+  let text4;
+  try {
+    text4 = readFileSync11(resolve14(projectDir, path2), "utf8");
+  } catch {
+    return fallback;
+  }
+  let ranges = [];
+  if (alreadyApplied) {
+    for (const edit of edits) {
+      const next2 = pick2(edit, "newString");
+      if (!next2)
+        continue;
+      if (!text4.includes(next2))
+        return fallback;
+      if (edit["replaceAll"] !== true && text4.indexOf(next2) !== text4.lastIndexOf(next2))
+        return fallback;
+      let from = 0;
+      do {
+        const start = text4.indexOf(next2, from);
+        if (start < 0)
+          break;
+        const changed = pickArray(edit, "changedRanges").map(asRecord);
+        if ("changedRanges" in edit) {
+          for (const range of changed) {
+            if (typeof range["start"] === "number" && typeof range["end"] === "number") {
+              ranges.push({ start: start + range["start"], end: start + range["end"] });
+            }
+          }
+        } else
+          ranges.push({ start, end: start + next2.length });
+        from = start + next2.length;
+      } while (edit["replaceAll"] === true);
+    }
+    return { path: path2, text: text4, changedRanges: ranges };
+  }
+  for (const edit of edits) {
+    let old = pick2(edit, "oldString");
+    const next2 = pick2(edit, "newString");
+    if ("changedRanges" in edit && old.endsWith("\n") && !text4.includes(old) && text4.endsWith(old.slice(0, -1)))
+      old = old.slice(0, -1);
+    if (!old || !text4.includes(old))
+      return fallback;
+    let from = 0;
+    const all3 = edit["replaceAll"] === true;
+    if (!all3 && text4.indexOf(old) !== text4.lastIndexOf(old))
+      return fallback;
+    do {
+      const start = text4.indexOf(old, from);
+      if (start < 0)
+        break;
+      const end = start + old.length;
+      const delta = next2.length - old.length;
+      ranges = ranges.flatMap((r) => {
+        if (r.end <= start)
+          return [r];
+        if (r.start >= end)
+          return [{ start: r.start + delta, end: r.end + delta }];
+        return [];
+      });
+      text4 = text4.slice(0, start) + next2 + text4.slice(end);
+      const changed = pickArray(edit, "changedRanges").map(asRecord);
+      if (changed.length) {
+        for (const r of changed) {
+          if (typeof r["start"] === "number" && typeof r["end"] === "number") {
+            ranges.push({ start: start + r["start"], end: start + r["end"] });
+          }
+        }
+      } else if (!("changedRanges" in edit))
+        ranges.push({ start, end: start + next2.length });
+      from = start + next2.length;
+    } while (all3);
+  }
+  return { path: path2, text: text4, changedRanges: ranges };
+}
+function introducedFinding(file, finding) {
+  if (!file.changedRanges)
+    return true;
+  const lines = file.text.split("\n");
+  let offset = finding.column - 1;
+  for (let i = 0; i < finding.line - 1; i++)
+    offset += (lines[i]?.length ?? 0) + 1;
+  const end = offset + Math.max(1, finding.match.length);
+  return file.changedRanges.some((r) => r.start < end && r.end > offset);
 }
 function extractFromIssue(input) {
   const parts = [pick2(input, "title"), pick2(input, "description"), pick2(input, "body")];
@@ -24333,12 +24567,24 @@ function extractFromIssue(input) {
   }
   return parts.filter((p) => p.trim() !== "");
 }
+function canonicalAncestor(path2) {
+  let candidate = resolve14(path2);
+  for (; ; ) {
+    try {
+      return realpathSync(candidate);
+    } catch {
+      const parent = dirname3(candidate);
+      if (parent === candidate)
+        return candidate;
+      candidate = parent;
+    }
+  }
+}
 function isUnderProject(file, projectDir) {
   if (!projectDir)
     return true;
-  const f = resolve14(file);
-  const p = resolve14(projectDir);
-  return f === p || f.startsWith(p.endsWith(sep) ? p : p + sep);
+  const within = (f, p) => f === p || f.startsWith(p.endsWith(sep) ? p : p + sep);
+  return within(resolve14(file), resolve14(projectDir)) && within(canonicalAncestor(file), canonicalAncestor(projectDir));
 }
 function projectDirFor(event, explicit) {
   return explicit || process.env["CLAUDE_PROJECT_DIR"] || event.cwd || process.cwd();
@@ -24359,13 +24605,31 @@ function noteIfUnreadable(event, files3) {
 `);
 }
 function decide(event, channel, opts = {}) {
+  const primary = decideSingle(event, channel, opts);
+  if (channel !== "github" || event.tool !== "bash")
+    return primary;
+  const docs = decideSingle(event, "docs", opts);
+  const decisions = [primary, docs];
+  const ranked = decisions.find((d) => d.decision === "deny") ?? decisions.find((d) => d.decision === "ask") ?? primary;
+  const reasons = decisions.filter((d) => !d.allow).map((d) => d.reason).filter(Boolean).join("\n\n");
+  const timedOut = [...new Set(decisions.flatMap((d) => d.timedOut ?? []))];
+  return {
+    allow: decisions.every((d) => d.allow),
+    decision: ranked.decision,
+    findings: decisions.flatMap((d) => d.findings),
+    ...reasons ? { reason: reasons, advisory: reasons } : {},
+    ...timedOut.length ? { timedOut } : {}
+  };
+}
+function decideSingle(event, channel, opts = {}) {
   const projectDir = projectDirFor(event, opts.projectDir);
   const allow = () => ({ allow: true, decision: "allow", findings: [] });
   let files3 = [];
   let texts = [];
   let label = CHANNEL_LABEL[channel];
   if (channel === "docs") {
-    const raw = extractFromFileWrite(event);
+    const cmd = pick2(event.input, "command");
+    const raw = event.tool === "bash" ? [...extractPatchesFromBash(cmd, projectDir, event.cwd, opts), ...cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd, event.cwd || projectDir) : []] : extractFromFileWrite(event, projectDir, opts);
     noteIfUnreadable(event, raw);
     files3 = judgeable(raw, projectDir);
     if (!files3.length)
@@ -24374,10 +24638,7 @@ function decide(event, channel, opts = {}) {
     if (event.tool !== "bash")
       return allow();
     const cmd = pick2(event.input, "command");
-    texts = extractFromBash(cmd);
-    files3 = judgeable([...extractPatchesFromBash(cmd), ...cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd) : []], projectDir);
-    if (files3.length && !texts.length)
-      label = CHANNEL_LABEL["docs"];
+    texts = extractFromBash(cmd, event.cwd || projectDir);
   } else if (channel === "chat") {
     throw new Error("the chat channel is judged by decideChat, not decide");
   } else {
@@ -24385,22 +24646,17 @@ function decide(event, channel, opts = {}) {
   }
   const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir);
   if (files3.length) {
-    const base = resolve14(projectDir);
-    files3 = files3.filter((f) => {
-      const abs = resolve14(base, f.path);
-      const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
-      return !matchesAny(rel, ruleSet.exclude);
-    });
-    texts = [...texts, ...files3.map((f) => f.text)];
+    files3 = filterScopedFiles(files3, projectDir, ruleSet);
   }
   texts = texts.filter((t) => t.trim() !== "");
-  if (!texts.length)
+  if (!texts.length && !files3.some((f) => f.text.trim()))
     return allow();
   const findings = [];
   const stalled = /* @__PURE__ */ new Set();
-  for (const text4 of texts) {
+  for (const file of [...texts.map((text4) => ({ path: "", text: text4 })), ...files3]) {
+    const text4 = file.text;
     const res = lintText(text4, ruleSet, { budgetMs: opts.budgetMs ?? HOOK_BUDGET_MS });
-    findings.push(...res.findings);
+    findings.push(...res.findings.filter((f) => introducedFinding(file, f)));
     for (const id of res.timedOut)
       stalled.add(id);
   }
@@ -24467,7 +24723,7 @@ function formatReason(errors, channel, label) {
     "Full ruleset: docs/writing-style.md",
     "",
     "Narrower ways to allow this, in order of preference:",
-    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + " -->",
+    "  1. <!-- plain-english-disable-next-line " + (shown[0]?.ruleId ?? "rule-id") + ": replace this with your reason -->",
     "  2. add the path to `exclude` in .plain-english.yml",
     "  3. lower the rule to `severity: warn` in .plain-english.yml",
     "",
@@ -24478,7 +24734,7 @@ function formatReason(errors, channel, label) {
 
 // dist/adapters/chat.js
 function blockStatePath(projectDir, sessionId) {
-  const safe = sessionId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "session";
+  const safe = createHash2("sha256").update(sessionId || "session").digest("hex").slice(0, 24);
   const scope = createHash2("sha256").update(resolve15(projectDir)).digest("hex").slice(0, 12);
   return resolve15(tmpdir2(), `plain-english-chat-${scope}-${safe}`);
 }
@@ -24530,6 +24786,7 @@ function punctuationOnly(findings) {
 var JUDGEABLE = /* @__PURE__ */ new Set(["reply-length", "reader-load", "reply-pace"]);
 function decideChat(reply, opts) {
   const now = opts.now ?? Date.now();
+  const blockOpts = reply.isSubagent ? { ...opts, promptId: `${opts.promptId ?? ""}:helper:${reply.session}:${reply.source}` } : opts;
   const base = opts.ruleSet ?? resolveRuleSet(opts.projectDir);
   const ruleSet = chatRuleSet(base);
   const text4 = reply.text.trim();
@@ -24552,24 +24809,27 @@ function decideChat(reply, opts) {
   if (hasAck("chat", opts.projectDir, now)) {
     return { allow: true, decision: "allow", findings, ...timedOut };
   }
-  if (opts.judge && allJudgeable.length > 0 && (failing.length === 0 || failing.every((f) => JUDGEABLE.has(f.ruleId)))) {
+  if (base.modelChecks !== false && opts.judge && allJudgeable.length > 0 && (failing.length === 0 || failing.every((f) => JUDGEABLE.has(f.ruleId)))) {
     const verdict = opts.judge(reply, allJudgeable);
     if (verdict?.ok) {
       return { allow: true, decision: "allow", findings, ...timedOut };
     }
     if (verdict && verdict.reason) {
       const reason2 = verdict.reason;
-      if (!shouldBlock(opts, now, failing)) {
+      if (tier2 === "never" || failing.length === 0 || !shouldBlock(blockOpts, now, failing)) {
         return { allow: true, decision: "ask", reason: reason2, advisory: reason2, findings, ...timedOut };
       }
       return { allow: false, decision: "deny", reason: reason2, advisory: reason2, findings, ...timedOut };
     }
   }
+  if (!failing.length) {
+    return { allow: true, decision: "allow", findings, ...timedOut };
+  }
   const reason = formatReason(failing, "chat", "This reply");
   if (tier2 === "never") {
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
   }
-  if (!shouldBlock(opts, now, failing)) {
+  if (!shouldBlock(blockOpts, now, failing)) {
     return { allow: true, decision: "ask", reason, advisory: reason, findings, ...timedOut };
   }
   return { allow: false, decision: "deny", reason, advisory: reason, findings, ...timedOut };
@@ -24610,6 +24870,9 @@ extends: default
 # warnings too.
 failOn: never
 
+# Extra model checks can send prose through your configured provider.
+# Set modelChecks: false to use only local pattern checks.
+
 # Terms that never trigger a finding. Put your domain vocabulary here.
 allow: []
 
@@ -24628,7 +24891,33 @@ function isOurs(entry) {
   if (!entry || typeof entry !== "object")
     return false;
   const e = entry;
-  return ["command", "prompt", "bash", "powershell"].some((k) => typeof e[k] === "string" && e[k].includes(MARKER));
+  if (typeof e.prompt === "string" && e.prompt.startsWith("# GENERATED by `plain-english render` from rules/default.yml."))
+    return true;
+  return ["command", "bash", "powershell"].some((key) => {
+    if (typeof e[key] !== "string")
+      return false;
+    const commands = parseCommands(e[key]);
+    if (commands.length !== 1)
+      return false;
+    return commands.some(({ words }) => {
+      const tokens = words.map((word2) => word2.text);
+      if (tokens[0] === "exec")
+        tokens.shift();
+      const executable = tokens[0]?.split(/[\\/]/).at(-1);
+      if (executable === "plain-english")
+        return /^(hook|pre|post)$/.test(tokens[1] ?? "");
+      if (executable === "npx") {
+        let at = 1;
+        while (["--no-install", "--yes", "-y", "--offline", "--quiet", "-q"].includes(tokens[at] ?? ""))
+          at++;
+        if (tokens[at] === "--")
+          at++;
+        return tokens[at] === "plain-english" && /^(hook|pre|post)$/.test(tokens[at + 1] ?? "");
+      }
+      const script = executable === "node" || executable === "bash" || executable === "sh" ? tokens[1] : tokens[0];
+      return /(?:^|[/\\])\.(?:claude|codex|copilot|cursor|github|vibe|gemini|qwen)[/\\]hooks[/\\]plain-english(?:-(?:docs|github|issue|chat|judge))?\.(?:mjs|sh|ps1)$/.test(script ?? "");
+    });
+  });
 }
 function readAt(doc, path2) {
   let node2 = doc;
@@ -25055,7 +25344,7 @@ function init(opts) {
     return 0;
   }
   for (const w of writes) {
-    mkdirSync2(dirname3(w.path), { recursive: true });
+    mkdirSync2(dirname4(w.path), { recursive: true });
     writeFileSync3(w.path, w.body, "utf8");
     if (w.mode !== void 0)
       chmodSync(w.path, w.mode);
@@ -25326,14 +25615,144 @@ function renderPolicy(set, scan) {
   return out.join("\n");
 }
 
+// dist/adapters/judge.js
+import { spawnSync } from "node:child_process";
+var JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
+var JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
+var CLAUDE_JUDGE_ARGS = [
+  "-p",
+  "--tools",
+  "",
+  "--disallowed-tools",
+  "*",
+  "--strict-mcp-config",
+  "--safe-mode",
+  "--disable-slash-commands",
+  "--no-session-persistence",
+  "--output-format",
+  "text"
+];
+var VIBE_JUDGE_ARGS = [
+  "--output",
+  "text",
+  "--max-turns",
+  "1",
+  "--disabled-tools",
+  "*",
+  "--max-price",
+  "0.05",
+  "-p"
+];
+function isJudge(env = process.env) {
+  return env[JUDGE_MARKER] === "1";
+}
+function lastAsked(payload, reader) {
+  for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
+    const v = payload[key];
+    if (typeof v === "string" && v.trim())
+      return v;
+  }
+  try {
+    return reader?.lastAsk?.(payload);
+  } catch {
+    return void 0;
+  }
+}
+function judgeInput(reply, ask, findings) {
+  return [
+    "What the reader last said:",
+    (ask ?? "(not available)").slice(0, 4e3),
+    "",
+    "What the linter measured:",
+    ...findings.map((f) => `- ${f.ruleId}: ${f.message ?? ""}`.trimEnd()),
+    "",
+    "The reply:",
+    reply.text.slice(0, 2e4)
+  ].join("\n");
+}
+var DOCS_MAX_JUDGE_BYTES = 256 * 1024;
+function overDocsJudgeLimit(payload) {
+  return payload.length > DOCS_MAX_JUDGE_BYTES;
+}
+function parseVerdict(stdout) {
+  const text4 = stdout.trim();
+  if (!text4)
+    return void 0;
+  const start = text4.indexOf("{");
+  const end = text4.lastIndexOf("}");
+  if (start === -1 || end <= start)
+    return void 0;
+  let body;
+  try {
+    body = JSON.parse(text4.slice(start, end + 1));
+  } catch {
+    return void 0;
+  }
+  if (typeof body !== "object" || body === null)
+    return void 0;
+  const ok3 = body["ok"];
+  if (typeof ok3 !== "boolean")
+    return void 0;
+  if (ok3)
+    return { ok: true };
+  const reason = body["reason"];
+  if (typeof reason !== "string" || !reason.trim())
+    return void 0;
+  return { ok: false, reason: reason.trim() };
+}
+function usableReason(reason, ruleSet) {
+  return lintText(reason, ruleSet, { allowInlineSuppression: false }).errorCount === 0;
+}
+function runJudge(input, opts) {
+  const env = opts.env ?? process.env;
+  if (isJudge(env))
+    return void 0;
+  if (!opts.prompt.includes("$ARGUMENTS"))
+    return void 0;
+  const filled = opts.prompt.replace("$ARGUMENTS", input);
+  let out;
+  try {
+    out = spawnSync(opts.command, [...opts.args, filled], {
+      encoding: "utf8",
+      timeout: opts.timeoutMs ?? JUDGE_TIMEOUT_MS,
+      cwd: opts.cwd,
+      env: {
+        ...env,
+        [JUDGE_MARKER]: "1",
+        ...opts.command === "vibe" ? {
+          PLAIN_ENGLISH_VIBE_JUDGE: "0",
+          VIBE_INCLUDE_PROJECT_CONTEXT: "false",
+          VIBE_INCLUDE_PROMPT_DETAIL: "false",
+          VIBE_SYSTEM_PROMPT_ID: "minimal",
+          VIBE_MCP_SERVERS: "[]"
+        } : {}
+      },
+      // A judge that inherits stdin can block on it forever.
+      stdio: ["ignore", "pipe", "pipe"],
+      maxBuffer: 4 * 1024 * 1024
+    });
+  } catch {
+    opts.onUnavailable?.("could not start");
+    return void 0;
+  }
+  if (out.error || out.status !== 0) {
+    opts.onUnavailable?.(out.error && "code" in out.error && out.error.code === "ETIMEDOUT" ? "timed out" : out.error ? "could not start" : "failed");
+    return void 0;
+  }
+  const verdict = parseVerdict(out.stdout ?? "");
+  if (!verdict)
+    opts.onUnavailable?.("returned no usable answer");
+  return verdict;
+}
+
 // dist/format/sarif.js
-import { isAbsolute as isAbsolute4, relative as relative5, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute3, relative as relative5, sep as sep2 } from "node:path";
 import { pathToFileURL } from "node:url";
 var SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json";
 var HOMEPAGE = "https://github.com/nordscope-fi/plain-english";
 function toUri(file, root) {
   const rel = relative5(root, file);
-  if (!rel || rel.startsWith("..") || isAbsolute4(rel)) {
+  if (!rel || rel.startsWith("..") || isAbsolute3(rel)) {
     return pathToFileURL(file).href;
   }
   return rel.split(sep2).join("/").split("\\").join("/");
@@ -25508,7 +25927,7 @@ function record(raw, parsed, decision, stdout, opts) {
 }
 
 // dist/cli.js
-var HERE2 = dirname4(fileURLToPath3(import.meta.url));
+var HERE2 = dirname5(fileURLToPath3(import.meta.url));
 var MARKDOWN4 = /* @__PURE__ */ new Set([".md", ".markdown", ".mdx"]);
 function parseArgs2(argv) {
   const flags = {};
@@ -25838,7 +26257,7 @@ function cmdPolicy(args) {
 `);
     return 0;
   }
-  mkdirSync4(dirname4(out), { recursive: true });
+  mkdirSync4(dirname5(out), { recursive: true });
   if (existsSync15(out) && readFileSync15(out, "utf8") === content3) {
     process.stdout.write("no changes\n");
     return 0;
@@ -25857,7 +26276,7 @@ function cmdWritingProfile(args) {
   }
   const out = resolve19(root, set.profile.file);
   const rel = relative6(root, out);
-  if (!rel || rel.startsWith("..") || isAbsolute5(rel)) {
+  if (!rel || rel.startsWith("..") || isAbsolute4(rel)) {
     process.stderr.write("plain-english: profile.file must stay inside the project root.\n");
     return 2;
   }
@@ -25892,7 +26311,7 @@ function cmdWritingProfile(args) {
 `);
     return 0;
   }
-  mkdirSync4(dirname4(out), { recursive: true });
+  mkdirSync4(dirname5(out), { recursive: true });
   if (current === fresh)
     process.stdout.write("no changes\n");
   else {
@@ -26058,8 +26477,20 @@ function ruleSetFor(cwd) {
   try {
     return resolveRuleSet(resolve19(cwd));
   } catch {
-    return compile(loadDefault());
+    process.stderr.write("plain-english: configuration unavailable; using local built-in pattern checks as advice only.\n");
+    const fallback = compile(loadDefault());
+    return { ...fallback, modelChecks: false, chat: { ...fallback.chat, failOn: "never" } };
   }
+}
+function modelChecksEnabled(ruleSet, agent) {
+  return ruleSet.modelChecks ?? (agent === "claude-code" || agent === "vibe" && process.env["PLAIN_ENGLISH_VIBE_JUDGE"] === "1");
+}
+function modelCommand(agent, model) {
+  return agent === "vibe" ? { command: "vibe", args: VIBE_JUDGE_ARGS } : { command: "claude", args: [...CLAUDE_JUDGE_ARGS, ...model ? ["--model", model] : []] };
+}
+function reportUnavailableModelCheck(reason) {
+  process.stderr.write(`plain-english: extra model check ${reason}; pattern checks still apply.
+`);
 }
 function hookChat(payload, profile) {
   if (!profile.emitChat)
@@ -26072,8 +26503,13 @@ function hookChat(payload, profile) {
     return 0;
   const cwd = typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd();
   const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
+  const ruleSet = ruleSetFor(cwd);
+  const turn = String(payload["prompt_id"] ?? payload["promptId"] ?? payload["turn_id"] ?? payload["turnId"] ?? reader.turnId?.(payload) ?? payload["session_id"] ?? payload["sessionId"] ?? "");
+  const helper = payload["agent_id"] ?? payload["subagent_id"];
+  const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
   const judgeDeadline = Date.now() + CHAT_JUDGE_PIPELINE_MS;
   const decision = decideChat(reply, {
+    ruleSet,
     /**
      * Consulted only when a reply limit is the only thing failing, which is
      * roughly one reply in ten. Everything about it fails towards the count,
@@ -26081,9 +26517,9 @@ function hookChat(payload, profile) {
      * package did before the judge existed.
      */
     judge: (r, findings) => {
-      if (isJudge())
+      if (isJudge() || !modelChecksEnabled(ruleSet, profile.id))
         return void 0;
-      const prompts = renderPrompts(ruleSetFor(cwd));
+      const prompts = renderPrompts(ruleSet);
       const input = judgeInput(r, lastAsked(payload, reader), findings);
       const run = (prompt2) => {
         const timeoutMs = nextJudgeTimeout(judgeDeadline);
@@ -26091,17 +26527,17 @@ function hookChat(payload, profile) {
           return void 0;
         return runJudge(input, {
           prompt: prompt2,
-          command: "claude",
-          args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
+          ...modelCommand(profile.id),
           cwd: resolve19(cwd),
-          timeoutMs
+          timeoutMs,
+          onUnavailable: reportUnavailableModelCheck
         });
       };
       const readablePrompt = prompts["chat-readable"];
       if (readablePrompt) {
         const readable = run(readablePrompt);
         if (readable && !readable.ok && readable.reason) {
-          if (usableReason(readable.reason, chatRuleSet(ruleSetFor(cwd))))
+          if (usableReason(readable.reason, chatRuleSet(ruleSet)))
             return readable;
         }
       }
@@ -26109,7 +26545,7 @@ function hookChat(payload, profile) {
       if (!prompt)
         return void 0;
       const verdict = run(prompt);
-      if (verdict && !verdict.ok && verdict.reason && !usableReason(verdict.reason, chatRuleSet(ruleSetFor(cwd)))) {
+      if (verdict && !verdict.ok && verdict.reason && !usableReason(verdict.reason, chatRuleSet(ruleSet))) {
         return void 0;
       }
       return verdict;
@@ -26118,12 +26554,7 @@ function hookChat(payload, profile) {
     // Both Claude Code and Copilot document this, and it is the agent telling
     // you the current turn exists because a hook blocked the last one.
     stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true,
-    // Each agent names the turn differently, and getting this wrong is not
-    // loud: the block-once key falls back to the session, so one block would
-    // silence the rest of the session instead of the rest of the turn.
-    // Observed 2026-08-18: Claude Code sends `prompt_id`, Codex sends
-    // `turn_id`, Copilot sends neither and only `sessionId`.
-    promptId: String(payload["prompt_id"] ?? payload["promptId"] ?? payload["turn_id"] ?? payload["turnId"] ?? payload["session_id"] ?? payload["sessionId"] ?? "")
+    promptId
   });
   const out = profile.emitChat(decision, eventName);
   if (out.stdout)
@@ -26157,30 +26588,52 @@ async function cmdHook(args) {
     const event = args.flags["event"] === "post" ? "post" : "pre";
     const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
     const parsed = profile.parse(payload);
-    let decision = decide(parsed, channel, { budgetMs });
-    if (channel === "docs" && event === "pre" && decision.allow && !isJudge() && !overDocsJudgeLimit(raw)) {
-      const projectDir = projectDirFor(parsed);
-      if (!hasAck("docs", projectDir)) {
-        const ruleSet = ruleSetFor(projectDir);
-        const prompt = renderPrompts(ruleSet)["docs"]?.replaceAll("{{PROJECT_DIR}}", resolve19(projectDir));
-        if (prompt) {
-          const verdict = runJudge(raw, {
-            prompt,
-            // No tools, no file reads, one turn: the judge answers a question
-            // about text it was handed and has no business touching the repo.
-            command: "claude",
-            args: ["-p", "--disallowed-tools", "*", "--output-format", "text"],
-            cwd: resolve19(projectDir)
-          });
-          if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
-            decision = {
-              allow: false,
-              decision: ruleSet.failOn === "never" ? "ask" : "deny",
-              reason: verdict.reason,
-              advisory: verdict.reason,
-              findings: decision.findings
-            };
-          }
+    let decision = decide(parsed, channel, { budgetMs, alreadyApplied: event === "post" });
+    const projectDir = projectDirFor(parsed);
+    const ruleSet = ruleSetFor(projectDir);
+    const requests = [];
+    if (channel === "docs" || channel === "github" && parsed.tool === "bash") {
+      const files3 = scopedDocsFiles(parsed, ruleSet, void 0, { alreadyApplied: event === "post" }).filter((file) => file.text.trim() && !["CLAUDE.md", "writing-style.md"].includes(basename4(file.path)));
+      if (files3.length)
+        requests.push({
+          channel: "docs",
+          input: JSON.stringify({ files: files3.map((file) => ({
+            ...file,
+            path: toPosix(relative6(resolve19(projectDir), resolve19(file.path)))
+          })) })
+        });
+    }
+    const texts = channel === "github" && parsed.tool === "bash" ? extractFromBash(String(parsed.input["command"] ?? ""), parsed.cwd || projectDir) : channel === "issue" ? extractFromIssue(parsed.input) : [];
+    if (texts.length)
+      requests.push({ channel, input: JSON.stringify({ texts }) });
+    const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
+    if (event === semanticPhase && decision.allow && !isJudge() && modelChecksEnabled(ruleSet, profile.id)) {
+      const deadline = Date.now() + DOCS_JUDGE_CALL_MS;
+      for (const request of requests) {
+        if (hasAck(request.channel, projectDir) || overDocsJudgeLimit(request.input))
+          continue;
+        const timeoutMs = Math.max(0, deadline - Date.now());
+        if (timeoutMs === 0)
+          break;
+        const prompt = renderPrompts(ruleSet, "prose")[request.channel];
+        if (!prompt)
+          continue;
+        const verdict = runJudge(request.input, {
+          prompt,
+          ...modelCommand(profile.id, args.flags["model"] ? String(args.flags["model"]) : void 0),
+          cwd: resolve19(projectDir),
+          timeoutMs,
+          onUnavailable: reportUnavailableModelCheck
+        });
+        if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
+          decision = {
+            ...decision,
+            allow: event === "post",
+            decision: event === "post" ? "allow" : ruleSet.failOn === "never" ? "ask" : "deny",
+            reason: verdict.reason,
+            advisory: verdict.reason
+          };
+          break;
         }
       }
     }
@@ -26204,6 +26657,7 @@ async function cmdHook(args) {
     }
     return out.exitCode;
   } catch {
+    process.stderr.write("plain-english: check unavailable; the write was allowed.\n");
     return 0;
   }
 }
@@ -26213,6 +26667,7 @@ USAGE
   plain-english lint [PATH...]       lint files or directories (default: stdin)
   plain-english lint --chat          lint what agents said in the chat window
   plain-english render               regenerate docs/ and prompt templates
+  plain-english guidance             print project vocabulary and writing observations
   plain-english policy               write this repo's AI writing policy
   plain-english profile              build this repo's writing profile
   plain-english explain [RULE]       show a rule, or list them all
@@ -26474,6 +26929,16 @@ async function main() {
         return await cmdLint(args);
       case "render":
         return cmdRender(args);
+      case "guidance": {
+        if (args.positionals.length || Object.keys(args.flags).length) {
+          process.stderr.write("plain-english: guidance takes no arguments. Run it in the project directory.\n");
+          return 2;
+        }
+        const text4 = projectGuidance(resolveRuleSet(process.cwd()));
+        if (text4)
+          process.stdout.write(text4 + "\n");
+        return 0;
+      }
       case "policy":
         return cmdPolicy(args);
       case "profile":

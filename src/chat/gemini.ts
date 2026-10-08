@@ -3,7 +3,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
-import { field, inScope, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
+import { field, latestUserTurnId, inScope, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
 
 export function geminiHome(): string {
   const base = process.env["GEMINI_CLI_HOME"] || homedir();
@@ -90,6 +90,12 @@ export const geminiChat: ChatReader = {
       replies(file.path, file.subagent).filter((reply) => withinDays(reply.at, options.sinceDays, now)),
     );
   },
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      return record["type"] === "user";
+    });
+  },
+
   current(payload: Record<string, unknown>): Reply | null {
     const direct = field(payload, "prompt_response");
     const path = field(payload, "transcript_path") ?? "";

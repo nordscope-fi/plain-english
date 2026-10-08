@@ -39,6 +39,7 @@ import {
   type ReadOptions,
   type Reply,
   field,
+  latestUserTurnId,
 } from "./reader.ts";
 
 export function cursorHome(): string {
@@ -173,6 +174,12 @@ export const cursorChat: ChatReader = {
       });
     }
     return out;
+  },
+
+  turnId(payload: Record<string, unknown>): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
+      return record["role"] === "user";
+    });
   },
 
   current(payload: Record<string, unknown>): Reply | null {

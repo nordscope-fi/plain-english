@@ -37,7 +37,7 @@ Swap the id for `copilot`, `codex`, `cursor`, `vibe`, `gemini` or `qwen`, or pas
 `init` wires up the whole repo in one step: that agent's hook config merged into whatever
 is already there, an offline launcher, a generated `AGENTS.md` section, and a starter
 `.plain-english.yml` if you have none. Claude Code also gets its output styles and skill.
-The hooks arrive advisory, so nothing starts refusing writes today. Step 5 says when to
+Document hooks arrive advisory. Chat checks block errors by default; `chat.failOn: never` makes them report without blocking. Step 5 says when to
 change that.
 
 [`docs/agents.md`](agents.md) has the per-agent detail. Trust is separate from
@@ -86,7 +86,7 @@ See `examples/revops.yml` for a filled-in example.
 ## 4. Turn it on in CI before turning it on locally
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.5.1
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.6.0
   with:
     paths: docs README.md
     fail-on: warn      # start loud, tighten later
@@ -107,7 +107,7 @@ For git, whatever your agent:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.5.1
+    rev: v1.6.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -151,7 +151,7 @@ npx plain-english lint --chat --summary
 
 It reads the session transcripts your agents write to local disk and reports findings per 1,000 words, split main loop against subagent. That split is the point: a style never reaches a subagent, so one number across both hides the one gap it cannot close. Local only, never a CI step, because a transcript holds whatever passed through a tool.
 
-Two limits are worth knowing before you rely on any of it. A style is a prompt, so nothing measures compliance, which is what the scan is for. And under `claude -p` the stop hook runs but the block does not land, so treat chat as advisory there whatever `failOn` says. [`docs/limitations.md`](limitations.md#what-reaches-chat-and-what-it-costs) covers both.
+Two limits are worth knowing before you rely on any of it. A style is a prompt, so nothing measures compliance, which is what the scan is for. Under `claude -p`, the settings Stop hook runs but its block does not land. The native plugin can hold that reply. [`docs/limitations.md`](limitations.md#what-reaches-chat-and-what-it-costs) covers both.
 
 Everything else runs before the write lands.
 

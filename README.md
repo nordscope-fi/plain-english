@@ -102,6 +102,12 @@ machine marker, or both. It includes the review date and supporting source.
 
 The normal scan is deterministic. An optional model-backed check covers sentence shapes
 that regular expressions cannot judge, such as vague attribution and canned contrasts.
+Set `modelChecks: false` in the project config to keep extra checks local to pattern matching.
+Extra model checks send eligible proposed document text or publishing text, and sometimes the last chat question, through the agent's configured provider and account.
+Document context can include code examples and quoted material.
+They use your plan or API usage. Claude calls disable local session persistence; provider retention still follows account settings.
+Set `modelChecks: true` to enable the extra checks on other supported agents.
+The native Claude plugin also adds declared project vocabulary and loaded writing-profile guidance at conversation start.
 Agent support for that check varies. [The agent guide](docs/agents.md) records what each
 integration can run.
 
@@ -146,7 +152,7 @@ writing settings or launchers into the project.
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.5.1
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.6.0
   with:
     paths: docs README.md
     fail-on: error
@@ -163,7 +169,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.5.1
+    rev: v1.6.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

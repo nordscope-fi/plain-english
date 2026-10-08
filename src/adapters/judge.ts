@@ -43,6 +43,17 @@ export const JUDGE_MARKER = "PLAIN_ENGLISH_CHAT_JUDGE";
 /** How long the judge may take before the count wins by default. */
 export const JUDGE_TIMEOUT_MS = CHAT_JUDGE_CALL_MS;
 
+/** Background checks cannot use tools or save a local conversation. */
+export const CLAUDE_JUDGE_ARGS = [
+  "-p", "--tools", "", "--disallowed-tools", "*", "--strict-mcp-config",
+  "--safe-mode", "--disable-slash-commands", "--no-session-persistence", "--output-format", "text",
+];
+
+/** Vibe already requires explicit opt-in and limits each check's usage. */
+export const VIBE_JUDGE_ARGS = [
+  "--output", "text", "--max-turns", "1", "--disabled-tools", "*", "--max-price", "0.05", "-p",
+];
+
 /** Whether this process is itself a judge, and must not start another. */
 export function isJudge(env: NodeJS.ProcessEnv = process.env): boolean {
   return env[JUDGE_MARKER] === "1";
@@ -173,6 +184,8 @@ export interface JudgeOptions {
   timeoutMs?: number;
   env?: NodeJS.ProcessEnv;
   cwd?: string;
+  /** Fixed diagnostic text only; never echo the submitted passage. */
+  onUnavailable?: (reason: string) => void;
 }
 
 /** Run one judge and return its verdict, or `undefined` to defer to the count. */
@@ -188,14 +201,30 @@ export function runJudge(input: string, opts: JudgeOptions): Verdict | undefined
       encoding: "utf8",
       timeout: opts.timeoutMs ?? JUDGE_TIMEOUT_MS,
       cwd: opts.cwd,
-      env: { ...env, [JUDGE_MARKER]: "1" },
+      env: {
+        ...env,
+        [JUDGE_MARKER]: "1",
+        ...(opts.command === "vibe" ? {
+          PLAIN_ENGLISH_VIBE_JUDGE: "0",
+          VIBE_INCLUDE_PROJECT_CONTEXT: "false",
+          VIBE_INCLUDE_PROMPT_DETAIL: "false",
+          VIBE_SYSTEM_PROMPT_ID: "minimal",
+          VIBE_MCP_SERVERS: "[]",
+        } : {}),
+      },
       // A judge that inherits stdin can block on it forever.
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 4 * 1024 * 1024,
     });
   } catch {
+    opts.onUnavailable?.("could not start");
     return undefined;
   }
-  if (out.error || out.status !== 0) return undefined;
-  return parseVerdict(out.stdout ?? "");
+  if (out.error || out.status !== 0) {
+    opts.onUnavailable?.(out.error && "code" in out.error && out.error.code === "ETIMEDOUT" ? "timed out" : out.error ? "could not start" : "failed");
+    return undefined;
+  }
+  const verdict = parseVerdict(out.stdout ?? "");
+  if (!verdict) opts.onUnavailable?.("returned no usable answer");
+  return verdict;
 }

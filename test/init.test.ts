@@ -131,7 +131,7 @@ describe("init", () => {
     const s = settings();
     const bash = s["hooks"].PreToolUse.find((b: any) => b.matcher === "Bash");
     expect(bash.hooks.filter((h: any) => h.type === "command")).toHaveLength(1);
-    expect(bash.hooks.filter((h: any) => h.type === "prompt")).toHaveLength(1);
+    expect(bash.hooks.filter((h: any) => h.type === "prompt")).toHaveLength(0);
   });
 
   it("does not overwrite an existing project config", () => {
@@ -329,6 +329,41 @@ describe("the AGENTS.md fragment", () => {
 });
 
 describe("mergeNested", () => {
+  it("keeps unrelated hooks whose filenames mention plain-english", () => {
+    const unrelated = [
+      { type: "command", command: "node scripts/plain-english-summary.mjs" },
+      { type: "command", command: "echo plain-english" },
+      { type: "prompt", prompt: "Check plain-english spelling for this project." },
+    ];
+    const { groups } = mergeNested([
+      { matcher: "Bash", hooks: unrelated },
+    ], [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] }]);
+    expect(groups[0]!.hooks.slice(0, 3)).toEqual(unrelated);
+    expect(groups[0]!.hooks).toHaveLength(4);
+  });
+
+  it("does not mistake an npx argument for the executable it runs", () => {
+    const foreign = { type: "command", command: "npx --package helper echo plain-english hook github" };
+    const { groups } = mergeNested([{ matcher: "Bash", hooks: [foreign] }],
+      [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] }]);
+    expect(groups[0]!.hooks).toContainEqual(foreign);
+    expect(groups[0]!.hooks).toHaveLength(2);
+  });
+
+  it("preserves a user-owned compound command containing a checker call", () => {
+    const foreign = { type: "command", command: "node scripts/ticket.mjs && plain-english hook github" };
+    const { groups } = mergeNested([{ matcher: "Bash", hooks: [foreign] }],
+      [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] }]);
+    expect(groups[0]!.hooks).toContainEqual(foreign);
+  });
+
+  it("preserves a foreign script with the same basename outside managed agent directories", () => {
+    const foreign = { type: "command", command: "node custom/hooks/plain-english.mjs" };
+    const { groups } = mergeNested([{ matcher: "Bash", hooks: [foreign] }],
+      [{ matcher: "Bash", hooks: [{ type: "command", command: "plain-english hook github" }] }]);
+    expect(groups[0]!.hooks).toContainEqual(foreign);
+  });
+
   it("appends a new matcher without disturbing existing ones", () => {
     const existing = [{ matcher: "Read", hooks: [{ type: "command", command: "x.sh" }] }];
     const { groups, added } = mergeNested(existing, [
@@ -824,23 +859,13 @@ describe("init --agent vibe", () => {
     expect(twice.split('name = "no-force-push"')).toHaveLength(2);
   });
 
-  it("writes the judge and its prompt, and leaves the judge switched off", () => {
+  it("routes optional model checks through the shared command hook", () => {
     init({ root, agents: [vibe] });
-    const judge = resolve(root, ".vibe/hooks/plain-english-judge.mjs");
-    expect(existsSync(judge)).toBe(true);
-    // Invoked through `node`, so it runs on a platform that honours neither a
-    // shebang nor an exec bit. NTFS carries no POSIX permission bits, so the
-    // mode reads as 0 there whatever `init` asked for.
-    expect(hooksToml()).toContain("node .vibe/hooks/plain-english-judge.mjs");
-    if (process.platform !== "win32") {
-      expect(statSync(judge).mode & 0o111, "judge is not executable").toBeGreaterThan(0);
-    }
-    const body = readFileSync(judge, "utf8");
-    expect(body).toContain("PLAIN_ENGLISH_VIBE_JUDGE");
+    expect(existsSync(resolve(root, ".vibe/hooks/plain-english-judge.mjs"))).toBe(false);
+    expect(hooksToml()).not.toContain("plain-english-judge.mjs");
     for (const channel of ["docs", "github", "issue"]) {
       const prompt = resolve(root, `.vibe/hooks/plain-english-${channel}.prompt.md`);
       expect(existsSync(prompt), `${channel} prompt`).toBe(true);
-      // The host is responsible for the substitution, so the marker survives.
       expect(readFileSync(prompt, "utf8")).toContain("$ARGUMENTS");
     }
   });
@@ -858,19 +883,7 @@ describe("init --agent vibe", () => {
     expect(init({ root, agents: [vibe] })).toBe(2);
     expect(readFileSync(resolve(root, ".vibe/hooks.toml"), "utf8")).toContain("[[hooks]");
   });
-  it("stops the judge recursing into itself", () => {
-    // Observed on 2.24.1: the judge's own `vibe -p` call runs in the same
-    // working directory, so it inherits this repository's .vibe/hooks.toml and
-    // fires the same hooks. It survives today only because the judge session
-    // runs with every tool disabled and so calls nothing. That is a property of
-    // the flags, not of the design, and one flag change away from a hook that
-    // spawns a model call that spawns a hook.
-    init({ root, agents: [vibe] });
-    const body = readFileSync(resolve(root, ".vibe/hooks/plain-english-judge.mjs"), "utf8");
-    expect(body).toContain("PLAIN_ENGLISH_VIBE_JUDGE");
-    // The child must be told the judge is off, whatever the parent was told.
-    expect(body).toMatch(/env:\s*\{[^}]*PLAIN_ENGLISH_VIBE_JUDGE:\s*"0"/);
-  });
+
 });
 
 
