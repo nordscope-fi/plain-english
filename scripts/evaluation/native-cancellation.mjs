@@ -60,7 +60,13 @@ async function probe(name) {
   const checkerFile = join(root, "checker.json");
   const modelFile = join(root, "model.json");
   const settledFile = join(root, "settled.json");
-  const checker = join(root, "checker.mjs");
+  // The real wrapper runs the CLI beside it, so the synthetic checker takes
+  // the CLI's place in a copy of the plugin's layout.
+  const wrapperCopy = join(root, "layout", "hooks", "run-checker.mjs");
+  const checker = join(root, "layout", "dist", "cli.mjs");
+  mkdirSync(join(root, "layout", "hooks"), { recursive: true });
+  mkdirSync(join(root, "layout", "dist"), { recursive: true });
+  save(wrapperCopy, readFileSync(wrapper, "utf8"));
   const model = join(root, "model.mjs");
   save(checker, `import {writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
@@ -71,7 +77,7 @@ spawnSync(process.execPath,[${JSON.stringify(model)}],{stdio:'inherit'});
 writeFileSync(${JSON.stringify(modelFile)},JSON.stringify({pid:process.pid,parent:process.ppid}));
 setInterval(()=>{},1000);
 `);
-  const run = `const stream=$.process.spawn({argv:['node',${JSON.stringify(wrapper)},${JSON.stringify(checker)}],cwd:${JSON.stringify(root)},env:{PLAIN_ENGLISH_CHECK_TIMEOUT_MS:${JSON.stringify(name === "timeout" ? "1500" : "30000")}}});
+  const run = `const stream=$.process.spawn({argv:['node',${JSON.stringify(wrapperCopy)}],cwd:${JSON.stringify(root)},env:{PLAIN_ENGLISH_CHECK_TIMEOUT_MS:${JSON.stringify(name === "timeout" ? "1500" : "30000")}}});
 next.signal.addEventListener('abort',()=>{void stream.return({code:null,signal:null}).catch(()=>{})},{once:true});
 let stderr='';for await (const chunk of stream) {if(chunk.stream==='stderr') stderr+=chunk.text};
 const ended=await stream.result;if(ended.code!==0) throw new Error(stderr)`;

@@ -175,7 +175,8 @@ export async function bundleCli() {
     throw new Error("dist/cli.js is missing. Run `tsc -p tsconfig.json` first.");
   }
   const entryPoints = { cli: entry };
-  const chosen = new Set([relative(root, entry)]);
+  // esbuild names inputs with forward slashes on every platform, Windows included.
+  const chosen = new Set([relative(root, entry).replace(/\\/g, "/")]);
   for (let round = 0; round < 500; round++) {
     const result = await build({
       entryPoints,

@@ -272,8 +272,10 @@ async function main(args) {
   const guidance = `${style}\n\n${document}`;
   mkdirSync(out, { recursive: true, mode: 0o700 });
   const pluginHash = pluginFingerprint(resolve(ROOT, "integrations/claude-code-plugin"));
-  const captureSupported = readFileSync(resolve(ROOT, "integrations/claude-code-plugin/dist/cli.mjs"), "utf8")
-    .includes("PLAIN_ENGLISH_JUDGE_RECEIPTS");
+  // The bundled CLI ships in pieces, so the receipts code can sit in any of them.
+  const pluginDist = resolve(ROOT, "integrations/claude-code-plugin/dist");
+  const captureSupported = readdirSync(pluginDist, { recursive: true, withFileTypes: true })
+    .some((entry) => entry.isFile() && readFileSync(resolve(entry.parentPath, entry.name), "utf8").includes("PLAIN_ENGLISH_JUDGE_RECEIPTS"));
   const captureHarnessHash = captureSupported ? sha256(instrumentMeasurementCapture(readFileSync(captureSource(resolve(ROOT, "integrations/claude-code-plugin")), "utf8"), resolve(out, "checks-check-usage.jsonl"))) : null;
   const identity = { cases: cases.map((row) => row.caseHash), guidanceHash: sha256(guidance), pluginHash, benchmarkHash: sha256(readFileSync(import.meta.filename)), captureHarnessHash, runtime: runtimeIdentity(claudeCommand) };
   if (command === "run" && !identity.runtime.claudeVersion) {

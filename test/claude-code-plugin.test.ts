@@ -75,6 +75,12 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Windows CI, 2026-10-08: a path compared with backslashes let the split
+  // move the CLI's own entry module out of cli.mjs.
+  it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
+    expect(readFileSync(resolve(PLUGIN, "dist/cli.mjs"), "utf8")).toContain("catch AI writing tells before they land");
+  });
+
   // Held as "Mod starts a program with a command the directory couldn't read
   // in full": every program the mod starts is written as fixed text.
   it("start every program with a command written as fixed text", () => {
