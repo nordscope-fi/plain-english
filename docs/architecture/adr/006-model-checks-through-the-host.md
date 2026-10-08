@@ -20,19 +20,26 @@ Each question starts a new `claude -p` process (`runJudge` in
 the shell hooks do: it starts the CLI, and the CLI starts `claude -p`.
 
 A mod can ask the model directly. `$.model.complete` sends one request through
-the session's own client and credentials. Two measurements, both from
-8 October 2026 on Claude Code 2.1.294 with `haiku` and a prompt asking for one
-word:
+the session's own client and credentials. Measured on 8 October 2026 on Claude
+Code 2.1.294, with `haiku` and a prompt asking for one word:
 
-| Route | Run 1 | Run 2 | Run 3 |
+| What was timed | Run 1 | Run 2 | Run 3 |
 |---|---|---|---|
-| `claude -p` with the judge's flags, whole process | 5.7 s | 5.5 s | 6.5 s |
-| the same call's own model time (`duration_api_ms`) | 0.6 s | 0.7 s | 0.7 s |
+| `claude -p` with the judge's flags, started directly | 3.2 s | 2.2 s | 2.0 s |
+| the same call's own model time (`duration_api_ms`) | 1.9 s | 0.6 s | 0.7 s |
+| so, starting `claude -p` | 1.4 s | 1.6 s | 1.3 s |
 | `$.model.complete` inside a mod | 0.7 s | 0.7 s | 0.7 s |
+| one extra CLI run, which this route adds per question | 0.18 s | 0.18 s | 0.18 s |
 
-So about 5 seconds of every check goes to starting a second copy of Claude
-Code. The docs check has a 15 second budget (`DOCS_JUDGE_CALL_MS`), and a
-clean Markdown write waits for it before the file is saved.
+So each question spends about 1.4 seconds starting a second copy of Claude
+Code, and this route would save about 1.2 seconds of that. A whole write check
+on the current route took 3.0 seconds in each of three runs. A clean Markdown
+write waits for it before the file is saved.
+
+A first measurement put the start-up at about 5 seconds. It timed the `claude`
+shell function on the maintainer's machine, which loads secrets before it
+starts the program. The CLI starts the program directly, so that figure did not
+apply.
 
 The answers do not change with the route. On 2026-10-08, 16 judge prompts
 went through both routes with `haiku` (twice each) and `sonnet` (once), and
@@ -105,15 +112,16 @@ Each step is test first, and each ends green.
    `$.model.complete` stubbed in `tests/register.test.ts`. Tests for one
    question, two questions in a row, an API error, a cancelled turn and a run
    limit of three.
-3. Live check in an interactive session: a clean Markdown write and a long
-   reply each show the expected verdict, and the write no longer waits
-   5 seconds.
+3. Live check in a real session: a clean Markdown write and a long reply each
+   show the expected verdict, and the model-call log shows no `claude -p`
+   process.
 4. Update the mod's README and `docs/agents.md` with the new route and the
    measured times.
 
 ## Consequences
 
-- A checked write or reply saves about 5 seconds for each model question.
+- A checked write or reply saves about 1.2 seconds for each model question:
+  a third or more of a clean Markdown write's check.
 - The CLI gains a second output shape, a model request. Only the mod asks for
   it. It is internal to the plugin and is not part of the hook contract other
   agents use.
@@ -130,8 +138,8 @@ Each step is test first, and each ends green.
 
 ## Alternatives considered
 
-- **Do nothing.** Every clean Markdown write keeps waiting about 6 seconds, and
-  a long reply up to about 12.
+- **Do nothing.** A clean Markdown write keeps waiting about 3 seconds for its
+  check, and a long reply that gets both questions about twice that.
 - **Move the decision code into the mod.** Two copies of the rules for when to
   ask and what to do with the answer, which then drift apart.
 - **Keep one CLI process and talk to it while it runs.** The decision code calls
@@ -142,6 +150,7 @@ Each step is test first, and each ends green.
 ## Re-evaluation triggers
 
 - `$.model.complete` changes shape, or stops using the session's credentials.
-- Startup of `claude -p` falls under one second, which removes the gain.
+- Startup of `claude -p` falls under half a second, which removes most of the
+  gain.
 - A second host offers an in-process model call, which would reuse the request
   shape.

@@ -122,7 +122,7 @@ const MAX_CHECKER_RUNS = 3
  * Runs the CLI's hook adapter on one payload and returns its stdout.
  *
  * The CLI hands each model question back instead of starting `claude -p`,
- * which saves about 5 seconds per question on 2.1.294. The mod asks the
+ * which saves about 1.2 seconds per question on 2.1.294. The mod asks the
  * session's model and runs the CLI again with every answer so far; the CLI
  * replays its decision and finds them (ADR-006). Where the call cannot be made
  * at all, the check runs once more the old way.
