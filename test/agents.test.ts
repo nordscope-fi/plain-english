@@ -33,6 +33,12 @@ function write(dir: string, content = BAD) {
 }
 
 function nativeWrite(id: string, dir: string, content = BAD) {
+  if (id === "antigravity") {
+    return {
+      conversationId: "test-conversation", workspacePaths: [dir],
+      toolCall: { name: "write_to_file", args: { TargetFile: resolve(dir, "x.md"), CodeContent: content } },
+    };
+  }
   if (id === "gemini" || id === "qwen" || id === "vibe") {
     return {
       hook_event_name: id === "gemini" ? "BeforeTool" : id === "qwen" ? "PreToolUse" : "pre_tool",
@@ -498,6 +504,30 @@ describe("codex writes files with apply_patch", () => {
 });
 
 describe("copilot accepts its native camelCase envelope too", () => {
+  it.each(["raw", "native", "object", "serialized object"])("checks %s patch arguments", (shape) => {
+    inTmp((dir) => {
+      const patch = `*** Begin Patch\n*** Add File: notes.md\n+${BAD}\n*** End Patch\n`;
+      const payload = shape === "native" ? { toolName: "apply_patch", toolArgs: patch } : {
+        tool_name: "Edit",
+        tool_input: shape === "object" ? { patch } : shape === "serialized object" ? JSON.stringify({ command: patch }) : patch,
+      };
+      const event = byId("copilot")!.parse({ ...payload, cwd: dir });
+      const d = decide(event, "docs", { projectDir: dir, ruleSet: { ...advisory, failOn: "error" } });
+      expect(d.decision).toBe("deny");
+      expect(d.findings.map((f) => f.ruleId)).toContain("leverage");
+    });
+  });
+
+  it("keeps clean, source, and excluded patch additions separate", () => {
+    inTmp((dir) => {
+      const patch = `*** Begin Patch\n*** Add File: notes.md\n+The cache expires.\n*** Add File: source.ts\n+${BAD}\n*** Add File: ignored.md\n+${BAD}\n*** End Patch\n`;
+      const event = byId("copilot")!.parse({ tool_name: "Edit", tool_input: patch, cwd: dir });
+      expect(event.tool).toBe("patch");
+      const ruleSet = compile({ ...loadDefault(), failOn: "error", exclude: ["ignored.md"] });
+      expect(decide(event, "docs", { projectDir: dir, ruleSet }).decision).toBe("allow");
+    });
+  });
+
   it("reads toolName and toolArgs", () => {
     inTmp((dir) => {
       const event = byId("copilot")!.parse({
@@ -508,6 +538,21 @@ describe("copilot accepts its native camelCase envelope too", () => {
       const d = decide(event, "docs", { projectDir: dir, ruleSet: advisory });
       expect(d.findings.map((f) => f.ruleId)).toContain("leverage");
     });
+  });
+});
+
+describe("Cursor native issue selection", () => {
+  it("selects native and compatibility saves while excluding unrelated tools", () => {
+    const plan = byId("cursor")!.plan({ prompts: {}, model: "audit" });
+    for (const event of ["preToolUse", "postToolUse"]) {
+      const entry = plan.config.find((c) => c.at.at(-1) === event)!.entries.find((row) =>
+        (row as { command?: string }).command?.includes("hook issue")) as { matcher: string };
+      const matcher = new RegExp(entry.matcher);
+      for (const name of ["MCP:save_issue", "MCP:save_comment", "mcp__linear__save_issue", "mcp__linear__save_comment"])
+        expect(matcher.test(name), name).toBe(true);
+      for (const name of ["MCP:search_issues", "MCP:save_file", "MCP:save_issue_preview", "Write"])
+        expect(matcher.test(name), name).toBe(false);
+    }
   });
 });
 

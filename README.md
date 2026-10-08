@@ -134,8 +134,8 @@ npx plain-english init --agent codex
 
 The dry run shows the diff first.
 
-Supported names are `claude-code`, `copilot`, `codex`, `cursor`, `vibe`, `gemini`, and
-`qwen`. Use `--agent all` to install every profile.
+Supported names are `claude-code`, `copilot`, `codex`, `cursor`, `vibe`, `gemini`,
+`antigravity`, and `qwen`. Use `--agent all` to install every profile.
 
 The hooks can check file edits, commit and pull request text, issue text, and completed
 chat replies. Each agent exposes different hook events and trust controls. Read
@@ -152,7 +152,7 @@ writing settings or launchers into the project.
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.7.0
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.8.0
   with:
     paths: docs README.md
     fail-on: error
@@ -169,7 +169,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.7.0
+    rev: v1.8.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

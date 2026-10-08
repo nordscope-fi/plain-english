@@ -3,11 +3,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
-import { field, latestUserTurnId, inScope, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
+import { field, inScope, readJsonl, withinDays, type Availability, type ChatReader, type ReadOptions, type Reply } from "./reader.ts";
 
 export function geminiHome(): string {
   const base = process.env["GEMINI_CLI_HOME"] || homedir();
-  return basename(base) === ".gemini" ? resolve(base) : resolve(base, ".gemini");
+  return resolve(base, ".gemini");
 }
 
 function projectMappings(): Map<string, string> {
@@ -38,7 +38,7 @@ function files(options: ReadOptions, now: number): File[] {
       for (const entry of entries) {
         const path = resolve(dir, entry.name);
         if (entry.isDirectory()) { walk(path, true); continue; }
-        if (!entry.name.endsWith(".jsonl")) continue;
+        if (!/\.jsonl?$/.test(entry.name)) continue;
         let mtime: number;
         try { mtime = statSync(path).mtimeMs; } catch { continue; }
         if (options.sinceDays !== undefined && now - mtime > options.sinceDays * 86400000) continue;
@@ -62,18 +62,61 @@ function textOf(record: Record<string, unknown>): string {
   }).join("");
 }
 
+interface Message { record: Record<string, unknown>; line: number }
+
+/** Apply native message updates, snapshots, and rewinds before reading replies. */
+function conversation(path: string): { session: string; messages: Message[] } {
+  let session = basename(path).replace(/\.jsonl?$/, "");
+  const messages = new Map<string, Message>();
+  const put = (value: unknown, line: number) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    const record = value as Record<string, unknown>;
+    messages.set(field(record, "id") ?? `line:${line}`, { record, line });
+  };
+  const apply = (record: Record<string, unknown>, line: number) => {
+    if (typeof record["sessionId"] === "string") session = record["sessionId"];
+    const rewind = field(record, "$rewindTo");
+    if (rewind) {
+      const ids = [...messages.keys()];
+      const index = ids.indexOf(rewind);
+      if (index < 0) messages.clear();
+      else for (const id of ids.slice(index)) messages.delete(id);
+      return;
+    }
+    const update = record["$set"];
+    if (update && typeof update === "object" && !Array.isArray(update)) {
+      const metadata = update as Record<string, unknown>;
+      if (typeof metadata["sessionId"] === "string") session = metadata["sessionId"];
+      if (Array.isArray(metadata["messages"])) {
+        messages.clear();
+        for (const message of metadata["messages"]) put(message, line);
+      }
+      return;
+    }
+    if (Array.isArray(record["messages"])) {
+      for (const message of record["messages"]) put(message, line);
+    } else if (typeof record["id"] === "string" || record["type"] === "user" || record["type"] === "gemini") {
+      put(record, line);
+    }
+  };
+  if (path.endsWith(".json")) {
+    try { apply(JSON.parse(readFileSync(path, "utf8")), 1); }
+    catch { /* Retained legacy sessions can also be incomplete. */ }
+  } else readJsonl(path, apply);
+  return { session, messages: [...messages.values()] };
+}
+
 function replies(path: string, subagent: boolean): Reply[] {
   const out: Reply[] = [];
-  let session = basename(path, ".jsonl");
-  readJsonl(path, (record, line) => {
-    if (typeof record["sessionId"] === "string") session = record["sessionId"];
+  const { session, messages } = conversation(path);
+  for (const { record, line } of messages) {
     const text = textOf(record);
-    if (!text.trim()) return;
+    if (!text.trim()) continue;
     const reply: Reply = { text, isSubagent: subagent, session, source: path, line };
     const at = typeof record["timestamp"] === "string" ? record["timestamp"] : undefined;
     if (at) reply.at = at;
     out.push(reply);
-  });
+  }
   return out;
 }
 
@@ -91,9 +134,18 @@ export const geminiChat: ChatReader = {
     );
   },
   turnId(payload: Record<string, unknown>): string | undefined {
-    return latestUserTurnId(field(payload, "transcript_path", "transcriptPath"), (record) => {
-      return record["type"] === "user";
-    });
+    const path = field(payload, "transcript_path", "transcriptPath");
+    if (!path) return undefined;
+    let latest: string | undefined;
+    for (const { record, line } of conversation(path).messages) {
+      if (record["type"] !== "user" || record["isMeta"] === true || record["injected"] === true) continue;
+      const content = record["content"];
+      const text = typeof content === "string" ? content : Array.isArray(content)
+        ? content.map((part) => part && typeof part === "object" && typeof part.text === "string" ? part.text : "").join("") : "";
+      if (!text.trim() || /^(?:[/?]|<(?:session|hook)_context>)/.test(text.trim())) continue;
+      latest = `${path}:${field(record, "id") ?? line}`;
+    }
+    return latest;
   },
 
   current(payload: Record<string, unknown>): Reply | null {

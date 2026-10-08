@@ -31,7 +31,7 @@ const RUNNER = runnerPath(".cursor");
 const CHANNELS = [
   { channel: "docs", matcher: "Write|Edit|MultiEdit" },
   { channel: "github", matcher: "Shell" },
-  { channel: "issue", matcher: "mcp__linear__save_issue|mcp__linear__save_comment" },
+  { channel: "issue", matcher: "^(?:MCP:save_(?:issue|comment)|mcp__linear__save_(?:issue|comment))$" },
 ] as const;
 
 export const cursor: AgentProfile = {

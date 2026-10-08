@@ -19,6 +19,7 @@ import { codex } from "./codex.ts";
 import { copilot } from "./copilot.ts";
 import { cursor } from "./cursor.ts";
 import { gemini } from "./gemini.ts";
+import { antigravity } from "./antigravity.ts";
 import { qwen } from "./qwen.ts";
 import { vibe } from "./vibe.ts";
 
@@ -30,6 +31,7 @@ export const PROFILES: readonly AgentProfile[] = [
   cursor,
   vibe,
   gemini,
+  antigravity,
   qwen,
 ];
 

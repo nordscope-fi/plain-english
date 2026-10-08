@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { compile, loadDefault } from "../src/rules.ts";
 import { agentIds } from "../src/agents/registry.ts";
+import { parseCommands } from "../src/shell.ts";
 
 /**
  * End-to-end exit codes, run through the built CLI.
@@ -75,6 +76,28 @@ describe("blocking is opt-in", () => {
 
   it("--fail-on never exits 0 on a blocking finding", () => {
     expect(run(["lint", "blocking.md", "--fail-on", "never"], advisory)).toBe(0);
+  });
+});
+
+describe("the declared repository self-lint command", () => {
+  it("overrides advisory configuration for errors, while allowing warnings and clean prose", () => {
+    const root = resolve(import.meta.dirname, "..");
+    const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+    const commands = parseCommands(pkg.scripts["lint:self"]);
+    expect(commands).toHaveLength(1);
+    const words = commands[0]!.words.map((word) => word.text);
+    expect(words[0]).toBe("node");
+    const fixture = resolve(dir, "self-lint");
+    mkdirSync(resolve(fixture, "docs"), { recursive: true });
+    for (const path of ["README.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "AGENTS.md"])
+      writeFileSync(resolve(fixture, path), "");
+    writeFileSync(resolve(fixture, ".plain-english.yml"), "version: 1\nextends: default\nfailOn: never\n");
+    const args = [resolve(root, words[1]!), ...words.slice(2)];
+    for (const [text, code] of [["We leverage this approach.", 1], ["The cache silently expires.", 0], ["The cache expires hourly.", 0]] as const) {
+      writeFileSync(resolve(fixture, "README.md"), text);
+      const result = spawnSync(process.execPath, args, { cwd: fixture, encoding: "utf8" });
+      expect(result.status, result.stdout + result.stderr).toBe(code);
+    }
   });
 });
 

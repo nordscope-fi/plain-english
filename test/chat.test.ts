@@ -312,7 +312,7 @@ describe("Copilot session store", () => {
 
 describe("the reader registry", () => {
   it("covers every agent this package supports", () => {
-    expect(readerIds().sort()).toEqual(["claude-code", "codex", "copilot", "cursor", "gemini", "qwen", "vibe"]);
+    expect(readerIds().sort()).toEqual(["antigravity", "claude-code", "codex", "copilot", "cursor", "gemini", "qwen", "vibe"]);
     for (const id of readerIds()) expect(readerFor(id)?.id).toBe(id);
   });
 
@@ -327,8 +327,9 @@ describe("the reader registry", () => {
     setEnv("GEMINI_CLI_HOME", resolve(home, "absent"));
     setEnv("QWEN_HOME", resolve(home, "absent"));
     setEnv("VIBE_HOME", resolve(home, "absent"));
+    setEnv("PLAIN_ENGLISH_ANTIGRAVITY_HOME", resolve(home, "absent"));
     const results = readAll(READERS, {});
-    expect(results).toHaveLength(7);
+    expect(results).toHaveLength(8);
     for (const r of results) {
       expect(r.replies).toEqual([]);
       expect(r.unavailable, `${r.id} should say why it found nothing`).toBeTruthy();

@@ -256,7 +256,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
     return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
-  const reason = formatReason(failing, "chat", "This reply");
+  const reason = formatReason(failing, "chat", "This reply", tier);
 
   // Advisory tier. Nothing is refused, and the user is told. On this channel
   // there is no write to hold up, so the default costs a line of output and

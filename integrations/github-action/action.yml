@@ -37,7 +37,7 @@ runs:
       shell: bash
       run: |
         npx --yes plain-english@${{ inputs.version }} lint \
-          ${{ inputs.paths }} --format sarif > "${{ inputs.sarif-file }}"
+          ${{ inputs.paths }} --format sarif --fail-on never > "${{ inputs.sarif-file }}"
 
     - name: Lint files
       shell: bash

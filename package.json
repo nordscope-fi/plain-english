@@ -1,7 +1,7 @@
 {
   "name": "plain-english",
-  "version": "1.7.0",
-  "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI and Qwen Code.",
+  "version": "1.8.0",
+  "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI, Antigravity and Qwen Code.",
   "keywords": [
     "linter",
     "lint",
@@ -23,6 +23,7 @@
     "vibe",
     "mistral",
     "gemini-cli",
+    "antigravity",
     "qwen-code",
     "agents-md",
     "sarif",
@@ -41,7 +42,8 @@
   "type": "module",
   "sideEffects": false,
   "bin": {
-    "plain-english": "dist/cli.js"
+    "plain-english": "dist/cli.js",
+    "plain-english-pre-commit": "integrations/claude-code-plugin/dist/cli.mjs"
   },
   "main": "dist/lint.js",
   "types": "dist/lint.d.ts",
@@ -65,7 +67,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-plugin.mjs",
     "render": "node dist/cli.js render",
-    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md AGENTS.md",
+    "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md AGENTS.md --fail-on error",
     "policy": "node dist/cli.js policy",
     "policy:check": "node dist/cli.js policy --check",
     "check:refs": "bash scripts/check-no-private-refs.sh",

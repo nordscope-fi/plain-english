@@ -53,6 +53,7 @@ const AGENT_REQUIREMENTS: Partial<Record<string, string>> = {
   cursor: "requires a trusted workspace",
   vibe: "requires a trusted folder",
   gemini: "requires project hook trust",
+  antigravity: "requires workspace trust in interactive sessions",
   qwen: "requires project hook trust",
 };
 

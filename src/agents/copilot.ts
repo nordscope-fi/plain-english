@@ -21,7 +21,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import type { Decision } from "../adapters/hook.ts";
 import { CHAT_HOOK_TIMEOUT_SECONDS } from "../chat/budget.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent, PlanContext } from "./profile.ts";
-import { editFields, asArgs, asRecord, issueFields, pick, pickArray } from "./fields.ts";
+import { editFields, asArgs, asRecord, issueFields, parseApplyPatch, pick, pickArray } from "./fields.ts";
 import { HOOK_RUNNER, runnerCommand, runnerPath } from "./runner.ts";
 
 const RUNNER = runnerPath(".github");
@@ -79,6 +79,15 @@ export const copilot: AgentProfile = {
     const cwd = pick(raw, "cwd") || undefined;
     const name = pick(raw, "tool_name", "toolName");
     const filePath = pick(input, "file_path", "filePath", "path");
+
+    if (name.toLowerCase() === "edit" || name.toLowerCase() === "apply_patch") {
+      for (const value of [raw["tool_input"], raw["toolArgs"], input]) {
+        const patch = typeof value === "string" ? value : pick(asRecord(value), "patch", "input", "command");
+        if (!patch || patch.length > 256 * 1024) continue;
+        const files = parseApplyPatch(patch);
+        if (files.length) return { tool: "patch", cwd, input: { files } };
+      }
+    }
 
     // PascalCase mode reports Claude's names (`Bash`, `Read`, `Write`, `Edit`);
     // native mode reports Copilot's own (`bash`, `view`, `create`, `edit`,

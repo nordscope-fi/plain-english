@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
+import { antigravityCwd } from "./agents/antigravity.ts";
+import { chatTurnId } from "./chat/turn.ts";
 import { renderAll, renderPrompts, writeTargets } from "./render.ts";
 import { projectGuidance } from "./guidance.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
@@ -771,6 +773,7 @@ function ruleSetFor(cwd: string): RuleSet {
 }
 
 function modelChecksEnabled(ruleSet: RuleSet, agent: string): boolean {
+  if (byId(agent)?.supportsModelChecks === false) return false;
   return ruleSet.modelChecks ?? (agent === "claude-code" ||
     (agent === "vibe" && process.env["PLAIN_ENGLISH_VIBE_JUDGE"] === "1"));
 }
@@ -796,11 +799,12 @@ function hookChat(
   const reply = reader.current(payload);
   if (!reply || !reply.text.trim()) return 0;
 
-  const cwd = typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd();
+  const cwd = (profile.id === "antigravity" ? antigravityCwd(payload) : undefined) ??
+    byId(profile.id)?.parse(payload).cwd ??
+    (typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd());
   const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
   const ruleSet = ruleSetFor(cwd);
-  const turn = String(payload["prompt_id"] ?? payload["promptId"] ?? payload["turn_id"] ??
-    payload["turnId"] ?? reader.turnId?.(payload) ?? payload["session_id"] ?? payload["sessionId"] ?? "");
+  const turn = chatTurnId(payload, reader, reply, cwd);
   const helper = payload["agent_id"] ?? payload["subagent_id"];
   // A helper may share the parent's turn id while producing its own reply.
   const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
@@ -873,7 +877,8 @@ function hookChat(
     projectDir: resolve(cwd),
     // Both Claude Code and Copilot document this, and it is the agent telling
     // you the current turn exists because a hook blocked the last one.
-    stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true,
+    stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true ||
+      (profile.id === "cursor" && typeof payload["loop_count"] === "number" && payload["loop_count"] > 0),
     promptId,
   });
 
@@ -1044,7 +1049,7 @@ LINT --chat OPTIONS
   step and the GitHub Action takes no --chat input.
 
   --agent ID|all                     claude-code, copilot, codex, cursor, vibe,
-                                     gemini, qwen
+                                     gemini, antigravity, qwen
                                      (default: all)
   --since DAYS                       how far back to look (default: 30).
                                      Bounded by the agent's own retention.
@@ -1073,7 +1078,7 @@ PROFILE OPTIONS
 
 INIT OPTIONS
   --agent ID                         claude-code (default), copilot, codex,
-                                     cursor, vibe, gemini, qwen, or all
+                                     cursor, vibe, gemini, antigravity, qwen, or all
   --user                             also write outside the repo, under ~.
                                      Copilot compatibility fallback only.
   --dry-run                          print what would change

@@ -125,6 +125,8 @@ export interface SettingPatch {
   path: string;
   scope?: "repo" | "user";
   set: Record<string, unknown>;
+  /** Add context filenames without replacing native defaults or user choices. */
+  append?: { at: string[]; values: string[]; defaults?: string[] }[];
 }
 
 /** Everything `init` needs to wire one agent up. */
@@ -231,6 +233,8 @@ export interface AgentProfile {
   /** Phase where the host can deliver advisory prose to the model. */
   advisoryPhase?: HookEvent;
   supportsAsk: boolean;
+  /** False when this profile has no optional model-review implementation. */
+  supportsModelChecks?: boolean;
   /**
    * Anything about this machine that would stop an installed hook from running.
    *
