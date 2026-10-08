@@ -56,6 +56,9 @@ describe("the plugin's hook files as the directory reads them", () => {
     const issueTools = readFileSync(resolve(PLUGIN, "hooks/issue-tools.mjs"), "utf8");
     expect(issueTools).not.toMatch(/htmlparser2|node_modules/);
     expect(issueTools).not.toMatch(/https?:\/\//);
+    // Revalidated on b6d97f1: the directory read `${WRITE_NAMES}` as "a
+    // command assembled at run time", so the pattern is one fixed string.
+    expect(issueTools).not.toContain("${");
     expect(issueTools).toContain("ISSUE_TOOLS");
   });
 });
