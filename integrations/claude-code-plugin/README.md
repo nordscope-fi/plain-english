@@ -18,11 +18,21 @@ The plugin carries its own copy of the CLI under `dist/`, one file with every de
 
 Three things happen without any prompt from you.
 
-1. **A write is refused.** Claude tries to save a document that opens with `Furthermore, the build is slow.` The save does not happen. Claude reads `"Furthermore" (furthermore) Start the sentence with its own point.` and rewrites.
-2. **A reply is held.** Claude ends a turn with a reply over the length limit, or one carrying a stock phrase. The turn does not end. Claude reads the finding and answers again, once.
-3. **A commit message is refused.** `git commit -m "Leverage the new cache"` never runs. Claude reads `"leverage" (leverage) Use 'use'.` and commits with a plainer message.
+1. **A save is questioned.** Claude tries to save `notes.md` opening with `Furthermore, the build is slow.` Before the file is written, a dialog headed `Prose check` opens:
 
-The example sentences above sit in code spans so this file passes its own check.
+   ```text
+   plain-english found one passage in notes.md that breaks its rules:
+
+   line 1: "Furthermore" (furthermore) Start the sentence with its own point.
+
+   Refusing hands Claude the findings and a way to fix each. Save the file as it is?
+   ```
+
+   Two answers: save it as it is, or refuse so Claude rewrites. A refusal hands Claude the finding and the ways to resolve it, and Claude rewrites. With `failOn: error` in the project config there is no dialog: the save is refused outright and Claude reads the finding.
+2. **A reply is held.** Claude ends a turn with a reply over the length limit, or one carrying a stock phrase. The turn does not end. Claude reads the finding and answers again, once.
+3. **A commit message is questioned the same way.** `git commit -m "Leverage the new cache"` waits on the dialog, which names the commit message and quotes `"leverage" (leverage) Use 'use'.` Under `failOn: error` the command is refused and Claude commits with a plainer message.
+
+The example sentences above sit in code spans and a code block so this file passes its own check.
 
 And one command you run yourself: `/plain-english docs/` lints those files and prints the findings, with no model turn.
 
@@ -30,7 +40,7 @@ And one command you run yourself: `/plain-english docs/` lints those files and p
 
 | Event | What the hook does |
 | --- | --- |
-| `tool.call` | On `Write`, `Edit` and `MultiEdit` of a `.md` or `.mdx` file, on a `Bash` command that is `git commit`, `gh pr`, `gh issue` or `gh release`, and on the Linear MCP save tools: runs the CLI's hook adapter on the call and returns its decision. A deny refuses the call with the reason. An ask puts the question to you in the engine's own dialog, and refuses where nobody can answer. Everything else passes through untouched. |
+| `tool.call` | On `Write`, `Edit` and `MultiEdit` of a `.md` or `.mdx` file, on a `Bash` command that is `git commit`, `gh pr`, `gh issue` or `gh release`, and on the Linear MCP save tools: runs the CLI's hook adapter on the call and returns its decision. A deny refuses the call with the reason. An ask opens a dialog headed `Prose check` that names the file or command and quotes one passage with its rule; a refusal there hands Claude the full finding, and where nobody can answer it refuses. Everything else passes through untouched. |
 | `classic.Stop`, `classic.SubagentStop` | Runs the chat adapter on the reply. A block holds the turn with the reason, in an interactive session and under `claude -p` alike. |
 | `session.start` | Registers `/plain-english`. |
 | `command.run` | `/plain-english [paths]` lints the working tree and prints the findings. No model turn. |

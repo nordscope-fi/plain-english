@@ -1,6 +1,6 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { WRITE_COMMAND, readChatVerdict, readToolVerdict, toolPayload } from './wire'
+import { WRITE_COMMAND, askFor, readChatVerdict, readToolVerdict, toolPayload } from './wire'
 
 /** Files the docs channel judges. The CLI strips code and frontmatter itself. */
 const MARKDOWN = /\.(md|mdx)$/i
@@ -102,17 +102,22 @@ export const register: Register = on => {
     if (verdict.kind === 'deny') return { deny: verdict.reason }
     if (verdict.kind === 'ask') {
       // The settings hook's `ask` hands the decision to the person. So does
-      // this, in the engine's own dialog; nobody to ask (a -p run) refuses.
-      let answer = 'Refuse'
+      // this, in the engine's own dialog, with a question written for them;
+      // the model's guidance travels in the deny. Nobody to ask (a -p run)
+      // refuses.
+      const ask = askFor(channel, e, here.cwd, verdict.reason)
+      let answer = ask.refuse
       try {
-        answer = await $.ui.ask(`${verdict.reason} Write it anyway?`, [
-          'Write it anyway',
-          'Refuse',
-        ])
+        answer = await $.ui.ask(ask.question, {
+          header: ask.header,
+          options: [ask.allow, ask.refuse],
+        })
       } catch {
         // dismissed, or no one to ask
       }
-      if (answer !== 'Write it anyway') return { deny: verdict.reason }
+      if (answer !== ask.allow) {
+        return { deny: `The user was asked and refused this write.\n\n${verdict.reason}` }
+      }
     }
     return next(e)
   }).catch(($, e, next) => next(e))

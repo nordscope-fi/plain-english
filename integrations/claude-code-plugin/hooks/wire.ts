@@ -92,3 +92,110 @@ export function readChatVerdict(stdout: string): ChatVerdict {
   }
   return notice === undefined ? { kind: 'pass' } : { kind: 'pass', notice }
 }
+
+/** One quoted passage, as the CLI's reason lists them. */
+export interface Passage {
+  line: number
+  match: string
+  ruleId: string
+  hint?: string
+}
+
+/**
+ * A finding line as `formatReason` in the CLI prints it:
+ * `  line 3: "Furthermore" (furthermore) Start the sentence with its own point.`
+ * The CLI and this module ship in one bundle, so the shape cannot drift
+ * between them unseen; a line that does not match is simply not a passage.
+ */
+const PASSAGE = /^\s+line (\d+): ("(?:[^"\\]|\\.)*") \(([\w-]+)\)(?: (.*))?$/
+
+/** The passages quoted in a reason, in the order the CLI gave them. */
+export function readPassages(reason: string): Passage[] {
+  const passages: Passage[] = []
+  for (const line of reason.split('\n')) {
+    const m = PASSAGE.exec(line)
+    if (m === null) continue
+    let match = m[2] ?? '""'
+    try {
+      match = String(JSON.parse(match))
+    } catch {
+      // the quoted form is still readable
+    }
+    const passage: Passage = { line: Number(m[1]), match, ruleId: m[3] ?? '' }
+    if (m[4] !== undefined && m[4] !== '') passage.hint = m[4]
+    passages.push(passage)
+  }
+  return passages
+}
+
+/** The dialog an advisory finding opens: its text, its chip and its two answers. */
+export interface Ask {
+  question: string
+  header: string
+  allow: string
+  refuse: string
+}
+
+/** The chip beside the question; the engine allows twelve characters. */
+const HEADER = 'Prose check'
+const REFUSE = 'Refuse so Claude rewrites'
+
+/** What was about to happen, and the thing it would have happened to. */
+function subjectOf(
+  channel: 'docs' | 'github' | 'issue',
+  e: Readonly<Record<string, unknown>>,
+  cwd: string,
+): { subject: string; verb: string; allow: string } {
+  if (channel === 'docs') {
+    let path = String(e['file_path'] ?? 'a file')
+    if (path.startsWith(`${cwd}/`)) path = path.slice(cwd.length + 1)
+    return { subject: path, verb: 'Save the file as it is?', allow: 'Save it as it is' }
+  }
+  if (channel === 'github') {
+    const command = String(e['command'] ?? '')
+    let subject = 'the commit message'
+    if (/\bgh\s+pr\b/i.test(command)) subject = 'the pull request text'
+    else if (/\bgh\s+issue\b/i.test(command)) subject = 'the issue text'
+    else if (/\bgh\s+release\b/i.test(command)) subject = 'the release notes'
+    return { subject, verb: 'Run the command as it is?', allow: 'Run it as it is' }
+  }
+  return { subject: 'the Linear issue', verb: 'Send it as it is?', allow: 'Send it as it is' }
+}
+
+/**
+ * The question a person sees when a finding is advisory.
+ *
+ * The CLI's reason is written for the model: how to rewrite, and the narrower
+ * ways to get past the check. Shown to a person it reads as instructions to
+ * somebody else, with the actual question tacked on at the end. This names the
+ * plugin, the file or command, one quoted passage with its rule, and asks a
+ * question the person can answer. The model's text stays in the deny reason.
+ */
+export function askFor(
+  channel: 'docs' | 'github' | 'issue',
+  e: Readonly<Record<string, unknown>>,
+  cwd: string,
+  reason: string,
+): Ask {
+  const { subject, verb, allow } = subjectOf(channel, e, cwd)
+  const passages = readPassages(reason)
+  const first = passages[0]
+  const lines: string[] = []
+
+  if (first === undefined) {
+    lines.push(`plain-english found writing in ${subject} that breaks its rules.`)
+  } else if (passages.length === 1) {
+    lines.push(`plain-english found one passage in ${subject} that breaks its rules:`)
+  } else {
+    lines.push(
+      `plain-english found ${passages.length} passages in ${subject} that break its rules. The first:`,
+    )
+  }
+  if (first !== undefined) {
+    const hint = first.hint === undefined ? '' : ` ${first.hint}`
+    lines.push('', `line ${first.line}: "${first.match}" (${first.ruleId})${hint}`)
+  }
+  lines.push('', `Refusing hands Claude the findings and a way to fix each. ${verb}`)
+
+  return { question: lines.join('\n'), header: HEADER, allow, refuse: REFUSE }
+}
