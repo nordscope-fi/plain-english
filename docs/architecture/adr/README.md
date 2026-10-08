@@ -22,3 +22,4 @@ on.
 | 003 | [Severity gradient (warn some words, block others)](003-severity-gradient.md) | Accepted |
 | 004 | [Ruleset is data, not code](004-ruleset-is-data.md) | Accepted |
 | 005 | [Graduated escape hatch](005-graduated-escape-hatch.md) | Accepted |
+| 006 | [Model checks run through the Claude Code mod when it can make the call](006-model-checks-through-the-host.md) | Accepted |

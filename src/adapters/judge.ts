@@ -20,6 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { lintText, type Finding } from "../lint.ts";
 import type { RuleSet } from "../rules.ts";
 import type { ChatReader, Reply } from "../chat/reader.ts";
@@ -194,6 +195,101 @@ export interface JudgeOptions {
   onUnavailable?: (reason: string) => void;
   /** Provider usage only, with missing measurements preserved as null. */
   onMeasurement?: (measurement: JudgeMeasurement) => void;
+  /** Answers from the Claude Code mod, which asks the model itself (ADR-006). */
+  host?: HostRoute;
+}
+
+/** One answer the mod got for a model request, keyed by `hostKey`. */
+export interface HostAnswer {
+  key: string;
+  /** The model's reply. Absent when the mod got none. */
+  text?: string;
+  /** Why there is no reply, in `onUnavailable`'s words. */
+  unavailable?: "timed out" | "failed";
+  /** Token counts the mod reported, with `TOKEN_FIELDS` names. */
+  usage?: Record<string, number>;
+}
+
+/**
+ * The answers so far, and the deadline the first run fixed.
+ *
+ * The CLI replays the whole decision on every run, so an answer it has already
+ * used comes back again. Only the newest answer is new to this run.
+ */
+export interface HostRoute {
+  answers: HostAnswer[];
+  deadline?: number;
+}
+
+/** What the mod is asked to send, printed instead of a decision. */
+export interface HostRequest {
+  key: string;
+  prompt: string;
+  timeoutMs: number;
+}
+
+/**
+ * Thrown when a question has no answer yet. `cmdHook` catches it before its
+ * fail-open handler and prints the request. Nothing is written before a judge
+ * is asked, so the run that throws leaves no state behind.
+ */
+export class ModelRequest extends Error {
+  constructor(readonly request: HostRequest) {
+    super("model answer needed");
+  }
+}
+
+/** The key an answer is filed under: the whole filled prompt, hashed. */
+export function hostKey(filled: string): string {
+  return createHash("sha256").update(filled).digest("hex");
+}
+
+/** Read the mod's answers off a payload, or `undefined` when the route is off. */
+export function hostRoute(payload: Record<string, unknown>, env: NodeJS.ProcessEnv = process.env): HostRoute | undefined {
+  if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host") return undefined;
+  const raw = payload["plainEnglishModel"];
+  const record = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const answers = Array.isArray(record["answers"]) ? record["answers"].flatMap((item): HostAnswer[] => {
+    if (typeof item !== "object" || item === null) return [];
+    const answer = item as Record<string, unknown>;
+    if (typeof answer["key"] !== "string") return [];
+    const usage = typeof answer["usage"] === "object" && answer["usage"] !== null ? answer["usage"] as Record<string, number> : undefined;
+    return [{
+      key: answer["key"],
+      ...(typeof answer["text"] === "string" ? { text: answer["text"] } : {}),
+      ...(answer["unavailable"] === "timed out" ? { unavailable: "timed out" as const } : {}),
+      ...(usage ? { usage } : {}),
+    }];
+  }) : [];
+  const deadline = typeof record["deadline"] === "number" && Number.isFinite(record["deadline"]) ? record["deadline"] : undefined;
+  return { answers, ...(deadline !== undefined ? { deadline } : {}) };
+}
+
+function answerFromHost(filled: string, opts: JudgeOptions, host: HostRoute): Verdict | undefined {
+  const key = hostKey(filled);
+  const index = host.answers.findIndex((answer) => answer.key === key);
+  if (index === -1) throw new ModelRequest({ key, prompt: filled, timeoutMs: opts.timeoutMs ?? JUDGE_TIMEOUT_MS });
+  const answer = host.answers[index]!;
+  if (index === host.answers.length - 1) {
+    const measurement: JudgeMeasurement = {
+      provider: "claude",
+      outcome: answer.text !== undefined ? "complete" : answer.unavailable === "timed out" ? "timed_out" : "failed",
+      reportedCostUsd: null,
+      invoiceCostUsd: null,
+      costBasis: "unknown",
+      usage: answer.usage ?? null,
+      modelUsage: null,
+    };
+    startJudgeReceipt(opts.env ?? process.env, "claude")(measurement);
+    try { opts.onMeasurement?.(measurement); } catch { /* optional */ }
+  }
+  if (answer.text === undefined) {
+    opts.onUnavailable?.(answer.unavailable ?? "failed");
+    return undefined;
+  }
+  const verdict = parseVerdict(answer.text);
+  if (!verdict) opts.onUnavailable?.("returned no usable answer");
+  return verdict;
 }
 
 /** Run one judge and return its verdict, or `undefined` to defer to the count. */
@@ -203,6 +299,7 @@ export function runJudge(input: string, opts: JudgeOptions): Verdict | undefined
   if (!opts.prompt.includes("$ARGUMENTS")) return undefined;
 
   const filled = opts.prompt.replace("$ARGUMENTS", input);
+  if (opts.host) return answerFromHost(filled, opts, opts.host);
   const provider = opts.command === "claude" ? "claude" : opts.command === "vibe" ? "vibe" : "unknown";
   const formatIndex = opts.args.indexOf("--output-format");
   const structuredOutput = formatIndex !== -1 && opts.args[formatIndex + 1] === "json";

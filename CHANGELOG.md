@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-08
+### Changed
+
+- The Claude Code plugin asks its extra model checks through the session itself. It used to start a second copy of Claude Code for each question, which took 1.3 to 1.6 seconds before the question was sent. A check now adds about 0.18 seconds of its own, and asks the model the session is using. Where Claude Code cannot make the call, the plugin falls back to the old route. Settings hooks and other agents are unchanged. See ADR-006.
+
 ## [1.12.4] - 2026-10-08
 ### Fixed
 
@@ -674,7 +679,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.12.4...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.0
 [1.12.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.4
 [1.12.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.3
 [1.12.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.12.2

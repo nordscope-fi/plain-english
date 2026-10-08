@@ -109,7 +109,24 @@ async function approveProjectTerm($: EngineInterface, finding: ReviewFinding, te
   }
 }
 
-/** Runs the CLI's hook adapter on one payload and returns its stdout. */
+/** One question the checker handed back instead of a decision (ADR-006). */
+interface ModelRequest { key: string; prompt: string; timeoutMs: number; deadline?: number; model?: string }
+
+/** The mod's answer to one request, as the checker reads it back. */
+interface ModelAnswer { key: string; text?: string; unavailable?: 'timed out' | 'failed'; usage?: Record<string, number> }
+
+/** One run per model question, plus the run that decides: two questions at most. */
+const MAX_CHECKER_RUNS = 3
+
+/**
+ * Runs the CLI's hook adapter on one payload and returns its stdout.
+ *
+ * The CLI hands each model question back instead of starting `claude -p`,
+ * which saves about 1.2 seconds per question on 2.1.294. The mod asks the
+ * session's model and runs the CLI again with every answer so far; the CLI
+ * replays its decision and finds them (ADR-006). Where the call cannot be made
+ * at all, the check runs once more the old way.
+ */
 async function adapter(
   $: EngineInterface,
   channel: Channel,
@@ -118,7 +135,67 @@ async function adapter(
   timeoutMs: number,
   signal: AbortSignal,
 ): Promise<string> {
-  const variables: Record<string, string> = { CLAUDE_PROJECT_DIR: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
+  const plain: Record<string, string> = { CLAUDE_PROJECT_DIR: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
+  const variables = { ...plain, PLAIN_ENGLISH_MODEL_ROUTE: 'host' }
+  const answers: ModelAnswer[] = []
+  let deadline: number | undefined
+  for (let run = 1; ; run++) {
+    const input = run === 1 ? payload : { ...payload, plainEnglishModel: { deadline, answers } }
+    const ran = await runChecker($, channel, input, cwd, variables, signal)
+    const asked = modelRequest(ran.stdout)
+    if (asked === undefined) return finish($, channel, ran)
+    if (run === MAX_CHECKER_RUNS) throw new Error('check unavailable: the checker kept asking for a model answer.')
+    deadline = asked.deadline
+    const answer = await answerModel($, asked, signal)
+    if (answer === undefined) return finish($, channel, await runChecker($, channel, payload, cwd, plain, signal))
+    answers.push(answer)
+  }
+}
+
+/** The request in a checker's stdout, or `undefined` for anything else. */
+function modelRequest(stdout: string): ModelRequest | undefined {
+  try {
+    const request = (JSON.parse(stdout) as Record<string, unknown>)['plainEnglishModelRequest'] as Record<string, unknown> | undefined
+    if (!request || typeof request['key'] !== 'string' || typeof request['prompt'] !== 'string' || typeof request['timeoutMs'] !== 'number') return undefined
+    return {
+      key: request['key'], prompt: request['prompt'], timeoutMs: request['timeoutMs'],
+      ...(typeof request['deadline'] === 'number' ? { deadline: request['deadline'] } : {}),
+      ...(typeof request['model'] === 'string' ? { model: request['model'] } : {}),
+    }
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Asks the session's model one question. A provider failure becomes an answer
+ * the checker reads as unavailable, so the pattern result stands, as it does
+ * when `claude -p` fails. A call that could not be made at all (an engine
+ * without it, or a request it refuses to send) returns `undefined`, and the
+ * check runs the old way. A cancelled turn is not an answer: it ends the check.
+ */
+async function answerModel($: EngineInterface, asked: ModelRequest, signal: AbortSignal): Promise<ModelAnswer | undefined> {
+  try {
+    const model = asked.model ?? await $.session.model()
+    const reply = await $.model.complete({ model, prompt: asked.prompt, timeoutMs: Math.max(1, Math.round(asked.timeoutMs)) }, { signal })
+    if (reply.isAnswered) return { key: asked.key, text: reply.text, usage: { ...reply.usage } }
+    signal.throwIfAborted()
+    return { key: asked.key, unavailable: reply.reason === 'aborted' ? 'timed out' : 'failed' }
+  } catch {
+    signal.throwIfAborted()
+    return undefined
+  }
+}
+
+/** One CLI run: its output, held to the byte limits, and its exit code. */
+async function runChecker(
+  $: EngineInterface,
+  channel: Channel,
+  payload: Record<string, unknown>,
+  cwd: string,
+  variables: Record<string, string>,
+  signal: AbortSignal,
+): Promise<{ stdout: string; stderr: string }> {
   // The stream follows the dispatch's cancellation signal. The asynchronous
   // wrapper relays it to the CLI's group, including a synchronous model child.
   const stream = $.process.spawn({
@@ -147,6 +224,14 @@ async function adapter(
     await stream.return({ code: null, signal: null })
   }
   if (ran.exitCode !== 0) throw new Error(`check unavailable (exit ${ran.exitCode}). ${ran.stderr.trim()}`)
+  return ran
+}
+
+/**
+ * Checks the deciding run's answer and reports its notices. Only this run's
+ * notices are logged: it replayed every earlier question, so it repeats theirs.
+ */
+function finish($: EngineInterface, channel: Channel, ran: { stdout: string; stderr: string }): string {
   if (ran.stdout.trim() !== '') {
     let parsed: unknown
     try { parsed = JSON.parse(ran.stdout) } catch { throw new Error('check unavailable: the checker returned an unreadable response.') }
