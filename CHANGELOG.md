@@ -4,6 +4,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-10-08
+### Changed
+
+- The Claude Code plugin's checker ships in 32 pieces, the largest 178 KB, so every file is under the Claude directory's 256 KiB read limit. The plugin's copy leaves out the JavaScript parser, a single 573 KB module that only `lint --source-prose` uses. Asking the plugin's copy for source prose now says to use the npm package. Neither the mod nor the pre-commit hooks used it.
+- The mod starts every program with a command written as fixed text: `node hooks/run-checker.mjs` and its subcommand, from the plugin folder. The wrapper runs the checker in the project folder, which it reads from a setting, along with any paths you typed.
+
 ## [1.14.1] - 2026-10-08
 ### Changed
 
@@ -713,7 +719,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.2...HEAD
+[1.14.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.2
 [1.14.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.1
 [1.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.0
 [1.13.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.13.4

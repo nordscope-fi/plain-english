@@ -75,6 +75,32 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held as "Mod starts a program with a command the directory couldn't read
+  // in full": every program the mod starts is written as fixed text.
+  it("start every program with a command written as fixed text", () => {
+    const source = readFileSync(resolve(PLUGIN, "hooks/register.ts"), "utf8");
+    const commands = [...source.matchAll(/\$\.process\.(?:run\(|spawn\(\{\s*argv:\s*)(\[[^\]]*\])/g)].map((match) => match[1]!);
+    expect(commands.length).toBeGreaterThanOrEqual(7);
+    for (const command of commands) {
+      expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
+    }
+  });
+
+  it("run the checker from the plugin folder in the project folder the mod names", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-wrapper-"));
+    try {
+      writeFileSync(resolve(dir, "notes.md"), "Furthermore, it works.\n");
+      const ran = spawnSync(process.execPath, ["hooks/run-checker.mjs", "lint"], {
+        cwd: PLUGIN,
+        encoding: "utf8",
+        env: { ...process.env, PLAIN_ENGLISH_CWD: dir, PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(["notes.md"]), PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
+      });
+      expect(ran.stdout + ran.stderr).toContain("furthermore");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("explain that source prose needs the npm package, since the plugin leaves the parser out", () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pe-plugin-source-"));
     try {

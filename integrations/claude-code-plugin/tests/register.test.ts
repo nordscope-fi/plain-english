@@ -5,10 +5,10 @@ import { readPassages } from '../hooks/wire'
 tier('user')
 
 /** One output fixture answers either local commands or streaming model checks. */
-function onProcess(on: Parameters<TestBody>[1], respond: (engine: Parameters<TestBody>[0], event: { argv: readonly string[]; init?: { stdin?: string } }) => { value?: { exitCode: number; stdout: string; stderr: string }; deny?: string }) {
-  on('process.run', ($, e) => respond($, e))
+function onProcess(on: Parameters<TestBody>[1], respond: (engine: Parameters<TestBody>[0], event: { argv: readonly string[]; init?: { stdin?: string; cwd?: string; env?: Record<string, string> } }) => { value?: { exitCode: number; stdout: string; stderr: string }; deny?: string }) {
+  on('process.run', ($, e) => respond($, e as never))
   on('process.spawn', async function* ($, e) {
-    const result = respond($, { argv: e.argv, init: { stdin: e.input } })
+    const result = respond($, { argv: e.argv, init: { stdin: e.input, cwd: e.cwd, env: e.env as Record<string, string> | undefined } })
     if (result.value === undefined) throw new Error(result.deny ?? 'Process refused')
     if (result.value.stdout !== '') yield { stream: 'stdout', text: result.value.stdout }
     if (result.value.stderr !== '') yield { stream: 'stderr', text: result.value.stderr }
@@ -283,24 +283,26 @@ describe('register', () => {
     }
   })
   test('runs write and reply model checks through the descendant cancellation wrapper', async ($, on) => {
-    const calls: string[][] = []
+    const calls: { argv: string[]; cwd?: string; project?: string }[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
     onProcess(on, ($, e) => {
-      calls.push([...e.argv])
+      calls.push({ argv: [...e.argv], cwd: e.init?.cwd, project: e.init?.env?.['PLAIN_ENGLISH_CWD'] })
       return { value: { ...RUN, stdout: '' } }
     })
     on('tool.call', () => ({ result: 'written' }))
     on('classic.Stop', () => ({}))
     await $.tool.call({ tool: 'Write', file_path: '/repo/a.md', content: 'Clear words.' })
     await $.classic.Stop({ stop_hook_active: false, last_assistant_message: 'Clear words.' })
-    expect(calls.length).toBe(2)
-    for (const argv of calls) {
-      expect(argv[1]?.endsWith('/hooks/run-checker.mjs')).toBe(true)
-      expect(argv[2]?.endsWith('/dist/cli.mjs')).toBe(true)
+    // Fixed text, run from the plugin folder; the project folder goes in a setting.
+    expect(calls.map(call => call.argv)).toEqual([
+      ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'],
+      ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'],
+    ])
+    for (const call of calls) {
+      expect(call.cwd).not.toBe('/repo')
+      expect(call.project).toBe('/repo')
     }
-    expect(calls[0]?.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
-    expect(calls[1]?.slice(3)).toEqual(['hook', 'chat', '--agent', 'claude-code'])
   })
   test('counts checker output limits in bytes and reports unavailable', async ($, on) => {
     let logged = ''
@@ -433,7 +435,7 @@ describe('register', () => {
     const context = await $.prompt.context({ blocks: [base], instructionFiles: [] })
     expect(context.blocks).toEqual([base, { name: 'plainEnglishProject', text: 'Our readers know BuildKit. Preserve approved quotations.' }])
     expect(context.instructionFiles).toEqual([])
-    expect(args.slice(2)).toEqual(['guidance'])
+    expect(args).toEqual(['node', 'hooks/run-checker.mjs', 'guidance'])
   })
   test('review also shows a refused reply without offering a one-time write bypass', async ($, on) => {
     on('session.cwd', () => ({ value: '/repo' }))
@@ -578,17 +580,20 @@ describe('register', () => {
     on('tool.call', () => ({ result: 'written' }))
     const answer = await $.tool.call({ tool: 'Bash', command: 'printf "%s" "Furthermore." > "notes.md"' })
     expect(answer.deny).toContain('Furthermore')
-    expect(args.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+    expect(args).toEqual(['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'])
   })
   test('manual paths preserve quoted spaces and flag-looking filenames', async ($, on) => {
     let args: string[] = []
+    let paths = ''
     on('session.cwd', () => ({ value: '/repo' }))
     onProcess(on, ($, e) => {
       args = [...e.argv]
+      paths = e.init?.env?.['PLAIN_ENGLISH_LINT_PATHS'] ?? ''
       return { value: { ...RUN, stdout: '' } }
     })
     await $.command.run({ command: 'plain-english', args: '"docs/Release notes.md" \'-draft.md\'' })
-    expect(args.slice(2)).toEqual(['lint', 'docs/Release notes.md', './-draft.md'])
+    expect(args).toEqual(['node', 'hooks/run-checker.mjs', 'lint'])
+    expect(JSON.parse(paths)).toEqual(['docs/Release notes.md', './-draft.md'])
   })
   test('repair mode gives one rewrite attempt, then asks on repeat', async ($, on) => {
     let dialogs = 0
@@ -649,7 +654,7 @@ describe('register', () => {
     })
 
     expect(result.deny).toContain('Furthermore')
-    expect(argv[0]?.slice(3)).toEqual(['hook', 'docs', '--agent', 'claude-code'])
+    expect(argv[0]).toEqual(['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'])
     const payload = JSON.parse(stdin[0] ?? '{}')
     expect(payload.tool_name).toBe('Write')
     expect(payload.tool_input).toEqual({
@@ -852,10 +857,12 @@ describe('register', () => {
 
   test('/plain-english lints the working tree and answers the findings', async ($, on) => {
     const argv: string[][] = []
+    const typed: string[] = []
     on('session.cwd', () => ({ value: '/repo' }))
     on('command.register', ($, e) => ({ value: { command: e.name } }))
     onProcess(on, ($, e) => {
       argv.push([...e.argv])
+      typed.push(e.init?.env?.['PLAIN_ENGLISH_LINT_PATHS'] ?? '')
       return { value: { ...RUN, stdout: 'docs/a.md\n  3:1 block "Furthermore"\n' } }
     })
 
@@ -870,6 +877,7 @@ describe('register', () => {
     })
 
     expect(text).toContain('Furthermore')
-    expect(argv[0]?.slice(2)).toEqual(['lint', 'docs'])
+    expect(argv[0]).toEqual(['node', 'hooks/run-checker.mjs', 'lint'])
+    expect(JSON.parse(typed[0]!)).toEqual(['docs'])
   })
 })
