@@ -39174,8 +39174,7 @@ function parseDocument(data, options) {
 }
 
 // dist/agents/issue-tools.js
-var WRITE_NAMES = "save_(?:issue|comment)|createJiraIssue|editJiraIssue|addOrEditJiraIssueComment|createConfluenceContent|updateConfluenceContent|createConfluenceComment|updateConfluenceComment";
-var ISSUE_TOOL_PATTERN = `^(?:.*[_:]|MCP:)?(?:${WRITE_NAMES})$`;
+var ISSUE_TOOL_PATTERN = "^(?:.*[_:]|MCP:)?(?:save_(?:issue|comment)|createJiraIssue|editJiraIssue|addOrEditJiraIssueComment|createConfluenceContent|updateConfluenceContent|createConfluenceComment|updateConfluenceComment)$";
 var ISSUE_TOOLS = new RegExp(ISSUE_TOOL_PATTERN);
 
 // dist/agents/issue.js
