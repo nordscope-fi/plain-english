@@ -25,6 +25,7 @@ Model tests use local executable stand-ins. Their command path is controlled.
 | #93 | Cursor history uses session metadata or an exact folder match | `integration-audit.test.ts` Cursor history project scope |
 | #94 | Optional SARIF output does not override the Action's failure threshold | `github-action.test.ts` threshold matrix |
 | #97 | Antigravity uses native configuration, tool fields, transcript steps and hook working directories | `antigravity.test.ts` |
+| #103 | Optional captures redact native argument bags, serialized arguments and rich-content descendants | `record.test.ts` native argument regressions |
 
 Printf parsing accepts literal `%s`, `%%` and common backslash escapes. Formats
 with numeric conversions, field widths, `%b`, unknown escapes or shell

@@ -26462,8 +26462,12 @@ var CONTENT_KEYS = /* @__PURE__ */ new Set([
   "description",
   "body",
   "prompt",
-  "message"
+  "message",
+  "summary",
+  "commentBody"
 ]);
+var ARGUMENT_BAGS = /* @__PURE__ */ new Set(["tool_input", "toolArgs", "tool_args", "args", "Arguments", "input"]);
+var PATH_KEYS = /* @__PURE__ */ new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
 var MAX_FILES = 200;
 var MAX_BYTES = 256 * 1024;
 function scrubText(s, projectDir) {
@@ -26475,21 +26479,23 @@ function scrubText(s, projectDir) {
   out = out.replace(/\{\{TMP\}\}((?:\\[^\\"]*)+)/g, (_m, tail) => "{{TMP}}" + tail.split("\\").join("/"));
   return out;
 }
-function redact(v, opts, key) {
+function redact(v, opts, key, prose = false, argumentsBag = false) {
+  prose ||= Boolean(key && CONTENT_KEYS.has(key));
+  argumentsBag ||= Boolean(key && ARGUMENT_BAGS.has(key));
   if (typeof v === "string") {
     if (key && IDENTITY_KEYS.has(key))
       return "<redacted>";
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
-    if (opts.verbatim || !key || !CONTENT_KEYS.has(key))
+    if (opts.verbatim || !prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))
       return scrubbed;
     return `<${scrubbed.length} chars, sha256:${createHash4("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
   }
   if (Array.isArray(v))
-    return v.map((x) => redact(x, opts, key));
+    return v.map((x) => redact(x, opts, key, prose, argumentsBag));
   if (v && typeof v === "object") {
     const out = {};
     for (const [k, val] of Object.entries(v)) {
-      out[k] = redact(val, opts, k);
+      out[k] = redact(val, opts, k, prose, argumentsBag);
     }
     return out;
   }

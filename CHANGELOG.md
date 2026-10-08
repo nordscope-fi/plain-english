@@ -12,6 +12,7 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ### Fixed
 
+- Optional diagnostic captures redact native argument fields and rich-content descendants, including Antigravity prose and serialized Copilot arguments. File paths retain the existing scrubbing, and verbatim synthetic fixtures remain explicit.
 - Copilot raw patch edits now retain file destinations and added prose. Cursor issue hooks select native issue and comment tool names.
 - Shell document checks reproduce supported literal printf formats, including substitutions, repeated formats, and escapes. Unsupported conversions remain outside coverage.
 - Chat checks distinguish fresh user turns from Cursor retries even when the host changes generation identifiers. Session identities remain separate, and Gemini ignores injected hook context when finding the latest question.

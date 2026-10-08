@@ -47,7 +47,13 @@ const CONTENT_KEYS = new Set([
   "body",
   "prompt",
   "message",
+  "summary",
+  "commentBody",
 ]);
+
+/** Unspecified vendor argument fields may contain prose or credentials. */
+const ARGUMENT_BAGS = new Set(["tool_input", "toolArgs", "tool_args", "args", "Arguments", "input"]);
+const PATH_KEYS = new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
 
 /** Most captures worth keeping from one session. */
 const MAX_FILES = 200;
@@ -100,23 +106,25 @@ function scrubText(s: string, projectDir: string): string {
  * enough to tell "the adapter read the right field" from "it read nothing",
  * which is the only question a capture has to answer.
  */
-function redact(v: unknown, opts: RecordOptions, key?: string): unknown {
+function redact(v: unknown, opts: RecordOptions, key?: string, prose = false, argumentsBag = false): unknown {
+  prose ||= Boolean(key && CONTENT_KEYS.has(key));
+  argumentsBag ||= Boolean(key && ARGUMENT_BAGS.has(key));
   if (typeof v === "string") {
     // Identity goes whatever `verbatim` says. It is never the thing being
     // debugged, and a capture is meant to be safe to attach to an issue.
     if (key && IDENTITY_KEYS.has(key)) return "<redacted>";
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
-    if (opts.verbatim || !key || !CONTENT_KEYS.has(key)) return scrubbed;
+    if (opts.verbatim || (!prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))) return scrubbed;
     return `<${scrubbed.length} chars, sha256:${createHash("sha256")
       .update(scrubbed)
       .digest("hex")
       .slice(0, 12)}>`;
   }
-  if (Array.isArray(v)) return v.map((x) => redact(x, opts, key));
+  if (Array.isArray(v)) return v.map((x) => redact(x, opts, key, prose, argumentsBag));
   if (v && typeof v === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      out[k] = redact(val, opts, k);
+      out[k] = redact(val, opts, k, prose, argumentsBag);
     }
     return out;
   }
