@@ -76,6 +76,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       if (a === "--source-prose") { flags["source-prose"] = true; continue; }
+      if (a === "--paths-from-stdin") { flags["paths-from-stdin"] = true; continue; }
       const eq = a.indexOf("=");
       if (eq > 0) flags[a.slice(2, eq)] = a.slice(eq + 1);
       else {
@@ -308,6 +309,14 @@ async function cmdLint(args: Args): Promise<number> {
 
   if (args.flags["chat"]) return cmdLintChat(args, root, ruleSet, format, failOn);
 
+  let targets = args.positionals;
+  const pathsFromStdin = args.flags["paths-from-stdin"] === true;
+  if (pathsFromStdin) {
+    if (targets.length) throw new RuleError("--paths-from-stdin reads every path from standard input. Leave out the path arguments.");
+    targets = (await readStdin()).split(/\r?\n/).filter((line) => line !== "");
+    if (!targets.length) throw new RuleError("--paths-from-stdin found no paths on standard input. Give one path per line.");
+  }
+
   const all: { file: string; findings: Finding[] }[] = [];
   // Rules that ran out of match budget. Reported on stderr at the end: a rule
   // that stopped working is not a finding about the writing, but it must not
@@ -318,14 +327,14 @@ async function cmdLint(args: Args): Promise<number> {
   };
   const suppressed: Suppression[] = [];
 
-  if (!args.positionals.length || args.positionals[0] === "-") {
+  if (!pathsFromStdin && (!targets.length || targets[0] === "-")) {
     const text = await readStdin();
     const res = scan(text, "<stdin>");
     noteStalled("<stdin>", res.timedOut);
     suppressed.push(...res.suppressed);
     all.push({ file: "<stdin>", findings: res.findings });
   } else {
-    for (const target of args.positionals) {
+    for (const target of targets) {
       const abs = resolve(root, target);
       if (!existsSync(abs)) {
         process.stderr.write(`plain-english: no such path: ${target}\n`);
@@ -1103,6 +1112,9 @@ LINT OPTIONS
                                      nothing at all
   --source-prose                     also check strings and JSX text in JS/TS
                                      files; findings use original source lines
+  --paths-from-stdin                 read the paths to check from standard
+                                     input, one per line, instead of from
+                                     arguments
 
 LINT --chat OPTIONS
   Reads the session transcripts each agent writes to local disk. Local only:
@@ -1364,6 +1376,17 @@ function resolveRuleSetSafe(root: string): string {
 
 async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2));
+  // The Claude Code plugin starts the CLI from its own folder, so that every
+  // argument is fixed text, and names the project folder here.
+  const project = process.env["PLAIN_ENGLISH_CWD"];
+  if (project) {
+    try {
+      process.chdir(project);
+    } catch {
+      process.stderr.write(`plain-english: PLAIN_ENGLISH_CWD names no folder: ${project}\n`);
+      return 2;
+    }
+  }
 
   if (args.flags["version"] || args.command === "version") {
     process.stdout.write(`${packageVersion()}\n`);
