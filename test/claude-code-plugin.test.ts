@@ -186,6 +186,14 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Warned on adac5d2: "README.md body contains a download-and-execute shell
+  // pattern", the `npx plain-english init` line. The plugin's README names
+  // no package launcher and pipes nothing into a shell.
+  it("show no download-and-run command in the README", () => {
+    const text = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
+    expect(text.match(/\b(?:npx|bunx|uvx|pnpm dlx|yarn dlx|pipx run)\b.*|\b(?:curl|wget)\b.*|\|\s*(?:ba)?sh\b.*/gi) ?? []).toEqual([]);
+  });
+
   // Held on 852d825 as "a string that looks like encoded data": an HTML
   // library's entity table. The checker reads issue HTML with its own reader.
   it("carry no HTML library or encoded entity table", () => {

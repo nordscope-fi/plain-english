@@ -2,7 +2,7 @@
 
 A Claude Code plugin that checks prose the way a code linter checks source. It refuses a Markdown write, a commit or pull request message, or a tracker issue that breaks the ruleset, and holds a chat reply that does. Each refusal quotes the passage, names the rule and gives a rewrite hint. The ruleset and its exceptions are in the [rule guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md).
 
-The plugin is a mod: TypeScript functions Claude Code runs on its own events. The settings-hook install that `npx plain-english init --agent claude-code` writes does the same job from outside the agent. The [agent guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/agents.md#claude-code) says how the two differ.
+The plugin is a mod: TypeScript functions Claude Code runs on its own events. The settings-hook install that the command-line checker's `init --agent claude-code` writes does the same job from outside the agent. The [agent guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/agents.md#claude-code) says how the two differ.
 
 ## Install
 
@@ -128,9 +128,11 @@ Jira and Confluence HTML is read by the checker's own small reader, which decode
 
 The directory names some ordinary code in bundled libraries, because the same shapes can hide what code does. Here is what each is for:
 
-- **Getters and setters:** the `vfile` library's file object, for its `path`, `basename`, `dirname` and `extname`.
-- **`Object.defineProperty`:** the bundler's helper that lists each module's exports, the YAML library marking a node's type, and the tree walker naming its visitor function.
-- **`Object.getPrototypeOf` and a value's `constructor`:** the YAML library copying a node with its class, and naming a value's type in an error message.
+- **Getters and setters:** the `vfile` library's file object, which keeps `path`, `basename`, `dirname`, `extname` and `stem` in step when one changes. The YAML library's `tagName` on its map and list types, and the `sourceToken` its parser builds on request. The markdown parser's `length` on its splice buffer, a list it keeps in two halves.
+- **`Object.defineProperty`:** the bundler's helper that lists each module's exports. The YAML library marking a node's type, a document's schema and its map, scalar and list types, stopping an alias node from taking a tag, and adding map keys that are not plain names. The tree walker naming its visitor function.
+- **`Object.getPrototypeOf` and a value's `constructor`:** the YAML library copying a node or a schema with its class, building a list of the same kind as one it copies, and naming a value's type in an error message.
+
+None of these reaches outside the checker: they shape the libraries' own objects, and the mod passes the checker only the files, answers and settings described above.
 
 The same checker is published on npm with a signed record of the GitHub build that produced it.
 
