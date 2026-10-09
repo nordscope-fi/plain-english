@@ -75,7 +75,6 @@ jobs:
       - run: claude plugin validate --strict .
       - run: claude plugin validate --strict integrations/claude-code-plugin
       - run: claude plugin test integrations/claude-code-plugin
-      - run: node scripts/evaluation/native-cancellation.mjs claude
       - name: Validate the standalone mod archive
         run: |
           set -euo pipefail
@@ -84,7 +83,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/plain-english-mod.zip" -d "$RUNNER_TEMP/mod-consumer"
           claude plugin validate --strict "$RUNNER_TEMP/mod-consumer/plain-english"
           VERSION="$(node -p "require('./package.json').version")"
-          ACTUAL="$(node "$RUNNER_TEMP/mod-consumer/plain-english/dist/cli.mjs" --version)"
+          ACTUAL="$(node -p "require('$RUNNER_TEMP/mod-consumer/plain-english/.claude-plugin/plugin.json').version")"
           test "$ACTUAL" = "$VERSION"
 
   drift:

@@ -2,19 +2,23 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { classifyShellCommand } from './shell.mjs'
 import { ISSUE_TOOLS } from './issue-tools.mjs'
+import {
+  approvalPlan, claudeCodeChat, claudeCodeHook, emptyFetched, formatText, hookCheck, lintTargets, lintText,
+  ModelRequest, NeedFiles, pathsFor, projectGuidance, replay, replayIo, resolveRuleSet, stalledNotes, suppressedLine,
+} from './core/plugin-core.mjs'
+import DEFAULT_RULES from './core/default-rules.mjs'
 import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
 
-/** Files the docs channel judges. The CLI strips code and frontmatter itself. */
+/** Files the docs channel judges. The checker strips code and frontmatter itself. */
 const MARKDOWN = /\.(md|markdown|mdx)$/i
 
 
-/** Fixed CLI diagnostics only; checker stderr can otherwise contain private text. */
+/** Fixed checker diagnostics only; anything else can contain private text. */
 const SAFE_CHECK_NOTICES = new Set([
   'plain-english: extra model check could not start; pattern checks still apply.',
   'plain-english: extra model check timed out; pattern checks still apply.',
   'plain-english: extra model check failed; pattern checks still apply.',
   'plain-english: extra model check returned no usable answer; pattern checks still apply.',
-  'plain-english: model usage capture unavailable.',
   'plain-english: configuration unavailable; using local built-in pattern checks as advice only.',
 ])
 
@@ -32,23 +36,153 @@ interface ReviewFinding {
   key: string
 }
 
-/** One step of a term approval, as the checker reports it (ADR-007). */
+/** What a file system answer from the checker's core looks like (ADR-008). */
+interface FileFacts { kind: 'file' | 'directory' | 'link' | 'other'; mtimeMs: number; realPath?: string }
+interface Fetched { reads: Map<string, string | null>; stats: Map<string, FileFacts | null>; lists: Map<string, string[] | null> }
+interface Needed { reads: string[]; stats: string[]; lists: string[] }
+
+/** One answer the mod got for a model question, keyed as the checker asked (ADR-006). */
+interface ModelAnswer { key: string; text?: string; unavailable?: 'timed out' | 'failed'; usage?: Record<string, number> }
+
+/** Values the checker keeps between checks, such as a turn's block state, for this session. */
+const kept = new Map<string, { value: string; at: number }>()
+
+/**
+ * Runs part of the checker's core in this process (ADR-008). The core reads
+ * files through a replay of what the mod has fetched; when it lacks a path it
+ * throws `NeedFiles`, and the mod fetches every path it named and runs the
+ * same work again. A model question comes back as `ModelRequest`; the mod asks
+ * the session's model and runs again with the answer, as ADR-006 did with the
+ * CLI. Notices are logged and kept values saved only from the run that
+ * finishes: an earlier run worked from missing files, and its block record
+ * would make the finishing run think the turn was already held.
+ */
+async function runCore<T>(
+  $: EngineInterface,
+  cwd: string,
+  work: (io: unknown, answers: { answers: ModelAnswer[]; deadline?: number }) => T,
+  signal: AbortSignal | undefined,
+  rounds = 12,
+): Promise<T> {
+  const fetched: Fetched = emptyFetched()
+  const host: { answers: ModelAnswer[]; deadline?: number } = { answers: [] }
+  for (let round = 0; round < rounds; round++) {
+    signal?.throwIfAborted()
+    const notices: string[] = []
+    const pending = new Map<string, { value: string; at: number }>()
+    const io = replayIo({
+      cwd,
+      path: pathsFor(cwd),
+      env: {},
+      home: undefined,
+      now: () => Date.now(),
+      notice: (text: string) => { notices.push(text) },
+      state: {
+        get: (key: string) => pending.get(key) ?? kept.get(key),
+        set: (key: string, value: string) => { pending.set(key, { value, at: Date.now() }); return true },
+      },
+      defaultRules: () => DEFAULT_RULES as string,
+    }, fetched)
+    try {
+      const result = replay(io, (checked: unknown) => work(checked, host))
+      for (const [key, value] of pending) kept.set(key, value)
+      for (const notice of new Set(notices)) if (SAFE_CHECK_NOTICES.has(notice)) log($, notice)
+      return result
+    } catch (error) {
+      if (error instanceof NeedFiles) {
+        await fetchAll($, error as unknown as Needed, fetched)
+        continue
+      }
+      if (error instanceof ModelRequest) {
+        const asked = (error as unknown as { request: { key: string; prompt: string; timeoutMs: number } }).request
+        host.answers.push(await answerModel($, asked, signal))
+        continue
+      }
+      throw error
+    }
+  }
+  throw new Error('check unavailable: the checker kept asking for files or model answers.')
+}
+
+/** Fetches every path one run lacked, at once. A path that cannot be read is recorded as missing. */
+async function fetchAll($: EngineInterface, need: Needed, fetched: Fetched): Promise<void> {
+  await Promise.all([
+    ...need.reads.map(async path => {
+      fetched.reads.set(path, await $.fs.read(path).catch(() => null))
+    }),
+    ...need.stats.map(async path => {
+      const stat = await $.fs.stat(path, { resolve: true }).catch(() => undefined)
+      fetched.stats.set(path, stat === undefined ? null : {
+        kind: stat.isLink ? 'link' : stat.kind === 'dir' ? 'directory' : stat.kind,
+        mtimeMs: stat.mtimeMs,
+        ...(stat.realPath === undefined ? {} : { realPath: stat.realPath }),
+      })
+    }),
+    ...need.lists.map(async path => {
+      fetched.lists.set(path, await $.fs.list(path).then(entries => entries.map(entry => entry.name)).catch(() => null))
+    }),
+  ])
+}
+
+/**
+ * Asks the session's model one question. A provider failure, and a call that
+ * cannot be made at all, become an answer the checker reads as unavailable,
+ * so the pattern result stands. A cancelled turn is not an answer: it ends the
+ * check.
+ */
+async function answerModel($: EngineInterface, asked: { key: string; prompt: string; timeoutMs: number }, signal: AbortSignal | undefined): Promise<ModelAnswer> {
+  try {
+    const model = await $.session.model()
+    const reply = await $.model.complete({ model, prompt: asked.prompt, timeoutMs: Math.max(1, Math.round(asked.timeoutMs)) }, signal ? { signal } : {})
+    if (reply.isAnswered) return { key: asked.key, text: reply.text, usage: { ...reply.usage } }
+    signal?.throwIfAborted()
+    return { key: asked.key, unavailable: reply.reason === 'aborted' ? 'timed out' : 'failed' }
+  } catch {
+    signal?.throwIfAborted()
+    return { key: asked.key, unavailable: 'failed' }
+  }
+}
+
+/** One hook check, run in this process. Returns what the hook adapter prints. */
+async function adapter(
+  $: EngineInterface,
+  channel: Channel,
+  payload: Record<string, unknown>,
+  cwd: string,
+  signal: AbortSignal,
+): Promise<string> {
+  return runCore($, cwd, (io, host) => (hookCheck({
+    channel, payload, profile: claudeCodeHook, reader: claudeCodeChat, io, host,
+  }) as { stdout: string }).stdout, signal)
+}
+
+/** One step of a term approval (ADR-007), as the checker's core decides it. */
 interface ApprovalStep { root: string; config: string; exists: boolean; hash: string; modelVocabulary: boolean }
 
 /**
- * Asks the checker to run one approval step. The request goes on standard
- * input, so the command is fixed text; the checker does every file read and
- * write, and the mod reads and writes no file of its own.
+ * Runs one approval step. The checks run in the core against fresh file
+ * answers; a `write` step that passes them saves through `$.fs.write` at a
+ * fixed path, and only when Claude Code's working folder is the project root
+ * the check named.
  */
 async function approvalStep($: EngineInterface, cwd: string, request: Record<string, unknown>): Promise<ApprovalStep> {
-  const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'approve'], {
-    cwd: $.plugin.root, env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000' }, stdin: wrapperRequest(cwd, { input: JSON.stringify(request) }), timeoutMs: 6_000,
-  })
-  if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || 'The approval check did not run.')
-  let answer: Record<string, unknown>
-  try { answer = JSON.parse(ran.stdout) as Record<string, unknown> } catch { throw new Error('The approval check returned an unreadable answer.') }
-  if (answer['ok'] !== true) throw new Error(typeof answer['message'] === 'string' ? answer['message'] : 'This term cannot be approved.')
-  return answer as unknown as ApprovalStep
+  const plan = await runCore($, cwd, io => approvalPlan(cwd, request, (directory: string) => resolveRuleSet(directory, io), io) as {
+    result: { ok: true } & ApprovalStep | { ok: false; message: string }
+    write?: { path: string; exists: boolean; text: string }
+  }, undefined)
+  if (!plan.result.ok) throw new Error(plan.result.message)
+  if (plan.write !== undefined) {
+    // The write's path is fixed text, so it lands in Claude Code's own working
+    // folder. Save only when that is the project root the check approved.
+    const here = await $.fs.stat('.', { resolve: true }).catch(() => undefined)
+    if (here?.realPath !== plan.result.root) {
+      throw new Error(`Claude Code is working in a different folder from ${plan.result.root}, so nothing was saved. Add the term to ${plan.result.config} by hand.`)
+    }
+    if (plan.result.config === '.plain-english.yml') await $.fs.write('.plain-english.yml', plan.write.text)
+    else if (plan.result.config === '.plain-english.yaml') await $.fs.write('.plain-english.yaml', plan.write.text)
+    else throw new Error('This configuration cannot be written here.')
+  }
+  return plan.result
 }
 
 /** Only a deliberate, confirmed user action can save project vocabulary. */
@@ -69,172 +203,21 @@ async function approveProjectTerm($: EngineInterface, finding: ReviewFinding, te
   }
 }
 
-/** One question the checker handed back instead of a decision (ADR-006). */
-interface ModelRequest { key: string; prompt: string; timeoutMs: number; deadline?: number; model?: string }
-
-/** The mod's answer to one request, as the checker reads it back. */
-interface ModelAnswer { key: string; text?: string; unavailable?: 'timed out' | 'failed'; usage?: Record<string, number> }
-
-/** One run per model question, plus the run that decides: two questions at most. */
-const MAX_CHECKER_RUNS = 3
-
 /**
- * Runs the CLI's hook adapter on one payload and returns its stdout.
- *
- * The CLI hands each model question back instead of starting `claude -p`,
- * which saves about 1.2 seconds per question on 2.1.294. The mod asks the
- * session's model and runs the CLI again with every answer so far; the CLI
- * replays its decision and finds them (ADR-006). Where the call cannot be made
- * at all, the check runs once more the old way.
+ * What `plain-english lint` prints for these paths, run in this process: the
+ * findings as text, the line for what `allow` hid, and any rule that ran out
+ * of time. Linting waits for the round that lacks no file, since a run that
+ * lacked one is discarded.
  */
-async function adapter(
-  $: EngineInterface,
-  channel: Channel,
-  payload: Record<string, unknown>,
-  cwd: string,
-  signal: AbortSignal,
-): Promise<string> {
-  const answers: ModelAnswer[] = []
-  let deadline: number | undefined
-  for (let run = 1; ; run++) {
-    const input = run === 1 ? payload : { ...payload, plainEnglishModel: { deadline, answers } }
-    const ran = await runChecker($, channel, input, cwd, true, signal)
-    const asked = modelRequest(ran.stdout)
-    if (asked === undefined) return finish($, channel, ran)
-    if (run === MAX_CHECKER_RUNS) throw new Error('check unavailable: the checker kept asking for a model answer.')
-    deadline = asked.deadline
-    const answer = await answerModel($, asked, signal)
-    if (answer === undefined) return finish($, channel, await runChecker($, channel, payload, cwd, false, signal))
-    answers.push(answer)
-  }
-}
-
-/** The request in a checker's stdout, or `undefined` for anything else. */
-function modelRequest(stdout: string): ModelRequest | undefined {
-  try {
-    const request = (JSON.parse(stdout) as Record<string, unknown>)['plainEnglishModelRequest'] as Record<string, unknown> | undefined
-    if (!request || typeof request['key'] !== 'string' || typeof request['prompt'] !== 'string' || typeof request['timeoutMs'] !== 'number') return undefined
-    return {
-      key: request['key'], prompt: request['prompt'], timeoutMs: request['timeoutMs'],
-      ...(typeof request['deadline'] === 'number' ? { deadline: request['deadline'] } : {}),
-      ...(typeof request['model'] === 'string' ? { model: request['model'] } : {}),
-    }
-  } catch {
-    return undefined
-  }
-}
-
-/**
- * Asks the session's model one question. A provider failure becomes an answer
- * the checker reads as unavailable, so the pattern result stands, as it does
- * when `claude -p` fails. A call that could not be made at all (an engine
- * without it, or a request it refuses to send) returns `undefined`, and the
- * check runs the old way. A cancelled turn is not an answer: it ends the check.
- */
-async function answerModel($: EngineInterface, asked: ModelRequest, signal: AbortSignal): Promise<ModelAnswer | undefined> {
-  try {
-    const model = asked.model ?? await $.session.model()
-    const reply = await $.model.complete({ model, prompt: asked.prompt, timeoutMs: Math.max(1, Math.round(asked.timeoutMs)) }, { signal })
-    if (reply.isAnswered) return { key: asked.key, text: reply.text, usage: { ...reply.usage } }
-    signal.throwIfAborted()
-    return { key: asked.key, unavailable: reply.reason === 'aborted' ? 'timed out' : 'failed' }
-  } catch {
-    signal.throwIfAborted()
-    return undefined
-  }
-}
-
-/**
- * What every checker run receives on standard input. The mod starts
- * `hooks/run-checker.mjs` from the plugin folder with a command and settings
- * written as fixed text, so the Claude directory can read each in full; the
- * project folder and everything else that varies travel in this request.
- */
-function wrapperRequest(cwd: string, rest: { input?: string; paths?: string[]; route?: 'host' } = {}): string {
-  return JSON.stringify({ cwd, ...rest })
-}
-
-/**
- * One hook run per channel, each command and its settings written out in full.
- * The CLI's own matching takes half a second; a reply's model checks may take
- * seconds, so chat gets 60 s and writes 20 s, both far under the ten-minute
- * cap. Time inside `$.process.spawn` never counts against the hook's budget.
- */
-function spawnHook($: EngineInterface, channel: Channel, init: { cwd: string; input: string }) {
-  switch (channel) {
-    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
-    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
-    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
-    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '60000' }, cwd: init.cwd, input: init.input })
-  }
-}
-
-/** One CLI run: its output, held to the byte limits, and its exit code. */
-async function runChecker(
-  $: EngineInterface,
-  channel: Channel,
-  payload: Record<string, unknown>,
-  cwd: string,
-  host: boolean,
-  signal: AbortSignal,
-): Promise<{ stdout: string; stderr: string }> {
-  // The stream follows the dispatch's cancellation signal. The asynchronous
-  // wrapper relays it to the CLI's group, including a synchronous model child.
-  const init = { cwd: $.plugin.root, input: wrapperRequest(cwd, { input: JSON.stringify(payload), ...(host ? { route: 'host' as const } : {}) }) }
-  const stream = spawnHook($, channel, init)
-  const ran = { stdout: '', stderr: '', exitCode: null as number | null }
-  const bytes = { stdout: 0, stderr: 0 }
-  const stop = () => { void stream.return({ code: null, signal: null }).catch(() => {}) }
-  signal.addEventListener('abort', stop, { once: true })
-  try {
-    signal.throwIfAborted()
-    for (;;) {
-      const chunk = await stream.next()
-      if (chunk.done) {
-        ran.exitCode = chunk.value.code
-        if (chunk.value.signal !== null) throw new Error(`check unavailable (signal ${chunk.value.signal}).`)
-        break
-      }
-      bytes[chunk.value.stream] += new TextEncoder().encode(chunk.value.text).length
-      if (bytes[chunk.value.stream] > 4_194_304) throw new Error('check unavailable: checker output exceeded 4 MB.')
-      ran[chunk.value.stream] += chunk.value.text
-    }
-  } finally {
-    signal.removeEventListener('abort', stop)
-    await stream.return({ code: null, signal: null })
-  }
-  if (ran.exitCode !== 0) throw new Error(`check unavailable (exit ${ran.exitCode}). ${ran.stderr.trim()}`)
-  return ran
-}
-
-/**
- * Checks the deciding run's answer and reports its notices. Only this run's
- * notices are logged: it replayed every earlier question, so it repeats theirs.
- */
-function finish($: EngineInterface, channel: Channel, ran: { stdout: string; stderr: string }): string {
-  if (ran.stdout.trim() !== '') {
-    let parsed: unknown
-    try { parsed = JSON.parse(ran.stdout) } catch { throw new Error('check unavailable: the checker returned an unreadable response.') }
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('check unavailable: the checker returned an unexpected response.')
-    const record = parsed as Record<string, unknown>
-    if (channel === 'chat') {
-      if (record['decision'] === 'block' && typeof record['reason'] === 'string') {
-        // A refused reply.
-      } else if (record['decision'] === undefined && typeof record['systemMessage'] === 'string') {
-        // An allowed reply with advice.
-      } else throw new Error('check unavailable: the reply checker returned an unknown decision.')
-    } else {
-      const specific = record['hookSpecificOutput'] as Record<string, unknown> | undefined
-      if (specific === undefined || specific === null || typeof specific !== 'object' ||
-        !['deny', 'ask'].includes(String(specific['permissionDecision'])) || typeof specific['permissionDecisionReason'] !== 'string') {
-        throw new Error('check unavailable: the write checker returned an unknown decision.')
-      }
-    }
-  }
-  for (const notice of new Set(ran.stderr.split(/\r?\n/).map(line => line.trim()))) {
-    if (SAFE_CHECK_NOTICES.has(notice)) log($, notice)
-  }
-  return ran.stdout
+function lintReport(cwd: string, paths: string[], io: unknown): string {
+  const replay = io as { missing(): unknown }
+  const ruleSet = resolveRuleSet(cwd, io)
+  const empty = { findings: [], timedOut: [], suppressed: [] }
+  const linted = lintTargets(paths, cwd, ruleSet, (text: string) => replay.missing() ? empty : lintText(text, ruleSet), io)
+  if ('missing' in linted) return `plain-english: no such path: ${linted.missing}`
+  const report = formatText(linted.all, cwd, 'file', io) + suppressedLine(linted.suppressed)
+  const notes = stalledNotes(linted.stalled, cwd, io).join('\n')
+  return `${report}${notes}`.trim()
 }
 
 /**
@@ -389,9 +372,7 @@ export const register: Register = on => {
     const base = await next(e)
     try {
       const cwd = await $.session.cwd()
-      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'guidance'], { cwd: $.plugin.root, env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000' }, stdin: wrapperRequest(cwd), timeoutMs: 6_000 })
-      if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || `exit ${ran.exitCode}`)
-      const text = ran.stdout.trim()
+      const text = (await runCore($, cwd, io => projectGuidance(resolveRuleSet(cwd, io), io) as string, undefined)).trim()
       if (new TextEncoder().encode(text).length > 32_768) throw new Error('Project writing guidance is too large (over 32 KB). Reduce project vocabulary or writing observations before loading it.')
       if (text === '') return base
       return { ...base, blocks: [...base.blocks.filter(block => block.name !== 'plainEnglishProject'), { name: 'plainEnglishProject', text }] }
@@ -422,17 +403,9 @@ export const register: Register = on => {
       return { text: String(error) }
     }
     try {
-      const typed = paths.map(path => path.startsWith('-') ? `./${path}` : path)
-      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'lint'], {
-        cwd: $.plugin.root,
-        env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '120000' },
-        stdin: wrapperRequest(cwd, { paths: typed }),
-        timeoutMs: 125_000,
-      })
-      const text = (ran.stdout + ran.stderr).trim()
-      if (ran.exitCode !== 0 && (ran.exitCode !== 1 || text === '')) {
-        return { text: `check unavailable (exit ${ran.exitCode}).${text === '' ? '' : '\n' + text}` }
-      }
+      // Each round of a walk fetches one level of the tree; the lint itself runs
+      // once, in the round that lacks nothing.
+      const text = await runCore($, cwd, io => lintReport(cwd, paths, io), undefined, 64)
       return { text: text === '' ? 'no findings.' : text }
     } catch (error) {
       return { text: `check unavailable. ${String(error)}` }

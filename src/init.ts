@@ -37,7 +37,7 @@ import {
 } from "./render.ts";
 import type { AgentProfile, ConfigFile } from "./agents/profile.ts";
 import { byId, DEFAULT_AGENT, PROFILES } from "./agents/registry.ts";
-import { sweepLegacyState } from "./adapters/chat.ts";
+import { sweepLegacyState } from "./adapters/chat-sweep.ts";
 import { parseCommands } from "./shell.ts";
 
 const MARKER = "plain-english";

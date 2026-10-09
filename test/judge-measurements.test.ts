@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { runJudge } from "../src/adapters/judge.ts";
-import { initializeJudgeReceipts } from "../src/adapters/judge-measurement.ts";
+import { initializeJudgeReceipts } from "../src/adapters/judge-receipts.ts";
 
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });

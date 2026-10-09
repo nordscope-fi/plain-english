@@ -18,9 +18,8 @@
  * Fail-open throughout. An internal error must never block a commit.
  */
 
-import { readFileSync, realpathSync, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, resolve, sep } from "node:path";
+import type { CheckerIo } from "../io.ts";
+import { nodeIo } from "../node-io.ts";
 import { directivesIn, lintText, type Finding } from "../lint.ts";
 import { resolveRuleSet, type RuleSet } from "../rules.ts";
 import { maskNonProse } from "../mask.ts";
@@ -161,10 +160,15 @@ export const COMMAND_PATTERNS: Record<string, RegExp> = {
   MARKDOWN,
 };
 
-function expandHome(p: string): string {
-  if (p === "~") return homedir();
-  if (p.startsWith("~/")) return resolve(homedir(), p.slice(2));
+function expandHome(p: string, io: CheckerIo): string {
+  if (p === "~") return io.home ?? p;
+  if (p.startsWith("~/")) return io.home === undefined ? p : io.path.resolve(io.home, p.slice(2));
   return p;
+}
+
+/** Node's `resolve`, starting from the io's folder as Node starts from the process's. */
+function within(io: CheckerIo, ...paths: string[]): string {
+  return io.path.resolve(io.cwd, ...paths);
 }
 
 /** The text inside each heredoc in a command. */
@@ -192,12 +196,12 @@ export const MAX_COMMAND_BYTES = 256 * 1024;
  * The text a Bash command would publish. Returns an empty array for read-only
  * commands so `gh pr view` never gets judged on somebody else's prose.
  */
-export function extractFromBash(cmd: string, cwd = process.cwd()): string[] {
+export function extractFromBash(cmd: string, cwd?: string, io: CheckerIo = nodeIo): string[] {
   if (cmd.length > MAX_COMMAND_BYTES) return [];
   const parts: string[] = [];
   const inline = new Set(["-m", "--message", "-t", "--title", "-b", "--body", "-n", "--notes", "--subject"]);
   const file = new Set(["-F", "--file", "--body-file", "--notes-file"]);
-  for (const command of publishingCommands(cmd, cwd)) {
+  for (const command of publishingCommands(cmd, cwd ?? io.cwd)) {
     for (const body of command.heredocs) if (body.trim()) parts.push(body);
     for (let i = 0; i < command.args.length; i++) {
       const word = command.args[i]!;
@@ -226,8 +230,10 @@ export function extractFromBash(cmd: string, cwd = process.cwd()): string[] {
       }
       if (inline.has(flag)) parts.push(value);
       else {
-        try { parts.push(readFileSync(resolve(command.cwd, expandHome(value)), "utf8")); }
-        catch { /* An unavailable message file must not stop the command. */ }
+        try {
+          const text = io.read(within(io, command.cwd, expandHome(value, io)));
+          if (text !== undefined) parts.push(text);
+        } catch { /* An unavailable message file must not stop the command. */ }
       }
     }
   }
@@ -258,17 +264,18 @@ export interface FileText {
  * that turned out to be false. A heredoc opening with `*** Begin Patch` is
  * unambiguous.
  */
-export function extractPatchesFromBash(cmd: string, projectDir?: string, cwd?: string, options: { alreadyApplied?: boolean } = {}): FileText[] {
+export function extractPatchesFromBash(cmd: string, projectDir?: string, cwd?: string, options: { alreadyApplied?: boolean; io?: CheckerIo } = {}): FileText[] {
   if (cmd.length > MAX_COMMAND_BYTES) return [];
   if (!cmd.includes("*** Begin Patch")) return [];
+  const io = options.io ?? nodeIo;
   const out: FileText[] = [];
-  let directory: string | undefined = cwd || projectDir || process.cwd();
+  let directory: string | undefined = cwd || projectDir || io.cwd;
   for (const command of parseCommands(cmd)) {
     if (command.unterminated) continue;
     if (command.words[0]?.text === "cd") {
       const target = command.words[1];
       directory = target && !target.expands && command.words.length === 2 && directory
-        ? resolve(directory, target.text) : undefined;
+        ? within(io, directory, target.text) : undefined;
       continue;
     }
     if (command.words[0]?.text !== "apply_patch" || !directory) continue;
@@ -285,12 +292,12 @@ export function extractPatchesFromBash(cmd: string, projectDir?: string, cwd?: s
  * Shared by every channel that produces files, so a patch arriving through a
  * shell command gets the same scoping a plain Write does.
  */
-function judgeable(files: FileText[], projectDir: string): FileText[] {
+function judgeable(files: FileText[], projectDir: string, io: CheckerIo): FileText[] {
   return files.filter(
     (f) =>
       f.path !== "" &&
       MARKDOWN.test(f.path) &&
-      isUnderProject(resolve(projectDir, f.path), projectDir),
+      isUnderProject(within(io, projectDir, f.path), projectDir, io),
   );
 }
 
@@ -299,14 +306,15 @@ export function scopedDocsFiles(
   event: NormalisedEvent,
   ruleSet: RuleSet,
   explicitProjectDir?: string,
-  options: { alreadyApplied?: boolean } = {},
+  options: { alreadyApplied?: boolean; io?: CheckerIo } = {},
 ): FileText[] {
-  const projectDir = projectDirFor(event, explicitProjectDir);
+  const io = options.io ?? nodeIo;
+  const projectDir = projectDirFor(event, explicitProjectDir, io);
   const command = pick(event.input, "command");
   const raw = event.tool === "bash"
     ? [...extractPatchesFromBash(command, projectDir, event.cwd, options), ...(command.length <= MAX_COMMAND_BYTES ? shellFileWrites(command, event.cwd || projectDir) : [])]
     : extractFromFileWrite(event, projectDir, options);
-  return filterScopedFiles(raw, projectDir, ruleSet).filter((file) => {
+  return filterScopedFiles(raw, projectDir, ruleSet, io).filter((file) => {
     // Model requests are capped at this size. Avoid parsing a document twice
     // for a request the caller must discard, especially on slower machines.
     if (file.text.length > MAX_COMMAND_BYTES) return false;
@@ -318,11 +326,11 @@ export function scopedDocsFiles(
   });
 }
 
-function filterScopedFiles(files: FileText[], projectDir: string, ruleSet: RuleSet): FileText[] {
-  const base = resolve(projectDir);
-  return judgeable(files, projectDir).filter((f) => {
-    const abs = resolve(base, f.path);
-    const rel = abs.startsWith(base + sep) ? abs.slice(base.length + 1) : f.path;
+function filterScopedFiles(files: FileText[], projectDir: string, ruleSet: RuleSet, io: CheckerIo): FileText[] {
+  const base = within(io, projectDir);
+  return judgeable(files, projectDir, io).filter((f) => {
+    const abs = within(io, base, f.path);
+    const rel = abs.startsWith(base + io.path.sep) ? abs.slice(base.length + 1) : f.path;
     return !matchesAny(rel, ruleSet.exclude);
   });
 }
@@ -333,33 +341,35 @@ function filterScopedFiles(files: FileText[], projectDir: string, ruleSet: RuleS
  * Keeping them paired is what lets a patch touching both a README and a source
  * file have only the README judged.
  */
-export function extractFromFileWrite(event: NormalisedEvent, projectDir = projectDirFor(event), options: { alreadyApplied?: boolean } = {}): FileText[] {
+export function extractFromFileWrite(event: NormalisedEvent, projectDir?: string, options: { alreadyApplied?: boolean; io?: CheckerIo } = {}): FileText[] {
+  const io = options.io ?? nodeIo;
+  projectDir ??= projectDirFor(event, undefined, io);
   const input = event.input;
   const rawPath = pick(input, "filePath");
-  const path = rawPath ? resolve(event.cwd || projectDir, rawPath) : "";
+  const path = rawPath ? within(io, event.cwd || projectDir, rawPath) : "";
 
   switch (event.tool) {
     case "write":
       return [{ path, text: pick(input, "content") }];
     case "edit":
-      return [contextualEdit(path, [input], projectDir, options.alreadyApplied)];
+      return [contextualEdit(path, [input], projectDir, io, options.alreadyApplied)];
     case "multi-edit":
-      return [contextualEdit(path, pickArray(input, "edits").map(asRecord), projectDir, options.alreadyApplied)];
+      return [contextualEdit(path, pickArray(input, "edits").map(asRecord), projectDir, io, options.alreadyApplied)];
     case "patch":
       return pickArray(input, "files").map((f) => {
         const entry = asRecord(f);
         const rawTarget = pick(entry, "path");
-        const target = rawTarget ? resolve(event.cwd || projectDir, rawTarget) : "";
+        const target = rawTarget ? within(io, event.cwd || projectDir, rawTarget) : "";
         const rawSource = pick(entry, "sourcePath");
-        const source = rawSource ? resolve(event.cwd || projectDir, rawSource) : target;
+        const source = rawSource ? within(io, event.cwd || projectDir, rawSource) : target;
         const edits = pickArray(entry, "edits").map(asRecord);
-        if (source !== target && MARKDOWN.test(target) && !MARKDOWN.test(source) && isUnderProject(source, projectDir)) {
+        if (source !== target && MARKDOWN.test(target) && !MARKDOWN.test(source) && isUnderProject(source, projectDir, io)) {
           try {
-            const proposed = edits.length ? contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied).text : readFileSync(source, "utf8");
-            return { path: target, text: proposed };
+            const proposed = edits.length ? contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, io, options.alreadyApplied).text : io.read(source);
+            if (proposed !== undefined) return { path: target, text: proposed };
           } catch { /* The source may not exist until the pending tool runs. */ }
         }
-        return edits.length ? { ...contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, options.alreadyApplied), path: target } : { path: target, text: pick(entry, "text") };
+        return edits.length ? { ...contextualEdit(options.alreadyApplied ? target : source, edits, projectDir, io, options.alreadyApplied), path: target } : { path: target, text: pick(entry, "text") };
       });
     default:
       return [];
@@ -367,7 +377,7 @@ export function extractFromFileWrite(event: NormalisedEvent, projectDir = projec
 }
 
 /** Apply known edits in memory so fences and definitions remain available. */
-function contextualEdit(path: string, edits: Record<string, unknown>[], projectDir: string, alreadyApplied = false): FileText {
+function contextualEdit(path: string, edits: Record<string, unknown>[], projectDir: string, io: CheckerIo, alreadyApplied = false): FileText {
   const fallback = { path, text: edits.map((e) => {
     const next = pick(e, "newString");
     if (!("changedRanges" in e)) return next;
@@ -375,10 +385,13 @@ function contextualEdit(path: string, edits: Record<string, unknown>[], projectD
       typeof r["start"] === "number" && typeof r["end"] === "number" ? [next.slice(r["start"], r["end"])] : [],
     ).join("\n");
   }).join("\n") };
-  if (!isUnderProject(resolve(projectDir, path), projectDir)) return fallback;
+  if (!isUnderProject(within(io, projectDir, path), projectDir, io)) return fallback;
   let text: string;
-  try { text = readFileSync(resolve(projectDir, path), "utf8"); }
-  catch { return fallback; }
+  try {
+    const read = io.read(within(io, projectDir, path));
+    if (read === undefined) return fallback;
+    text = read;
+  } catch { return fallback; }
   let ranges: { start: number; end: number }[] = [];
   if (alreadyApplied) {
     for (const edit of edits) {
@@ -460,24 +473,24 @@ export function extractFromIssue(input: Record<string, unknown>): string[] {
 }
 
 /** Resolve existing ancestors as well, so a symlink cannot escape project scope. */
-function canonicalAncestor(path: string): string {
-  let candidate = resolve(path);
+function canonicalAncestor(path: string, io: CheckerIo): string {
+  let candidate = within(io, path);
   for (;;) {
-    try { return realpathSync(candidate); }
-    catch {
-      const parent = dirname(candidate);
-      if (parent === candidate) return candidate;
-      candidate = parent;
-    }
+    let real: string | undefined;
+    try { real = io.stat(candidate)?.realPath; } catch { /* unreadable: try the parent */ }
+    if (real !== undefined) return real;
+    const parent = io.path.dirname(candidate);
+    if (parent === candidate) return candidate;
+    candidate = parent;
   }
 }
 
-function isUnderProject(file: string, projectDir: string): boolean {
+function isUnderProject(file: string, projectDir: string, io: CheckerIo): boolean {
   if (!projectDir) return true;
-  const within = (f: string, p: string) => f === p || f.startsWith(p.endsWith(sep) ? p : p + sep);
+  const inside = (f: string, p: string) => f === p || f.startsWith(p.endsWith(io.path.sep) ? p : p + io.path.sep);
   // Check lexical traversal first, then the actual destination of symlinks.
-  return within(resolve(file), resolve(projectDir)) &&
-    within(canonicalAncestor(file), canonicalAncestor(projectDir));
+  return inside(within(io, file), within(io, projectDir)) &&
+    inside(canonicalAncestor(file, io), canonicalAncestor(projectDir, io));
 }
 
 /**
@@ -488,8 +501,8 @@ function isUnderProject(file: string, projectDir: string): boolean {
  * Without any of them every markdown file the session touches anywhere on disk
  * would be judged, including other repositories.
  */
-export function projectDirFor(event: NormalisedEvent, explicit?: string): string {
-  return explicit || process.env["CLAUDE_PROJECT_DIR"] || event.cwd || process.cwd();
+export function projectDirFor(event: NormalisedEvent, explicit?: string, io: CheckerIo = nodeIo): string {
+  return explicit || io.env["CLAUDE_PROJECT_DIR"] || event.cwd || io.cwd;
 }
 
 /**
@@ -519,24 +532,24 @@ const WRITE_SHAPED = new Set(["write", "edit", "multi-edit", "patch"]);
  *
  * stderr, not a refusal. Being confused is not grounds for blocking a write.
  */
-function noteIfUnreadable(event: NormalisedEvent, files: FileText[]): void {
+function noteIfUnreadable(event: NormalisedEvent, files: FileText[], io: CheckerIo): void {
   if (!WRITE_SHAPED.has(event.tool)) return;
   if (files.some((f) => f.path !== "" || f.text !== "")) return;
   // Only the tool kind, because by here the payload has been normalised and
   // the field names that would name the problem are gone. Capturing the raw
   // payload is the recorder's job, so the message asks for that rather than
   // guessing.
-  process.stderr.write(
+  io.notice(
     `plain-english: read nothing from a ${event.tool} call, so this write was not ` +
       `checked. The payload may have changed shape. Re-run with ` +
-      `PLAIN_ENGLISH_RECORD=<dir> and open an issue with what it captures.\n`,
+      `PLAIN_ENGLISH_RECORD=<dir> and open an issue with what it captures.`,
   );
 }
 
 export function decide(
   event: NormalisedEvent,
   channel: Channel,
-  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean } = {},
+  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean; io?: CheckerIo } = {},
 ): Decision {
   const primary = decideSingle(event, channel, opts);
   if (channel !== "github" || event.tool !== "bash") return primary;
@@ -556,9 +569,10 @@ export function decide(
 function decideSingle(
   event: NormalisedEvent,
   channel: Channel,
-  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean } = {},
+  opts: { projectDir?: string; ruleSet?: RuleSet; budgetMs?: number; alreadyApplied?: boolean; io?: CheckerIo } = {},
 ): Decision {
-  const projectDir = projectDirFor(event, opts.projectDir);
+  const io = opts.io ?? nodeIo;
+  const projectDir = projectDirFor(event, opts.projectDir, io);
   const allow = (): Decision => ({ allow: true, decision: "allow", findings: [] });
 
   let files: FileText[] = [];
@@ -570,13 +584,13 @@ function decideSingle(
     const raw = event.tool === "bash"
       ? [...extractPatchesFromBash(cmd, projectDir, event.cwd, opts), ...(cmd.length <= MAX_COMMAND_BYTES ? shellFileWrites(cmd, event.cwd || projectDir) : [])]
       : extractFromFileWrite(event, projectDir, opts);
-    noteIfUnreadable(event, raw);
-    files = judgeable(raw, projectDir);
+    noteIfUnreadable(event, raw, io);
+    files = judgeable(raw, projectDir, io);
     if (!files.length) return allow();
   } else if (channel === "github") {
     if (event.tool !== "bash") return allow();
     const cmd = pick(event.input, "command");
-    texts = extractFromBash(cmd, event.cwd || projectDir);
+    texts = extractFromBash(cmd, event.cwd || projectDir, io);
   } else if (channel === "chat") {
     // A stop event carries no tool input. `decideChat` in ./chat.ts takes the
     // reply text directly, and the CLI routes there instead. Reaching here
@@ -586,12 +600,12 @@ function decideSingle(
     texts = extractFromIssue(event.input);
   }
 
-  const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir);
+  const ruleSet = opts.ruleSet ?? resolveRuleSet(projectDir, io);
 
   // A file the project has excluded is never judged, whichever channel it
   // arrives through.
   if (files.length) {
-    files = filterScopedFiles(files, projectDir, ruleSet);
+    files = filterScopedFiles(files, projectDir, ruleSet, io);
   }
 
   texts = texts.filter((t) => t.trim() !== "");
@@ -630,7 +644,7 @@ function decideSingle(
   // No `advisory` either. Waiving a channel has to silence the advice as well
   // as the refusal, or an agent that can only be told things would keep being
   // told this one for the next ten minutes.
-  if (hasAck(channel, projectDir)) {
+  if (hasAck(channel, projectDir, io.now(), io)) {
     return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
@@ -654,8 +668,8 @@ export const ACK_WINDOW_MS = 10 * 60 * 1000;
  * path worked only because Claude Code had already made `.claude/`; an agent
  * that keeps no directory would have made the advice impossible to follow.
  */
-export function ackPath(channel: Channel, projectDir: string): string {
-  return resolve(projectDir, `.plain-english-ack-${channel}`);
+export function ackPath(channel: Channel, projectDir: string, io: CheckerIo = nodeIo): string {
+  return within(io, projectDir, `.plain-english-ack-${channel}`);
 }
 
 /**
@@ -664,8 +678,8 @@ export function ackPath(channel: Channel, projectDir: string): string {
  * Somebody who learned the old path from a refusal message should not find it
  * has stopped working because the tool grew support for another agent.
  */
-function legacyAckPath(channel: Channel, projectDir: string): string {
-  return resolve(projectDir, ".claude", `.${channel}-plain-english-ack`);
+function legacyAckPath(channel: Channel, projectDir: string, io: CheckerIo): string {
+  return within(io, projectDir, ".claude", `.${channel}-plain-english-ack`);
 }
 
 /**
@@ -678,10 +692,14 @@ function legacyAckPath(channel: Channel, projectDir: string): string {
  *
  * A missing or unreadable file waives nothing.
  */
-export function hasAck(channel: Channel, projectDir: string, now = Date.now()): boolean {
-  for (const path of [ackPath(channel, projectDir), legacyAckPath(channel, projectDir)]) {
+export function hasAck(channel: Channel, projectDir: string, now?: number, io: CheckerIo = nodeIo): boolean {
+  const at = now ?? io.now();
+  for (const path of [ackPath(channel, projectDir, io), legacyAckPath(channel, projectDir, io)]) {
     try {
-      if (now - statSync(path).mtimeMs < ACK_WINDOW_MS) return true;
+      // `statSync` followed a link to its target; so does this.
+      const facts = io.stat(path);
+      const target = facts?.kind === "link" ? (facts.realPath === undefined ? undefined : io.stat(facts.realPath)) : facts;
+      if (target !== undefined && at - target.mtimeMs < ACK_WINDOW_MS) return true;
     } catch {
       /* absent or unreadable waives nothing */
     }

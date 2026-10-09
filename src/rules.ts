@@ -6,10 +6,9 @@
  * overrides. Upstream rule fixes keep reaching it.
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import type { CheckerIo } from "./io.ts";
+import { nodeIo } from "./node-io.ts";
 import { findUnsafe } from "./safe-regex.ts";
 import { PROFILE_GENRES, readWritingProfile, writingProfileGuidance } from "./writing-profile.ts";
 
@@ -501,19 +500,6 @@ export class RuleError extends Error {}
 
 /** Rule and section ids. Mirrors `$defs.id` in rules/schema.json. */
 const ID_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-/** Where the built-in ruleset lives, both from src/ and from dist/. */
-export function defaultRulesPath(): string {
-  for (const p of [
-    resolve(HERE, "..", "rules", "default.yml"),
-    resolve(HERE, "..", "..", "rules", "default.yml"),
-  ]) {
-    if (existsSync(p)) return p;
-  }
-  throw new RuleError("built-in ruleset not found (rules/default.yml)");
-}
 
 function asStringArray(v: unknown, where: string): string[] {
   if (v === undefined || v === null) return [];
@@ -1253,9 +1239,8 @@ function toRuleSet(raw: RawSet): RuleSet {
 }
 
 /** Load the built-in ruleset. */
-export function loadDefault(): RuleSet {
-  const path = defaultRulesPath();
-  const set = toRuleSet(parseSet(readFileSync(path, "utf8"), path));
+export function loadDefault(io: CheckerIo = nodeIo): RuleSet {
+  const set = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
   const source = {
     title: "Plain English design rationale",
     url: "https://github.com/nordscope-fi/plain-english/blob/main/docs/design-rationale.md",
@@ -1495,19 +1480,21 @@ function mergeChat(base: ChatSection, overlay: ChatSection): ChatSection {
 }
 
 /** Load a project config, resolving `extends`. */
-export function loadConfig(path: string): RuleSet {
-  const raw = parseSet(readFileSync(path, "utf8"), path);
+export function loadConfig(path: string, io: CheckerIo = nodeIo): RuleSet {
+  const text = io.read(path);
+  if (text === undefined) throw new RuleError(`${path}: no such file`);
+  const raw = parseSet(text, path);
   const overlay = toRuleSet(raw);
   const ext = raw.extends;
   let set: RuleSet;
-  if (ext === undefined || ext === "default") set = merge(loadDefault(), overlay);
+  if (ext === undefined || ext === "default") set = merge(loadDefault(io), overlay);
   else {
     if (typeof ext !== "string") throw new RuleError(`${path}: extends must be a string`);
-    const basePath = isAbsolute(ext) ? ext : resolve(dirname(path), ext);
-    set = merge(loadConfig(basePath), overlay);
+    const basePath = io.path.isAbsolute(ext) ? ext : io.path.resolve(io.path.dirname(path), ext);
+    set = merge(loadConfig(basePath, io), overlay);
   }
   if (set.profile) {
-    const profile = readWritingProfile(resolve(dirname(path), set.profile.file));
+    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path), set.profile.file), io);
     if (profile) {
       set.profileGuidance = writingProfileGuidance(profile);
       set.profileState = {
@@ -1524,18 +1511,18 @@ export function loadConfig(path: string): RuleSet {
  * Find and load the ruleset for a directory: `.plain-english.yml` if present
  * anywhere from `from` up to the filesystem root, otherwise the built-in set.
  */
-export function resolveRuleSet(from: string): RuleSet {
-  let dir = resolve(from);
+export function resolveRuleSet(from: string, io: CheckerIo = nodeIo): RuleSet {
+  let dir = io.path.resolve(io.cwd, from);
   for (;;) {
     for (const name of [".plain-english.yml", ".plain-english.yaml"]) {
-      const candidate = resolve(dir, name);
-      if (existsSync(candidate)) return compile(loadConfig(candidate));
+      const candidate = io.path.resolve(dir, name);
+      if (io.read(candidate) !== undefined) return compile(loadConfig(candidate, io));
     }
-    const parent = dirname(dir);
+    const parent = io.path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return compile(loadDefault());
+  return compile(loadDefault(io));
 }
 
 /**

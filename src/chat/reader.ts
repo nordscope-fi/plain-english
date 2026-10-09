@@ -25,7 +25,8 @@
  * the wrong file.
  */
 
-import { readFileSync } from "node:fs";
+import type { CheckerIo } from "../io.ts";
+import { nodeIo } from "../node-io.ts";
 
 /** One thing an agent said, in the chat window. */
 export interface Reply {
@@ -82,7 +83,7 @@ export interface ChatReader {
    * The reply a stop event is about, or null when this agent has no such
    * event or the payload names nothing readable.
    */
-  current(payload: Record<string, unknown>): Reply | null;
+  current(payload: Record<string, unknown>, io?: CheckerIo): Reply | null;
   /**
    * What the reader last asked, for the judge.
    *
@@ -92,9 +93,9 @@ export interface ChatReader {
    * 32 of 39 judge calls ran without it, because the Stop payload carries the
    * reply and not the question that prompted it.
    */
-  lastAsk?(payload: Record<string, unknown>): string | undefined;
+  lastAsk?(payload: Record<string, unknown>, io?: CheckerIo): string | undefined;
   /** Stable identity of the latest human turn, unchanged by assistant retries. */
-  turnId?(payload: Record<string, unknown>): string | undefined;
+  turnId?(payload: Record<string, unknown>, io?: CheckerIo): string | undefined;
 }
 
 /** Read a string field, trying each name, since agents disagree on casing. */
@@ -116,13 +117,15 @@ export function field(payload: Record<string, unknown>, ...names: string[]): str
 export function readJsonl(
   path: string,
   onRecord: (record: Record<string, unknown>, line: number) => void,
+  io: CheckerIo = nodeIo,
 ): void {
-  let text: string;
+  let text: string | undefined;
   try {
-    text = readFileSync(path, "utf8");
+    text = io.read(path);
   } catch {
     return;
   }
+  if (text === undefined) return;
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -180,6 +183,7 @@ export function withinDays(at: string | undefined, days: number | undefined, now
 export function latestUserTurnId(
   path: string | undefined,
   isHuman: (record: Record<string, unknown>) => boolean,
+  io: CheckerIo = nodeIo,
 ): string | undefined {
   if (!path) return undefined;
   let latest: string | undefined;
@@ -187,6 +191,6 @@ export function latestUserTurnId(
     if (record["isMeta"] === true || record["isSidechain"] === true || record["toolUseResult"] !== undefined) return;
     if (!isHuman(record)) return;
     latest = `${path}:${field(record, "uuid", "id", "turn_id", "turnId") ?? line}`;
-  });
+  }, io);
   return latest;
 }

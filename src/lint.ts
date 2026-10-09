@@ -6,6 +6,7 @@
  * with the same rules, so they can never disagree about what is allowed.
  */
 
+import { nodeIo } from "./node-io.ts";
 import { maskNonProse } from "./mask.ts";
 import { matchAllWithDeadline } from "./safe-regex.ts";
 import { normaliseForMatching, stripZeroWidth } from "./normalise.ts";
@@ -913,7 +914,7 @@ function readabilityFindings(
 }
 
 /** Convenience: resolve the ruleset for `cwd` and lint. */
-export function lint(text: string, cwd: string = process.cwd()): LintResult {
+export function lint(text: string, cwd: string = nodeIo.cwd): LintResult {
   return lintText(text, resolveRuleSet(cwd));
 }
 

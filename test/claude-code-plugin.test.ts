@@ -5,8 +5,8 @@
  * Three things must agree or an install breaks without a word from anyone:
  * the marketplace entry's name is the install key and the manifest's name is
  * what the mod's components are namespaced under; the manifest's version is
- * what tells an install that a new release exists; and the bundled CLI and
- * ruleset the hooks module shells to must be the working tree's own. The
+ * what tells an install that a new release exists; and the bundled core and
+ * ruleset the hooks module runs must be the working tree's own (ADR-008). The
  * release script moves the version, `npm run build` writes the bundle, and
  * CI's drift job fails on a bundle nobody committed.
  */
@@ -34,10 +34,12 @@ function json(path: string): Record<string, unknown> {
 describe("the plugin's hook files as the directory reads them", () => {
   // Control characters, zero-width and direction marks, line and paragraph separators, byte-order mark.
   const INVISIBLE = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u2064\\uFEFF]");
-  const HOOK_FILES = ["hooks/register.ts", "hooks/wire.ts", "hooks/run-checker.mjs", "hooks/shell.mjs", "hooks/issue-tools.mjs"];
+  const CORE = resolve(PLUGIN, "hooks/core");
+  const coreFiles = () => readdirSync(CORE).filter((name) => name.endsWith(".mjs")).map((name) => `hooks/core/${name}`);
+  const hookFiles = () => ["hooks/register.ts", "hooks/wire.ts", "hooks/shell.mjs", "hooks/issue-tools.mjs", ...coreFiles()];
 
   it("contain no invisible or control characters", () => {
-    for (const file of HOOK_FILES) {
+    for (const file of hookFiles()) {
       const lines = readFileSync(resolve(PLUGIN, file), "utf8").split("\n");
       const found = lines.flatMap((line, index) =>
         INVISIBLE.test(line) ? [`${file}:${index + 1}`] : []);
@@ -45,19 +47,12 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held as "A file of the mod looks minified or bundled (very long lines)"
+  // on the in-mod probe, 112c640.
   it("have no line long enough to read as minified", () => {
-    for (const file of HOOK_FILES) {
+    for (const file of hookFiles()) {
       const longest = Math.max(...readFileSync(resolve(PLUGIN, file), "utf8").split("\n").map((line) => line.length));
       expect(longest, file).toBeLessThanOrEqual(1000);
-    }
-  });
-
-  it("keep invisible and control characters out of the bundled checker too", () => {
-    const dist = resolve(PLUGIN, "dist");
-    for (const entry of readdirSync(dist, { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
-      const path = resolve(entry.parentPath, entry.name);
-      const lines = readFileSync(path, "utf8").split("\n");
-      expect(lines.flatMap((line, index) => INVISIBLE.test(line) ? [index + 1] : []), path).toEqual([]);
     }
   });
 
@@ -75,107 +70,104 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // ADR-008. Held as "Mod starts other programs" and "Mod starts a program with
+  // a command the directory couldn't read in full" while the mod started the
+  // CLI. The mod runs the checker in its own process and starts nothing.
+  it("start no program, and carry no Node, eval or uppercase template the directory flags", () => {
+    expect(readFileSync(resolve(PLUGIN, "hooks/register.ts"), "utf8")).not.toMatch(/\$\.process\b/);
+    expect(existsSync(resolve(PLUGIN, "hooks/run-checker.mjs"))).toBe(false);
+    expect(existsSync(resolve(PLUGIN, "dist"))).toBe(false);
+    for (const file of coreFiles()) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text, file).not.toMatch(/from\s*["']node:|import\(\s*["']node:|require\(/);
+      expect(text, file).not.toMatch(/\bprocess\.|child_process|\bspawn(?:Sync)?\(/);
+      // Held as blocking on 112c640: "Mod uses eval or another way to build code from a string".
+      expect(text, file).not.toMatch(/\beval\b|\bnew Function\b/);
+      // Read as "a ${ENV_VAR} reference" beside a web address on 112c640.
+      expect(text, file).not.toMatch(/\$\{[A-Z]/);
+      expect(text, file).not.toMatch(/env\.LOG_[A-Z]+/);
+    }
+  });
+
   // The directory's "Uses a credential" hold pairs any web address in a file
-  // with any read it takes for a credential. Library comments carried most of
-  // them, so the bundles ship without comments. Every address left must come
-  // from this project's own source: agent documentation links, this
-  // repository's pages and the SARIF schema identifier.
+  // with any read it takes for a credential. Every address the core carries
+  // must come from this project's own source.
   it("carry no web address that this project's own source does not", () => {
     const pattern = /https?:\/\/[^\s"'`)<>\]]+/g;
     const own = new Set<string>();
     for (const entry of readdirSync(resolve(ROOT, "src"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile()))
       for (const address of readFileSync(resolve(entry.parentPath, entry.name), "utf8").match(pattern) ?? []) own.add(address);
     for (const address of readFileSync(resolve(ROOT, "rules/default.yml"), "utf8").match(pattern) ?? []) own.add(address);
-    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
-      const path = resolve(entry.parentPath, entry.name);
-      const foreign = (readFileSync(path, "utf8").match(pattern) ?? []).filter((address) => !own.has(address));
-      expect(foreign, path).toEqual([]);
+    for (const file of coreFiles().filter((name) => !name.endsWith("default-rules.mjs"))) {
+      const foreign = (readFileSync(resolve(PLUGIN, file), "utf8").match(pattern) ?? []).filter((address) => !own.has(address));
+      expect(foreign, file).toEqual([]);
     }
   });
 
-  // Held as "Uses a credential from the user's machine": the scan pairs each
-  // web address with ordinary words such as `key`. The README answers every
-  // address the bundle holds, so the bundle may hold no other host.
-  it("name only the web hosts the README's credential table answers", () => {
-    const answered = new Set(["github.com", "json.schemastore.org"]);
-    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
-      const path = resolve(entry.parentPath, entry.name);
-      const hosts = [...readFileSync(path, "utf8").matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((match) => match[1]!.toLowerCase());
-      expect(hosts.filter((host) => !answered.has(host)), path).toEqual([]);
+  // Held on 852d825: the directory paired a GitHub address and the Markdown
+  // parser's `http://` prefix with the parsers' own `key` and `token`
+  // variables. The checker's code carries no web address at all.
+  it("carry no web address in the checker's code", () => {
+    for (const file of coreFiles().filter((name) => !name.endsWith("default-rules.mjs"))) {
+      expect(readFileSync(resolve(PLUGIN, file), "utf8").match(/https?:\/\/[^\s"'`]*/g) ?? [], file).toEqual([]);
     }
   });
 
-  // Held as "Uses a credential from the user's machine", 8083a60: the scan read
-  // the YAML library's debug switches as reads of the installer's key, and
-  // `|set|` in a ruleset regex as the shell's `set`. Neither is a credential.
-  it("hold nothing a credential scan reads as a credential beside an address", () => {
-    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
-      const path = resolve(entry.parentPath, entry.name);
-      const text = readFileSync(path, "utf8");
-      expect(text.match(/env\.LOG_[A-Z]+/g) ?? [], path).toEqual([]);
-    }
-    const ruleset = readFileSync(resolve(PLUGIN, "rules", "default.yml"), "utf8");
-    expect(ruleset.match(/\|\s*(?:set|env|printenv)\s*\|/g) ?? []).toEqual([]);
-  });
-
-  // Windows CI, 2026-10-08: a path compared with backslashes let the split
-  // move the CLI's own entry module out of cli.mjs.
-  it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
-    expect(readFileSync(resolve(PLUGIN, "dist/cli.mjs"), "utf8")).toContain("catch AI writing tells before they land");
-  });
-
-  // Held as "Mod starts a program with a command the directory couldn't read
-  // in full": every program the mod starts is written as fixed text.
-  it("start every program with a command written as fixed text", () => {
-    const source = readFileSync(resolve(PLUGIN, "hooks/register.ts"), "utf8");
-    const commands = [...source.matchAll(/\$\.process\.(?:run\(|spawn\(\{\s*argv:\s*)(\[[^\]]*\])/g)].map((match) => match[1]!);
-    expect(commands.length).toBeGreaterThanOrEqual(7);
-    for (const command of commands) {
-      expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
-    }
-    // No call takes its settings from a spread, which could replace the command.
-    const calls = [...source.matchAll(/\$\.process\.(?:run|spawn)\(([\s\S]*?)\n?\s*\}\)/g)].map((match) => match[1]!);
-    expect(calls.length).toBeGreaterThanOrEqual(7);
-    for (const call of calls) expect(call, call).not.toContain("...");
-    // The launcher the mod starts writes out each program it starts in full too.
-    const launcher = readFileSync(resolve(PLUGIN, "hooks", "run-checker.mjs"), "utf8");
-    const started = [...launcher.matchAll(/\bspawn(?:Sync)?\(([^)]*)\)/g)].map((match) => match[1]!);
-    expect(started.length).toBeGreaterThanOrEqual(8);
-    for (const call of started) {
-      expect(call, call).toMatch(/^\s*'[^'$`]*'\s*,\s*\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]/);
-    }
-    // The settings each run gets are fixed text too; anything computed goes in
-    // the request on standard input.
-    const settings = [...source.matchAll(/\benv:\s*(\{[^}]*\})/g)].map((match) => match[1]!);
-    expect(settings.length).toBeGreaterThanOrEqual(7);
-    for (const env of settings) {
-      expect(env, env).toMatch(/^\{\s*[A-Z_]+:\s*'[^'$`]*'(?:\s*,\s*[A-Z_]+:\s*'[^'$`]*')*\s*\}$/);
+  // Held on 852d825 as "a string that looks like encoded data": an HTML
+  // library's entity table. The checker reads issue HTML with its own reader.
+  it("carry no HTML library or encoded entity table", () => {
+    for (const file of coreFiles()) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text, file).not.toMatch(/htmlparser2|decode_data_html|htmlDecodeTree|decodeBase64/);
     }
   });
 
-  it("run the checker from the plugin folder in the project folder the mod names", () => {
-    const dir = mkdtempSync(resolve(tmpdir(), "pe-wrapper-"));
+  // Held on 8083a60: `|set|` in a ruleset regex read as the shell's `set`.
+  it("ship a ruleset with no pattern that spells a shell command", async () => {
+    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    expect(String(rules).match(/\|\s*(?:set|env|printenv)\s*\|/g) ?? []).toEqual([]);
+  });
+
+  // The mod's own path, run in Node: the bundled core asks for files, gets
+  // them, and decides, exactly as the mod's `runCore` drives it.
+  it("decide a check from the bundled core with files fetched in rounds, as the mod does", async () => {
+    const core = await import("../integrations/claude-code-plugin/hooks/core/plugin-core.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-core-"));
     try {
-      writeFileSync(resolve(dir, "notes.md"), "Furthermore, it works.\n");
-      const ran = spawnSync(process.execPath, ["hooks/run-checker.mjs", "lint"], {
-        cwd: PLUGIN,
-        encoding: "utf8",
-        input: JSON.stringify({ cwd: dir, paths: ["notes.md"] }),
-        env: { ...process.env, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
-      });
-      expect(ran.stdout + ran.stderr).toContain("furthermore");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("explain that source prose needs the npm package, since the plugin leaves the parser out", () => {
-    const dir = mkdtempSync(resolve(tmpdir(), "pe-plugin-source-"));
-    try {
-      writeFileSync(resolve(dir, "a.ts"), 'const greeting = "Hello there.";\n');
-      const ran = spawnSync(process.execPath, [resolve(PLUGIN, "dist/cli.mjs"), "lint", "--source-prose", resolve(dir, "a.ts")], { cwd: dir, encoding: "utf8" });
-      expect(ran.status).toBe(2);
-      expect(ran.stderr).toContain("npm package");
+      writeFileSync(resolve(dir, ".plain-english.yml"), "version: 1\nextends: default\nfailOn: error\n");
+      const fetched = core.emptyFetched();
+      const kept = new Map<string, { value: string; at: number }>();
+      let rounds = 0;
+      for (;;) {
+        rounds += 1;
+        const io = core.replayIo({
+          cwd: dir, path: core.pathsFor(dir), env: {}, home: undefined, now: () => Date.now(), notice: () => {},
+          state: { get: (key: string) => kept.get(key), set: (key: string, value: string) => { kept.set(key, { value, at: Date.now() }); return true; } },
+          defaultRules: () => rules,
+        }, fetched);
+        try {
+          const result = core.replay(io, (checked: never) => core.hookCheck({
+            channel: "docs",
+            payload: { hook_event_name: "PreToolUse", cwd: dir, tool_name: "Write", tool_input: { file_path: resolve(dir, "a.md"), content: "Furthermore, the build is slow." } },
+            profile: core.claudeCodeHook, reader: core.claudeCodeChat, io: checked,
+          }));
+          expect(result.stdout).toContain("Furthermore");
+          expect(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision).toBe("deny");
+          break;
+        } catch (error) {
+          if (!(error instanceof core.NeedFiles)) throw error;
+          for (const path of error.reads) { try { fetched.reads.set(path, readFileSync(path, "utf8")); } catch { fetched.reads.set(path, null); } }
+          for (const path of error.stats) {
+            try {
+              const facts = statSync(path);
+              fetched.stats.set(path, { kind: facts.isDirectory() ? "directory" : "file", mtimeMs: facts.mtimeMs, realPath: path });
+            } catch { fetched.stats.set(path, null); }
+          }
+          for (const path of error.lists) { try { fetched.lists.set(path, readdirSync(path)); } catch { fetched.lists.set(path, null); } }
+        }
+        expect(rounds).toBeLessThan(6);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -276,15 +268,14 @@ describe("the Claude Code plugin", () => {
     expect(manifest["version"]).toBe(own["version"]);
   });
 
-  it("ships the bundled CLI and the ruleset it reads", () => {
+  it("ships the bundled core and the ruleset it reads", async () => {
     // `pretest` runs `npm run build`, which writes both, so this reads what a
     // marketplace install would get once the build is committed.
-    const bundle = readFileSync(resolve(PLUGIN, "dist/cli.mjs"), "utf8");
+    const bundle = readFileSync(resolve(PLUGIN, "hooks/core/plugin-core.mjs"), "utf8");
     expect(bundle.slice(0, 200)).toContain("// GENERATED by scripts/build-plugin.mjs");
     expect(bundle).not.toContain("from \"mdast-util-from-markdown\"");
-    expect(readFileSync(resolve(PLUGIN, "rules/default.yml"), "utf8")).toBe(
-      readFileSync(resolve(ROOT, "rules/default.yml"), "utf8"),
-    );
+    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    expect(rules).toBe(readFileSync(resolve(ROOT, "rules/default.yml"), "utf8"));
   });
 
   it("ships the existing writing guidance without changing it", () => {
@@ -323,12 +314,11 @@ describe("the Claude Code plugin", () => {
       readFileSync(resolve(ROOT, "LICENSE"), "utf8"),
     );
   });
-  it("ships full notices for bundled dependencies, including the legacy format package", () => {
+  it("ships full notices for bundled dependencies, and none for the format package it replaces", () => {
     const notices = readFileSync(resolve(PLUGIN, "THIRD-PARTY-NOTICES.txt"), "utf8");
-    expect(notices).toContain("format@0.2.2");
-    expect(notices).toContain("Copyright 2010 - 2013 Sami Samhuri <sami@samhuri.net>");
-    expect(notices).toContain("Copyright 2010 - 2014 Sami Samhuri sami@samhuri.net");
+    expect(notices).not.toContain("format@0.2.2");
     expect(notices).toContain("yaml@");
+    expect(notices).not.toContain("htmlparser2@");
     expect(notices).toContain("Permission to use, copy, modify, and/or distribute this software");
     expect(notices).not.toContain("vitest@");
     expect(notices).not.toContain("esbuild@");

@@ -4,6 +4,20 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-09
+### Changed
+
+- The Claude Code plugin runs the checker inside its mod and starts no program (ADR-008). Files reach the checker through Claude Code's own file calls, and model questions through the session's model, as before. The plugin no longer ships a bundled CLI, its launcher or a separate ruleset file.
+- When Claude Code cannot make an extra model check, the plugin reports it unavailable and keeps the pattern result. The `claude -p` fallback is gone from the plugin; the CLI keeps it.
+- Approving a project term from the plugin saves only when Claude Code's working folder is the project root the check named.
+- The checker's core reads files through an io object, with Node's as the default, so the CLI behaves as before. Hashing and path handling have pure versions held to Node's results by tests.
+- Jira and Confluence HTML is read by the checker's own reader instead of `htmlparser2`, which is no longer a dependency. It decodes the named entities that text uses and every numeric one; a rare named entity stays as written.
+
+### Removed
+
+- The plugin's cancellation probe and its CI steps: no program runs to cancel.
+- The Claude writing benchmark's receipts for the checks mode, which the bundled CLI wrote (#136).
+
 ## [1.15.2] - 2026-10-09
 ### Changed
 
@@ -749,7 +763,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.0
 [1.15.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.2
 [1.15.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.1
 [1.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.0

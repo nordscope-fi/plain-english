@@ -1,9 +1,11 @@
 /** Project context for native writing guidance, without restating the rules. */
+import type { CheckerIo } from "./io.ts";
+import { nodeIo } from "./node-io.ts";
 import { loadDefault, type RuleSet } from "./rules.ts";
 import { vocabularyForPrompt } from "./render.ts";
 
-export function projectGuidance(set: RuleSet): string {
-  const defaultNames = new Set(loadDefault().readability.flatMap((rule) =>
+export function projectGuidance(set: RuleSet, io: CheckerIo = nodeIo): string {
+  const defaultNames = new Set(loadDefault(io).readability.flatMap((rule) =>
     rule.kind === "unglossed-term" ? rule.known ?? [] : []));
   const names = [...new Set(set.readability.flatMap((rule) =>
     rule.kind === "unglossed-term" ? rule.known ?? [] : []))]

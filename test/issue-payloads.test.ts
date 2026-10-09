@@ -54,6 +54,35 @@ describe("reader-visible issue and page fields", () => {
     expect(value).not.toContain(BAD);
   });
 
+  // ADR-008: the reader is the project's own, so the plugin carries no
+  // encoded entity table; it decodes the entities issue text uses.
+  it("decodes the entities issue text uses, named and numeric", () => {
+    const value = extractFromIssue({ content: "<p>A &mdash; B &#8212; C &#x2014; D &lt;tag&gt; &quot;q&quot; &rsquo;s&nbsp;end &unknown; &#xD800;</p>" }).join("\n");
+    expect(value).toContain("A \u2014 B \u2014 C \u2014 D <tag> \"q\" \u2019s\u00a0end &unknown; &#xD800;");
+  });
+
+  it("skips nested omitted elements whole and keeps a stray angle bracket as text", () => {
+    const value = extractFromIssue({ content: `<p>1 < 2 holds.</p><code>a<code>b</code>${BAD}</code><p>Line<br/>break.</p>` }).join("\n");
+    expect(value).toContain("1 < 2 holds.");
+    expect(value).not.toContain(BAD);
+    expect(value).toMatch(/Line\n+break\./);
+  });
+
+  // Found by a security review of 2ce04e6: an unclosed tag repeated made the
+  // reader rescan to the end at every "<", so a crafted body could outlast
+  // the hook's budget and let the write through.
+  it("reads a crafted body of unclosed tags in linear time", () => {
+    for (const unit of ["<a x", '<a x="', "<a x='", "<", "<a"]) {
+      // With a closing tag the body reads as HTML; without one, the check
+      // that decides whether it is HTML meets the same input.
+      for (const content of [`<p>${unit.repeat(Math.floor(250_000 / unit.length))}</p>`, unit.repeat(Math.floor(250_000 / unit.length))]) {
+        const started = performance.now();
+        extractFromIssue({ content });
+        expect(performance.now() - started, `${unit} (${content.length})`).toBeLessThan(500);
+      }
+    }
+  });
+
   it("ignores metadata, removed text and unsupported containers in partial updates", () => {
     expect(extractFromIssue({ fields: { labels: [BAD], assignee: { name: BAD } }, issueId: BAD, old_string: BAD, patch: [{ old_string: BAD }], content: { query: BAD } })).toEqual([]);
     expect(extractFromIssue({ fields: { description: null }, summary: GOOD })).toEqual([GOOD]);
