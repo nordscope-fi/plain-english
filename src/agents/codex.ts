@@ -91,7 +91,6 @@ function isLinkedWorktree(root: string): boolean {
 export const codex: AgentProfile = {
   id: "codex",
   label: "OpenAI Codex CLI",
-  docs: "https://learn.chatgpt.com/docs/hooks",
 
   detect(raw) {
     return typeof raw["tool_name"] === "string" && !!process.env["CODEX_HOME"];

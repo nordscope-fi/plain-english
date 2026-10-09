@@ -32,7 +32,7 @@ import {
   resolveProfile,
   scopedDocsFiles,
   vibeHome
-} from "./chunks/chunk-KT5JEFT2.mjs";
+} from "./chunks/chunk-ZHSN4YLF.mjs";
 import "./chunks/chunk-KO7RI5VA.mjs";
 import {
   decodeHTMLStrict
@@ -45,14 +45,14 @@ import {
   renderPrompts,
   vocabularyForPrompt,
   writeTargets
-} from "./chunks/chunk-XCBVOT47.mjs";
+} from "./chunks/chunk-QVPKEWLK.mjs";
 import {
   RuleError,
   chatRuleSet,
   compile,
   loadDefault,
   resolveRuleSet
-} from "./chunks/chunk-PQ5CFS47.mjs";
+} from "./chunks/chunk-LSOPSMK4.mjs";
 import {
   approveWritingProfile,
   buildWritingProfile,
@@ -2182,7 +2182,7 @@ import { createHash as createHash4, randomBytes } from "node:crypto";
 import { mkdirSync, readdirSync as readdirSync8, writeFileSync as writeFileSync3 } from "node:fs";
 import { homedir as homedir8 } from "node:os";
 import { resolve as resolve11, sep as sep2 } from "node:path";
-var CONTENT_KEYS =   new Set([
+var CONTENT_FIELDS =   new Set([
   "content",
   "contents",
   "text",
@@ -2202,7 +2202,7 @@ var CONTENT_KEYS =   new Set([
   "commentBody"
 ]);
 var ARGUMENT_BAGS =   new Set(["tool_input", "toolArgs", "tool_args", "args", "Arguments", "input"]);
-var PATH_KEYS =   new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
+var PATH_FIELDS =   new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
 var MAX_FILES = 200;
 var MAX_BYTES = 256 * 1024;
 function scrubText(s, projectDir) {
@@ -2215,13 +2215,13 @@ function scrubText(s, projectDir) {
   return out;
 }
 function redact(v, opts, key, prose = false, argumentsBag = false) {
-  prose ||= Boolean(key && CONTENT_KEYS.has(key));
+  prose ||= Boolean(key && CONTENT_FIELDS.has(key));
   argumentsBag ||= Boolean(key && ARGUMENT_BAGS.has(key));
   if (typeof v === "string") {
-    if (key && IDENTITY_KEYS.has(key))
+    if (key && IDENTITY_FIELDS.has(key))
       return "<redacted>";
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
-    if (opts.verbatim || !prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))
+    if (opts.verbatim || !prose && (!argumentsBag || Boolean(key && PATH_FIELDS.has(key))))
       return scrubbed;
     return `<${scrubbed.length} chars, sha256:${createHash4("sha256").update(scrubbed).digest("hex").slice(0, 12)}>`;
   }
@@ -2236,7 +2236,7 @@ function redact(v, opts, key, prose = false, argumentsBag = false) {
   }
   return v;
 }
-var IDENTITY_KEYS =   new Set(["user_email", "userEmail", "email", "user", "author"]);
+var IDENTITY_FIELDS =   new Set(["user_email", "userEmail", "email", "user", "author"]);
 var EMAIL = /[^\s<>"@]+@[^\s<>"@]+\.[A-Za-z]{2,}/g;
 var LEAK = /\/Users\/|\/home\/|[A-Za-z]:\\Users\\|[^\s<>"@]+@[^\s<>"@]+\.[A-Za-z]{2,}/;
 function buildCapture(raw, parsed, decision, stdout, opts) {

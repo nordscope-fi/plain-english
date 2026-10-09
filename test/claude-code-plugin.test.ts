@@ -93,6 +93,18 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held as "Uses a credential from the user's machine": the scan pairs each
+  // web address with ordinary words such as `key`. The README answers every
+  // address the bundle holds, so the bundle may hold no other host.
+  it("name only the web hosts the README's credential table answers", () => {
+    const answered = new Set(["github.com", "json.schemastore.org"]);
+    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
+      const path = resolve(entry.parentPath, entry.name);
+      const hosts = [...readFileSync(path, "utf8").matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((match) => match[1]!.toLowerCase());
+      expect(hosts.filter((host) => !answered.has(host)), path).toEqual([]);
+    }
+  });
+
   // Windows CI, 2026-10-08: a path compared with backslashes let the split
   // move the CLI's own entry module out of cli.mjs.
   it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
@@ -108,6 +120,10 @@ describe("the plugin's hook files as the directory reads them", () => {
     for (const command of commands) {
       expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
     }
+    // No call takes its settings from a spread, which could replace the command.
+    const calls = [...source.matchAll(/\$\.process\.(?:run|spawn)\(([\s\S]*?)\n?\s*\}\)/g)].map((match) => match[1]!);
+    expect(calls.length).toBeGreaterThanOrEqual(7);
+    for (const call of calls) expect(call, call).not.toContain("...");
     // The launcher the mod starts writes out each program it starts in full too.
     const launcher = readFileSync(resolve(PLUGIN, "hooks", "run-checker.mjs"), "utf8");
     const started = [...launcher.matchAll(/\bspawn(?:Sync)?\(([^)]*)\)/g)].map((match) => match[1]!);

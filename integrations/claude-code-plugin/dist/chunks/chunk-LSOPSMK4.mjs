@@ -241,7 +241,7 @@ function asStringArray(v, where) {
     return x;
   });
 }
-var ALLOW_KEYS =   new Set(["pattern", "rules", "semantic"]);
+var ALLOW_FIELDS =   new Set(["pattern", "rules", "semantic"]);
 function readProvenance(v, where) {
   if (v === void 0)
     return void 0;
@@ -287,8 +287,8 @@ function readAllow(v) {
     }
     const e = raw;
     for (const key of Object.keys(e)) {
-      if (!ALLOW_KEYS.has(key)) {
-        throw new RuleError(`allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_KEYS].sort().join(", ")}`);
+      if (!ALLOW_FIELDS.has(key)) {
+        throw new RuleError(`allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_FIELDS].sort().join(", ")}`);
       }
     }
     if (typeof e["pattern"] !== "string") {

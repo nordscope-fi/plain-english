@@ -62,7 +62,6 @@ function command(channel: string): string {
 export const copilot: AgentProfile = {
   id: "copilot",
   label: "GitHub Copilot",
-  docs: "https://docs.github.com/en/copilot/reference/hooks-reference",
 
   detect(raw) {
     // The camelCase envelope is Copilot's alone. The PascalCase one is shared

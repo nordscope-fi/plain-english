@@ -162,10 +162,10 @@ function wrapperRequest(cwd: string, rest: { input?: string; paths?: string[]; r
  */
 function spawnHook($: EngineInterface, channel: Channel, init: { cwd: string; input: string }) {
   switch (channel) {
-    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
-    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
-    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
-    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '60000' }, ...init })
+    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
+    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
+    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, cwd: init.cwd, input: init.input })
+    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '60000' }, cwd: init.cwd, input: init.input })
   }
 }
 

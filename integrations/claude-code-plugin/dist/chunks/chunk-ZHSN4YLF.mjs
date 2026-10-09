@@ -17,14 +17,14 @@ import {
   renderDocsSkill,
   renderOutputStyle,
   renderPrompts
-} from "./chunk-XCBVOT47.mjs";
+} from "./chunk-QVPKEWLK.mjs";
 import {
   chatRuleSet,
   compile,
   loadDefault,
   matchAllWithDeadline,
   resolveRuleSet
-} from "./chunk-PQ5CFS47.mjs";
+} from "./chunk-LSOPSMK4.mjs";
 import {
   isShoutedWord,
   jargonTerms,
@@ -1724,7 +1724,6 @@ exec node "$CLAUDE_PROJECT_DIR/${RUNNER}" hook ${channel} --agent claude-code${m
 var claudeCode = {
   id: "claude-code",
   label: "Claude Code",
-  docs: "https://code.claude.com/docs/en/hooks",
   detect(raw) {
     return typeof raw["tool_name"] === "string" && !!process.env["CLAUDE_PROJECT_DIR"];
   },
@@ -1930,7 +1929,6 @@ function isLinkedWorktree(root) {
 var codex = {
   id: "codex",
   label: "OpenAI Codex CLI",
-  docs: "https://learn.chatgpt.com/docs/hooks",
   detect(raw) {
     return typeof raw["tool_name"] === "string" && !!process.env["CODEX_HOME"];
   },
@@ -2124,7 +2122,6 @@ function command2(channel) {
 var copilot = {
   id: "copilot",
   label: "GitHub Copilot",
-  docs: "https://docs.github.com/en/copilot/reference/hooks-reference",
   detect(raw) {
     return typeof raw["toolName"] === "string" || !!raw["toolArgs"];
   },
@@ -2331,7 +2328,6 @@ var CHANNELS3 = [
 var cursor = {
   id: "cursor",
   label: "Cursor",
-  docs: "https://cursor.com/docs/hooks",
   detect(raw) {
     return typeof raw["tool_use_id"] === "string" || typeof raw["agent_message"] === "string";
   },
@@ -2463,7 +2459,6 @@ var CHANNELS4 = [
 var gemini = {
   id: "gemini",
   label: "Google Gemini CLI",
-  docs: "https://geminicli.com/docs/hooks/reference/",
   detect(raw) {
     return typeof raw["hook_event_name"] === "string" && ["BeforeTool", "AfterTool", "AfterAgent"].includes(String(raw["hook_event_name"]));
   },
@@ -2554,7 +2549,6 @@ function antigravityCwd(raw) {
 var antigravity = {
   id: "antigravity",
   label: "Google Antigravity CLI",
-  docs: "https://antigravity.google/docs/hooks/",
   detect(raw) {
     return typeof raw["conversationId"] === "string" && (Array.isArray(raw["workspacePaths"]) || typeof raw["toolCall"] === "object");
   },
@@ -2646,7 +2640,6 @@ var CHANNELS5 = [
 var qwen = {
   id: "qwen",
   label: "Qwen Code",
-  docs: "https://qwenlm.github.io/qwen-code-docs/",
   detect(raw) {
     return typeof raw["hook_event_name"] === "string" && !!process.env["QWEN_PROJECT_DIR"];
   },
@@ -2782,7 +2775,6 @@ function listed(line, root) {
 var vibe = {
   id: "vibe",
   label: "Mistral Vibe",
-  docs: "https://docs.mistral.ai/vibe/code/cli/hooks",
   detect(raw) {
     const name = raw["hook_event_name"];
     return typeof name === "string" && EVENTS.has(name);

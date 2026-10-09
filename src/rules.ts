@@ -524,7 +524,7 @@ function asStringArray(v: unknown, where: string): string[] {
   });
 }
 
-const ALLOW_KEYS = new Set(["pattern", "rules", "semantic"]);
+const ALLOW_FIELDS = new Set(["pattern", "rules", "semantic"]);
 
 function readProvenance(v: unknown, where: string): Provenance | undefined {
   if (v === undefined) return undefined;
@@ -563,9 +563,9 @@ function readAllow(v: unknown): AllowEntry[] {
     }
     const e = raw as Record<string, unknown>;
     for (const key of Object.keys(e)) {
-      if (!ALLOW_KEYS.has(key)) {
+      if (!ALLOW_FIELDS.has(key)) {
         throw new RuleError(
-          `allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_KEYS].sort().join(", ")}`,
+          `allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_FIELDS].sort().join(", ")}`,
         );
       }
     }

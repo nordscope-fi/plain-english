@@ -209,8 +209,6 @@ export interface AgentProfile {
   id: string;
   /** Human name, for help text and install output. */
   label: string;
-  /** Where this agent's hook documentation lives, printed on install. */
-  docs: string;
   /**
    * Best-effort recognition from a payload alone.
    *

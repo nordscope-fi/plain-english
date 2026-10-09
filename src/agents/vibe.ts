@@ -114,7 +114,6 @@ function listed(line: string, root: string): boolean {
 export const vibe: AgentProfile = {
   id: "vibe",
   label: "Mistral Vibe",
-  docs: "https://docs.mistral.ai/vibe/code/cli/hooks",
 
   detect(raw) {
     const name = raw["hook_event_name"];

@@ -4,6 +4,13 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-10-09
+### Changed
+
+- The Claude Code plugin's mod names each setting of a hook run instead of copying them in with a spread, so every program call is fixed text at the call.
+- The plugin's bundle no longer carries each agent's documentation address, which nothing read. Constants listing field names are named `*_FIELDS`.
+- The plugin README answers each of the directory's data and credential findings in its own terms, one row per address.
+
 ## [1.15.0] - 2026-10-09
 ### Added
 
@@ -736,7 +743,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.1
 [1.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.0
 [1.14.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.3
 [1.14.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.2

@@ -17,7 +17,6 @@ const CHANNELS = [
 export const qwen: AgentProfile = {
   id: "qwen",
   label: "Qwen Code",
-  docs: "https://qwenlm.github.io/qwen-code-docs/",
 
   detect(raw) {
     return typeof raw["hook_event_name"] === "string" && !!process.env["QWEN_PROJECT_DIR"];
