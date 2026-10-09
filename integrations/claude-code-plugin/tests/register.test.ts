@@ -5,10 +5,23 @@ import { readPassages } from '../hooks/wire'
 tier('user')
 
 /** One output fixture answers either local commands or streaming model checks. */
-function onProcess(on: Parameters<TestBody>[1], respond: (engine: Parameters<TestBody>[0], event: { argv: readonly string[]; init?: { stdin?: string; cwd?: string; env?: Record<string, string> } }) => { value?: { exitCode: number; stdout: string; stderr: string }; deny?: string }) {
-  on('process.run', ($, e) => respond($, e as never))
+/** What the mod sends the wrapper on standard input: the project folder and the CLI's own input (ADR-007 follow-up). */
+interface WrapperRequest { cwd?: string; route?: string; paths?: string[]; input?: string }
+function wrapperRequest(stdin: unknown): WrapperRequest {
+  return stdin === undefined || stdin === '' ? {} : JSON.parse(String(stdin)) as WrapperRequest
+}
+type ProcessEvent = { argv: readonly string[]; init?: { stdin?: string; cwd?: string; env?: Record<string, string>; request?: WrapperRequest } }
+function onProcess(on: Parameters<TestBody>[1], respond: (engine: Parameters<TestBody>[0], event: ProcessEvent) => { value?: { exitCode: number; stdout: string; stderr: string }; deny?: string }) {
+  const unpack = (argv: readonly string[], stdin: unknown, cwd?: string, env?: Record<string, string>): ProcessEvent => {
+    const request = wrapperRequest(stdin)
+    return { argv, init: { stdin: request.input, cwd, env, request } }
+  }
+  on('process.run', ($, e) => {
+    const run = e as unknown as { argv: readonly string[]; init?: { stdin?: string; cwd?: string; env?: Record<string, string> } }
+    return respond($, unpack(run.argv, run.init?.stdin, run.init?.cwd, run.init?.env))
+  })
   on('process.spawn', async function* ($, e) {
-    const result = respond($, { argv: e.argv, init: { stdin: e.input, cwd: e.cwd, env: e.env as Record<string, string> | undefined } })
+    const result = respond($, unpack(e.argv, e.input, e.cwd, e.env as Record<string, string> | undefined))
     if (result.value === undefined) throw new Error(result.deny ?? 'Process refused')
     if (result.value.stdout !== '') yield { stream: 'stdout', text: result.value.stdout }
     if (result.value.stderr !== '') yield { stream: 'stderr', text: result.value.stderr }
@@ -118,8 +131,9 @@ describe('register', () => {
       return { value: { isAnswered: true, text: '{"ok": false, "reason": "Lead with the point."}', usage: { input_tokens: 900, output_tokens: 4, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } }
     })
     on('process.spawn', async function* ($, e) {
-      const input = JSON.parse(String(e.input)) as Record<string, unknown>
-      runs.push({ route: (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'], model: input['plainEnglishModel'] })
+      const request = wrapperRequest(e.input)
+      const input = JSON.parse(String(request.input)) as Record<string, unknown>
+      runs.push({ route: request.route, model: input['plainEnglishModel'] })
       yield { stream: 'stdout', text: runs.length === 1
         ? JSON.stringify({ plainEnglishModelRequest: { key: 'k1', prompt: 'Judge this.', timeoutMs: 1234, deadline: 99 } })
         : DENY }
@@ -138,10 +152,11 @@ describe('register', () => {
   function askingChecker(on: Parameters<TestBody>[1], questions: number, decision: string) {
     const runs: { route?: string; model?: { deadline?: number; answers: Record<string, unknown>[] } }[] = []
     on('process.spawn', async function* ($, e) {
-      const input = JSON.parse(String(e.input)) as Record<string, unknown>
-      runs.push({ route: (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'], model: input['plainEnglishModel'] as never })
+      const request = wrapperRequest(e.input)
+      const input = JSON.parse(String(request.input)) as Record<string, unknown>
+      runs.push({ route: request.route, model: input['plainEnglishModel'] as never })
       const answered = (input['plainEnglishModel'] as { answers?: unknown[] } | undefined)?.answers?.length ?? 0
-      const routed = (e.env as Record<string, string> | undefined)?.['PLAIN_ENGLISH_MODEL_ROUTE'] === 'host'
+      const routed = request.route === 'host'
       const text = routed && answered < questions
         ? JSON.stringify({ plainEnglishModelRequest: { key: `k${answered + 1}`, prompt: `Question ${answered + 1}.`, timeoutMs: 1000, deadline: 99 } })
         : decision
@@ -283,11 +298,11 @@ describe('register', () => {
     }
   })
   test('runs write and reply model checks through the descendant cancellation wrapper', async ($, on) => {
-    const calls: { argv: string[]; cwd?: string; project?: string }[] = []
+    const calls: { argv: string[]; cwd?: string; project?: string; env?: Record<string, string> }[] = []
     on('session.id', () => ({ value: 's1' }))
     on('session.cwd', () => ({ value: '/repo' }))
     onProcess(on, ($, e) => {
-      calls.push({ argv: [...e.argv], cwd: e.init?.cwd, project: e.init?.env?.['PLAIN_ENGLISH_CWD'] })
+      calls.push({ argv: [...e.argv], cwd: e.init?.cwd, project: e.init?.request?.cwd, env: e.init?.env })
       return { value: { ...RUN, stdout: '' } }
     })
     on('tool.call', () => ({ result: 'written' }))
@@ -303,6 +318,7 @@ describe('register', () => {
       expect(call.cwd).not.toBe('/repo')
       expect(call.project).toBe('/repo')
     }
+    expect(calls.map(call => call.env)).toEqual([{ PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '60000' }])
   })
   test('counts checker output limits in bytes and reports unavailable', async ($, on) => {
     let logged = ''
@@ -588,7 +604,7 @@ describe('register', () => {
     on('session.cwd', () => ({ value: '/repo' }))
     onProcess(on, ($, e) => {
       args = [...e.argv]
-      paths = e.init?.env?.['PLAIN_ENGLISH_LINT_PATHS'] ?? ''
+      paths = JSON.stringify(e.init?.request?.paths ?? [])
       return { value: { ...RUN, stdout: '' } }
     })
     await $.command.run({ command: 'plain-english', args: '"docs/Release notes.md" \'-draft.md\'' })
@@ -862,7 +878,7 @@ describe('register', () => {
     on('command.register', ($, e) => ({ value: { command: e.name } }))
     onProcess(on, ($, e) => {
       argv.push([...e.argv])
-      typed.push(e.init?.env?.['PLAIN_ENGLISH_LINT_PATHS'] ?? '')
+      typed.push(JSON.stringify(e.init?.request?.paths ?? []))
       return { value: { ...RUN, stdout: 'docs/a.md\n  3:1 block "Furthermore"\n' } }
     })
 

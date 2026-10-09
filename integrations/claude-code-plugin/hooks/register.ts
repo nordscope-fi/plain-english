@@ -7,13 +7,6 @@ import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, 
 /** Files the docs channel judges. The CLI strips code and frontmatter itself. */
 const MARKDOWN = /\.(md|markdown|mdx)$/i
 
-/**
- * The CLI's own hook budget is half a second of matching; the chat judge may
- * shell to a model and take seconds. Both stay far under the ten-minute cap,
- * and time inside `$.process.spawn` never counts against the hook's budget.
- */
-const TOOL_TIMEOUT_MS = 20_000
-const CHAT_TIMEOUT_MS = 60_000
 
 /** Fixed CLI diagnostics only; checker stderr can otherwise contain private text. */
 const SAFE_CHECK_NOTICES = new Set([
@@ -49,7 +42,7 @@ interface ApprovalStep { root: string; config: string; exists: boolean; hash: st
  */
 async function approvalStep($: EngineInterface, cwd: string, request: Record<string, unknown>): Promise<ApprovalStep> {
   const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'approve'], {
-    cwd: $.plugin.root, env: projectEnv(cwd, 5_000), stdin: JSON.stringify(request), timeoutMs: 6_000,
+    cwd: $.plugin.root, env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000' }, stdin: wrapperRequest(cwd, { input: JSON.stringify(request) }), timeoutMs: 6_000,
   })
   if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || 'The approval check did not run.')
   let answer: Record<string, unknown>
@@ -99,22 +92,19 @@ async function adapter(
   channel: Channel,
   payload: Record<string, unknown>,
   cwd: string,
-  timeoutMs: number,
   signal: AbortSignal,
 ): Promise<string> {
-  const plain: Record<string, string> = { CLAUDE_PROJECT_DIR: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
-  const variables = { ...plain, PLAIN_ENGLISH_MODEL_ROUTE: 'host' }
   const answers: ModelAnswer[] = []
   let deadline: number | undefined
   for (let run = 1; ; run++) {
     const input = run === 1 ? payload : { ...payload, plainEnglishModel: { deadline, answers } }
-    const ran = await runChecker($, channel, input, cwd, variables, signal)
+    const ran = await runChecker($, channel, input, cwd, true, signal)
     const asked = modelRequest(ran.stdout)
     if (asked === undefined) return finish($, channel, ran)
     if (run === MAX_CHECKER_RUNS) throw new Error('check unavailable: the checker kept asking for a model answer.')
     deadline = asked.deadline
     const answer = await answerModel($, asked, signal)
-    if (answer === undefined) return finish($, channel, await runChecker($, channel, payload, cwd, plain, signal))
+    if (answer === undefined) return finish($, channel, await runChecker($, channel, payload, cwd, false, signal))
     answers.push(answer)
   }
 }
@@ -155,21 +145,27 @@ async function answerModel($: EngineInterface, asked: ModelRequest, signal: Abor
 }
 
 /**
- * The settings every checker run gets. The mod starts `hooks/run-checker.mjs`
- * from the plugin folder with fixed arguments, so the Claude directory can read
- * each command in full; the wrapper runs the CLI in this project folder.
+ * What every checker run receives on standard input. The mod starts
+ * `hooks/run-checker.mjs` from the plugin folder with a command and settings
+ * written as fixed text, so the Claude directory can read each in full; the
+ * project folder and everything else that varies travel in this request.
  */
-function projectEnv(cwd: string, timeoutMs: number): Record<string, string> {
-  return { PLAIN_ENGLISH_CWD: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
+function wrapperRequest(cwd: string, rest: { input?: string; paths?: string[]; route?: 'host' } = {}): string {
+  return JSON.stringify({ cwd, ...rest })
 }
 
-/** One hook run per channel, each command written out in full. */
-function spawnHook($: EngineInterface, channel: Channel, init: { cwd: string; env: Record<string, string>; input: string }) {
+/**
+ * One hook run per channel, each command and its settings written out in full.
+ * The CLI's own matching takes half a second; a reply's model checks may take
+ * seconds, so chat gets 60 s and writes 20 s, both far under the ten-minute
+ * cap. Time inside `$.process.spawn` never counts against the hook's budget.
+ */
+function spawnHook($: EngineInterface, channel: Channel, init: { cwd: string; input: string }) {
   switch (channel) {
-    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], ...init })
-    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], ...init })
-    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], ...init })
-    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], ...init })
+    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
+    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
+    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000' }, ...init })
+    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '60000' }, ...init })
   }
 }
 
@@ -179,12 +175,12 @@ async function runChecker(
   channel: Channel,
   payload: Record<string, unknown>,
   cwd: string,
-  variables: Record<string, string>,
+  host: boolean,
   signal: AbortSignal,
 ): Promise<{ stdout: string; stderr: string }> {
   // The stream follows the dispatch's cancellation signal. The asynchronous
   // wrapper relays it to the CLI's group, including a synchronous model child.
-  const init = { cwd: $.plugin.root, env: { ...variables, PLAIN_ENGLISH_CWD: cwd }, input: JSON.stringify(payload) }
+  const init = { cwd: $.plugin.root, input: wrapperRequest(cwd, { input: JSON.stringify(payload), ...(host ? { route: 'host' as const } : {}) }) }
   const stream = spawnHook($, channel, init)
   const ran = { stdout: '', stderr: '', exitCode: null as number | null }
   const bytes = { stdout: 0, stderr: 0 }
@@ -285,7 +281,7 @@ async function judgeReply<E extends { last_assistant_message?: string }, R exten
 ): Promise<R | { block: string }> {
   const cwd = await $.session.cwd()
   const payload = e as unknown as Record<string, unknown>
-  const stdout = await adapter($, 'chat', payload, cwd, CHAT_TIMEOUT_MS, next.signal)
+  const stdout = await adapter($, 'chat', payload, cwd, next.signal)
   const verdict = readChatVerdict(stdout)
   if (verdict.notice !== undefined) log($, noticeLine(verdict.notice, verdict.kind === 'block'))
   if (verdict.kind === 'block') {
@@ -315,7 +311,7 @@ export const register: Register = on => {
     const here = await session($)
     const payload = toolPayload(e, here)
     const key = JSON.stringify([here.id, channel, e['agentId'] ?? '', payload['tool_name'], payload['tool_input']])
-    const stdout = await adapter($, channel, payload, here.cwd, TOOL_TIMEOUT_MS, next.signal)
+    const stdout = await adapter($, channel, payload, here.cwd, next.signal)
     const verdict = readToolVerdict(stdout)
     if (verdict.kind !== 'allow') {
       current = { channel, reason: verdict.reason, strict: verdict.kind === 'deny', event: e, cwd: here.cwd, key }
@@ -393,7 +389,7 @@ export const register: Register = on => {
     const base = await next(e)
     try {
       const cwd = await $.session.cwd()
-      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'guidance'], { cwd: $.plugin.root, env: projectEnv(cwd, 5_000), timeoutMs: 6_000 })
+      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'guidance'], { cwd: $.plugin.root, env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000' }, stdin: wrapperRequest(cwd), timeoutMs: 6_000 })
       if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || `exit ${ran.exitCode}`)
       const text = ran.stdout.trim()
       if (new TextEncoder().encode(text).length > 32_768) throw new Error('Project writing guidance is too large (over 32 KB). Reduce project vocabulary or writing observations before loading it.')
@@ -429,7 +425,8 @@ export const register: Register = on => {
       const typed = paths.map(path => path.startsWith('-') ? `./${path}` : path)
       const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'lint'], {
         cwd: $.plugin.root,
-        env: { ...projectEnv(cwd, 120_000), PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(typed) },
+        env: { PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '120000' },
+        stdin: wrapperRequest(cwd, { paths: typed }),
         timeoutMs: 125_000,
       })
       const text = (ran.stdout + ran.stderr).trim()

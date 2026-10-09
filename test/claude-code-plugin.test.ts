@@ -108,6 +108,13 @@ describe("the plugin's hook files as the directory reads them", () => {
     for (const command of commands) {
       expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
     }
+    // The settings each run gets are fixed text too; anything computed goes in
+    // the request on standard input.
+    const settings = [...source.matchAll(/\benv:\s*(\{[^}]*\})/g)].map((match) => match[1]!);
+    expect(settings.length).toBeGreaterThanOrEqual(7);
+    for (const env of settings) {
+      expect(env, env).toMatch(/^\{\s*[A-Z_]+:\s*'[^'$`]*'(?:\s*,\s*[A-Z_]+:\s*'[^'$`]*')*\s*\}$/);
+    }
   });
 
   it("run the checker from the plugin folder in the project folder the mod names", () => {
@@ -117,7 +124,8 @@ describe("the plugin's hook files as the directory reads them", () => {
       const ran = spawnSync(process.execPath, ["hooks/run-checker.mjs", "lint"], {
         cwd: PLUGIN,
         encoding: "utf8",
-        env: { ...process.env, PLAIN_ENGLISH_CWD: dir, PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(["notes.md"]), PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
+        input: JSON.stringify({ cwd: dir, paths: ["notes.md"] }),
+        env: { ...process.env, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
       });
       expect(ran.stdout + ran.stderr).toContain("furthermore");
     } finally {
