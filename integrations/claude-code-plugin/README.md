@@ -70,6 +70,10 @@ On macOS, cancellation and timeouts were verified to stop the checker and its mo
 
 This section answers the Claude directory's findings by their titles, then lists every call. Paths are relative to the plugin folder.
 
+### The submission statement about helper servers
+
+A plugin can declare helper servers that Claude calls for it, through the Model Context Protocol (MCP). The submission form asks the publisher to confirm that "the plugin does not exfiltrate credentials or execute code outside its declared MCP servers." This plugin declares no MCP servers. The credential half holds: nothing in it reads a credential. The code half needs this note. The mod starts the bundled plain-english checker on the user's computer with Node.js, as the sections below and the directory's own findings show. In one fallback case the checker runs `claude -p`. Those are the only programs it starts, and it makes no network request of its own.
+
 ### Mod starts other programs
 
 The mod starts one program, `node`, the runtime Claude Code itself uses, on one file: `hooks/run-checker.mjs`. That wrapper starts the plain-english checker, `dist/cli.mjs` beside it. The checker has to run as a program because it reads the project's config and files, which a mod's own code cannot do without the same calls. The table below lists every command.
