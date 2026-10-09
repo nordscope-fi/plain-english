@@ -211,6 +211,31 @@ const NODE_ONLY = {
  * them in lower case with hyphens.
  */
 const YAML_FILE = /[\\/]node_modules[\\/]yaml[\\/].*\.js$/;
+
+/**
+ * The YAML library keeps its `!!set` type in a variable called `set`, and
+ * the Claude directory reads a variable named after the shell's `set` as
+ * listing the environment (held on 31b7cb9). The plugin's copy calls it
+ * `setTag`. Its lookup key stays `set`, which YAML documents use.
+ */
+const YAML_SET = [
+  { file: /[\\/]schema[\\/]yaml-1\.1[\\/]set\.js$/, edits: [
+    ["const set = new this(schema);", "const created = new this(schema);"],
+    ["set.items.push(", "created.items.push("],
+    ["return set;", "return created;"],
+    ["const set = {", "const setTag = {"],
+    ["export { YAMLSet, set };", "export { YAMLSet, setTag };"],
+  ] },
+  { file: /[\\/]schema[\\/]yaml-1\.1[\\/]schema\.js$/, edits: [
+    ["import { set } from './set.js';", "import { setTag } from './set.js';"],
+    ["    set,\n", "    setTag,\n"],
+  ] },
+  { file: /[\\/]schema[\\/]tags\.js$/, edits: [
+    ["import { set } from './yaml-1.1/set.js';", "import { setTag } from './yaml-1.1/set.js';"],
+    ["    set,\n", "    set: setTag,\n"],
+    ["'tag:yaml.org,2002:set': set,", "'tag:yaml.org,2002:set': setTag,"],
+  ] },
+];
 const YAML_CODE = /(["'])([A-Z0-9_]*(?:TOKEN|KEY)[A-Z0-9_]*)\1/g;
 
 /** vfile's `#minurl`, for a checker that never gives vfile an address. */
@@ -287,6 +312,41 @@ function* nodes(node) {
  * Passes repeat until no line is over the limit, since an edit inside a list
  * and the list itself cannot be made in one pass.
  */
+/** Commands that list the environment, as the Claude directory names them. */
+const COMMAND_LINE = /^\s*(?:set|env|printenv|declare|typeset|compgen)\b|^\s*export\s+-p\b/;
+
+/** A syntax tree without positions, raw text or comments, for comparing. */
+function shape(text) {
+  const ast = parseJavaScript(text, { sourceType: "module", allowReturnOutsideFunction: true });
+  const DROP = new Set(["start", "end", "loc", "extra", "range", "comments", "leadingComments", "trailingComments", "innerComments"]);
+  return JSON.stringify(ast.program, (key, value) => (DROP.has(key) ? undefined : value));
+}
+
+/**
+ * A line that begins with `set`, `env` or another command that lists the
+ * environment joins the line before it, so it reads as code: the Claude
+ * directory read such lines as the shell command (held on 31b7cb9). Only a
+ * line after `{`, `,`, `;` or `}` moves, and the file must parse to the
+ * same syntax tree afterwards.
+ */
+function joinCommandLines(text, file) {
+  const lines = text.split("\n");
+  let moved = 0;
+  for (let i = 1; i < lines.length; i++) {
+    if (!COMMAND_LINE.test(lines[i])) continue;
+    const before = lines[i - 1].trimEnd();
+    if (!/[{,;}]$/.test(before)) throw new Error(`${file}:${i + 1} begins with a command word after \`${before.slice(-20)}\`; update scripts/build-plugin.mjs.`);
+    lines[i - 1] = `${before} ${lines[i].trimStart()}`;
+    lines.splice(i, 1);
+    i--;
+    moved++;
+  }
+  if (!moved) return text;
+  const joined = lines.join("\n");
+  if (shape(joined) !== shape(text)) throw new Error(`Joining command-word lines changed the code in ${file}; update scripts/build-plugin.mjs.`);
+  return joined;
+}
+
 /** Words that make a template substitution read as a credential. */
 const CREDENTIAL_WORD = /key|token|secret|passw|auth|credential/i;
 
@@ -344,6 +404,7 @@ export function readableSource(text, file) {
     taken.sort((x, y) => y.start - x.start);
     for (const edit of taken) text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
   }
+  text = joinCommandLines(text, file);
   const long = text.split("\n").findIndex((line) => line.length > LONG_LINE);
   if (long !== -1) throw new Error(`${file}:${long + 1} is still over ${LONG_LINE} characters; update scripts/build-plugin.mjs.`);
   if (/\$\{[A-Z]/.test(text)) throw new Error(`${file} still has a template substitution starting with a capital.`);
@@ -408,7 +469,15 @@ const pluginCore = { name: "plugin-core", setup(b) {
     });
   }
   b.onLoad({ filter: YAML_FILE }, (args) => {
-    const text = readFileSync(args.path, "utf8");
+    let text = readFileSync(args.path, "utf8");
+    for (const { file, edits } of YAML_SET) {
+      if (!file.test(args.path)) continue;
+      for (const [from, to] of edits) {
+        const found = text.split(from).length - 1;
+        if (found !== 1) throw new Error(`Expected one \`${from.trim()}\` in ${args.path}, found ${found}; update scripts/build-plugin.mjs.`);
+        text = text.replace(from, to);
+      }
+    }
     return {
       contents: text
         .replace(YAML_CODE, (_all, quote, name) => quote + name.toLowerCase().replaceAll("_", "-") + quote)

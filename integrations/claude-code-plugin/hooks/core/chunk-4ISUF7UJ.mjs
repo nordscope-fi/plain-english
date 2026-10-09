@@ -7,7 +7,7 @@ import {
   YAMLMap,
   YAMLSeq,
   warn
-} from "./chunk-BXNK3WM5.mjs";
+} from "./chunk-44INKBC4.mjs";
 import {
   Parser,
   YAMLParseError,
@@ -4749,19 +4749,19 @@ function readChat(v) {
 function phrasePattern(phrase) {
   return phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['\u2019]/g, "['\u2019]");
 }
-function chatRuleSet(set, level) {
+function chatRuleSet(ruleset, level) {
   return compile({
-    ...set,
-    rules: [...set.rules.map((r) => ({ ...r })), ...chatRules(set, level)],
+    ...ruleset,
+    rules: [...ruleset.rules.map((r) => ({ ...r })), ...chatRules(ruleset, level)],
     readability: [
-      ...set.readability.filter((r) => r.kind !== "unexplained-suppression").map((r) => ({ ...r })),
-      ...(set.chat.limits ?? []).map((r) => ({ ...r }))
+      ...ruleset.readability.filter((r) => r.kind !== "unexplained-suppression").map((r) => ({ ...r })),
+      ...(ruleset.chat.limits ?? []).map((r) => ({ ...r }))
     ],
-    allow: [...set.allow]
+    allow: [...ruleset.allow]
   });
 }
-function chatRules(set, level) {
-  return set.chat.tells.filter((t) => t.severity !== "off").filter((t) => level === void 0 || inLevel(t, level)).filter((t) => t.phrases.length).map((t) => {
+function chatRules(ruleset, level) {
+  return ruleset.chat.tells.filter((t) => t.severity !== "off").filter((t) => level === void 0 || inLevel(t, level)).filter((t) => t.phrases.length).map((t) => {
     const body = `(?:${t.phrases.map(phrasePattern).join("|")})`;
     const rule = {
       id: t.id,
@@ -4861,12 +4861,12 @@ function toRuleSet(raw) {
   };
 }
 function loadDefault(io = nodeIo) {
-  const set = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
+  const ruleset = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
   const source = {
     title: "Plain English design rationale",
     url: "docs/design-rationale.md"
   };
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     rule.provenance ??= {
       kind: "both",
       confidence: "medium",
@@ -4875,13 +4875,13 @@ function loadDefault(io = nodeIo) {
       sources: [source]
     };
   }
-  for (const rule of set.readability) {
+  for (const rule of ruleset.readability) {
     rule.provenance ??= { kind: "quality", confidence: "medium", scope: ["prose"], reviewed: "2026-09-13", sources: [source] };
   }
-  for (const structure of set.structures) {
+  for (const structure of ruleset.structures) {
     structure.provenance ??= { kind: "both", confidence: "experimental", scope: ["semantic-review"], reviewed: "2026-09-13", sources: [source] };
   }
-  return set;
+  return ruleset;
 }
 function merge(base, overlay) {
   const byId = new Map(base.rules.map((r) => [r.id, { ...r }]));
@@ -5054,25 +5054,25 @@ function loadConfig(path2, io = nodeIo) {
   const raw = parseSet(text2, path2);
   const overlay = toRuleSet(raw);
   const ext = raw.extends;
-  let set;
-  if (ext === void 0 || ext === "default") set = merge(loadDefault(io), overlay);
+  let ruleset;
+  if (ext === void 0 || ext === "default") ruleset = merge(loadDefault(io), overlay);
   else {
     if (typeof ext !== "string") throw new RuleError(`${path2}: extends must be a string`);
     const basePath = io.path.isAbsolute(ext) ? ext : io.path.resolve(io.path.dirname(path2), ext);
-    set = merge(loadConfig(basePath, io), overlay);
+    ruleset = merge(loadConfig(basePath, io), overlay);
   }
-  if (set.profile) {
-    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path2), set.profile.file), io);
+  if (ruleset.profile) {
+    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path2), ruleset.profile.file), io);
     if (profile) {
-      set.profileGuidance = writingProfileGuidance(profile);
-      set.profileState = {
-        file: set.profile.file,
+      ruleset.profileGuidance = writingProfileGuidance(profile);
+      ruleset.profileState = {
+        file: ruleset.profile.file,
         sourceHash: profile.sourceHash,
         genres: Object.fromEntries(Object.entries(profile.genres).map(([name, row]) => [name, row.status]))
       };
     }
   }
-  return set;
+  return ruleset;
 }
 function resolveRuleSet(from, io = nodeIo) {
   let dir = io.path.resolve(io.cwd, from);
@@ -5087,8 +5087,8 @@ function resolveRuleSet(from, io = nodeIo) {
   }
   return compile(loadDefault(io));
 }
-function compile(set) {
-  set.families ??= [];
+function compile(ruleset) {
+  ruleset.families ??= [];
   const guard = (source, where) => {
     const unsafe = findUnsafe(source);
     if (unsafe) {
@@ -5098,7 +5098,7 @@ function compile(set) {
       );
     }
   };
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     if (rule.severity === "off" || !rule.match) continue;
     guard(rule.match, `rule '${rule.id}'`);
     try {
@@ -5120,22 +5120,22 @@ function compile(set) {
     });
   }
   const ids =   new Set([
-    ...(set.rules ?? []).map((r) => r.id),
-    ...(set.readability ?? []).map((r) => r.id),
-    ...(set.chat?.tells ?? []).map((t) => t.id),
-    ...(set.chat?.limits ?? []).map((r) => r.id),
-    ...set.families.map((family) => `family-${family.id}`)
+    ...(ruleset.rules ?? []).map((r) => r.id),
+    ...(ruleset.readability ?? []).map((r) => r.id),
+    ...(ruleset.chat?.tells ?? []).map((t) => t.id),
+    ...(ruleset.chat?.limits ?? []).map((r) => r.id),
+    ...ruleset.families.map((family) => `family-${family.id}`)
   ]);
-  const familyIds = new Set(set.families.map((family) => family.id));
-  for (const entry of [...set.rules ?? [], ...set.readability ?? []]) {
+  const familyIds = new Set(ruleset.families.map((family) => family.id));
+  for (const entry of [...ruleset.rules ?? [], ...ruleset.readability ?? []]) {
     if (entry.family && !familyIds.has(entry.family)) {
       throw new RuleError(`rule '${entry.id}' names unknown family '${entry.family}'`);
     }
   }
-  set.allow = (set.allow ?? []).map(
+  ruleset.allow = (ruleset.allow ?? []).map(
     (a) => typeof a === "string" ? { pattern: a } : a
   );
-  set.allowRe = set.allow.map((a, i) => {
+  ruleset.allowRe = ruleset.allow.map((a, i) => {
     guard(a.pattern, `allow[${i}]`);
     let re;
     try {
@@ -5157,7 +5157,7 @@ function compile(set) {
     }
     return compiled;
   });
-  return set;
+  return ruleset;
 }
 
 export {

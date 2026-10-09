@@ -101,7 +101,16 @@ One, and only after you ask for it: the project's config, `.plain-english.yml` o
 
 ### Uses a credential from the user's machine
 
-Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask for through `user_config`. The plugin carries no web address at all. In its copy of the built-in ruleset, `hooks/core/default-rules.mjs`, each finding's link to this repository's guides is a path such as `docs/writing-style.md#readability`, and the rule source credits that only the CLI's policy page shows are left out. The rules themselves are the same. The plugin names no network host either. The model answers the mod passes to the checker sit in a field called `answered`. The Markdown library's helper for `file:` addresses is replaced by one that accepts none, because the checker gives it paths only. The word `token` in the bundled code belongs to the YAML and Markdown parsers, where it means a piece of parsed text. The plugin's copy of the YAML parser writes its error codes in lower case, such as `unexpected-token`, so no name in the plugin looks like a credential variable such as `GITHUB_TOKEN`. No text in the bundled code is built with a `${...}` substitution that names a key or token either. The build writes those messages, such as the YAML parser's "Key ... already set", as plain joined text, so none looks like a `${user_config.KEY}` reference. Tests fail if the plugin gains a web address, a host name, a name shaped like a credential variable, an HTML library or an encoded table.
+Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask the person for in the plugin's settings. The plugin carries no web address. In its copy of the built-in ruleset, `hooks/core/default-rules.mjs`, each finding's link to this repository's guides is a path such as `docs/writing-style.md#readability`, and the rule source credits that only the CLI's policy page shows are left out. The rules themselves are the same.
+
+The bundled code also avoids every form the directory reads as a credential or as sending one, so a reviewer has nothing to set aside:
+
+- No network host. The model answers the mod passes to the checker sit in a field called `answered`. The Markdown library's helper for `file:` addresses is replaced by one that accepts none, because the checker gives it paths only.
+- No name in capitals shaped like an environment variable: the YAML parser's error codes are written in lower case, such as `unexpected-token`.
+- No message built by dropping a key or token into a template: those messages, such as the YAML parser's "Key ... already set", are joined as plain text.
+- No variable named after a command that lists the environment: the ruleset's variable is `ruleset`, the environment's is `environment`, and the YAML parser's set type is `setTag`. No line begins with such a command either.
+
+The word `token` in the bundled code belongs to the YAML and Markdown parsers, where it means a piece of parsed text. Tests fail if any of these forms comes back.
 
 ### Bundled code
 

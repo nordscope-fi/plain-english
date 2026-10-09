@@ -34584,22 +34584,22 @@ function readChat(v) {
 function phrasePattern(phrase) {
   return phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['\u2019]/g, "['\u2019]");
 }
-function chatRuleSet(set, level) {
+function chatRuleSet(ruleset, level) {
   return compile({
-    ...set,
-    rules: [...set.rules.map((r) => ({ ...r })), ...chatRules(set, level)],
+    ...ruleset,
+    rules: [...ruleset.rules.map((r) => ({ ...r })), ...chatRules(ruleset, level)],
     readability: [
-      ...set.readability.filter((r) => r.kind !== "unexplained-suppression").map((r) => ({ ...r })),
+      ...ruleset.readability.filter((r) => r.kind !== "unexplained-suppression").map((r) => ({ ...r })),
       // The reply limits, which apply here and nowhere else. A document that
       // runs long is doing its job; a reply that runs long is the complaint
       // this package heard most often over seven days of transcripts.
-      ...(set.chat.limits ?? []).map((r) => ({ ...r }))
+      ...(ruleset.chat.limits ?? []).map((r) => ({ ...r }))
     ],
-    allow: [...set.allow]
+    allow: [...ruleset.allow]
   });
 }
-function chatRules(set, level) {
-  return set.chat.tells.filter((t) => t.severity !== "off").filter((t) => level === void 0 || inLevel(t, level)).filter((t) => t.phrases.length).map((t) => {
+function chatRules(ruleset, level) {
+  return ruleset.chat.tells.filter((t) => t.severity !== "off").filter((t) => level === void 0 || inLevel(t, level)).filter((t) => t.phrases.length).map((t) => {
     const body = `(?:${t.phrases.map(phrasePattern).join("|")})`;
     const rule = {
       id: t.id,
@@ -34704,12 +34704,12 @@ function toRuleSet(raw) {
   };
 }
 function loadDefault(io = nodeIo) {
-  const set = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
+  const ruleset = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
   const source = {
     title: "Plain English design rationale",
     url: "https://github.com/nordscope-fi/plain-english/blob/main/docs/design-rationale.md"
   };
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     rule.provenance ??= {
       kind: "both",
       confidence: "medium",
@@ -34718,13 +34718,13 @@ function loadDefault(io = nodeIo) {
       sources: [source]
     };
   }
-  for (const rule of set.readability) {
+  for (const rule of ruleset.readability) {
     rule.provenance ??= { kind: "quality", confidence: "medium", scope: ["prose"], reviewed: "2026-09-13", sources: [source] };
   }
-  for (const structure of set.structures) {
+  for (const structure of ruleset.structures) {
     structure.provenance ??= { kind: "both", confidence: "experimental", scope: ["semantic-review"], reviewed: "2026-09-13", sources: [source] };
   }
-  return set;
+  return ruleset;
 }
 function merge(base, overlay) {
   const byId2 = new Map(base.rules.map((r) => [r.id, { ...r }]));
@@ -34939,27 +34939,27 @@ function loadConfig(path3, io = nodeIo) {
   const raw = parseSet(text4, path3);
   const overlay = toRuleSet(raw);
   const ext = raw.extends;
-  let set;
+  let ruleset;
   if (ext === void 0 || ext === "default")
-    set = merge(loadDefault(io), overlay);
+    ruleset = merge(loadDefault(io), overlay);
   else {
     if (typeof ext !== "string")
       throw new RuleError(`${path3}: extends must be a string`);
     const basePath = io.path.isAbsolute(ext) ? ext : io.path.resolve(io.path.dirname(path3), ext);
-    set = merge(loadConfig(basePath, io), overlay);
+    ruleset = merge(loadConfig(basePath, io), overlay);
   }
-  if (set.profile) {
-    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path3), set.profile.file), io);
+  if (ruleset.profile) {
+    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path3), ruleset.profile.file), io);
     if (profile) {
-      set.profileGuidance = writingProfileGuidance(profile);
-      set.profileState = {
-        file: set.profile.file,
+      ruleset.profileGuidance = writingProfileGuidance(profile);
+      ruleset.profileState = {
+        file: ruleset.profile.file,
         sourceHash: profile.sourceHash,
         genres: Object.fromEntries(Object.entries(profile.genres).map(([name, row]) => [name, row.status]))
       };
     }
   }
-  return set;
+  return ruleset;
 }
 function resolveRuleSet(from, io = nodeIo) {
   let dir = io.path.resolve(io.cwd, from);
@@ -34976,8 +34976,8 @@ function resolveRuleSet(from, io = nodeIo) {
   }
   return compile(loadDefault(io));
 }
-function compile(set) {
-  set.families ??= [];
+function compile(ruleset) {
+  ruleset.families ??= [];
   const guard = (source, where) => {
     const unsafe = findUnsafe(source);
     if (unsafe) {
@@ -34985,7 +34985,7 @@ function compile(set) {
   This would hang the linter. Rewrite it without the nested repeat, for example (a+)+ as a+ .`);
     }
   };
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     if (rule.severity === "off" || !rule.match)
       continue;
     guard(rule.match, `rule '${rule.id}'`);
@@ -35004,20 +35004,20 @@ function compile(set) {
     });
   }
   const ids = /* @__PURE__ */ new Set([
-    ...(set.rules ?? []).map((r) => r.id),
-    ...(set.readability ?? []).map((r) => r.id),
-    ...(set.chat?.tells ?? []).map((t) => t.id),
-    ...(set.chat?.limits ?? []).map((r) => r.id),
-    ...set.families.map((family) => `family-${family.id}`)
+    ...(ruleset.rules ?? []).map((r) => r.id),
+    ...(ruleset.readability ?? []).map((r) => r.id),
+    ...(ruleset.chat?.tells ?? []).map((t) => t.id),
+    ...(ruleset.chat?.limits ?? []).map((r) => r.id),
+    ...ruleset.families.map((family) => `family-${family.id}`)
   ]);
-  const familyIds = new Set(set.families.map((family) => family.id));
-  for (const entry of [...set.rules ?? [], ...set.readability ?? []]) {
+  const familyIds = new Set(ruleset.families.map((family) => family.id));
+  for (const entry of [...ruleset.rules ?? [], ...ruleset.readability ?? []]) {
     if (entry.family && !familyIds.has(entry.family)) {
       throw new RuleError(`rule '${entry.id}' names unknown family '${entry.family}'`);
     }
   }
-  set.allow = (set.allow ?? []).map((a) => typeof a === "string" ? { pattern: a } : a);
-  set.allowRe = set.allow.map((a, i) => {
+  ruleset.allow = (ruleset.allow ?? []).map((a) => typeof a === "string" ? { pattern: a } : a);
+  ruleset.allowRe = ruleset.allow.map((a, i) => {
     guard(a.pattern, `allow[${i}]`);
     let re;
     try {
@@ -35036,7 +35036,7 @@ function compile(set) {
     }
     return compiled;
   });
-  return set;
+  return ruleset;
 }
 
 // dist/lint.js
@@ -37673,17 +37673,17 @@ function readabilityDescription(r) {
   const emphasis = r.emphasis?.length ? ` So is a word shouted for emphasis: ${r.emphasis.length} common ones are listed, and anything longer ending in -ed, -ing, -ly, -tion or -able is read as a word rather than an acronym.` : "";
   return 'Fires on an acronym of three or more letters, or a camel-cased name, used before it is explained. First use only: repeating a term is not the problem. A term that arrives with its gloss is never reported, so "is called X", "known as X", "X stands for Y" and a parenthetical expansion in either order all pass.' + known + emphasis + " A project adds its own vocabulary through `known` in `.plain-english.yml`, or through an `allow` entry scoped to this rule.";
 }
-function renderWritingStyle(set) {
+function renderWritingStyle(ruleset) {
   const out = [];
   out.push(BANNER, "");
-  out.push(`# ${set.meta.title}`, "");
-  if (set.meta.intro)
-    out.push(set.meta.intro, "");
-  if (set.docs.guidance.length) {
+  out.push(`# ${ruleset.meta.title}`, "");
+  if (ruleset.meta.intro)
+    out.push(ruleset.meta.intro, "");
+  if (ruleset.docs.guidance.length) {
     out.push("## Writing a document", "");
-    if (set.docs.scope)
-      out.push(...wrap(set.docs.scope), "");
-    for (const g of set.docs.guidance) {
+    if (ruleset.docs.scope)
+      out.push(...wrap(ruleset.docs.scope), "");
+    for (const g of ruleset.docs.guidance) {
       out.push(`### ${g.name ?? g.id}`, "");
       if (g.description)
         out.push(...wrap(g.description), "");
@@ -37705,14 +37705,14 @@ function renderWritingStyle(set) {
   out.push("## Words and phrases", "");
   out.push("| Term | Severity | Instead | Why |");
   out.push("|---|---|---|---|");
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     if (rule.severity === "off")
       continue;
     const why = rule.link ? `[notes](${rule.link})` : "";
     out.push(`| ${markdownTableCode(humanise(rule))} | \`${severityMark(rule)}\` | ${rule.message ?? ""} | ${why} |`);
   }
   out.push("");
-  const withExceptions = set.rules.filter((r) => r.unless?.length && r.severity !== "off");
+  const withExceptions = ruleset.rules.filter((r) => r.unless?.length && r.severity !== "off");
   if (withExceptions.length) {
     out.push("## Exceptions", "");
     out.push("These terms have a legitimate technical or domain sense. The listed uses never trigger a finding.", "");
@@ -37723,7 +37723,7 @@ function renderWritingStyle(set) {
   }
   out.push("## Sentence shapes", "");
   out.push("A word list cannot reach these. They are judged by the semantic layer, or by you.", "");
-  for (const s of set.structures) {
+  for (const s of ruleset.structures) {
     out.push(`### ${s.name}`, "");
     out.push(s.description, "");
     if (s.bad)
@@ -37732,7 +37732,7 @@ function renderWritingStyle(set) {
       out.push(`Good: ${s.good}`);
     out.push("");
   }
-  const live = set.readability.filter((r) => r.severity !== "off");
+  const live = ruleset.readability.filter((r) => r.severity !== "off");
   const shape = live.filter((r) => r.kind !== "unexplained-suppression");
   const waivers = live.filter((r) => r.kind === "unexplained-suppression");
   if (shape.length) {
@@ -37745,7 +37745,7 @@ function renderWritingStyle(set) {
         out.push(`Instead: ${r.message}`, "");
     }
   }
-  const limits = (set.chat.limits ?? []).filter((r) => r.severity !== "off");
+  const limits = (ruleset.chat.limits ?? []).filter((r) => r.severity !== "off");
   if (limits.length) {
     out.push("## Chat", "");
     out.push("These apply to a reply in the chat window and to nothing else. A document that runs long is doing its job; a reply that runs long is the complaint readers make most often. Both are checked on the stop event, and both can be waived by the judge when the reader asked for the depth.", "");
@@ -37787,12 +37787,12 @@ function renderWritingStyle(set) {
   out.push("Or add the path to `exclude` in `.plain-english.yml`, or lower the rule to `severity: warn`.", "");
   return out.join("\n");
 }
-function ruleListForPrompt(set) {
-  const blocking = set.rules.filter((r) => r.severity === "error").map((r) => humanise(r));
+function ruleListForPrompt(ruleset) {
+  const blocking = ruleset.rules.filter((r) => r.severity === "error").map((r) => humanise(r));
   return blocking.join("; ");
 }
-function structureListForPrompt(set) {
-  return set.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
+function structureListForPrompt(ruleset) {
+  return ruleset.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
 }
 var JSON_CONTRACT = 'Respond with ONLY JSON, nothing else: {"ok": true} if it passes, or {"ok": false, "reason": "<quote the offending substring verbatim, then give a one-line plain rewrite>"} if it does not.';
 var CALIBRATION = 'CALIBRATION. Most text you see is fine. A pass is the normal answer, and returning one is a correct, complete job. Do not go looking for something to flag.\n\nSELF-CONSISTENCY. If your reasoning arrives at the conclusion that the text is acceptable, you MUST return {"ok": true}. Never return a failure whose reason says the content passes, says no violation was found, or hedges about whether a rule applies. A failure means you located a specific, quotable problem and are certain about it.\n\nONE FLAG. Report the single clearest problem. Do not accumulate borderline observations, and do not flag a phrase you would accept if you saw it in a well-edited document.\n\nNO SECOND-GUESSING A REWRITE. If the text reads as a plain, direct statement of fact, it passes, even if you can imagine a different phrasing.';
@@ -37811,10 +37811,10 @@ function vocabularyTerms(pattern) {
   }
   return out;
 }
-function vocabularyForPrompt(set) {
+function vocabularyForPrompt(ruleset) {
   const named = [];
   const patterns = [];
-  for (const entry of set.allow) {
+  for (const entry of ruleset.allow) {
     if (!entry.semantic)
       continue;
     const terms = vocabularyTerms(entry.pattern);
@@ -37831,12 +37831,12 @@ function vocabularyForPrompt(set) {
   }
   return `PROJECT VOCABULARY. This project's readers already know these, so never ask for a gloss or an explanation of them: ${parts.join(", ")}.`;
 }
-function renderPrompts(set, inputFormat = "tool") {
-  const words = ruleListForPrompt(set);
-  const shapes = structureListForPrompt(set);
-  const vocabulary = vocabularyForPrompt(set);
+function renderPrompts(ruleset, inputFormat = "tool") {
+  const words = ruleListForPrompt(ruleset);
+  const shapes = structureListForPrompt(ruleset);
+  const vocabulary = vocabularyForPrompt(ruleset);
   const vocab = vocabulary ? [vocabulary, ""] : [];
-  const shapeFaults = set.docs.guidance.map((g) => g.flag).filter((f) => Boolean(f));
+  const shapeFaults = ruleset.docs.guidance.map((g) => g.flag).filter((f) => Boolean(f));
   const shapeLine = shapeFaults.length ? [
     `- Faults of shape. About what the document does, not which words it uses: ${shapeFaults.join(" ")}`
   ] : [];
@@ -37876,7 +37876,7 @@ function renderPrompts(set, inputFormat = "tool") {
     "",
     JSON_CONTRACT
   ].join("\n");
-  const readable = set.chat.readable ? [
+  const readable = ruleset.chat.readable ? [
     TXT_BANNER,
     "",
     "A reply is about to be sent. You are checking one thing about it.",
@@ -37887,7 +37887,7 @@ function renderPrompts(set, inputFormat = "tool") {
     "Hook input (the reader's last message, then the reply):",
     "$ARGUMENTS",
     "",
-    ...wrap(set.chat.readable.description),
+    ...wrap(ruleset.chat.readable.description),
     "",
     // The declared vocabulary matters more here than anywhere else: it is
     // precisely the list of terms this project's readers already have, so
@@ -37902,7 +37902,7 @@ function renderPrompts(set, inputFormat = "tool") {
     // Enumerating is a task it can do; judging readability is not, because
     // it can read anything.
     'First list them. Then set "ok" to false if and only if the list holds more than',
-    `${set.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
+    `${ruleset.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
     "one sentence what the reply should have led with.",
     "",
     "Your reason is shown to the reader and goes back to the model, so it is held to",
@@ -38024,7 +38024,7 @@ function renderPrompts(set, inputFormat = "tool") {
     // reply can be READ. A reply that cannot be read has no length worth
     // earning, so the second question has to be asked first.
     'Return {"ok": true}, waiving the length, if ANY of these hold:',
-    ...set.chat.expand.map((e) => `- ${e}`),
+    ...ruleset.chat.expand.map((e) => `- ${e}`),
     "- The reader asked a question whose honest answer is genuinely this long.",
     "- The bulk of the reply is quoted output, a table, code, or a command to run.",
     "",
@@ -38033,10 +38033,10 @@ function renderPrompts(set, inputFormat = "tool") {
     "about to do, it covers a second topic nobody asked about, or it names files, keys",
     "and flags where a plain description would do.",
     "",
-    ...set.chat.judge.length ? [
+    ...ruleset.chat.judge.length ? [
       "Refuse for these as well, and they outrank the calibration below. A count",
       "brought the reply here; these are what the count cannot see.",
-      ...set.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
+      ...ruleset.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
       ""
     ] : [],
     "When you refuse, `reason` must say what the reply should have led with, in one",
@@ -38065,18 +38065,18 @@ function shortOf(g) {
   const end = d.search(/\.(\s|$)/);
   return end === -1 ? d : d.slice(0, end + 1);
 }
-function styleBody(set, level) {
-  const chat = set.chat;
-  const maxWords = set.readability.find((r) => r.kind === "long-sentence")?.maxWords;
+function styleBody(ruleset, level) {
+  const chat = ruleset.chat;
+  const maxWords = ruleset.readability.find((r) => r.kind === "long-sentence")?.maxWords;
   const fill = (s) => s.replace(/\{\{maxWords\}\}/g, maxWords === void 0 ? "35" : String(maxWords));
   const out = [];
   if (chat.scope) {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
-  if (set.profileGuidance?.length) {
+  if (ruleset.profileGuidance?.length) {
     out.push("## This project's observed style", "");
     out.push(...wrap("These stable observations describe the repository's existing prose. They guide wording and never change lint results."), "");
-    for (const note of set.profileGuidance)
+    for (const note of ruleset.profileGuidance)
       out.push(...wrap(`- ${note}`, "  "));
     out.push("");
   }
@@ -38195,9 +38195,9 @@ function wrap(text4, continuation = "", width = 78) {
     lines.push(line);
   return lines.map((l, i) => i === 0 ? l : continuation + l);
 }
-function renderOutputStyle(set, level) {
-  const id = level ?? set.chat.level;
-  const meta = set.chat.levels.find((l) => l.id === id);
+function renderOutputStyle(ruleset, level) {
+  const id = level ?? ruleset.chat.level;
+  const meta = ruleset.chat.levels.find((l) => l.id === id);
   return [
     "---",
     `name: ${meta?.name ?? "Plain English"}`,
@@ -38209,18 +38209,18 @@ function renderOutputStyle(set, level) {
     "",
     "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit. -->",
     "",
-    ...styleBody(set, id),
+    ...styleBody(ruleset, id),
     ""
   ].join("\n");
 }
-function outputStylePath(set, level) {
-  return level === set.chat.level ? "integrations/claude-code/output-styles/plain-english.md" : `integrations/claude-code/output-styles/plain-english-${level}.md`;
+function outputStylePath(ruleset, level) {
+  return level === ruleset.chat.level ? "integrations/claude-code/output-styles/plain-english.md" : `integrations/claude-code/output-styles/plain-english-${level}.md`;
 }
-function docsSkillPath(set) {
-  return `integrations/claude-code/skills/${set.docs.skill.name}/SKILL.md`;
+function docsSkillPath(ruleset) {
+  return `integrations/claude-code/skills/${ruleset.docs.skill.name}/SKILL.md`;
 }
-function renderDocsSkill(set) {
-  const docs = set.docs;
+function renderDocsSkill(ruleset) {
+  const docs = ruleset.docs;
   const out = [
     "---",
     `name: ${docs.skill.name}`,
@@ -38234,10 +38234,10 @@ function renderDocsSkill(set) {
   ];
   if (docs.scope)
     out.push(...wrap(docs.scope), "");
-  if (set.profileGuidance?.length) {
+  if (ruleset.profileGuidance?.length) {
     out.push("## This project's observed style", "");
     out.push(...wrap("Follow these stable observations where they fit the document. They do not override facts, requested form, or readability."), "");
-    for (const note of set.profileGuidance)
+    for (const note of ruleset.profileGuidance)
       out.push(...wrap(`- ${note}`, "  "));
     out.push("");
   }
@@ -38259,7 +38259,7 @@ function renderDocsSkill(set) {
 }
 var AGENTS_MD_START = "<!-- plain-english:start -->";
 var AGENTS_MD_END = "<!-- plain-english:end -->";
-function renderAgentsFragment(set) {
+function renderAgentsFragment(ruleset) {
   return [
     AGENTS_MD_START,
     "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit by hand:",
@@ -38276,24 +38276,24 @@ function renderAgentsFragment(set) {
     "",
     // One file, so it carries one level. Claude Code gets all of them as
     // separate output styles; every other agent gets the default.
-    ...styleBody(set, set.chat.level),
+    ...styleBody(ruleset, ruleset.chat.level),
     "",
     AGENTS_MD_END,
     ""
   ].join("\n");
 }
-function renderAll(set, root, io = nodeIo) {
+function renderAll(ruleset, root, io = nodeIo) {
   const resolve17 = (...paths) => io.path.resolve(io.cwd, ...paths);
-  const prompts = renderPrompts(set);
+  const prompts = renderPrompts(ruleset);
   return [
-    { path: resolve17(root, "docs/writing-style.md"), content: renderWritingStyle(set) },
+    { path: resolve17(root, "docs/writing-style.md"), content: renderWritingStyle(ruleset) },
     {
       path: resolve17(root, "integrations/agents-md/plain-english.md"),
-      content: renderAgentsFragment(set)
+      content: renderAgentsFragment(ruleset)
     },
-    ...set.chat.levels.map((level) => ({
-      path: resolve17(root, ...outputStylePath(set, level.id).split("/")),
-      content: renderOutputStyle(set, level.id)
+    ...ruleset.chat.levels.map((level) => ({
+      path: resolve17(root, ...outputStylePath(ruleset, level.id).split("/")),
+      content: renderOutputStyle(ruleset, level.id)
     })),
     ...Object.entries(prompts).map(([name, content3]) => ({
       path: resolve17(root, `integrations/claude-code/prompts/${name}.txt`),
@@ -38301,10 +38301,10 @@ function renderAll(set, root, io = nodeIo) {
     })),
     // Guarded, so a ruleset with no `docs` key writes exactly the files it
     // wrote before this section existed.
-    ...set.docs.guidance.length ? [
+    ...ruleset.docs.guidance.length ? [
       {
-        path: resolve17(root, ...docsSkillPath(set).split("/")),
-        content: renderDocsSkill(set)
+        path: resolve17(root, ...docsSkillPath(ruleset).split("/")),
+        content: renderDocsSkill(ruleset)
       }
     ] : []
   ];
@@ -39479,8 +39479,8 @@ var VIBE_JUDGE_ARGS = [
   "0.05",
   "-p"
 ];
-function isJudge(env = nodeIo.env) {
-  return env[JUDGE_MARKER] === "1";
+function isJudge(environment = nodeIo.env) {
+  return environment[JUDGE_MARKER] === "1";
 }
 function lastAsked(payload, reader, io) {
   for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
@@ -39553,8 +39553,8 @@ var ModelRequest = class extends Error {
 function answerKey(filled) {
   return sha256(filled);
 }
-function hostRoute(payload, env = nodeIo.env) {
-  if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host")
+function hostRoute(payload, environment = nodeIo.env) {
+  if (environment["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host")
     return void 0;
   const raw = payload["plainEnglishModel"];
   const record4 = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw : {};
@@ -39607,15 +39607,15 @@ function answerFromMod(filled, opts, answered) {
   return verdict;
 }
 function runJudge(input, opts) {
-  const env = opts.env ?? nodeIo.env;
-  if (isJudge(env))
+  const environment = opts.env ?? nodeIo.env;
+  if (isJudge(environment))
     return void 0;
   if (!opts.prompt.includes("$ARGUMENTS"))
     return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
   if (opts.answered)
     return answerFromMod(filled, opts, opts.answered);
-  return spawnJudge(filled, opts, env);
+  return spawnJudge(filled, opts, environment);
 }
 
 // dist/chat/turn.js
@@ -39670,7 +39670,7 @@ function hookCheck(check) {
     return chatCheck(check);
   const { channel, payload, profile, io, answered } = check;
   const event = check.event ?? "pre";
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
   const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
   const parsed = profile.parse(payload);
@@ -39693,7 +39693,7 @@ function hookCheck(check) {
   if (texts.length)
     requests.push({ channel, input: JSON.stringify({ texts }) });
   const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
-  if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
+  if (event === semanticPhase && decision.allow && !isJudge(environment) && modelChecksEnabled(ruleSet, profile, io)) {
     const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
     if (answered)
       answered.deadline = deadline;
@@ -39711,7 +39711,7 @@ function hookCheck(check) {
         ...modelCommand(profile.id, check.model),
         cwd: io.path.resolve(io.cwd, projectDir),
         timeoutMs,
-        env,
+        env: environment,
         onUnavailable: unavailable,
         ...answered ? { answered } : {}
       });
@@ -39735,7 +39735,7 @@ function chatCheck(check) {
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader)
     return silent;
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
   const reply = reader.current(payload, io);
   if (!reply || !reply.text.trim())
@@ -39758,7 +39758,7 @@ function chatCheck(check) {
      * package did before the judge existed.
      */
     judge: (r, findings) => {
-      if (isJudge(env) || !modelChecksEnabled(ruleSet, profile, io))
+      if (isJudge(environment) || !modelChecksEnabled(ruleSet, profile, io))
         return void 0;
       const prompts = renderPrompts(ruleSet);
       const input = judgeInput(r, lastAsked(payload, reader, io), findings);
@@ -39771,7 +39771,7 @@ function chatCheck(check) {
           ...modelCommand(profile.id),
           cwd: io.path.resolve(io.cwd, cwd),
           timeoutMs,
-          env,
+          env: environment,
           onUnavailable: unavailable,
           ...answered ? { answered } : {}
         });
@@ -39902,11 +39902,11 @@ function exitFor(failOn, errors, warns) {
 }
 
 // dist/guidance.js
-function projectGuidance(set, io = nodeIo) {
+function projectGuidance(ruleset, io = nodeIo) {
   const defaultNames = new Set(loadDefault(io).readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []));
-  const names = [...new Set(set.readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []))].filter((name) => !defaultNames.has(name));
-  const vocabulary = vocabularyForPrompt(set);
-  const notes = set.profileGuidance ?? [];
+  const names = [...new Set(ruleset.readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []))].filter((name) => !defaultNames.has(name));
+  const vocabulary = vocabularyForPrompt(ruleset);
+  const notes = ruleset.profileGuidance ?? [];
   if (!names.length && !vocabulary && !notes.length)
     return "";
   return [
@@ -39977,10 +39977,10 @@ function approvalConfig(directory, io) {
   }
   return { path: io.path.join(directory, ".plain-english.yml"), exists: false };
 }
-function notApprovable(set, ruleId) {
-  if (set.structures.some((structure) => structure.id === ruleId))
+function notApprovable(ruleset, ruleId) {
+  if (ruleset.structures.some((structure) => structure.id === ruleId))
     return "This rule cannot be approved as project vocabulary.";
-  const known = set.rules.some((rule) => rule.id === ruleId) || set.readability.some((rule) => rule.id === ruleId) || (set.families ?? []).some((family) => `family-${family.id}` === ruleId);
+  const known = ruleset.rules.some((rule) => rule.id === ruleId) || ruleset.readability.some((rule) => rule.id === ruleId) || (ruleset.families ?? []).some((family) => `family-${family.id}` === ruleId);
   return known ? void 0 : `no rule ${ruleId}`;
 }
 function approvalPlan(cwd, request, ruleSetFor2, io = nodeIo) {
@@ -41744,14 +41744,14 @@ function detectAgents(root) {
     };
   });
 }
-function scanRepo(root, set, options = {}) {
+function scanRepo(root, ruleset, options = {}) {
   const waivers = [];
   const skip = new Set(options.skip ?? []);
   for (const file of walk2(resolve14(root))) {
     const rel = toPosix(relative3(root, file));
     if (skip.has(rel))
       continue;
-    if (set.exclude.length && matchesAny(rel, set.exclude))
+    if (ruleset.exclude.length && matchesAny(rel, ruleset.exclude))
       continue;
     let text4;
     try {
@@ -41769,11 +41769,11 @@ function scanRepo(root, set, options = {}) {
   waivers.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line);
   return { waivers, agents: detectAgents(root) };
 }
-function consequence(set) {
-  if (set.failOn === "error") {
+function consequence(ruleset) {
+  if (ruleset.failOn === "error") {
     return "A blocking finding fails the build, and an agent hook refuses the write. A warning is reported and the command still exits 0.";
   }
-  if (set.failOn === "warn") {
+  if (ruleset.failOn === "warn") {
     return "Every finding, warnings included, fails the build, and an agent hook refuses the write. This is the strictest setting available.";
   }
   return "Nothing, by itself. Every finding is reported and the command exits 0, so a label reading `block` names the rule's tier and not the outcome. Blocking is opt-in: set `failOn: error` in `.plain-english.yml` to make it real.";
@@ -41784,7 +41784,7 @@ function plural(n, word2) {
 function tier(rule) {
   return rule.severity === "warn" ? "warn" : "block";
 }
-function deviations(set) {
+function deviations(ruleset) {
   const shipped = /* @__PURE__ */ new Map();
   for (const r of DEFAULTS().rules)
     shipped.set(r.id, r.severity);
@@ -41792,7 +41792,7 @@ function deviations(set) {
     shipped.set(r.id, r.severity);
   const out = [];
   const changed = (r) => shipped.has(r.id) && shipped.get(r.id) !== r.severity;
-  for (const r of [...set.rules, ...set.readability]) {
+  for (const r of [...ruleset.rules, ...ruleset.readability]) {
     if (!changed(r))
       continue;
     const from = shipped.get(r.id);
@@ -41806,13 +41806,13 @@ function DEFAULTS() {
   cached ??= loadDefault();
   return cached;
 }
-function renderPolicy(set, scan) {
+function renderPolicy(ruleset, scan) {
   const out = [];
   out.push(BANNER2, "");
   out.push("# AI writing policy", "");
   out.push("What this repository checks in text that other people read, and what it does about a finding. Generated from the ruleset and `.plain-english.yml` by `plain-english policy`, so it cannot drift from the configuration it describes.", "");
   out.push("## What a finding does here", "");
-  out.push(consequence(set), "");
+  out.push(consequence(ruleset), "");
   out.push("## Where it runs", "");
   if (!scan.agents.length) {
     out.push("No agent hooks were detected. The command-line linter is the only channel, and it runs when somebody runs it.", "");
@@ -41826,17 +41826,17 @@ function renderPolicy(set, scan) {
     }
     out.push("");
   }
-  const live = set.rules.filter((r) => r.severity !== "off");
+  const live = ruleset.rules.filter((r) => r.severity !== "off");
   const blocking = live.filter((r) => r.severity === "error");
   out.push("## The rules in force", "");
-  out.push(`${live.length} word and punctuation rules, ${blocking.length} of them blocking, plus ${set.structures.length} sentence shapes judged by a model and ${set.readability.filter((r) => r.severity !== "off").length} readability rules.`, "");
+  out.push(`${live.length} word and punctuation rules, ${blocking.length} of them blocking, plus ${ruleset.structures.length} sentence shapes judged by a model and ${ruleset.readability.filter((r) => r.severity !== "off").length} readability rules.`, "");
   out.push("| Term | Tier | Instead |");
   out.push("|---|---|---|");
   for (const rule of live) {
     out.push(`| ${markdownTableCode(humanise(rule))} | \`${tier(rule)}\` | ${rule.message ?? ""} |`);
   }
   out.push("");
-  const families = (set.families ?? []).filter((family) => family.severity !== "off");
+  const families = (ruleset.families ?? []).filter((family) => family.severity !== "off");
   if (families.length) {
     out.push("Related findings can also produce these advisory summaries:", "");
     out.push("| Family | Tier | Fires at |", "|---|---|---|");
@@ -41845,15 +41845,15 @@ function renderPolicy(set, scan) {
     out.push("");
   }
   out.push("## What this repository changed", "");
-  const changes = deviations(set);
+  const changes = deviations(ruleset);
   if (changes.length) {
     out.push("Severities that differ from the shipped ruleset:", "");
     out.push(...changes, "");
   } else {
     out.push("Nothing. The shipped ruleset is unchanged here.", "");
   }
-  const wide = set.allow.filter((a) => !a.rules?.length);
-  const scoped = set.allow.filter((a) => a.rules?.length);
+  const wide = ruleset.allow.filter((a) => !a.rules?.length);
+  const scoped = ruleset.allow.filter((a) => a.rules?.length);
   if (wide.length) {
     out.push(`Vocabulary that suppresses every rule on a matching line (${wide.length} patterns): ${wide.map((a) => `\`${a.pattern}\``).join(", ")}.`, "");
   }
@@ -41864,19 +41864,19 @@ function renderPolicy(set, scan) {
     }
     out.push("");
   }
-  if (set.exclude.length) {
-    out.push(`Files skipped entirely: ${set.exclude.map((e) => `\`${e}\``).join(", ")}.`, "");
+  if (ruleset.exclude.length) {
+    out.push(`Files skipped entirely: ${ruleset.exclude.map((e) => `\`${e}\``).join(", ")}.`, "");
   }
-  if (set.profile) {
+  if (ruleset.profile) {
     out.push("## Project writing profile", "");
-    if (set.profileState) {
-      out.push(`Profile \`${set.profileState.file}\` has source hash \`${set.profileState.sourceHash}\`.`, "");
+    if (ruleset.profileState) {
+      out.push(`Profile \`${ruleset.profileState.file}\` has source hash \`${ruleset.profileState.sourceHash}\`.`, "");
       out.push("| Genre | Evidence |", "|---|---|");
-      for (const [genre2, status] of Object.entries(set.profileState.genres))
+      for (const [genre2, status] of Object.entries(ruleset.profileState.genres))
         out.push(`| ${genre2} | ${status} |`);
       out.push("");
     } else
-      out.push(`Profile \`${set.profile.file}\` is configured but missing or invalid.`, "");
+      out.push(`Profile \`${ruleset.profile.file}\` is configured but missing or invalid.`, "");
   }
   out.push("## Waivers in the tree", "");
   const explained = scan.waivers.filter((w) => w.reason);
@@ -41919,7 +41919,7 @@ function renderPolicy(set, scan) {
   out.push("An output style shapes a reply before it exists and cannot be measured. A stop hook reads the finished reply and can hand a finding back to the model, which is the closest thing to a gate this channel has. Under `failOn: never` it reports and holds up nothing.", "");
   out.push("A style reaches the main conversation and a fork, which inherits the parent's system prompt. It does not reach a subagent, which runs its own. Where the table above says a chat gate is installed, the subagent gap is covered by that instead.", "");
   out.push("`plain-english lint --chat` reads what was actually said, from the transcripts each agent writes locally, and splits the rate by main loop against subagent. It is local only: a transcript holds whatever passed through a tool.", "");
-  out.push(`The ${set.structures.length} sentence shapes need a model to judge them, so they are checked by Claude Code's prompt hooks and by Vibe's optional local judge. For Copilot, Codex, Cursor, Gemini and Qwen they are guidance in \`AGENTS.md\`; no runtime model judge is installed.`, "");
+  out.push(`The ${ruleset.structures.length} sentence shapes need a model to judge them, so they are checked by Claude Code's prompt hooks and by Vibe's optional local judge. For Copilot, Codex, Cursor, Gemini and Qwen they are guidance in \`AGENTS.md\`; no runtime model judge is installed.`, "");
   out.push("The rules describe how models wrote in 2024 and 2025. Vendors suppress known tells, so this list decays and needs maintenance.", "");
   return out.join("\n");
 }

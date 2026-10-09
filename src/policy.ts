@@ -164,14 +164,14 @@ export interface ScanOptions {
 }
 
 /** Read the tree: every waiver, and every agent hook that is really there. */
-export function scanRepo(root: string, set: RuleSet, options: ScanOptions = {}): PolicyScan {
+export function scanRepo(root: string, ruleset: RuleSet, options: ScanOptions = {}): PolicyScan {
   const waivers: Waiver[] = [];
   const skip = new Set(options.skip ?? []);
 
   for (const file of walk(resolve(root))) {
     const rel = toPosix(relative(root, file));
     if (skip.has(rel)) continue;
-    if (set.exclude.length && matchesAny(rel, set.exclude)) continue;
+    if (ruleset.exclude.length && matchesAny(rel, ruleset.exclude)) continue;
 
     let text: string;
     try {
@@ -191,14 +191,14 @@ export function scanRepo(root: string, set: RuleSet, options: ScanOptions = {}):
 }
 
 /** What a finding actually causes, in the words of the setting that causes it. */
-function consequence(set: RuleSet): string {
-  if (set.failOn === "error") {
+function consequence(ruleset: RuleSet): string {
+  if (ruleset.failOn === "error") {
     return (
       "A blocking finding fails the build, and an agent hook refuses the write. A warning " +
       "is reported and the command still exits 0."
     );
   }
-  if (set.failOn === "warn") {
+  if (ruleset.failOn === "warn") {
     return (
       "Every finding, warnings included, fails the build, and an agent hook refuses the " +
       "write. This is the strictest setting available."
@@ -219,7 +219,7 @@ function tier(rule: Rule): string {
   return rule.severity === "warn" ? "warn" : "block";
 }
 
-function deviations(set: RuleSet): string[] {
+function deviations(ruleset: RuleSet): string[] {
   const shipped = new Map<string, string>();
   for (const r of DEFAULTS().rules) shipped.set(r.id, r.severity);
   for (const r of DEFAULTS().readability) shipped.set(r.id, r.severity);
@@ -228,7 +228,7 @@ function deviations(set: RuleSet): string[] {
   const changed = (r: Rule | ReadabilityRule): boolean =>
     shipped.has(r.id) && shipped.get(r.id) !== r.severity;
 
-  for (const r of [...set.rules, ...set.readability]) {
+  for (const r of [...ruleset.rules, ...ruleset.readability]) {
     if (!changed(r)) continue;
     const from = shipped.get(r.id)!;
     const why = r.reason ? r.reason : "_no reason given_";
@@ -247,8 +247,8 @@ function DEFAULTS(): RuleSet {
   return cached;
 }
 
-/** The policy document. Pure: every fact comes from `set` or `scan`. */
-export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
+/** The policy document. Pure: every fact comes from `ruleset` or `scan`. */
+export function renderPolicy(ruleset: RuleSet, scan: PolicyScan): string {
   const out: string[] = [];
   out.push(BANNER, "");
   out.push("# AI writing policy", "");
@@ -260,7 +260,7 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   );
 
   out.push("## What a finding does here", "");
-  out.push(consequence(set), "");
+  out.push(consequence(ruleset), "");
 
   out.push("## Where it runs", "");
   if (!scan.agents.length) {
@@ -280,13 +280,13 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
     out.push("");
   }
 
-  const live = set.rules.filter((r) => r.severity !== "off");
+  const live = ruleset.rules.filter((r) => r.severity !== "off");
   const blocking = live.filter((r) => r.severity === "error");
   out.push("## The rules in force", "");
   out.push(
     `${live.length} word and punctuation rules, ${blocking.length} of them blocking, plus ` +
-      `${set.structures.length} sentence shapes judged by a model and ` +
-      `${set.readability.filter((r) => r.severity !== "off").length} readability rules.`,
+      `${ruleset.structures.length} sentence shapes judged by a model and ` +
+      `${ruleset.readability.filter((r) => r.severity !== "off").length} readability rules.`,
     "",
   );
   out.push("| Term | Tier | Instead |");
@@ -295,7 +295,7 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
     out.push(`| ${markdownTableCode(humanise(rule))} | \`${tier(rule)}\` | ${rule.message ?? ""} |`);
   }
   out.push("");
-  const families = (set.families ?? []).filter((family) => family.severity !== "off");
+  const families = (ruleset.families ?? []).filter((family) => family.severity !== "off");
   if (families.length) {
     out.push("Related findings can also produce these advisory summaries:", "");
     out.push("| Family | Tier | Fires at |", "|---|---|---|");
@@ -304,7 +304,7 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   }
 
   out.push("## What this repository changed", "");
-  const changes = deviations(set);
+  const changes = deviations(ruleset);
   if (changes.length) {
     out.push("Severities that differ from the shipped ruleset:", "");
     out.push(...changes, "");
@@ -314,8 +314,8 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
   // Split by reach, because the two are very different promises. An unscoped
   // entry silences the whole ruleset on any line it touches, and a reader of
   // this document deserves to see which entries do that.
-  const wide = set.allow.filter((a) => !a.rules?.length);
-  const scoped = set.allow.filter((a) => a.rules?.length);
+  const wide = ruleset.allow.filter((a) => !a.rules?.length);
+  const scoped = ruleset.allow.filter((a) => a.rules?.length);
   if (wide.length) {
     out.push(
       `Vocabulary that suppresses every rule on a matching line (${wide.length} ` +
@@ -334,21 +334,21 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
     }
     out.push("");
   }
-  if (set.exclude.length) {
+  if (ruleset.exclude.length) {
     out.push(
-      `Files skipped entirely: ${set.exclude.map((e) => `\`${e}\``).join(", ")}.`,
+      `Files skipped entirely: ${ruleset.exclude.map((e) => `\`${e}\``).join(", ")}.`,
       "",
     );
   }
 
-  if (set.profile) {
+  if (ruleset.profile) {
     out.push("## Project writing profile", "");
-    if (set.profileState) {
-      out.push(`Profile \`${set.profileState.file}\` has source hash \`${set.profileState.sourceHash}\`.`, "");
+    if (ruleset.profileState) {
+      out.push(`Profile \`${ruleset.profileState.file}\` has source hash \`${ruleset.profileState.sourceHash}\`.`, "");
       out.push("| Genre | Evidence |", "|---|---|");
-      for (const [genre, status] of Object.entries(set.profileState.genres)) out.push(`| ${genre} | ${status} |`);
+      for (const [genre, status] of Object.entries(ruleset.profileState.genres)) out.push(`| ${genre} | ${status} |`);
       out.push("");
-    } else out.push(`Profile \`${set.profile.file}\` is configured but missing or invalid.`, "");
+    } else out.push(`Profile \`${ruleset.profile.file}\` is configured but missing or invalid.`, "");
   }
 
   out.push("## Waivers in the tree", "");
@@ -430,7 +430,7 @@ export function renderPolicy(set: RuleSet, scan: PolicyScan): string {
     "",
   );
   out.push(
-    `The ${set.structures.length} sentence shapes need a model to judge them, so they are ` +
+    `The ${ruleset.structures.length} sentence shapes need a model to judge them, so they are ` +
       "checked by Claude Code's prompt hooks and by Vibe's optional local judge. For " +
       "Copilot, Codex, Cursor, Gemini and Qwen they are guidance in `AGENTS.md`; no " +
       "runtime model judge is installed.",

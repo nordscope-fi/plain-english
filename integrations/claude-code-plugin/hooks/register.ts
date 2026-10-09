@@ -72,14 +72,14 @@ async function runCore<T>(
     const pending = new Map<string, { value: string; at: number }>()
     const io = replayIo({
       cwd,
-      path: pathsFor(cwd),
-      env: {},
-      home: undefined,
+      path: pathsFor(cwd), env: {}, home: undefined,
       now: () => Date.now(),
       notice: (text: string) => { notices.push(text) },
       state: {
-        get: (key: string) => pending.get(key) ?? kept.get(key),
-        set: (key: string, value: string) => { pending.set(key, { value, at: Date.now() }); return true },
+        get: (key: string) => pending.get(key) ?? kept.get(key), set: (key: string, value: string) => {
+          pending.set(key, { value, at: Date.now() })
+          return true
+        },
       },
       defaultRules: () => DEFAULT_RULES as string,
     }, fetched)

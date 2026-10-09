@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.16.4",
+  "version": "1.16.5",
   "description": "Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them. It checks Markdown writes, commit and pull request messages and tracker issues and asks you before saving one with a finding, and it holds a chat reply with a clear tell for a rewrite.",
   "author": { "name": "Nordscope", "url": "https://github.com/nordscope-fi" },
   "homepage": "https://github.com/nordscope-fi/plain-english",
