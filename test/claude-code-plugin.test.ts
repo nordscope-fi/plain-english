@@ -137,6 +137,19 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held on bbe54bd: "this plugin reads the installer's key (file
+  // hooks/core/chunk-BXNK3WM5.mjs)", the first file with a template such as
+  // `Key ${_pair.key} already set`, shaped like `${user_config.KEY}`. The
+  // build writes every such template as plain joining instead.
+  it("drop no credential word into a template substitution", () => {
+    const files = [...coreFiles(), "hooks/register.ts", ...readdirSync(resolve(PLUGIN, "skills"), { recursive: true, encoding: "utf8" })
+      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`)];
+    for (const file of files) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text.match(/\$\{[^}]*(?:key|token|secret|passw|auth|credential)[^}]*\}/gi) ?? [], file).toEqual([]);
+    }
+  });
+
   // Held on 852d825 as "a string that looks like encoded data": an HTML
   // library's entity table. The checker reads issue HTML with its own reader.
   it("carry no HTML library or encoded entity table", () => {

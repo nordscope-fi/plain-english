@@ -155,7 +155,7 @@ function parseBlockScalarHeader({ offset, props }, strict, onError) {
         length += token.source.length;
         break;
       default: {
-        const message = `Unexpected token in block scalar header: ${token.type}`;
+        const message = "".concat("Unexpected token in block scalar header: ", token.type);
         onError(token, "unexpected-token", message);
         const ts = token.source;
         if (ts && typeof ts === "string")

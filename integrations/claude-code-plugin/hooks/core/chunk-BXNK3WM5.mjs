@@ -446,7 +446,7 @@ var Collection = class extends NodeBase {
       else if (node === void 0 && this.schema)
         this.set(key, collectionFromPath(this.schema, rest, value));
       else
-        throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        throw new Error("".concat("Expected YAML collection at ", key, ". Remaining path: ", rest));
     }
   }
   deleteIn(path) {
@@ -457,7 +457,7 @@ var Collection = class extends NodeBase {
     if (isCollection(node))
       return node.deleteIn(rest);
     else
-      throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+      throw new Error("".concat("Expected YAML collection at ", key, ". Remaining path: ", rest));
   }
   getIn(path, keepScalar) {
     const [key, ...rest] = path;
@@ -493,7 +493,7 @@ var Collection = class extends NodeBase {
       else if (node === void 0 && this.schema)
         this.set(key, collectionFromPath(this.schema, rest, value));
       else
-        throw new Error(`Expected YAML collection at ${key}. Remaining path: ${rest}`);
+        throw new Error("".concat("Expected YAML collection at ", key, ". Remaining path: ", rest));
     }
   }
 };
@@ -1071,7 +1071,7 @@ var YAMLMap = class extends Collection {
     const sortEntries = this.schema?.sortMapEntries;
     if (prev) {
       if (!overwrite)
-        throw new Error(`Key ${_pair.key} already set`);
+        throw new Error("".concat("Key ", _pair.key, " already set"));
       if (isScalar(prev.value) && isScalarValue(_pair.value))
         prev.value.value = _pair.value;
       else
@@ -1117,7 +1117,7 @@ var YAMLMap = class extends Collection {
       return JSON.stringify(this);
     for (const item of this.items) {
       if (!isPair(item))
-        throw new Error(`Map items must all be pairs; found ${((((((((JSON.stringify(item)))))))))} instead`);
+        throw new Error(`Map items must all be pairs; found ${(JSON.stringify(item))} instead`);
     }
     if (!ctx.allNullValues && this.hasAllNullValues(false))
       ctx = Object.assign({}, ctx, { allNullValues: true });
@@ -1176,7 +1176,7 @@ var YAMLSeq = class extends Collection {
   set(key, value) {
     const idx = asItemIndex(key);
     if (typeof idx !== "number")
-      throw new Error(`Expected a valid index, not ${key}.`);
+      throw new Error("".concat("Expected a valid index, not ", key, "."));
     const prev = this.items[idx];
     if (isScalar(prev) && isScalarValue(value))
       prev.value = value;
@@ -1431,7 +1431,7 @@ var jsonError = {
   tag: "",
   test: /^/,
   resolve(str, onError) {
-    onError(`Unresolved plain scalar ${((((((((JSON.stringify(str)))))))))}`);
+    onError(`Unresolved plain scalar ${(JSON.stringify(str))}`);
     return str;
   }
 };
@@ -1491,8 +1491,7 @@ function resolvePairs(seq2, onError) {
           onError("Each pair must have its own sequence indicator");
         const pair = item.items[0] || new Pair(new Scalar(null));
         if (item.commentBefore)
-          pair.key.commentBefore = pair.key.commentBefore ? `${item.commentBefore}
-${pair.key.commentBefore}` : item.commentBefore;
+          pair.key.commentBefore = pair.key.commentBefore ? "".concat(item.commentBefore, "\n", pair.key.commentBefore) : item.commentBefore;
         if (item.comment) {
           const cn = pair.value ?? pair.key;
           cn.comment = cn.comment ? `${item.comment}
@@ -1528,7 +1527,7 @@ function createPairs(schema4, iterable, ctx) {
           key = keys[0];
           value = it[key];
         } else {
-          throw new TypeError(`Expected tuple with one key, not ${keys.length} keys`);
+          throw new TypeError("".concat("Expected tuple with one key, not ", keys.length, " keys"));
         }
       } else {
         key = it;
@@ -1595,7 +1594,7 @@ var omap = {
     for (const { key } of pairs2.items) {
       if (isScalar(key)) {
         if (seenKeys.includes(key.value)) {
-          onError(`Ordered maps must not include duplicate keys: ${key.value}`);
+          onError("".concat("Ordered maps must not include duplicate keys: ", key.value));
         } else {
           seenKeys.push(key.value);
         }
@@ -1954,7 +1953,7 @@ function getTags(customTags, schemaName, addMergeTag) {
       tags = [];
     else {
       const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
-      throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
+      throw new Error("".concat("Unknown schema \"", schemaName, "\"; use one of ", keys, " or define customTags array"));
     }
   }
   if (Array.isArray(customTags)) {
@@ -1970,7 +1969,7 @@ function getTags(customTags, schemaName, addMergeTag) {
     if (!tagObj) {
       const tagName = JSON.stringify(tag);
       const keys = Object.keys(tagsByName).map((key) => JSON.stringify(key)).join(", ");
-      throw new Error(`Unknown custom tag ${tagName}; use one of ${keys}`);
+      throw new Error("".concat("Unknown custom tag ", tagName, "; use one of ", keys));
     }
     if (!tags2.includes(tagObj))
       tags2.push(tagObj);
