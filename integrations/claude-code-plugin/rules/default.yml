@@ -439,7 +439,7 @@ rules:
       #
       # These stay closed. "unreadable" and "unsupportable" are ordinary
       # litotes, and opening 'read' or 'support' would except them.
-      - "\\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\\b"
+      - "\\bnot (unset|un(ique|defined|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported))\\b"
     message: "Say what it is: 'not uncommon' is 'common'."
 
   - id: prior-to

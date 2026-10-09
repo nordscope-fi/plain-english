@@ -8,11 +8,11 @@ import {
   readWritingProfile,
   writingProfileGuidance,
   writingProfileYaml
-} from "../chunks/chunk-I3YPERO3.mjs";
+} from "../chunks/chunk-7KSWVOVI.mjs";
 import "../chunks/chunk-SL3U5VVG.mjs";
 import "../chunks/chunk-CTGZG7FF.mjs";
 import "../chunks/chunk-SS63RESI.mjs";
-import "../chunks/chunk-LXD3KRBZ.mjs";
+import "../chunks/chunk-CZGAKXFA.mjs";
 import "../chunks/chunk-BK3ZJ2GD.mjs";
 import "../chunks/chunk-2F3B5C5G.mjs";
 import "../chunks/chunk-5LV6KLTQ.mjs";

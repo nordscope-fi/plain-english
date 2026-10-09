@@ -163,7 +163,7 @@ These terms have a legitimate technical or domain sense. The listed uses never t
 - **mechanical**: `\bmechanical\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\b`
 - **load-bearing**: `\bload[- ]bearing\s+(wall|walls|beam|column|member|structure|capacity|frame)\b`
 - **in-terms-of**: `\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\s+in terms of\b`
-- **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot un(ique|defined|set|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported)\b`
+- **not-un**: `\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\b`, `\bnot (unset|un(ique|defined|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported))\b`
 - **puffery-nouns**: `\b(old|new)\s+testament\b`, `\blast will and testament\b`
 - **abstract-metaphor-nouns**: `\b(silicon|growth|culture|glass|ceramic|sapphire)\s+substrate\b`, `\bsubstrate\s+(concentration|binding|specificity)\b`, `\bvantage\s+point\b`, `\blocus\s+of\s+control\b`, `\b(imaging|treatment|sensory|input)\s+modality\b`, `\bmodality\s+of\s+(imaging|treatment)\b`
 - **borrowed-metaphors**: `\bblast radius\s+of\s+(the\s+)?(bomb|charge|explosion|blast|device)\b`

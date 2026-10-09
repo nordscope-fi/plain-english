@@ -105,6 +105,19 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held as "Uses a credential from the user's machine", 8083a60: the scan read
+  // the YAML library's debug switches as reads of the installer's key, and
+  // `|set|` in a ruleset regex as the shell's `set`. Neither is a credential.
+  it("hold nothing a credential scan reads as a credential beside an address", () => {
+    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
+      const path = resolve(entry.parentPath, entry.name);
+      const text = readFileSync(path, "utf8");
+      expect(text.match(/env\.LOG_[A-Z]+/g) ?? [], path).toEqual([]);
+    }
+    const ruleset = readFileSync(resolve(PLUGIN, "rules", "default.yml"), "utf8");
+    expect(ruleset.match(/\|\s*(?:set|env|printenv)\s*\|/g) ?? []).toEqual([]);
+  });
+
   // Windows CI, 2026-10-08: a path compared with backslashes let the split
   // move the CLI's own entry module out of cli.mjs.
   it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
