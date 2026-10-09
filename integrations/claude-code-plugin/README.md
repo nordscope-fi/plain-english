@@ -68,44 +68,60 @@ On macOS, cancellation and timeouts were verified to stop the checker and its mo
 
 ## For reviewers: every program, file and outbound call
 
-This section answers the Claude directory's checks one call at a time. Paths are relative to the plugin folder.
+This section answers the Claude directory's findings by their titles, then lists every call. Paths are relative to the plugin folder.
 
-### Programs the mod starts
+### Mod starts other programs
 
-Every program is `node`, the runtime Claude Code itself uses, started in the plugin folder. No shell is started, so no command line is parsed or expanded. Every command is fixed text. The project folder reaches the checker in the `PLAIN_ENGLISH_CWD` setting, and the paths you type in `PLAIN_ENGLISH_LINT_PATHS`.
+The mod starts one program, `node`, the runtime Claude Code itself uses, on one file: `hooks/run-checker.mjs`. That wrapper starts the plain-english checker, `dist/cli.mjs` beside it. The checker has to run as a program because it reads the project's config and files, which a mod's own code cannot do without the same calls. The table below lists every command.
 
-| Where in `hooks/register.ts` | Command | Why |
-| --- | --- | --- |
-| `spawnHook`, through `$.process.spawn` | `node hooks/run-checker.mjs hook docs --agent claude-code`, and the same with `github`, `issue` or `chat`, each written out in full, with the event as JSON on standard input | Runs the bundled checker on one proposed write or finished reply. The event on standard input is data for the checker to read, not code. |
-| term approval, through `$.process.run` | `node hooks/run-checker.mjs approve`, with the request as JSON on standard input | Checks and then saves one approved term in the project config. The mod runs it twice: once to check, and once to write after you confirm. |
-| `prompt.context`, through `$.process.run` | `node hooks/run-checker.mjs guidance` | Reads the project's declared vocabulary to add to the conversation. |
-| `/plain-english`, through `$.process.run` | `node hooks/run-checker.mjs lint` | Checks the files you name. |
+### Mod starts a program with a command the directory couldn't read in full
 
-`hooks/run-checker.mjs` starts the checker, `dist/cli.mjs` beside it, as a child process in the project folder, and stops it, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, as the fallback for an extra model check when `$.model.complete` cannot be made.
+Every command and every setting is fixed text at the call, started in the plugin folder (`$.plugin.root`). Everything that varies goes in one JSON request on standard input, which the wrapper reads. It holds `cwd`, the project folder from `$.session.cwd()`, and `paths`, the paths you typed after `/plain-english`. It also holds `route`, whether the mod answers model questions itself, and `input`, the event or approval request for the checker. No shell is started, so nothing in a command is parsed or expanded.
 
-### What leaves the machine, and where it goes
+| Where in `hooks/register.ts` | Command | Settings | Why |
+| --- | --- | --- | --- |
+| `spawnHook`, through `$.process.spawn` | `node hooks/run-checker.mjs hook docs --agent claude-code`, and the same with `github`, `issue` or `chat`, each written out in full | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000'`, or `'60000'` for chat | Checks one proposed write or finished reply. |
+| term approval, through `$.process.run` | `node hooks/run-checker.mjs approve` | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000'` | Checks and then saves one approved term in the project config, once to check and once to write after you confirm. |
+| `prompt.context`, through `$.process.run` | `node hooks/run-checker.mjs guidance` | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000'` | Reads the project's declared vocabulary to add to the conversation. |
+| `/plain-english`, through `$.process.run` | `node hooks/run-checker.mjs lint` | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '120000'` | Checks the files you name. |
 
-Only the extra model checks send anything, and only to Claude. Through `$.model.complete`, the session's own model and account receive the text being checked: a proposed document, a commit or issue text, or a finished reply and your last question. The fallback `claude -p` sends the same text to the same account. Neither the mod nor the checker makes any other network request. Set `modelChecks: false` to keep everything on the machine.
+`hooks/run-checker.mjs` stops the checker, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, the fallback for an extra model check when `$.model.complete` cannot be made.
 
-The mod reads no credential. It reads no environment variable, token or key. `hooks/run-checker.mjs` reads one variable, `PLAIN_ENGLISH_CHECK_TIMEOUT_MS`, which the mod itself sets. The ruleset in `rules/default.yml` contains words such as "secret" and "token" only inside example sentences, and names `github.com` only in documentation links.
+### Mod can read local data and can also send data out
+
+The local data is `$.session.cwd()`, the session's working folder. It goes to the checker as `cwd` in the request on standard input, so the checker reads that project's config and files. It leaves the machine only as described next.
+
+### Mod can read the conversation and can also send data out
+
+The mod reads the conversation in three hooks. `tool.call` reads proposed writes, commands and tracker-tool calls; `classic.Stop` and `classic.SubagentStop` read finished replies. Each passes what it read to the checker on standard input.
+
+Only the extra model checks send anything off the machine, and only to Claude. Through `$.model.complete`, the session's own model and account receive the text being checked: a proposed document, a commit or issue text, or a finished reply and your last question. The fallback `claude -p` sends the same text to the same account. Neither the mod nor the checker makes any other network request. Set `modelChecks: false` to keep everything on the machine.
+
+### Uses a credential from the user's machine
+
+Nothing in the plugin reads a credential, and nothing sends one anywhere. The scan pairs web addresses with code it reads as a credential, and every case here is one of these:
+
+- **Web addresses:** the bundled checker ships without comments, so the only addresses left are its own data. One is the documentation page of each supported agent, which `init` prints. Others are this repository's pages, which findings link to. The last is the schema address that a code-scanning report must name, the standard format GitHub reads for findings. `rules/default.yml` links to this repository's pages the same way.
+- **"Key" and environment reads:** `key` is an ordinary variable name, as in `for (const key of Object.keys(obj))`. The checker reads its own settings, such as `PLAIN_ENGLISH_CHECK_TIMEOUT_MS`, and the folders where each agent keeps its transcripts. It passes the environment as it is to `claude -p` only in that fallback, so that program can sign in to the account it already uses.
+- **The ruleset's words:** `rules/default.yml` contains "secret" and "token" only inside example sentences.
 
 ### Files written
 
 The mod itself reads and writes no files. The checker it starts writes two kinds:
 
-- **The project's plain-english config, usually `.plain-english.yml`.** Written only when you approve a term in the review panel and then confirm it in a dialog. `node dist/cli.mjs approve` adds one exception for that term, and the checker reads it on its next run. The write step refuses unless the project folder and the file are byte for byte what the check step saw. It refuses an inherited or linked config too. It never writes Claude Code's own settings, instruction files or build files.
+- **The project's plain-english config, usually `.plain-english.yml`.** Written only when you approve a term in the review panel and then confirm it in a dialog. `node hooks/run-checker.mjs approve` adds one exception for that term, and the checker reads it on its next run. The write step refuses unless the project folder and the file are byte for byte what the check step saw. It refuses an inherited or linked config too. It never writes Claude Code's own settings, instruction files or build files.
 - **Temporary files** in the system's temporary folder, holding turn identifiers and small counters that stop a reply being held twice.
 
-### Events that see other content
+### Events that see or change other content
 
-- `tool.call`: reads proposed writes, commands and tracker-tool calls. It can refuse one or ask you about it, and never changes the call's input.
-- `classic.Stop` and `classic.SubagentStop`: read finished replies, and can hold one for a rewrite.
-- `prompt.context`: adds one section with your project's declared vocabulary. It leaves the existing context in place.
-- `command.run`: answers `/plain-english`, which the mod registers on `session.start`.
+- `tool.call`: can refuse a call or ask you about it, and never changes its input.
+- `classic.Stop` and `classic.SubagentStop`: can hold a reply for a rewrite, and change nothing else.
+- `prompt.context`: adds one section with your project's declared vocabulary, and leaves the existing context in place.
+- `command.run`: answers `/plain-english`, which the mod registers on `session.start`, and no other command.
 
 ### Bundled code
 
-`dist/cli.mjs` is the plain-english checker from this repository, bundled with its dependencies by `scripts/build-plugin.mjs` and left unminified. Two of those dependencies, `@babel/parser` and `yaml`, are bundled into `dist/vendor/` and imported from there, so every file stays under the directory's read limit of 1,048,576 bytes. The same build is published on npm with a signed record of the GitHub build that produced it.
+`dist/` is the plain-english checker from this repository, bundled with its dependencies by `scripts/build-plugin.mjs`. It is unminified and has no comments. It is split into files under the directory's read limit of 256 KiB (262,144 bytes), and `dist/cli.mjs` is the entry. The plugin's copy leaves out the JavaScript parser that only `lint --source-prose` uses. The same checker is published on npm with a signed record of the GitHub build that produced it.
 
 ## Configuration
 

@@ -4,6 +4,13 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.14.3] - 2026-10-09
+### Changed
+
+- The Claude Code plugin's mod passes every computed value, such as the project folder, the typed paths and the model route, in one JSON request on the checker's standard input. Each command's settings are now fixed text as well as its arguments.
+- The plugin's bundled checker ships without comments, so its only web addresses are this project's own data. The bundled libraries' lint markers went with them (#126).
+- The plugin README's reviewer section answers each of the Claude directory's findings by its title.
+
 ## [1.14.2] - 2026-10-08
 ### Changed
 
@@ -719,7 +726,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.3...HEAD
+[1.14.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.3
 [1.14.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.2
 [1.14.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.1
 [1.14.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.0

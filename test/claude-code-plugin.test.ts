@@ -75,6 +75,24 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // The directory's "Uses a credential" hold pairs any web address in a file
+  // with any read it takes for a credential. Library comments carried most of
+  // them, so the bundles ship without comments. Every address left must come
+  // from this project's own source: agent documentation links, this
+  // repository's pages and the SARIF schema identifier.
+  it("carry no web address that this project's own source does not", () => {
+    const pattern = /https?:\/\/[^\s"'`)<>\]]+/g;
+    const own = new Set<string>();
+    for (const entry of readdirSync(resolve(ROOT, "src"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile()))
+      for (const address of readFileSync(resolve(entry.parentPath, entry.name), "utf8").match(pattern) ?? []) own.add(address);
+    for (const address of readFileSync(resolve(ROOT, "rules/default.yml"), "utf8").match(pattern) ?? []) own.add(address);
+    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
+      const path = resolve(entry.parentPath, entry.name);
+      const foreign = (readFileSync(path, "utf8").match(pattern) ?? []).filter((address) => !own.has(address));
+      expect(foreign, path).toEqual([]);
+    }
+  });
+
   // Windows CI, 2026-10-08: a path compared with backslashes let the split
   // move the CLI's own entry module out of cli.mjs.
   it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
@@ -90,6 +108,13 @@ describe("the plugin's hook files as the directory reads them", () => {
     for (const command of commands) {
       expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
     }
+    // The settings each run gets are fixed text too; anything computed goes in
+    // the request on standard input.
+    const settings = [...source.matchAll(/\benv:\s*(\{[^}]*\})/g)].map((match) => match[1]!);
+    expect(settings.length).toBeGreaterThanOrEqual(7);
+    for (const env of settings) {
+      expect(env, env).toMatch(/^\{\s*[A-Z_]+:\s*'[^'$`]*'(?:\s*,\s*[A-Z_]+:\s*'[^'$`]*')*\s*\}$/);
+    }
   });
 
   it("run the checker from the plugin folder in the project folder the mod names", () => {
@@ -99,7 +124,8 @@ describe("the plugin's hook files as the directory reads them", () => {
       const ran = spawnSync(process.execPath, ["hooks/run-checker.mjs", "lint"], {
         cwd: PLUGIN,
         encoding: "utf8",
-        env: { ...process.env, PLAIN_ENGLISH_CWD: dir, PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(["notes.md"]), PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
+        input: JSON.stringify({ cwd: dir, paths: ["notes.md"] }),
+        env: { ...process.env, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
       });
       expect(ran.stdout + ran.stderr).toContain("furthermore");
     } finally {
