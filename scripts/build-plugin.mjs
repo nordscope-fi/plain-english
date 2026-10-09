@@ -277,15 +277,25 @@ function* nodes(node) {
  * - a regular expression over 400 characters becomes `new RegExp` over
  *   pieces, checked here to have the same source and flags;
  * - a list or object with a line over the limit gets one entry per line;
- * - a template substitution starting with a capital gets parentheses.
+ * - a template substitution starting with a capital gets parentheses;
+ * - a template whose substitution names a credential word, such as
+ *   `Key ${_pair.key} already set`, becomes `"Key ".concat(_pair.key, " already
+ *   set")`. `concat` converts each value to text as a template does. The Claude
+ *   directory read that template as `${user_config.KEY}`: the installer's key
+ *   (held on bbe54bd).
  *
  * Passes repeat until no line is over the limit, since an edit inside a list
  * and the list itself cannot be made in one pass.
  */
+/** Words that make a template substitution read as a credential. */
+const CREDENTIAL_WORD = /key|token|secret|passw|auth|credential/i;
+
 export function readableSource(text, file) {
   for (let pass = 0; pass < 8; pass++) {
     const ast = parseJavaScript(text, { sourceType: "module", allowReturnOutsideFunction: true });
     const edits = [];
+    const tagged = new Set();
+    for (const node of nodes(ast.program)) if (node.type === "TaggedTemplateExpression") tagged.add(node.quasi);
     for (const node of nodes(ast.program)) {
       const source = text.slice(node.start, node.end);
       if (node.type === "StringLiteral" && source.length > 400) {
@@ -305,9 +315,19 @@ export function readableSource(text, file) {
         if (items.some((item) => item === null)) continue;
         const [open, close] = node.type === "ArrayExpression" ? ["[", "]"] : ["{", "}"];
         edits.push({ start: node.start, end: node.end, text: `${open}\n${items.map((item) => `  ${text.slice(item.start, item.end)}`).join(",\n")}\n${close}` });
+      } else if (node.type === "TemplateLiteral" && !tagged.has(node)
+        && node.expressions.some((expression) => CREDENTIAL_WORD.test(text.slice(expression.start, expression.end)))) {
+        const parts = [];
+        node.quasis.forEach((quasi, i) => {
+          if (quasi.value.cooked) parts.push(JSON.stringify(quasi.value.cooked));
+          const expression = node.expressions[i];
+          if (expression) parts.push(text.slice(expression.start, expression.end));
+        });
+        edits.push({ start: node.start, end: node.end, text: `"".concat(${parts.join(", ")})` });
       } else if (node.type === "TemplateLiteral") {
         for (const expression of node.expressions) {
-          if (/^[A-Z]/.test(text.slice(expression.start, expression.end))) {
+          const wrapped = text[expression.start - 1] === "(" && text[expression.end] === ")";
+          if (!wrapped && /^[A-Z]/.test(text.slice(expression.start, expression.end))) {
             edits.push({ start: expression.start, end: expression.end, text: `(${text.slice(expression.start, expression.end)})` });
           }
         }
@@ -327,6 +347,8 @@ export function readableSource(text, file) {
   const long = text.split("\n").findIndex((line) => line.length > LONG_LINE);
   if (long !== -1) throw new Error(`${file}:${long + 1} is still over ${LONG_LINE} characters; update scripts/build-plugin.mjs.`);
   if (/\$\{[A-Z]/.test(text)) throw new Error(`${file} still has a template substitution starting with a capital.`);
+  const credential = text.match(/\$\{[^}]*(?:key|token|secret|passw|auth|credential)[^}]*\}/i);
+  if (credential) throw new Error(`${file} still drops a credential word into a template: ${credential[0]}`);
   return text;
 }
 

@@ -148,9 +148,9 @@ function resolveProps(tokens, { flow, indicator, next: next2, offset, onError, p
       }
       case indicator:
         if (anchor || tag)
-          onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
+          onError(token, "BAD_PROP_ORDER", "".concat("Anchors and tags must be after the ", token.source, " indicator"));
         if (found)
-          onError(token, "unexpected-token", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+          onError(token, "unexpected-token", "".concat("Unexpected ", token.source, " in ", flow ?? "collection"));
         found = token;
         atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
         hasSpace = false;
@@ -165,7 +165,7 @@ function resolveProps(tokens, { flow, indicator, next: next2, offset, onError, p
           break;
         }
       default:
-        onError(token, "unexpected-token", `Unexpected ${token.type} token`);
+        onError(token, "unexpected-token", "".concat("Unexpected ", token.type, " token"));
         atNewline = false;
         hasSpace = false;
     }
@@ -735,7 +735,7 @@ function composeNode(ctx, token, props, onError) {
       }
       break;
     default: {
-      const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
+      const message = token.type === "error" ? token.message : "".concat("Unsupported token (type: ", token.type, ")");
       onError(token, "unexpected-token", message);
       isSrcToken = false;
     }
@@ -954,7 +954,7 @@ ${cb}` : comment;
         this.prelude.push(token.source);
         break;
       case "error": {
-        const msg = token.source ? `${token.message}: ${((((((((JSON.stringify(token.source)))))))))}` : token.message;
+        const msg = token.source ? "".concat(token.message, ": ", JSON.stringify(token.source)) : token.message;
         const error = new YAMLParseError(getErrorPos(token), "unexpected-token", msg);
         if (this.atDirectives || !this.doc)
           this.errors.push(error);
@@ -980,7 +980,7 @@ ${end.comment}` : end.comment;
         break;
       }
       default:
-        this.errors.push(new YAMLParseError(getErrorPos(token), "unexpected-token", `Unsupported token ${token.type}`));
+        this.errors.push(new YAMLParseError(getErrorPos(token), "unexpected-token", "".concat("Unsupported token ", token.type)));
     }
   }
   *end(forceDoc = false, endOffset = -1) {
@@ -4224,8 +4224,8 @@ function writingProfileGuidance(profile) {
     if (row.spelling.stable && row.spelling.value !== "mixed" && row.spelling.value !== "unknown") parts.push(`uses ${row.spelling.value.toUpperCase()} spelling`);
     if (row.sentenceWords.stable) parts.push(`usually keeps sentences between ${row.sentenceWords.p10} and ${row.sentenceWords.p90} words`);
     if (row.paragraphSentences.stable) parts.push(`usually keeps paragraphs between ${row.paragraphSentences.p10} and ${row.paragraphSentences.p90} sentences`);
-    if (row.headingTitleCase.stable) parts.push(row.headingTitleCase.value >= 0.8 ? "uses title case headings" : row.headingTitleCase.value <= 0.2 ? "uses sentence case headings" : `uses title case for ${((((((((Math.round(row.headingTitleCase.value * 100)))))))))}% of headings`);
-    if (row.listLineRate.stable) parts.push(`${((((((((Math.round(row.listLineRate.value * 100)))))))))}% of non-empty lines are list items`);
+    if (row.headingTitleCase.stable) parts.push(row.headingTitleCase.value >= 0.8 ? "uses title case headings" : row.headingTitleCase.value <= 0.2 ? "uses sentence case headings" : `uses title case for ${(Math.round(row.headingTitleCase.value * 100))}% of headings`);
+    if (row.listLineRate.stable) parts.push(`${(Math.round(row.listLineRate.value * 100))}% of non-empty lines are list items`);
     if (row.directAddressPerThousand.stable) parts.push(`uses direct address ${row.directAddressPerThousand.value} times per 1,000 words`);
     const punctuation2 = Object.entries(row.punctuationPerThousand).filter(([, metric]) => metric.stable).map(([mark, metric]) => `${mark} ${metric.value}`).join(", ");
     if (punctuation2) parts.push(`punctuation per 1,000 words: ${punctuation2}`);
@@ -4240,7 +4240,7 @@ function writingProfileGuidance(profile) {
     }
     for (const part of parts) out.push(`${name}: ${part}.`);
   }
-  for (const [key, value2] of Object.entries(profile.preferences)) out.push(`${key}: ${typeof value2 === "string" ? value2 : JSON.stringify(value2)}`);
+  for (const [key, value2] of Object.entries(profile.preferences)) out.push("".concat(key, ": ", typeof value2 === "string" ? value2 : JSON.stringify(value2)));
   return out;
 }
 
@@ -4295,7 +4295,7 @@ function readAllow(v) {
     for (const key of Object.keys(e)) {
       if (!ALLOW_FIELDS.has(key)) {
         throw new RuleError(
-          `allow[${i}]: unknown key '${key}'. Valid keys: ${[...ALLOW_FIELDS].sort().join(", ")}`
+          "".concat("allow[", i, "]: unknown key '", key, "'. Valid keys: ", [...ALLOW_FIELDS].sort().join(", "))
         );
       }
     }
@@ -4378,7 +4378,7 @@ function readReadability(v) {
     const kind = r["kind"];
     if (kind !== void 0 && (typeof kind !== "string" || !KINDS.includes(kind))) {
       throw new RuleError(
-        `readability[${i}] (${r["id"]}): kind must be one of ${((((((((KINDS.join(", ")))))))))}`
+        `readability[${i}] (${r["id"]}): kind must be one of ${(KINDS.join(", "))}`
       );
     }
     const severity = r["severity"] ?? "warn";
@@ -4437,7 +4437,7 @@ function readReadability(v) {
       const n = Number(r[key]);
       if (!Number.isInteger(n) || n < 1) {
         throw new RuleError(
-          `readability[${i}] (${r["id"]}): ${key} must be a positive integer`
+          "".concat("readability[", i, "] (", r["id"], "): ", key, " must be a positive integer")
         );
       }
       out[key] = n;
@@ -4503,7 +4503,7 @@ function readFamilies(v) {
     if (!(  new Set(["error", "warn", "off"])).has(severity)) throw new RuleError(`families[${i}].severity is invalid`);
     const whole = (key, fallback) => {
       const value2 = row[key] ?? fallback;
-      if (!Number.isInteger(value2) || Number(value2) < 1) throw new RuleError(`families[${i}].${key} must be a positive integer`);
+      if (!Number.isInteger(value2) || Number(value2) < 1) throw new RuleError("".concat("families[", i, "].", key, " must be a positive integer"));
       return Number(value2);
     };
     const out = { id: row["id"], severity, minFindings: whole("minFindings", 3), minRules: whole("minRules", 2), minSentences: whole("minSentences", 2) };
@@ -4785,7 +4785,7 @@ function parseSet(text2, where) {
   }
   const raw = doc;
   if (raw.version !== 1) {
-    throw new RuleError(`${where}: version must be 1 (got ${((((((((String(raw.version)))))))))})`);
+    throw new RuleError(`${where}: version must be 1 (got ${(String(raw.version))})`);
   }
   rejectUnknownKeys(raw, where);
   return raw;
@@ -4826,7 +4826,7 @@ function rejectUnknownKeys(obj, where) {
     const lower = key.toLowerCase();
     const near = [...KNOWN_TOP_LEVEL].filter((k) => lower.startsWith(k.toLowerCase()) || k.toLowerCase().startsWith(lower)).sort((a, b) => b.length - a.length).map((k) => [k, 0])[0] ?? [...KNOWN_TOP_LEVEL].map((k) => [k, editDistance(lower, k.toLowerCase())]).filter(([, d]) => d <= 3).sort((x, y) => x[1] - y[1])[0];
     throw new RuleError(
-      `${where}: unknown key '${key}'` + (near ? `. Did you mean '${near[0]}'?` : "") + `
+      "".concat(where, ": unknown key '", key, "'") + (near ? `. Did you mean '${near[0]}'?` : "") + `
   Valid keys: ${[...KNOWN_TOP_LEVEL].sort().join(", ")}`
     );
   }
@@ -4835,7 +4835,7 @@ function toRuleSet(raw) {
   const meta = raw.meta ?? {};
   const failOn = raw.failOn;
   if (failOn !== void 0 && !["error", "warn", "never"].includes(String(failOn))) {
-    throw new RuleError(`failOn must be error, warn or never (got ${((((((((String(failOn)))))))))})`);
+    throw new RuleError(`failOn must be error, warn or never (got ${(String(failOn))})`);
   }
   if (raw.modelChecks !== void 0 && typeof raw.modelChecks !== "boolean") {
     throw new RuleError("modelChecks must be true or false");
@@ -5093,7 +5093,7 @@ function compile(set) {
     const unsafe = findUnsafe(source);
     if (unsafe) {
       throw new RuleError(
-        `${where}: pattern ${((((((((JSON.stringify(source)))))))))} can backtrack catastrophically (${unsafe.kind}: ${unsafe.detail}).
+        `${where}: pattern ${(JSON.stringify(source))} can backtrack catastrophically (${unsafe.kind}: ${unsafe.detail}).
   This would hang the linter. Rewrite it without the nested repeat, for example (a+)+ as a+ .`
       );
     }
@@ -5105,7 +5105,7 @@ function compile(set) {
       rule.re = new RegExp(rule.match, "gi");
     } catch (e) {
       throw new RuleError(
-        `rule '${rule.id}': invalid regex ${((((((((JSON.stringify(rule.match)))))))))}: ` + (e instanceof Error ? e.message : String(e))
+        `rule '${rule.id}': invalid regex ${(JSON.stringify(rule.match))}: ` + (e instanceof Error ? e.message : String(e))
       );
     }
     rule.unlessRe = (rule.unless ?? []).map((u, i) => {
@@ -5114,7 +5114,7 @@ function compile(set) {
         return new RegExp(u, "i");
       } catch (e) {
         throw new RuleError(
-          `rule '${rule.id}': invalid unless[${i}] ${((((((((JSON.stringify(u)))))))))}: ` + (e instanceof Error ? e.message : String(e))
+          `rule '${rule.id}': invalid unless[${i}] ${(JSON.stringify(u))}: ` + (e instanceof Error ? e.message : String(e))
         );
       }
     });
@@ -5142,7 +5142,7 @@ function compile(set) {
       re = new RegExp(a.pattern, "i");
     } catch (e) {
       throw new RuleError(
-        `allow[${i}]: invalid regex ${((((((((JSON.stringify(a.pattern)))))))))}: ` + (e instanceof Error ? e.message : String(e))
+        `allow[${i}]: invalid regex ${(JSON.stringify(a.pattern))}: ` + (e instanceof Error ? e.message : String(e))
       );
     }
     const compiled = { entry: a, re };

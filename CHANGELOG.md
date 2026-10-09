@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.4] - 2026-10-09
+### Changed
+
+- The Claude Code plugin's bundled code builds no message with a `${...}` substitution that names a key or token. The build writes them as plain joined text, which reads the same. The Claude directory read the YAML parser's `Key ${_pair.key} already set` as the installer's key.
+
 ## [1.16.3] - 2026-10-09
 ### Changed
 
@@ -778,7 +783,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.4...HEAD
+[1.16.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.4
 [1.16.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.3
 [1.16.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.2
 [1.16.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.1

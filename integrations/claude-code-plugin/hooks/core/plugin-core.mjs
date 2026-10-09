@@ -78,15 +78,15 @@ function stripZeroWidth(text) {
 var DEFAULT_BUDGET_MS = 2e3;
 var REASON = "(?:\\s*:\\s*([^>]*?))?";
 var SUPPRESS_NEXT = new RegExp(
-  `<!--\\s*plain-english-disable-next-line(?:\\s+([a-z0-9,\\s-]+?))?${((((((((REASON))))))))}\\s*-->`,
+  `<!--\\s*plain-english-disable-next-line(?:\\s+([a-z0-9,\\s-]+?))?${(REASON)}\\s*-->`,
   "i"
 );
 var SUPPRESS_FILE = new RegExp(
-  `<!--\\s*plain-english-disable-file${((((((((REASON))))))))}\\s*-->`,
+  `<!--\\s*plain-english-disable-file${(REASON)}\\s*-->`,
   "i"
 );
 var SUPPRESS_RANGE_OFF = new RegExp(
-  `<!--\\s*plain-english-disable(?:\\s+([a-z0-9,\\s-]+?))?${((((((((REASON))))))))}\\s*-->`,
+  `<!--\\s*plain-english-disable(?:\\s+([a-z0-9,\\s-]+?))?${(REASON)}\\s*-->`,
   "i"
 );
 var SUPPRESS_RANGE_ON = /<!--\s*plain-english-enable(?:\s+([a-z0-9,\s-]+?))?\s*-->/i;
@@ -1568,7 +1568,7 @@ function formatReason(errors, channel, label, failOn = "error") {
   const shown = ordered.slice(0, 5);
   const lines = shown.map((f) => {
     const hint = f.message ? ` ${f.message}` : "";
-    return `  line ${f.line}: ${((((((((JSON.stringify(f.match)))))))))} (${f.ruleId})${hint}`;
+    return `  line ${f.line}: ${(JSON.stringify(f.match))} (${f.ruleId})${hint}`;
   });
   const more = ordered.length > shown.length ? `
   ...and ${ordered.length - shown.length} more` : "";
@@ -1589,7 +1589,7 @@ function formatReason(errors, channel, label, failOn = "error") {
     ...remedies,
     "",
     `Last resort, and the human's call, not yours: touch .plain-english-ack-${channel}`,
-    `  It waives this channel for ${((((((((ACK_WINDOW_MS / 6e4))))))))} minutes, then expires on its own.`
+    `  It waives this channel for ${(ACK_WINDOW_MS / 6e4)} minutes, then expires on its own.`
   ].join("\n");
 }
 
@@ -2686,7 +2686,7 @@ function chatCheck(check) {
   const ruleSet = ruleSetFor(cwd, io);
   const turn = chatTurnId(payload, reader, reply, cwd, void 0, io);
   const helper = payload["agent_id"] ?? payload["subagent_id"];
-  const promptId = helper ? `${turn}:helper:${((((((((String(helper)))))))))}` : turn;
+  const promptId = helper ? `${turn}:helper:${(String(helper))}` : turn;
   const judgeDeadline = answered?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
   if (answered) answered.deadline = judgeDeadline;
   const decision = decideChat(reply, {
@@ -3156,7 +3156,7 @@ function formatText(all, root, unit, io, style = PLAIN) {
     for (const f of findings) {
       const tag = f.severity === "error" ? style.red("block") : style.yellow(" warn");
       const hint = f.message ? style.dim(`  ${f.message}`) : "";
-      out += `  ${((((((((String(f.line).padStart(4)))))))))}:${((((((((String(f.column).padEnd(3)))))))))} ${tag}  ${((((((((JSON.stringify(f.match)))))))))} ${style.dim(`(${f.ruleId})`)}${hint}
+      out += `  ${(String(f.line).padStart(4))}:${(String(f.column).padEnd(3))} ${tag}  ${(JSON.stringify(f.match))} ${style.dim(`(${f.ruleId})`)}${hint}
 `;
       if (f.link) out += style.dim(`         ${f.link}
 `);
