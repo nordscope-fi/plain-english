@@ -345,7 +345,7 @@ function gitCommand(cmd, cwd) {
   }
   return { subcommand: "", index: i, cwd };
 }
-function publishingCommands(input, baseDir = process.cwd()) {
+function publishingCommands(input, baseDir) {
   const out = [];
   let cwd = baseDir;
   for (const cmd of parseCommands(input)) {

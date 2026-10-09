@@ -79,9 +79,8 @@ export interface PolicyScan {
  * against a scan result has to agree on one spelling. Exported because the CLI
  * builds the skip list for the policy document itself.
  */
-export function toPosix(path: string): string {
-  return path.split("\\").join("/");
-}
+export { toPosix } from "./paths.ts";
+import { toPosix } from "./paths.ts";
 
 const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
 const SKIP = new Set(["node_modules", ".git", "dist"]);

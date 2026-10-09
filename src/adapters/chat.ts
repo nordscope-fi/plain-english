@@ -19,10 +19,9 @@
  * and it blocks again. Everything in `shouldBlock` exists for that.
  */
 
-import { readFileSync, readdirSync, statSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
-import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import type { CheckerIo } from "../io.ts";
+import { nodeIo, nodeStatePath } from "../node-io.ts";
+import { sha256 } from "../sha256.ts";
 import { lintText, type Finding } from "../lint.ts";
 import { chatRuleSet, resolveRuleSet, type RuleSet } from "../rules.ts";
 import type { Reply } from "../chat/reader.ts";
@@ -52,38 +51,19 @@ import {
  * The project directory is part of the name so two checkouts of the same
  * repository, or two repositories in one session, cannot share a turn's state.
  */
-export function blockStatePath(projectDir: string, sessionId: string): string {
+export function blockStateKey(projectDir: string, sessionId: string, io: CheckerIo = nodeIo): string {
   // Readers may recover an identity from a transcript path and user-record id.
   // Hash the complete identity so shared path prefixes cannot merge turns.
-  const safe = createHash("sha256").update(sessionId || "session").digest("hex").slice(0, 24);
-  const scope = createHash("sha256").update(resolve(projectDir)).digest("hex").slice(0, 12);
-  return resolve(tmpdir(), `plain-english-chat-${scope}-${safe}`);
+  const safe = sha256(sessionId || "session").slice(0, 24);
+  const scope = sha256(io.path.resolve(io.cwd, projectDir)).slice(0, 12);
+  return `plain-english-chat-${scope}-${safe}`;
 }
 
-/**
- * Remove the state files 0.12.0 left in a working tree.
- *
- * Called by `init`, which is already writing to this repository and is the one
- * moment the package has permission to tidy. Named by our own marker, so
- * nothing else can match.
- */
-export function sweepLegacyState(projectDir: string): string[] {
-  const removed: string[] = [];
-  try {
-    for (const name of readdirSync(projectDir)) {
-      if (!name.startsWith(".plain-english-chat-")) continue;
-      try {
-        unlinkSync(resolve(projectDir, name));
-        removed.push(name);
-      } catch {
-        // A file we cannot delete is not worth failing an install over.
-      }
-    }
-  } catch {
-    // An unreadable directory means nothing to sweep.
-  }
-  return removed;
+/** The CLI's file for that state, in the temporary folder. */
+export function blockStatePath(projectDir: string, sessionId: string): string {
+  return nodeStatePath(blockStateKey(projectDir, sessionId));
 }
+
 
 /**
  * What a turn's earlier block was about.
@@ -103,11 +83,11 @@ interface BlockState {
   kind: BlockKind;
 }
 
-function readBlockState(path: string, now: number): BlockState | null {
+function readBlockState(io: CheckerIo, key: string, now: number): BlockState | null {
   try {
-    const stat = statSync(path);
-    if (now - stat.mtimeMs > ACK_WINDOW_MS) return null;
-    const [id = "", kind = ""] = readFileSync(path, "utf8").split("\n");
+    const saved = io.state.get(key);
+    if (saved === undefined || now - saved.at > ACK_WINDOW_MS) return null;
+    const [id = "", kind = ""] = saved.value.split("\n");
     return {
       promptId: id.trim(),
       // A file written before 0.14.0 holds the prompt id alone. Reading that
@@ -119,15 +99,10 @@ function readBlockState(path: string, now: number): BlockState | null {
   }
 }
 
-function rememberBlock(path: string, promptId: string, kind: BlockKind): void {
-  try {
-    writeFileSync(path, `${promptId}\n${kind}`, "utf8");
-    const now = new Date();
-    utimesSync(path, now, now);
-  } catch {
-    // A state file we cannot write means we might block twice. That is worse
-    // than not blocking, so the caller treats a write failure as "do not block".
-  }
+function rememberBlock(io: CheckerIo, key: string, promptId: string, kind: BlockKind): void {
+  // A state value we cannot keep means we might block twice. That is worse
+  // than not blocking, so the caller treats a write failure as "do not block".
+  io.state.set(key, `${promptId}\n${kind}`);
 }
 
 /**
@@ -159,6 +134,8 @@ export interface ChatDecisionOptions {
   stopHookActive?: boolean;
   /** Distinguishes turns within a session, so a block is once per turn. */
   promptId?: string;
+  /** Where files and turn state come from (ADR-008); the CLI's Node io by default. */
+  io?: CheckerIo;
   now?: number;
   /**
    * Second opinion on the reply limits, and only on those.
@@ -190,11 +167,11 @@ const JUDGEABLE = new Set(["reply-length", "reader-load", "reply-pace"]);
  * tier, allow when a `touch`ed ack waives the channel, and otherwise refuse.
  */
 export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
-  const now = opts.now ?? Date.now();
+  const now = opts.now ?? (opts.io ?? nodeIo).now();
   const blockOpts = reply.isSubagent
     ? { ...opts, promptId: `${opts.promptId ?? ""}:helper:${reply.session}:${reply.source}` }
     : opts;
-  const base = opts.ruleSet ?? resolveRuleSet(opts.projectDir);
+  const base = opts.ruleSet ?? resolveRuleSet(opts.projectDir, opts.io);
   const ruleSet = chatRuleSet(base);
 
   const text = reply.text.trim();
@@ -224,7 +201,7 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
     return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
-  if (hasAck("chat", opts.projectDir, now)) {
+  if (hasAck("chat", opts.projectDir, now, opts.io)) {
     return { allow: true, decision: "allow", findings, ...timedOut };
   }
 
@@ -291,8 +268,9 @@ export function decideChat(reply: Reply, opts: ChatDecisionOptions): Decision {
  */
 function shouldBlock(opts: ChatDecisionOptions, now: number, failing: Finding[]): boolean {
   const promptId = opts.promptId ?? "";
-  const path = blockStatePath(opts.projectDir, promptId ? promptId : "session");
-  const prior = readBlockState(path, now);
+  const io = opts.io ?? nodeIo;
+  const key = blockStateKey(opts.projectDir, promptId ? promptId : "session", io);
+  const prior = readBlockState(io, key, now);
   const kind: BlockKind = punctuationOnly(failing) ? "punctuation" : "clarity";
 
   const sameTurn = prior !== null && prior.promptId === promptId;
@@ -304,7 +282,7 @@ function shouldBlock(opts: ChatDecisionOptions, now: number, failing: Finding[])
   if (opts.stopHookActive && !retry) return false;
   if (sameTurn && !retry) return false;
 
-  rememberBlock(path, promptId, retry ? "final" : kind);
+  rememberBlock(io, key, promptId, retry ? "final" : kind);
   return true;
 }
 

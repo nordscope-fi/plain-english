@@ -98,15 +98,16 @@ describe("Claude writing benchmark", () => {
     expect(result.receiptCoverageComplete).toBe(false);
     expect(result.expectedIssuedCalls).toBe(1);
   });
-  it("configures capture inside the copied native plugin because eval drops outer environment variables", () => {
+  // ADR-008: the plugin's checker runs inside its mod and writes no receipts,
+  // so the copy is left as it ships and no capture is claimed (#136).
+  it("leaves the copied plugin as it ships when its checker writes no receipts", () => {
     const fixture = prepared();
     const hooks = JSON.parse(readFileSync(resolve(fixture.dir, "checks/hooks/hooks.json"), "utf8"));
     expect(hooks.modules).toEqual(["./register.ts"]);
     const module = readFileSync(resolve(fixture.dir, "checks/hooks/register.ts"), "utf8");
-    expect(module).toContain('$.env.set("PLAIN_ENGLISH_JUDGE_RECEIPTS"');
-    expect(module).toContain(JSON.stringify(resolve(fixture.dir, "checks-check-usage.jsonl")));
+    expect(module).not.toContain("PLAIN_ENGLISH_JUDGE_RECEIPTS");
     const identity = JSON.parse(readFileSync(resolve(fixture.dir, "identity.json"), "utf8"));
-    expect(identity.captureHarnessHash).toBe(createHash("sha256").update(module).digest("hex"));
+    expect(identity.captureHarnessHash).toBeNull();
   });
   it("creates one shuffled correctness review per reply without exposing its mode", () => {
     const item = benchmarkCases()[0];
@@ -218,7 +219,7 @@ describe("Claude writing benchmark", () => {
     const metrics = JSON.parse(readFileSync(resolve(fixture.dir, "metrics.json"), "utf8"));
     const checks = metrics.metrics.find((row: { mode: string }) => row.mode === "checks");
     expect(checks.backgroundCheckCostUsd).toBeNull();
-    expect(checks.backgroundCaptureReason).toBe("No capture marker was received from the native checker.");
+    expect(checks.backgroundCaptureReason).toBe("This plugin does not implement usage receipts.");
   });
   it("accepts an explicitly selected Claude executable without shell expansion", () => {
     const fixture = prepared();

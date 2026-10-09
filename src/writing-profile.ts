@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, relative, resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { matchesAny } from "./glob.ts";
+import type { CheckerIo } from "./io.ts";
+import { nodeIo } from "./node-io.ts";
+import { sha256 } from "./sha256.ts";
 import { maskNonProse } from "./mask.ts";
 import { sentences } from "./sentences.ts";
 import type { WritingProfileConfig } from "./rules.ts";
@@ -55,12 +55,14 @@ const DOMAIN_STOP_WORDS = new Set([
   "what", "when", "where", "which", "while", "will", "with", "would", "your", "you",
 ]);
 
-function walk(root: string, dir = root, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if ([".git", "node_modules", "dist"].includes(entry.name)) continue;
-    const path = resolve(dir, entry.name);
-    if (entry.isDirectory()) walk(root, path, out);
-    else if (entry.isFile() && MARKDOWN.has(extname(entry.name).toLowerCase())) out.push(path);
+function walk(io: CheckerIo, dir: string, out: string[] = []): string[] {
+  for (const name of io.list(dir) ?? []) {
+    if ([".git", "node_modules", "dist"].includes(name)) continue;
+    const path = io.path.resolve(dir, name);
+    // A link is neither, as with a directory entry's own type.
+    const kind = io.stat(path)?.kind;
+    if (kind === "directory") walk(io, path, out);
+    else if (kind === "file" && MARKDOWN.has(io.path.extname(name).toLowerCase())) out.push(path);
   }
   return out;
 }
@@ -79,7 +81,7 @@ function cv(values: number[]): number {
 function close(a: number, b: number, tolerance = 0.2): boolean {
   return Math.abs(a - b) <= Math.max(0.01, Math.max(Math.abs(a), Math.abs(b)) * tolerance);
 }
-function hash(value: string): string { return createHash("sha256").update(value).digest("hex"); }
+const hash = sha256;
 
 function spelling(text: string): { value: "us" | "uk" | "mixed" | "unknown"; share: number } {
   let us = 0;
@@ -171,8 +173,8 @@ function genre(files: Array<{ path: string; text: string }>): GenreResult {
   return { status: stable ? "stable" : "mixed", ...result };
 }
 
-export function buildWritingProfile(root: string, config: WritingProfileConfig, existing = ""): WritingProfile {
-  const all = walk(root).map((path) => ({ path: relative(root, path).split("\\").join("/"), text: readFileSync(path, "utf8") }));
+export function buildWritingProfile(root: string, config: WritingProfileConfig, existing = "", io: CheckerIo = nodeIo): WritingProfile {
+  const all = walk(io, root).map((path) => ({ path: io.path.relative(root, path).split("\\").join("/"), text: io.read(path) ?? "" }));
   const sources: Record<string, string[]> = {};
   const genres: Record<string, GenreResult> = {};
   for (const [name, patterns] of Object.entries(config.samples).sort(([a], [b]) => a.localeCompare(b))) {
@@ -192,15 +194,20 @@ export function buildWritingProfile(root: string, config: WritingProfileConfig, 
       }
     }
   }
-  const sourceHash = hash(Object.entries(sources).flatMap(([, paths]) => paths.map((path) => `${path}\0${readFileSync(resolve(root, path), "utf8")}`)).join("\0"));
+  const sourceHash = hash(Object.entries(sources).flatMap(([, paths]) => paths.map((path) => `${path}\0${io.read(io.path.resolve(root, path)) ?? ""}`)).join("\0"));
   return { version: 1, sourceHash, sources, genres, approvals, preferences };
 }
 
 export function writingProfileYaml(profile: WritingProfile): string { return stringifyYaml(profile, { lineWidth: 0 }); }
 
-export function readWritingProfile(path: string): WritingProfile | undefined {
-  if (!existsSync(path) || !statSync(path).isFile()) return undefined;
-  const parsed = parseYaml(readFileSync(path, "utf8"));
+export function readWritingProfile(path: string, io: CheckerIo = nodeIo): WritingProfile | undefined {
+  // `existsSync` and `statSync` followed a link to a file; so does this.
+  const facts = io.stat(path);
+  if (facts === undefined) return undefined;
+  if (facts.kind !== "file" && (facts.realPath === undefined || io.stat(facts.realPath)?.kind !== "file")) return undefined;
+  const text = io.read(path);
+  if (text === undefined) return undefined;
+  const parsed = parseYaml(text);
   if (!parsed || typeof parsed !== "object" || (parsed as { version?: unknown }).version !== 1) return undefined;
   return parsed as WritingProfile;
 }

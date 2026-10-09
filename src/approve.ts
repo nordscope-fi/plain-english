@@ -1,17 +1,18 @@
 /**
  * Project vocabulary approval: one literal term waived for one lexical rule.
  *
- * The Claude Code plugin's review panel offers it. The mod asks the person and
- * this command does every file read and write, in two steps (ADR-007). `check`
- * says what would change and writes nothing; `write` saves only when the
- * configuration is still byte for byte what the check saw.
+ * The Claude Code plugin's review panel offers it, in two steps (ADR-007).
+ * `check` says what would change and writes nothing; `write` saves only when
+ * the configuration is still byte for byte what the check saw. Every check
+ * reads through an io (ADR-008): `approvalPlan` decides, and the caller
+ * writes, the CLI through `approve-write.ts` and the mod through `$.fs`.
  */
 
-import { createHash } from "node:crypto";
-import { closeSync, constants, existsSync, lstatSync, openSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
 import { isMap, isSeq, parseDocument } from "yaml";
+import type { CheckerIo } from "./io.ts";
+import { nodeIo } from "./node-io.ts";
 import type { RuleSet } from "./rules.ts";
+import { sha256 } from "./sha256.ts";
 
 const CONFIG_NAMES = [".plain-english.yml", ".plain-english.yaml"];
 
@@ -48,29 +49,31 @@ export function approveTerm(text: string, term: string, ruleId: string, reason: 
  * link, so a link to a missing file would read as "no config" and the write
  * would create the link's target (found by a security review of 83ad212).
  */
-function present(path: string): boolean {
-  try {
-    lstatSync(path);
-    return true;
-  } catch {
-    return false;
-  }
+function present(path: string, io: CheckerIo): boolean {
+  return io.stat(path) !== undefined;
+}
+
+/** Whether a path names a file, following a link as `existsSync` does. */
+function existsFollowing(path: string, io: CheckerIo): boolean {
+  const facts = io.stat(path);
+  if (facts === undefined) return false;
+  return facts.kind !== "link" || (facts.realPath !== undefined && io.stat(facts.realPath) !== undefined);
 }
 
 /** The project's own config, or a refusal when an ancestor's would govern it. */
-function approvalConfig(directory: string): { path: string; exists: boolean } {
+function approvalConfig(directory: string, io: CheckerIo): { path: string; exists: boolean } {
   for (const name of CONFIG_NAMES) {
-    const path = join(directory, name);
-    if (present(path)) return { path, exists: true };
+    const path = io.path.join(directory, name);
+    if (present(path, io)) return { path, exists: true };
   }
   let ancestor = directory;
-  while (dirname(ancestor) !== ancestor) {
-    ancestor = dirname(ancestor);
-    if (CONFIG_NAMES.some((name) => existsSync(join(ancestor, name)))) {
+  while (io.path.dirname(ancestor) !== ancestor) {
+    ancestor = io.path.dirname(ancestor);
+    if (CONFIG_NAMES.some((name) => existsFollowing(io.path.join(ancestor, name), io))) {
       throw new Error("This project uses an inherited configuration. Add the scoped term to that configuration by hand; no child configuration was created.");
     }
   }
-  return { path: join(directory, ".plain-english.yml"), exists: false };
+  return { path: io.path.join(directory, ".plain-english.yml"), exists: false };
 }
 
 /** Why a rule cannot take a vocabulary exception, or `undefined` when it can. */
@@ -95,40 +98,40 @@ export type ApprovalResult =
   | { ok: true; root: string; config: string; exists: boolean; hash: string; modelVocabulary: boolean }
   | { ok: false; message: string };
 
-const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+/** What a `write` step would save, beside the answer it gives. */
+export type ApprovalPlan =
+  | { result: Extract<ApprovalResult, { ok: true }>; write?: { path: string; exists: boolean; text: string } }
+  | { result: Extract<ApprovalResult, { ok: false }> };
 
-/** Run one approval step in `cwd`, never throwing: a refusal is a result. */
-export function approveInProject(cwd: string, request: ApprovalRequest, ruleSetFor: (directory: string) => RuleSet): ApprovalResult {
+/**
+ * Decide one approval step in `cwd`, never throwing: a refusal is a result.
+ * A `write` step that passes every check carries the text to save; the caller
+ * saves it, refusing a link and a file that appeared since the check.
+ */
+export function approvalPlan(cwd: string, request: ApprovalRequest, ruleSetFor: (directory: string) => RuleSet, io: CheckerIo = nodeIo): ApprovalPlan {
   try {
-    const root = realpathSync(cwd);
-    if (!statSync(root).isDirectory()) throw new Error("Cannot locate the project directory.");
-    const { path, exists } = approvalConfig(root);
+    const where = io.stat(io.path.resolve(io.cwd, cwd));
+    const root = where?.realPath;
+    if (root === undefined) throw new Error("Cannot locate the project directory.");
+    if (io.stat(root)?.kind !== "directory") throw new Error("Cannot locate the project directory.");
+    const { path, exists } = approvalConfig(root, io);
     if (exists) {
-      const link = lstatSync(path);
-      if (link.isSymbolicLink() || !link.isFile() || realpathSync(path) !== path) throw new Error("Review the linked configuration by hand.");
+      const link = io.stat(path);
+      if (link === undefined || link.kind !== "file" || link.realPath !== path) throw new Error("Review the linked configuration by hand.");
     }
-    const original = exists ? readFileSync(path, "utf8") : "";
+    const original = exists ? io.read(path) ?? "" : "";
     const updated = approveTerm(original, request.term, request.rule, request.reason);
     const refusal = notApprovable(ruleSetFor(root), request.rule);
     if (refusal) throw new Error(refusal);
-    const state = { root, config: basename(path), exists, hash: sha256(original) };
-    if (request.phase === "write") {
-      const seen = request.expect;
-      if (!seen || seen.root !== state.root || seen.config !== state.config || seen.exists !== state.exists || seen.hash !== state.hash) {
-        throw new Error("The configuration changed. Review it again before saving.");
-      }
-      // Never through a link, and never over a file that appeared after the
-      // check: a new config is created exclusively, an existing one is opened
-      // without following a link.
-      const fd = openSync(path, exists ? constants.O_WRONLY | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0) : "wx", 0o644);
-      try {
-        writeFileSync(fd, updated);
-      } finally {
-        closeSync(fd);
-      }
+    const state = { root, config: io.path.basename(path), exists, hash: sha256(original) };
+    const result = { ok: true as const, ...state, modelVocabulary: request.rule === "unglossed-term" };
+    if (request.phase !== "write") return { result };
+    const seen = request.expect;
+    if (!seen || seen.root !== state.root || seen.config !== state.config || seen.exists !== state.exists || seen.hash !== state.hash) {
+      throw new Error("The configuration changed. Review it again before saving.");
     }
-    return { ok: true, ...state, modelVocabulary: request.rule === "unglossed-term" };
+    return { result, write: { path, exists, text: updated } };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    return { result: { ok: false, message: error instanceof Error ? error.message : String(error) } };
   }
 }

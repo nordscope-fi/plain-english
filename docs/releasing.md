@@ -141,15 +141,13 @@ on Node 20.0.0:
 | Dependency | Deferred version | Declared Node requirement |
 |---|---|---|
 | JavaScript source parser, `@babel/parser` | 8.0.6 | `^22.18.0 || >=24.11.0` |
-| HTML parser, `htmlparser2` | 12.0.0 | `>=20.19.0` |
 | Character decoder, `entities` | 8.1.0 | `>=20.19.0` |
 
-The same restriction applies to HTML parser 11. The dependency bot skips
-those incompatible major versions while still proposing compatible updates.
+The dependency bot skips those incompatible major versions while still
+proposing compatible updates.
 Revisit the exclusions when changing the package's supported runtime range.
 The declared requirements come from the
-[published JavaScript parser manifest](https://registry.npmjs.org/@babel%2fparser/8.0.6),
-[HTML parser manifest](https://registry.npmjs.org/htmlparser2/12.0.0) and
+[published JavaScript parser manifest](https://registry.npmjs.org/@babel%2fparser/8.0.6) and
 [character decoder manifest](https://registry.npmjs.org/entities/8.1.0).
 
 ### Release contents

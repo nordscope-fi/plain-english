@@ -7,58 +7,34 @@
  * CI, from a terminal, and from a Claude Code hook.
  */
 
-import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { delimiter, extname, relative, resolve, dirname, isAbsolute, basename } from "node:path";
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { delimiter, extname, relative, resolve, dirname, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintText, type Finding, type Suppression } from "./lint.ts";
 import { resolveRuleSet, compile, chatRuleSet, loadDefault, RuleError, type RuleSet } from "./rules.ts";
 import { READERS, readAll, readerFor, readerIds, type ReaderResult } from "./chat/registry.ts";
 import { antigravityCwd } from "./agents/antigravity.ts";
-import { chatTurnId } from "./chat/turn.ts";
-import { renderAll, renderPrompts, writeTargets } from "./render.ts";
+import { renderAll } from "./render.ts";
+import { writeTargets } from "./render-files.ts";
+import { hookCheck } from "./hook-check.ts";
+import { countOf, exitFor, formatText, lintTargets, stalledNotes, suppressedLine } from "./lint-files.ts";
+import { nodeIo } from "./node-io.ts";
 import { projectGuidance } from "./guidance.ts";
-import { approveInProject, type ApprovalRequest } from "./approve.ts";
+import type { ApprovalRequest } from "./approve.ts";
+import { approveInProject } from "./approve-write.ts";
 import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
-import {
-  decide,
-  scopedDocsFiles,
-  extractFromBash,
-  extractFromIssue,
-  isChannel,
-  projectDirFor,
-  hasAck,
-  CHANNELS,
-  HOOK_BUDGET_MS,
-  POST_BUDGET_MS,
-  type Channel,
-} from "./adapters/hook.ts";
+import { isChannel, projectDirFor, CHANNELS, type Channel } from "./adapters/hook.ts";
 import type { ConfigFile, HookEvent } from "./agents/profile.ts";
-import { decideChat } from "./adapters/chat.ts";
-import { initializeJudgeReceipts } from "./adapters/judge-measurement.ts";
-import {
-  isJudge,
-  CLAUDE_JUDGE_ARGS,
-  VIBE_JUDGE_ARGS,
-  judgeInput,
-  lastAsked,
-  runJudge,
-  usableReason,
-  overDocsJudgeLimit,
-  hostRoute,
-  ModelRequest,
-  type HostRoute,
-} from "./adapters/judge.ts";
-import type { Decision } from "./adapters/hook.ts";
+import { initializeJudgeReceipts } from "./adapters/judge-receipts.ts";
+import { hostRoute, ModelRequest, type HostRoute } from "./adapters/judge.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
 import { record } from "./record.ts";
-import { matchesAny } from "./glob.ts";
 import { approveWritingProfile, buildWritingProfile, writingProfileYaml } from "./writing-profile.ts";
-import { CHAT_HOOK_TIMEOUT_MS, CHAT_JUDGE_PIPELINE_MS, DOCS_JUDGE_CALL_MS, nextJudgeTimeout } from "./chat/budget.ts";
+import { CHAT_HOOK_TIMEOUT_MS } from "./chat/budget.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MARKDOWN = new Set([".md", ".markdown", ".mdx"]);
 import { lintSourceText, SOURCE_PROSE_EXTENSIONS, SourceProseError } from "./source-prose.ts";
 
 interface Args {
@@ -128,41 +104,14 @@ function readStdin(): Promise<string> {
   });
 }
 
-function walk(target: string, out: string[] = [], sourceProse = false): string[] {
-  const st = statSync(target);
-  if (st.isFile()) {
-    out.push(target);
-    return out;
-  }
-  for (const entry of readdirSync(target, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
-    const full = resolve(target, entry.name);
-    if (entry.isDirectory()) walk(full, out, sourceProse);
-    else if (MARKDOWN.has(extname(entry.name).toLowerCase()) || (sourceProse && SOURCE_PROSE_EXTENSIONS.has(extname(entry.name).toLowerCase()))) out.push(full);
-  }
-  return out;
-}
 
 const COLOUR = process.stdout.isTTY && !process.env["NO_COLOR"];
 const red = (s: string) => (COLOUR ? `\u001b[31m${s}\u001b[0m` : s);
 const yellow = (s: string) => (COLOUR ? `\u001b[33m${s}\u001b[0m` : s);
 const dim = (s: string) => (COLOUR ? `\u001b[2m${s}\u001b[0m` : s);
 const bold = (s: string) => (COLOUR ? `\u001b[1m${s}\u001b[0m` : s);
+const STYLE = { red, yellow, dim, bold };
 
-function printText(file: string, findings: Finding[], root: string): void {
-  if (!findings.length) return;
-  process.stdout.write(bold(relative(root, file) || file) + "\n");
-  for (const f of findings) {
-    const tag = f.severity === "error" ? red("block") : yellow(" warn");
-    const hint = f.message ? dim(`  ${f.message}`) : "";
-    process.stdout.write(
-      `  ${String(f.line).padStart(4)}:${String(f.column).padEnd(3)} ${tag}  ` +
-        `${JSON.stringify(f.match)} ${dim(`(${f.ruleId})`)}${hint}\n`,
-    );
-    if (f.link) process.stdout.write(dim(`         ${f.link}\n`));
-  }
-  process.stdout.write("\n");
-}
 
 /**
  * Print findings in whichever shape was asked for, and count them.
@@ -179,8 +128,8 @@ function emitFindings(
   format: string,
   unit: string,
 ): { errors: number; warns: number } {
-  const errors = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "error").length, 0);
-  const warns = all.reduce((n, f) => n + f.findings.filter((x) => x.severity === "warn").length, 0);
+  const errors = countOf(all, "error");
+  const warns = countOf(all, "warn");
 
   if (format === "sarif") {
     process.stdout.write(
@@ -234,15 +183,7 @@ function emitFindings(
       }
     }
   } else {
-    for (const { file, findings } of all) printText(file, findings, root);
-    const scanned = all.length;
-    if (errors || warns) {
-      process.stdout.write(
-        `${errors} blocking, ${warns} warning${warns === 1 ? "" : "s"} across ${scanned} ${unit}${scanned === 1 ? "" : "s"}\n`,
-      );
-    } else {
-      process.stdout.write(dim(`clean (${scanned} ${unit}${scanned === 1 ? "" : "s"})\n`));
-    }
+    process.stdout.write(formatText(all, root, unit, nodeIo, STYLE));
   }
   return { errors, warns };
 }
@@ -334,51 +275,31 @@ async function cmdLint(args: Args): Promise<number> {
     suppressed.push(...res.suppressed);
     all.push({ file: "<stdin>", findings: res.findings });
   } else {
-    for (const target of targets) {
-      const abs = resolve(root, target);
-      if (!existsSync(abs)) {
-        process.stderr.write(`plain-english: no such path: ${target}\n`);
-        return 2;
-      }
-      for (const file of walk(abs, [], sourceProse)) {
-        const rel = relative(root, file);
-        if (matchesAny(rel, ruleSet.exclude)) continue;
-        const text = readFileSync(file, "utf8");
-        const res = scan(text, file);
-        noteStalled(file, res.timedOut);
-        suppressed.push(...res.suppressed);
-        all.push({ file, findings: res.findings });
-      }
+    const linted = lintTargets(targets, root, ruleSet, scan, nodeIo, sourceProse ? SOURCE_PROSE_EXTENSIONS : undefined);
+    if ("missing" in linted) {
+      process.stderr.write(`plain-english: no such path: ${linted.missing}\n`);
+      return 2;
     }
+    all.push(...linted.all);
+    for (const [file, ids] of linted.stalled) stalled.set(file, ids);
+    suppressed.push(...linted.suppressed);
   }
 
   const { errors, warns } = emitFindings(all, ruleSet, root, format, "file");
 
   if (args.flags["show-suppressed"]) reportSuppressed(ruleSet, suppressed);
-  else if (suppressed.length && format === "text") {
+  else if (format === "text") {
     // One line, not a table. The failure this answers was silence, and one
     // line ends silence without turning every run into a config review.
-    process.stdout.write(
-      dim(
-        `${suppressed.length} finding${suppressed.length === 1 ? "" : "s"} hidden by allow ` +
-          `(--show-suppressed for which)\n`,
-      ),
-    );
+    process.stdout.write(suppressedLine(suppressed, STYLE));
   }
 
   // Never suppressed by --format: a partial scan reported as a whole one is
   // worse than noise in a pipeline, and this goes to stderr so it cannot
   // corrupt the JSON or annotation output on stdout.
-  for (const [file, ids] of stalled) {
-    process.stderr.write(
-      `plain-english: match budget exhausted on ${relative(root, file)}; ` +
-        `these rules did not run: ${[...ids].sort().join(", ")}\n`,
-    );
-  }
+  for (const note of stalledNotes(stalled, root, nodeIo)) process.stderr.write(`${note}\n`);
 
-  if (failOn === "warn") return errors + warns > 0 ? 1 : 0;
-  if (failOn === "never") return 0;
-  return errors > 0 ? 1 : 0;
+  return exitFor(failOn, errors, warns);
 }
 
 /**
@@ -799,143 +720,6 @@ function cmdExplain(args: Args): number {
   return 2;
 }
 
-/**
- * The chat gate, on a stop event.
- *
- * Fails open in the strongest sense available here: an agent with no reader,
- * no `emitChat`, or a payload carrying no reply gets silence and exit 0. A
- * chat hook that refused a turn because it could not find the text would be
- * worse than no chat hook.
- */
-/** The ruleset a hook judges by, resolved from the directory it fired in. */
-function ruleSetFor(cwd: string): RuleSet {
-  try {
-    return resolveRuleSet(resolve(cwd));
-  } catch {
-    process.stderr.write("plain-english: configuration unavailable; using local built-in pattern checks as advice only.\n");
-    const fallback = compile(loadDefault());
-    return { ...fallback, modelChecks: false, chat: { ...fallback.chat, failOn: "never" } };
-  }
-}
-
-function modelChecksEnabled(ruleSet: RuleSet, agent: string): boolean {
-  if (byId(agent)?.supportsModelChecks === false) return false;
-  return ruleSet.modelChecks ?? (agent === "claude-code" ||
-    (agent === "vibe" && process.env["PLAIN_ENGLISH_VIBE_JUDGE"] === "1"));
-}
-
-function modelCommand(agent: string, model?: string): { command: string; args: string[] } {
-  return agent === "vibe"
-    ? { command: "vibe", args: VIBE_JUDGE_ARGS }
-    : { command: "claude", args: [...CLAUDE_JUDGE_ARGS, ...(model ? ["--model", model] : [])] };
-}
-
-function reportUnavailableModelCheck(reason: string): void {
-  process.stderr.write(`plain-english: extra model check ${reason}; pattern checks still apply.\n`);
-}
-
-function hookChat(
-  payload: Record<string, unknown>,
-  profile: { id: string; emitChat?: (d: Decision, e: string) => { stdout: string; exitCode: number } },
-  host?: HostRoute,
-): number {
-  if (!profile.emitChat) return 0;
-  const reader = readerFor(profile.id);
-  if (!reader) return 0;
-
-  const reply = reader.current(payload);
-  if (!reply || !reply.text.trim()) return 0;
-
-  const cwd = (profile.id === "antigravity" ? antigravityCwd(payload) : undefined) ??
-    byId(profile.id)?.parse(payload).cwd ??
-    (typeof payload["cwd"] === "string" ? payload["cwd"] : process.cwd());
-  const eventName = String(payload["hook_event_name"] ?? payload["hookEventName"] ?? "Stop");
-  const ruleSet = ruleSetFor(cwd);
-  const turn = chatTurnId(payload, reader, reply, cwd);
-  const helper = payload["agent_id"] ?? payload["subagent_id"];
-  // A helper may share the parent's turn id while producing its own reply.
-  const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
-  // One deadline covers both optional model calls. Giving each call its own
-  // full timeout allowed the pipeline to outlive the host hook around it.
-  const judgeDeadline = host?.deadline ?? Date.now() + CHAT_JUDGE_PIPELINE_MS;
-  if (host) host.deadline = judgeDeadline;
-
-  const decision = decideChat(reply, {
-    ruleSet,
-    /**
-     * Consulted only when a reply limit is the only thing failing, which is
-     * roughly one reply in ten. Everything about it fails towards the count,
-     * so a machine with no `claude` on the PATH behaves exactly as this
-     * package did before the judge existed.
-     */
-    judge: (r, findings) => {
-      if (isJudge() || !modelChecksEnabled(ruleSet, profile.id)) return undefined;
-      const prompts = renderPrompts(ruleSet);
-      const input = judgeInput(r, lastAsked(payload, reader), findings);
-      const run = (prompt: string) => {
-        const timeoutMs = nextJudgeTimeout(judgeDeadline);
-        if (timeoutMs === 0) return undefined;
-        return runJudge(input, {
-          prompt,
-          ...modelCommand(profile.id),
-          cwd: resolve(cwd),
-          timeoutMs,
-          onUnavailable: reportUnavailableModelCheck,
-          ...(host ? { host } : {}),
-        });
-      };
-
-      /**
-       * Can this reply be read? Asked first, and asked on its own.
-       *
-       * Two questions in one prompt answer whichever the prompt was framed
-       * around, and this one lost: measured 2026-08-20, the combined judge
-       * passed an unreadable reply twice while the same check alone caught it
-       * both times. So it runs first and its refusal is final. A reply nobody
-       * can decode has no length worth earning, and no waiver rescues it.
-       *
-       * Only a refusal short-circuits. A pass falls through to the length
-       * judge, which is the question that was always being asked here.
-       */
-      const readablePrompt = prompts["chat-readable"];
-      if (readablePrompt) {
-        const readable = run(readablePrompt);
-        if (readable && !readable.ok && readable.reason) {
-          if (usableReason(readable.reason, chatRuleSet(ruleSet))) return readable;
-        }
-      }
-
-      const prompt = prompts["chat"];
-      if (!prompt) return undefined;
-      const verdict = run(prompt);
-      // The reason is shown to the reader and sent back to the model, so it is
-      // this package speaking and it is held to this package's rules. Caught
-      // live on the first end-to-end run: the judge refused a reply and put an
-      // em dash in the refusal. A linter that emits the thing it bans has
-      // nothing to say. An unusable reason falls back to the count.
-      if (
-        verdict &&
-        !verdict.ok &&
-        verdict.reason &&
-        !usableReason(verdict.reason, chatRuleSet(ruleSet))
-      ) {
-        return undefined;
-      }
-      return verdict;
-    },
-    projectDir: resolve(cwd),
-    // Both Claude Code and Copilot document this, and it is the agent telling
-    // you the current turn exists because a hook blocked the last one.
-    stopHookActive: payload["stop_hook_active"] === true || payload["stopHookActive"] === true ||
-      (profile.id === "cursor" && typeof payload["loop_count"] === "number" && payload["loop_count"] > 0),
-    promptId,
-  });
-
-  const out = profile.emitChat(decision, eventName);
-  if (out.stdout) process.stdout.write(out.stdout);
-  return out.exitCode;
-}
-
 async function cmdHook(args: Args): Promise<number> {
   const finishCapture = initializeJudgeReceipts();
   let host: HostRoute | undefined;
@@ -969,78 +753,24 @@ async function cmdHook(args: Args): Promise<number> {
       profile = resolveProfile(undefined, payload);
     }
 
-    // Chat is judged from the reply, not from a tool call, so it forks here
-    // before `parse` is asked for tool input a stop event does not have.
-    if (channel === "chat") return hookChat(payload, profile, host);
-
     // `post` runs after the tool did, so it can only tell the model something.
     // Only agents that discard `ask` install one, and only `init` writes the
     // flag; an unrecognised value is read as `pre`, which is the safe reading.
     const event: HookEvent = args.flags["event"] === "post" ? "post" : "pre";
-
-    // The post event is not holding up a write, so the tight budget buys
-    // nothing there but an incomplete scan.
-    const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
-    const parsed = profile.parse(payload);
-    let decision = decide(parsed, channel, { budgetMs, alreadyApplied: event === "post" });
-    const projectDir = projectDirFor(parsed);
-    const ruleSet = ruleSetFor(projectDir);
-    // Send extracted prose, never the original tool call: a command or patch
-    // can contain unrelated private text and excluded files.
-    const requests: { channel: Channel; input: string }[] = [];
-    if (channel === "docs" || (channel === "github" && parsed.tool === "bash")) {
-      const files = scopedDocsFiles(parsed, ruleSet, undefined, { alreadyApplied: event === "post" }).filter((file) =>
-        file.text.trim() && !["CLAUDE.md", "writing-style.md"].includes(basename(file.path)));
-      if (files.length) requests.push({
-        channel: "docs",
-        input: JSON.stringify({ files: files.map((file) => ({
-          ...file,
-          path: toPosix(relative(resolve(projectDir), resolve(file.path))),
-        })) }),
-      });
-    }
-    const texts = channel === "github" && parsed.tool === "bash"
-      ? extractFromBash(String(parsed.input["command"] ?? ""), parsed.cwd || projectDir)
-      : channel === "issue" ? extractFromIssue(parsed.input) : [];
-    if (texts.length) requests.push({ channel, input: JSON.stringify({ texts }) });
-
-    // Optional semantic checks share one deadline and the same runtime choices
-    // as the deterministic pass. Installed prompt hooks cannot enforce those
-    // choices before disclosing their input, so the CLI owns every model call.
-    const semanticPhase = ruleSet.failOn === "never" ? (profile.advisoryPhase ?? "pre") : "pre";
-    if (event === semanticPhase && decision.allow && !isJudge() &&
-        modelChecksEnabled(ruleSet, profile.id)) {
-      const deadline = host?.deadline ?? Date.now() + DOCS_JUDGE_CALL_MS;
-      if (host) host.deadline = deadline;
-      for (const request of requests) {
-        if (hasAck(request.channel, projectDir) || overDocsJudgeLimit(request.input)) continue;
-        const timeoutMs = Math.max(0, deadline - Date.now());
-        if (timeoutMs === 0) break;
-        const prompt = renderPrompts(ruleSet, "prose")[request.channel];
-        if (!prompt) continue;
-        const verdict = runJudge(request.input, {
-          prompt,
-          ...modelCommand(profile.id, args.flags["model"] ? String(args.flags["model"]) : undefined),
-          cwd: resolve(projectDir),
-          timeoutMs,
-          onUnavailable: reportUnavailableModelCheck,
-          ...(host ? { host } : {}),
-        });
-        if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
-          decision = {
-            ...decision,
-            allow: event === "post",
-            decision: event === "post" ? "allow" : ruleSet.failOn === "never" ? "ask" : "deny",
-            reason: verdict.reason,
-            advisory: verdict.reason,
-          };
-          break;
-        }
-      }
-    }
-
-    const out = profile.emit(decision, event);
-    if (out.stdout) process.stdout.write(out.stdout);
+    const result = hookCheck({
+      channel,
+      payload,
+      profile,
+      ...(channel === "chat" ? { reader: readerFor(profile.id) } : {}),
+      event,
+      ...(args.flags["model"] ? { model: String(args.flags["model"]) } : {}),
+      ...(host ? { host } : {}),
+      ...(channel === "chat" && profile.id === "antigravity" && antigravityCwd(payload) ? { chatCwd: antigravityCwd(payload)! } : {}),
+      io: nodeIo,
+    });
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (channel === "chat" || !result.parsed || !result.decision) return result.exitCode;
+    const { parsed, decision } = result;
 
     // After the decision is out, and in its own try/catch. Three of the four
     // adapters were written from vendor documentation that was wrong twice, so
@@ -1049,7 +779,7 @@ async function cmdHook(args: Args): Promise<number> {
     const dir = process.env["PLAIN_ENGLISH_RECORD"];
     if (dir) {
       try {
-        record(payload, parsed, decision, out.stdout, {
+        record(payload, parsed, decision, result.stdout, {
           dir: resolve(dir),
           agent: profile.id,
           channel,
@@ -1063,7 +793,7 @@ async function cmdHook(args: Args): Promise<number> {
       }
     }
 
-    return out.exitCode;
+    return result.exitCode;
   } catch (error) {
     // ADR-006: an open question goes back to the mod in place of a decision.
     // It is caught first, because the fail-open answer below would allow the

@@ -18,9 +18,7 @@ updates:
       # Babel 8 excludes Node 20 and Node 22 before 22.18.0.
       - dependency-name: "@babel/parser"
         versions: [">=8 <9"]
-      # These releases require Node 20.19.0; our minimum remains 20.0.0.
-      - dependency-name: htmlparser2
-        versions: [">=11 <13"]
+      # This release requires Node 20.19.0; our minimum remains 20.0.0.
       - dependency-name: entities
         versions: [">=8 <9"]
     groups:

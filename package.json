@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.15.2",
+  "version": "1.16.0",
   "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI, Antigravity and Qwen Code.",
   "keywords": [
     "linter",
@@ -43,7 +43,7 @@
   "sideEffects": false,
   "bin": {
     "plain-english": "dist/cli.js",
-    "plain-english-pre-commit": "integrations/claude-code-plugin/dist/cli.mjs"
+    "plain-english-pre-commit": "integrations/pre-commit/cli.mjs"
   },
   "main": "dist/lint.js",
   "types": "dist/lint.d.ts",
@@ -76,7 +76,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/build-plugin.mjs",
+    "build": "tsc -p tsconfig.json && node scripts/build-plugin.mjs && node scripts/build-pre-commit.mjs",
     "render": "node dist/cli.js render",
     "lint:self": "node dist/cli.js lint docs README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md AGENTS.md --fail-on error",
     "policy": "node dist/cli.js policy",
@@ -94,7 +94,6 @@
   "dependencies": {
     "@babel/parser": "^7.29.9",
     "entities": "^7.0.1",
-    "htmlparser2": "^10.1.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",

@@ -10,8 +10,8 @@
  * from it and checked by CI.
  */
 
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import type { CheckerIo } from "./io.ts";
+import { nodeIo } from "./node-io.ts";
 import { inLevel } from "./rules.ts";
 import type { ReadabilityRule, Rule, RuleSet, Structure } from "./rules.ts";
 
@@ -1095,7 +1095,8 @@ export function renderAgentsFragment(set: RuleSet): string {
   ].join("\n");
 }
 
-export function renderAll(set: RuleSet, root: string): RenderTarget[] {
+export function renderAll(set: RuleSet, root: string, io: CheckerIo = nodeIo): RenderTarget[] {
+  const resolve = (...paths: string[]) => io.path.resolve(io.cwd, ...paths);
   const prompts = renderPrompts(set);
   return [
     { path: resolve(root, "docs/writing-style.md"), content: renderWritingStyle(set) },
@@ -1124,15 +1125,3 @@ export function renderAll(set: RuleSet, root: string): RenderTarget[] {
   ];
 }
 
-/** Write targets to disk. Returns the paths whose contents changed. */
-export function writeTargets(targets: RenderTarget[]): string[] {
-  const changed: string[] = [];
-  for (const t of targets) {
-    const existing = existsSync(t.path) ? readFileSync(t.path, "utf8") : null;
-    if (existing === t.content) continue;
-    mkdirSync(dirname(t.path), { recursive: true });
-    writeFileSync(t.path, t.content, "utf8");
-    changed.push(t.path);
-  }
-  return changed;
-}

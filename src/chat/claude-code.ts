@@ -21,9 +21,8 @@
  * how a path was flattened into a directory name.
  */
 
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { homedir } from "node:os";
-import { resolve } from "node:path";
+import type { CheckerIo } from "../io.ts";
+import { nodeIo } from "../node-io.ts";
 import {
   field,
   latestUserTurnId,
@@ -38,13 +37,13 @@ import {
 } from "./reader.ts";
 
 /** `~/.claude`, or wherever `CLAUDE_CONFIG_DIR` points. */
-export function configDir(): string {
-  const override = process.env["CLAUDE_CONFIG_DIR"];
-  return override && override.length ? resolve(override) : resolve(homedir(), ".claude");
+export function configDir(io: CheckerIo = nodeIo): string {
+  const override = io.env["CLAUDE_CONFIG_DIR"];
+  return override && override.length ? io.path.resolve(io.cwd, override) : io.path.resolve(io.cwd, io.home ?? "", ".claude");
 }
 
-function projectsDir(): string {
-  return resolve(configDir(), "projects");
+function projectsDir(io: CheckerIo = nodeIo): string {
+  return io.path.resolve(configDir(io), "projects");
 }
 
 /**
@@ -60,20 +59,23 @@ function projectsDir(): string {
  * the ones an output style cannot reach and the ones this feature exists to
  * count.
  */
-function transcripts(sinceDays: number | undefined, now: number): string[] {
-  const root = projectsDir();
-  if (!existsSync(root)) return [];
+function transcripts(sinceDays: number | undefined, now: number, io: CheckerIo = nodeIo): string[] {
+  const root = projectsDir(io);
+  if (io.stat(root) === undefined) return [];
   const out: { path: string; mtime: number }[] = [];
 
   const walk = (dir: string): void => {
-    let entries;
+    let names: string[] | undefined;
     try {
-      entries = readdirSync(dir, { withFileTypes: true });
+      names = io.list(dir);
     } catch {
       return;
     }
-    for (const entry of entries) {
-      const path = resolve(dir, entry.name);
+    for (const name of names ?? []) {
+      const path = io.path.resolve(dir, name);
+      // A directory entry's own type: a link is neither.
+      const kind = io.stat(path)?.kind;
+      const entry = { name, isDirectory: () => kind === "directory", isFile: () => kind === "file" };
       if (entry.isDirectory()) {
         // `projects/<project>/memory/` holds auto memory, which is markdown
         // and not a transcript. It is also the one directory the cleanup sweep
@@ -85,7 +87,9 @@ function transcripts(sinceDays: number | undefined, now: number): string[] {
       if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
       let mtime: number;
       try {
-        mtime = statSync(path).mtimeMs;
+        const facts = io.stat(path);
+        if (facts === undefined) continue;
+        mtime = facts.mtimeMs;
       } catch {
         continue;
       }
@@ -124,12 +128,12 @@ function assistantText(record: Record<string, unknown>): string[] {
  * `agent_transcript_path` when the event fired. Only the last assistant record
  * counts: an earlier handback, or narration before it, is not the reply.
  */
-function subagentHandback(path: string | undefined): string | undefined {
+function subagentHandback(path: string | undefined, io: CheckerIo): string | undefined {
   if (!path) return undefined;
   let last: Record<string, unknown> | undefined;
   readJsonl(path, (record) => {
     if (record["type"] === "assistant") last = record;
-  });
+  }, io);
   const content = last && (last["message"] as Record<string, unknown> | undefined)?.["content"];
   if (!Array.isArray(content)) return undefined;
   for (const block of content) {
@@ -175,7 +179,7 @@ export const claudeCodeChat: ChatReader = {
   label: "Claude Code",
 
   available(): Availability {
-    if (!existsSync(projectsDir())) {
+    if (nodeIo.stat(projectsDir()) === undefined) {
       return {
         ok: false,
         // Two different causes, and the fix differs, so both are named.
@@ -218,11 +222,11 @@ export const claudeCodeChat: ChatReader = {
     return out;
   },
 
-  current(payload: Record<string, unknown>): Reply | null {
+  current(payload: Record<string, unknown>, io: CheckerIo = nodeIo): Reply | null {
     // Documented as the complete final message, and documented as the thing to
     // use instead of the transcript, which lags.
     const text = field(payload, "last_assistant_message") ??
-      subagentHandback(field(payload, "agent_transcript_path"));
+      subagentHandback(field(payload, "agent_transcript_path"), io);
     if (!text) return null;
     const reply: Reply = {
       text,
@@ -240,11 +244,11 @@ export const claudeCodeChat: ChatReader = {
     return reply;
   },
 
-  turnId(payload: Record<string, unknown>): string | undefined {
-    return latestUserTurnId(field(payload, "transcript_path"), (record) => typedUserText(record) !== undefined);
+  turnId(payload: Record<string, unknown>, io: CheckerIo = nodeIo): string | undefined {
+    return latestUserTurnId(field(payload, "transcript_path"), (record) => typedUserText(record) !== undefined, io);
   },
 
-  lastAsk(payload: Record<string, unknown>): string | undefined {
+  lastAsk(payload: Record<string, unknown>, io: CheckerIo = nodeIo): string | undefined {
     // The parent's transcript, never the subagent's: a subagent is answering
     // an instruction from the model, and the exceptions the judge applies are
     // about what a person asked for.
@@ -254,7 +258,7 @@ export const claudeCodeChat: ChatReader = {
     readJsonl(path, (record) => {
       const text = typedUserText(record);
       if (text) latest = text;
-    });
+    }, io);
     return latest;
   },
 };

@@ -474,7 +474,7 @@ function gitCommand(cmd: Command, cwd: string): { subcommand: string; index: num
 }
 
 /** Commands that carry commit, pull request, issue, or release prose. */
-export function publishingCommands(input: string, baseDir = process.cwd()): PublishingCommand[] {
+export function publishingCommands(input: string, baseDir: string): PublishingCommand[] {
   const out: PublishingCommand[] = [];
   let cwd = baseDir;
   for (const cmd of parseCommands(input)) {
