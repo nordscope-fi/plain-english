@@ -202,11 +202,11 @@ export interface JudgeOptions {
   /** Provider usage only, with missing measurements preserved as null. */
   onMeasurement?: (measurement: JudgeMeasurement) => void;
   /** Answers from the Claude Code mod, which asks the model itself (ADR-006). */
-  host?: HostRoute;
+  answered?: ModAnswers;
 }
 
-/** One answer the mod got for a model request, keyed by `hostKey`. */
-export interface HostAnswer {
+/** One answer the mod got for a model request, keyed by `answerKey`. */
+export interface ModAnswer {
   key: string;
   /** The model's reply. Absent when the mod got none. */
   text?: string;
@@ -222,8 +222,8 @@ export interface HostAnswer {
  * The CLI replays the whole decision on every run, so an answer it has already
  * used comes back again. Only the newest answer is new to this run.
  */
-export interface HostRoute {
-  answers: HostAnswer[];
+export interface ModAnswers {
+  answers: ModAnswer[];
   deadline?: number;
 }
 
@@ -246,16 +246,16 @@ export class ModelRequest extends Error {
 }
 
 /** The key an answer is filed under: the whole filled prompt, hashed. */
-export function hostKey(filled: string): string {
+export function answerKey(filled: string): string {
   return sha256(filled);
 }
 
 /** Read the mod's answers off a payload, or `undefined` when the route is off. */
-export function hostRoute(payload: Record<string, unknown>, env: Env = nodeIo.env): HostRoute | undefined {
+export function hostRoute(payload: Record<string, unknown>, env: Env = nodeIo.env): ModAnswers | undefined {
   if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host") return undefined;
   const raw = payload["plainEnglishModel"];
   const record = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-  const answers = Array.isArray(record["answers"]) ? record["answers"].flatMap((item): HostAnswer[] => {
+  const answers = Array.isArray(record["answers"]) ? record["answers"].flatMap((item): ModAnswer[] => {
     if (typeof item !== "object" || item === null) return [];
     const answer = item as Record<string, unknown>;
     if (typeof answer["key"] !== "string") return [];
@@ -271,12 +271,12 @@ export function hostRoute(payload: Record<string, unknown>, env: Env = nodeIo.en
   return { answers, ...(deadline !== undefined ? { deadline } : {}) };
 }
 
-function answerFromHost(filled: string, opts: JudgeOptions, host: HostRoute): Verdict | undefined {
-  const key = hostKey(filled);
-  const index = host.answers.findIndex((answer) => answer.key === key);
+function answerFromMod(filled: string, opts: JudgeOptions, answered: ModAnswers): Verdict | undefined {
+  const key = answerKey(filled);
+  const index = answered.answers.findIndex((answer) => answer.key === key);
   if (index === -1) throw new ModelRequest({ key, prompt: filled, timeoutMs: opts.timeoutMs ?? JUDGE_TIMEOUT_MS });
-  const answer = host.answers[index]!;
-  if (index === host.answers.length - 1) {
+  const answer = answered.answers[index]!;
+  if (index === answered.answers.length - 1) {
     const measurement: JudgeMeasurement = {
       provider: "claude",
       outcome: answer.text !== undefined ? "complete" : answer.unavailable === "timed out" ? "timed_out" : "failed",
@@ -310,6 +310,6 @@ export function runJudge(input: string, opts: JudgeOptions): Verdict | undefined
   if (!opts.prompt.includes("$ARGUMENTS")) return undefined;
 
   const filled = opts.prompt.replace("$ARGUMENTS", input);
-  if (opts.host) return answerFromHost(filled, opts, opts.host);
+  if (opts.answered) return answerFromMod(filled, opts, opts.answered);
   return spawnJudge(filled, opts, env);
 }

@@ -202,6 +202,12 @@ const NODE_ONLY = {
   ].join("\n"),
 };
 
+/** vfile's `#minurl`, for a checker that never gives vfile an address. */
+const MINURL = [
+  "export function isUrl() { return false; }",
+  "export function urlToPath() { throw new TypeError(\"The plugin gives vfile paths only.\"); }",
+].join("\n");
+
 /**
  * `fault`, which the Markdown frontmatter parser uses for its error messages,
  * formats them with the `format` package. That package falls back to
@@ -368,6 +374,14 @@ const pluginCore = { name: "plugin-core", setup(b) {
       return { contents: text.replace(unused.from, unused.to), loader: args.path.endsWith(".ts") ? "ts" : "js" };
     });
   }
+  // vfile's helper turns a `file:` address into a path, and checks its host
+  // name. The checker gives vfile paths only, and the directory reads a host
+  // name as a way to send data (held on 0d90eaa).
+  b.onResolve({ filter: /^#minurl$/ }, (args) => {
+    if (!/[\\/]vfile[\\/]lib[\\/]index\.js$/.test(args.importer)) throw new Error(`Unexpected #minurl import from ${args.importer}; update scripts/build-plugin.mjs.`);
+    return { path: "minurl", namespace: "plain-english-minurl" };
+  });
+  b.onLoad({ filter: /.*/, namespace: "plain-english-minurl" }, () => ({ contents: MINURL, loader: "js" }));
   b.onResolve({ filter: /^format$/ }, () => ({ path: "format", namespace: "plain-english-format" }));
   b.onLoad({ filter: /.*/, namespace: "plain-english-format" }, () => ({ contents: FORMAT, loader: "js" }));
   // `fault.eval` is never called here, and the directory blocks a mod naming `eval`.

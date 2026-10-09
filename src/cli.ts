@@ -26,7 +26,7 @@ import { renderPolicy, scanRepo, toPosix } from "./policy.ts";
 import { isChannel, projectDirFor, CHANNELS, type Channel } from "./adapters/hook.ts";
 import type { ConfigFile, HookEvent } from "./agents/profile.ts";
 import { initializeJudgeReceipts } from "./adapters/judge-receipts.ts";
-import { hostRoute, ModelRequest, type HostRoute } from "./adapters/judge.ts";
+import { hostRoute, ModelRequest, type ModAnswers } from "./adapters/judge.ts";
 import { init, allAgents, hasOurEntries } from "./init.ts";
 import { byId, agentIds, resolveProfile, PROFILES } from "./agents/registry.ts";
 import { toSarif } from "./format/sarif.ts";
@@ -722,7 +722,7 @@ function cmdExplain(args: Args): number {
 
 async function cmdHook(args: Args): Promise<number> {
   const finishCapture = initializeJudgeReceipts();
-  let host: HostRoute | undefined;
+  let answered: ModAnswers | undefined;
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -738,7 +738,7 @@ async function cmdHook(args: Args): Promise<number> {
     const payload = JSON.parse(raw) as Record<string, unknown>;
     // ADR-006: answers the mod got for earlier runs of this same check. They
     // are not part of the event, so nothing downstream sees or records them.
-    host = hostRoute(payload);
+    answered = hostRoute(payload);
     delete payload["plainEnglishModel"];
 
     const agentFlag = args.flags["agent"] === undefined ? undefined : String(args.flags["agent"]);
@@ -764,7 +764,7 @@ async function cmdHook(args: Args): Promise<number> {
       ...(channel === "chat" ? { reader: readerFor(profile.id) } : {}),
       event,
       ...(args.flags["model"] ? { model: String(args.flags["model"]) } : {}),
-      ...(host ? { host } : {}),
+      ...(answered ? { answered } : {}),
       ...(channel === "chat" && profile.id === "antigravity" && antigravityCwd(payload) ? { chatCwd: antigravityCwd(payload)! } : {}),
       io: nodeIo,
     });
@@ -798,10 +798,10 @@ async function cmdHook(args: Args): Promise<number> {
     // ADR-006: an open question goes back to the mod in place of a decision.
     // It is caught first, because the fail-open answer below would allow the
     // write without asking.
-    if (error instanceof ModelRequest && host) {
+    if (error instanceof ModelRequest && answered) {
       const model = args.flags["model"] ? String(args.flags["model"]) : undefined;
       process.stdout.write(JSON.stringify({ plainEnglishModelRequest: {
-        ...error.request, deadline: host.deadline, ...(model ? { model } : {}),
+        ...error.request, deadline: answered.deadline, ...(model ? { model } : {}),
       } }));
       return 0;
     }

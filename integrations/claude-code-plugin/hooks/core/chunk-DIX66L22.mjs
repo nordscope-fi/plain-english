@@ -49,7 +49,7 @@ import {
 } from "./chunk-VC7IYITB.mjs";
 import {
   VFile
-} from "./chunk-3TQ6XHDS.mjs";
+} from "./chunk-MGMW3SKD.mjs";
 import {
   gfmTable
 } from "./chunk-OJMZKB7F.mjs";

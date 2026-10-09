@@ -113,6 +113,16 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held on 0d90eaa: with no web address left, the directory named the
+  // checker's `host` field (the mod's model answers) as the way out, and
+  // paired it with the parsers' `token` variables. Nothing in the plugin names
+  // a host, including the Markdown library's file-address helper.
+  it("name no network host in the plugin's code", () => {
+    for (const file of [...coreFiles(), "hooks/register.ts"]) {
+      expect(readFileSync(resolve(PLUGIN, file), "utf8").match(/\bhost(?:name)?\b/gi) ?? [], file).toEqual([]);
+    }
+  });
+
   // Held on 852d825 as "a string that looks like encoded data": an HTML
   // library's entity table. The checker reads issue HTML with its own reader.
   it("carry no HTML library or encoded entity table", () => {

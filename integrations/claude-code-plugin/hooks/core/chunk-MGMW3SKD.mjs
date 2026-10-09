@@ -300,53 +300,11 @@ function cwd() {
   return "/";
 }
 
-function isUrl(fileUrlOrPath) {
-  return Boolean(
-    fileUrlOrPath !== null && typeof fileUrlOrPath === "object" && "href" in fileUrlOrPath && fileUrlOrPath.href && "protocol" in fileUrlOrPath && fileUrlOrPath.protocol &&  
-    fileUrlOrPath.auth === void 0
-  );
+function isUrl() {
+  return false;
 }
-
-function urlToPath(path) {
-  if (typeof path === "string") {
-    path = new URL(path);
-  } else if (!isUrl(path)) {
-    const error = new TypeError(
-      'The "path" argument must be of type string or an instance of URL. Received `' + path + "`"
-    );
-    error.code = "ERR_INVALID_ARG_TYPE";
-    throw error;
-  }
-  if (path.protocol !== "file:") {
-    const error = new TypeError("The URL must be of scheme file");
-    error.code = "ERR_INVALID_URL_SCHEME";
-    throw error;
-  }
-  return getPathFromURLPosix(path);
-}
-function getPathFromURLPosix(url) {
-  if (url.hostname !== "") {
-    const error = new TypeError(
-      'File URL host must be "localhost" or empty on darwin'
-    );
-    error.code = "ERR_INVALID_FILE_URL_HOST";
-    throw error;
-  }
-  const pathname = url.pathname;
-  let index = -1;
-  while (++index < pathname.length) {
-    if (pathname.codePointAt(index) === 37 && pathname.codePointAt(index + 1) === 50) {
-      const third = pathname.codePointAt(index + 2);
-      if (third === 70 || third === 102) {
-        const error = new TypeError(
-          "File URL path must not include encoded / characters"
-        );
-        error.code = "ERR_INVALID_FILE_URL_PATH";
-        throw error;
-      }
-    }
-  }
-  return decodeURIComponent(pathname);
+function urlToPath() {
+  throw new TypeError("The plugin gives vfile paths only.");
 }
 
 var order = (

@@ -13,7 +13,7 @@ import {
   resolveRuleSet,
   sentences,
   sha256
-} from "./chunk-EXISZQGH.mjs";
+} from "./chunk-DIX66L22.mjs";
 import "./chunk-YVDCUCSJ.mjs";
 import "./chunk-6VUKDY2J.mjs";
 import {
@@ -23,7 +23,7 @@ import {
 import "./chunk-RZUPAL2Q.mjs";
 import "./chunk-KWWQFVSE.mjs";
 import "./chunk-VC7IYITB.mjs";
-import "./chunk-3TQ6XHDS.mjs";
+import "./chunk-MGMW3SKD.mjs";
 import "./chunk-4A7VIGHI.mjs";
 import "./chunk-OJMZKB7F.mjs";
 import "./chunk-UGEYTODJ.mjs";
@@ -1801,15 +1801,15 @@ var ModelRequest = class extends Error {
   }
   request;
 };
-function hostKey(filled) {
+function answerKey(filled) {
   return sha256(filled);
 }
-function answerFromHost(filled, opts, host) {
-  const key = hostKey(filled);
-  const index = host.answers.findIndex((answer2) => answer2.key === key);
+function answerFromMod(filled, opts, answered) {
+  const key = answerKey(filled);
+  const index = answered.answers.findIndex((answer2) => answer2.key === key);
   if (index === -1) throw new ModelRequest({ key, prompt: filled, timeoutMs: opts.timeoutMs ?? JUDGE_TIMEOUT_MS });
-  const answer = host.answers[index];
-  if (index === host.answers.length - 1) {
+  const answer = answered.answers[index];
+  if (index === answered.answers.length - 1) {
     const measurement = {
       provider: "claude",
       outcome: answer.text !== void 0 ? "complete" : answer.unavailable === "timed out" ? "timed_out" : "failed",
@@ -1838,7 +1838,7 @@ function runJudge(input, opts) {
   if (isJudge(env)) return void 0;
   if (!opts.prompt.includes("$ARGUMENTS")) return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
-  if (opts.host) return answerFromHost(filled, opts, opts.host);
+  if (opts.answered) return answerFromMod(filled, opts, opts.answered);
   return spawnJudge(filled, opts, env);
 }
 
@@ -2617,7 +2617,7 @@ function modelCommand(agent, model) {
 }
 function hookCheck(check) {
   if (check.channel === "chat") return chatCheck(check);
-  const { channel, payload, profile, io, host } = check;
+  const { channel, payload, profile, io, answered } = check;
   const event = check.event ?? "pre";
   const env = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
@@ -2641,8 +2641,8 @@ function hookCheck(check) {
   if (texts.length) requests.push({ channel, input: JSON.stringify({ texts }) });
   const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
   if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
-    const deadline = host?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
-    if (host) host.deadline = deadline;
+    const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
+    if (answered) answered.deadline = deadline;
     for (const request of requests) {
       if (hasAck(request.channel, projectDir, void 0, io) || overDocsJudgeLimit(request.input)) continue;
       const timeoutMs = Math.max(0, deadline - io.now());
@@ -2656,7 +2656,7 @@ function hookCheck(check) {
         timeoutMs,
         env,
         onUnavailable: unavailable,
-        ...host ? { host } : {}
+        ...answered ? { answered } : {}
       });
       if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
         decision = {
@@ -2674,7 +2674,7 @@ function hookCheck(check) {
   return { stdout: out.stdout, exitCode: out.exitCode, parsed, decision };
 }
 function chatCheck(check) {
-  const { payload, profile, reader, io, host } = check;
+  const { payload, profile, reader, io, answered } = check;
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader) return silent;
   const env = io.env;
@@ -2687,8 +2687,8 @@ function chatCheck(check) {
   const turn = chatTurnId(payload, reader, reply, cwd, void 0, io);
   const helper = payload["agent_id"] ?? payload["subagent_id"];
   const promptId = helper ? `${turn}:helper:${((((((((String(helper)))))))))}` : turn;
-  const judgeDeadline = host?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
-  if (host) host.deadline = judgeDeadline;
+  const judgeDeadline = answered?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
+  if (answered) answered.deadline = judgeDeadline;
   const decision = decideChat(reply, {
     ruleSet,
     judge: (r, findings) => {
@@ -2705,7 +2705,7 @@ function chatCheck(check) {
           timeoutMs,
           env,
           onUnavailable: unavailable,
-          ...host ? { host } : {}
+          ...answered ? { answered } : {}
         });
       };
       const readablePrompt = prompts["chat-readable"];
