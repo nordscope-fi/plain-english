@@ -2535,6 +2535,10 @@ function parseArgs(argv) {
         flags["source-prose"] = true;
         continue;
       }
+      if (a === "--paths-from-stdin") {
+        flags["paths-from-stdin"] = true;
+        continue;
+      }
       const eq = a.indexOf("=");
       if (eq > 0)
         flags[a.slice(2, eq)] = a.slice(eq + 1);
@@ -2698,6 +2702,15 @@ async function cmdLint(args) {
   const scan = (text, file) => sourceProse && (file === "<stdin>" || SOURCE_PROSE_EXTENSIONS.has(extname2(file).toLowerCase())) ? lintSourceText(text, ruleSet, { filename: file === "<stdin>" ? "copy.tsx" : file }) : lintText(text, ruleSet);
   if (args.flags["chat"])
     return cmdLintChat(args, root, ruleSet, format, failOn);
+  let targets = args.positionals;
+  const pathsFromStdin = args.flags["paths-from-stdin"] === true;
+  if (pathsFromStdin) {
+    if (targets.length)
+      throw new RuleError("--paths-from-stdin reads every path from standard input. Leave out the path arguments.");
+    targets = (await readStdin()).split(/\r?\n/).filter((line) => line !== "");
+    if (!targets.length)
+      throw new RuleError("--paths-from-stdin found no paths on standard input. Give one path per line.");
+  }
   const all = [];
   const stalled =   new Map();
   const noteStalled = (file, ids) => {
@@ -2705,14 +2718,14 @@ async function cmdLint(args) {
       stalled.set(file, new Set(ids));
   };
   const suppressed = [];
-  if (!args.positionals.length || args.positionals[0] === "-") {
+  if (!pathsFromStdin && (!targets.length || targets[0] === "-")) {
     const text = await readStdin();
     const res = scan(text, "<stdin>");
     noteStalled("<stdin>", res.timedOut);
     suppressed.push(...res.suppressed);
     all.push({ file: "<stdin>", findings: res.findings });
   } else {
-    for (const target of args.positionals) {
+    for (const target of targets) {
       const abs = resolve12(root, target);
       if (!existsSync10(abs)) {
         process.stderr.write(`plain-english: no such path: ${target}
@@ -3323,6 +3336,9 @@ LINT OPTIONS
                                      nothing at all
   --source-prose                     also check strings and JSX text in JS/TS
                                      files; findings use original source lines
+  --paths-from-stdin                 read the paths to check from standard
+                                     input, one per line, instead of from
+                                     arguments
 
 LINT --chat OPTIONS
   Reads the session transcripts each agent writes to local disk. Local only:
@@ -3554,6 +3570,16 @@ function resolveRuleSetSafe(root) {
 }
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const project = process.env["PLAIN_ENGLISH_CWD"];
+  if (project) {
+    try {
+      process.chdir(project);
+    } catch {
+      process.stderr.write(`plain-english: PLAIN_ENGLISH_CWD names no folder: ${project}
+`);
+      return 2;
+    }
+  }
   if (args.flags["version"] || args.command === "version") {
     process.stdout.write(`${packageVersion()}
 `);

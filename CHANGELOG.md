@@ -4,6 +4,16 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-09
+### Added
+
+- `lint --paths-from-stdin` reads the paths to check from standard input, one per line, so another command's file list can be piped in.
+- The CLI runs in the folder `PLAIN_ENGLISH_CWD` names, when set.
+
+### Changed
+
+- The Claude Code plugin's launcher starts the checker with every command written out in full, giving typed paths on standard input. On Windows it stops the checker through a fixed `taskkill` command.
+
 ## [1.14.3] - 2026-10-09
 ### Changed
 
@@ -726,7 +736,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.14.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.0
 [1.14.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.3
 [1.14.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.2
 [1.14.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.1

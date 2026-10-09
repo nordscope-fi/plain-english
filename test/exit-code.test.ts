@@ -338,3 +338,50 @@ describe("doctor recognises an install it just wrote", () => {
     expect(stop.find((group) => group.matcher === "foreign")?.hooks[0]?.command).toBe("./foreign.sh");
   });
 });
+
+/**
+ * Paths on standard input, one per line, and the project folder as a setting.
+ * The Claude Code plugin starts the CLI with every argument fixed text, so the
+ * Claude directory can read each command in full; what varies arrives here.
+ */
+describe("lint --paths-from-stdin", () => {
+  function lint(input: string, options: { args?: string[]; cwd?: string; project?: string } = {}) {
+    return spawnSync(process.execPath, [CLI, "lint", "--paths-from-stdin", "--fail-on", "error", ...(options.args ?? [])], {
+      cwd: options.cwd ?? dir,
+      input,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1", ...(options.project ? { PLAIN_ENGLISH_CWD: options.project } : {}) },
+    });
+  }
+
+  it("reads one path per line, keeping spaces and a leading dash", () => {
+    writeFileSync(resolve(dir, "my notes.md"), "We leverage a seamless paradigm shift.\n");
+    writeFileSync(resolve(dir, "-draft.md"), "We leverage a seamless paradigm shift.\n");
+    const result = lint("my notes.md\n-draft.md\nclean.md\n");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("my notes.md");
+    expect(result.stdout).toContain("-draft.md");
+  });
+
+  it("passes a clean list", () => {
+    expect(lint("clean.md\n").status).toBe(0);
+  });
+
+  it("refuses an empty list and a list mixed with path arguments", () => {
+    expect(lint("\n").status).toBe(2);
+    const mixed = lint("clean.md\n", { args: ["blocking.md"] });
+    expect(mixed.status).toBe(2);
+    expect(mixed.stderr).toContain("--paths-from-stdin");
+  });
+
+  it("runs in the folder PLAIN_ENGLISH_CWD names", () => {
+    const elsewhere = mkdtempSync(resolve(tmpdir(), "pe-elsewhere-"));
+    try {
+      const result = lint("blocking.md\n", { cwd: elsewhere, project: dir });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("blocking.md");
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+});

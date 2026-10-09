@@ -152,10 +152,17 @@ writing settings or launchers into the project.
 For copy stored in JavaScript or TypeScript, use `lint src --source-prose`.
 The [source guide](docs/source-prose.md) covers React text, escapes and source positions.
 
+To check a list of files from another command, give it one path per line on
+standard input:
+
+```bash
+git diff --name-only -- '*.md' | npx plain-english lint --paths-from-stdin
+```
+
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.14.3
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.15.0
   with:
     paths: docs README.md
     fail-on: error
@@ -172,7 +179,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.14.3
+    rev: v1.15.0
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

@@ -108,6 +108,13 @@ describe("the plugin's hook files as the directory reads them", () => {
     for (const command of commands) {
       expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
     }
+    // The launcher the mod starts writes out each program it starts in full too.
+    const launcher = readFileSync(resolve(PLUGIN, "hooks", "run-checker.mjs"), "utf8");
+    const started = [...launcher.matchAll(/\bspawn(?:Sync)?\(([^)]*)\)/g)].map((match) => match[1]!);
+    expect(started.length).toBeGreaterThanOrEqual(8);
+    for (const call of started) {
+      expect(call, call).toMatch(/^\s*'[^'$`]*'\s*,\s*\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]/);
+    }
     // The settings each run gets are fixed text too; anything computed goes in
     // the request on standard input.
     const settings = [...source.matchAll(/\benv:\s*(\{[^}]*\})/g)].map((match) => match[1]!);

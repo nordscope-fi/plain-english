@@ -6,13 +6,15 @@
 // as one JSON request on standard input: `cwd`, the project folder; `paths`,
 // the paths the person typed; `route: "host"` when the mod answers model
 // questions itself; and `input`, what the CLI reads on its own standard input.
-// The wrapper finds the CLI beside itself and runs it with that request.
+// The wrapper runs the CLI from the plugin folder with a command written out
+// in full too, and passes the project folder in PLAIN_ENGLISH_CWD and typed
+// paths on the CLI's standard input.
 import { spawn, spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const cli = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'cli.mjs')
+process.chdir(resolve(dirname(fileURLToPath(import.meta.url)), '..'))
 
 function fail(message) {
   process.stderr.write(`plain-english: ${message}\n`)
@@ -32,28 +34,49 @@ if (cwd !== undefined && typeof cwd !== 'string') fail('the checker request has 
 if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) fail('the checker request has an invalid list of paths.')
 if (route !== undefined && route !== 'host') fail('the checker request has an unknown model route.')
 if (typeof input !== 'string') fail('the checker request has an invalid input.')
+if (paths.some(path => /[\r\n]/.test(path))) fail('the checker request has a path with a line break.')
 
 const signals = ['SIGTERM', 'SIGINT', 'SIGHUP']
 const timeoutMs = Number(process.env.PLAIN_ENGLISH_CHECK_TIMEOUT_MS)
 if (!Number.isInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 600_000) fail('invalid checker timeout.')
-const child = spawn(process.execPath, [cli, ...process.argv.slice(2), ...paths], {
-  cwd: cwd || process.cwd(),
+const options = {
   env: {
     ...process.env,
-    ...(cwd ? { CLAUDE_PROJECT_DIR: cwd } : {}),
+    ...(cwd ? { CLAUDE_PROJECT_DIR: cwd, PLAIN_ENGLISH_CWD: cwd } : {}),
     ...(route === 'host' ? { PLAIN_ENGLISH_MODEL_ROUTE: 'host' } : {}),
   },
   stdio: ['pipe', 'inherit', 'inherit'],
   detached: process.platform !== 'win32',
-})
+}
+
+/** One CLI run per command the mod sends, each written out in full. */
+function start(command) {
+  switch (command) {
+    case 'hook docs --agent claude-code': return spawn('node', ['dist/cli.mjs', 'hook', 'docs', '--agent', 'claude-code'], options)
+    case 'hook github --agent claude-code': return spawn('node', ['dist/cli.mjs', 'hook', 'github', '--agent', 'claude-code'], options)
+    case 'hook issue --agent claude-code': return spawn('node', ['dist/cli.mjs', 'hook', 'issue', '--agent', 'claude-code'], options)
+    case 'hook chat --agent claude-code': return spawn('node', ['dist/cli.mjs', 'hook', 'chat', '--agent', 'claude-code'], options)
+    case 'approve': return spawn('node', ['dist/cli.mjs', 'approve'], options)
+    case 'guidance': return spawn('node', ['dist/cli.mjs', 'guidance'], options)
+    case 'lint': return spawn('node', ['dist/cli.mjs', 'lint', '--paths-from-stdin'], options)
+    default: return fail(`unknown checker command: ${command}`)
+  }
+}
+
+const command = process.argv.slice(2).join(' ')
+const child = start(command)
 child.stdin.on('error', () => {})
-child.stdin.end(input)
+child.stdin.end(command === 'lint' ? paths.join('\n') + '\n' : input)
 
 function terminate(signal) {
   if (child.pid === undefined) return
   try {
     if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true })
+      spawnSync('cmd.exe', ['/d', '/c', 'taskkill', '/pid', '%PLAIN_ENGLISH_CHECKER_PID%', '/t', '/f'], {
+        env: { ...process.env, PLAIN_ENGLISH_CHECKER_PID: String(child.pid) },
+        stdio: 'ignore',
+        windowsHide: true,
+      })
     } else {
       process.kill(-child.pid, signal)
     }

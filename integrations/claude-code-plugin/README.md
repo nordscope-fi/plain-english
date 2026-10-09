@@ -78,6 +78,8 @@ The mod starts one program, `node`, the runtime Claude Code itself uses, on one 
 
 Every command and every setting is fixed text at the call, started in the plugin folder (`$.plugin.root`). Everything that varies goes in one JSON request on standard input, which the wrapper reads. It holds `cwd`, the project folder from `$.session.cwd()`, and `paths`, the paths you typed after `/plain-english`. It also holds `route`, whether the mod answers model questions itself, and `input`, the event or approval request for the checker. No shell is started, so nothing in a command is parsed or expanded.
 
+`hooks/run-checker.mjs` writes out its own commands in full the same way. For each command from the mod it starts `node dist/cli.mjs` with fixed arguments, such as `node dist/cli.mjs lint --paths-from-stdin`. It names the project folder in the `PLAIN_ENGLISH_CWD` setting and gives typed paths on the checker's standard input.
+
 | Where in `hooks/register.ts` | Command | Settings | Why |
 | --- | --- | --- | --- |
 | `spawnHook`, through `$.process.spawn` | `node hooks/run-checker.mjs hook docs --agent claude-code`, and the same with `github`, `issue` or `chat`, each written out in full | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '20000'`, or `'60000'` for chat | Checks one proposed write or finished reply. |
@@ -85,7 +87,7 @@ Every command and every setting is fixed text at the call, started in the plugin
 | `prompt.context`, through `$.process.run` | `node hooks/run-checker.mjs guidance` | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '5000'` | Reads the project's declared vocabulary to add to the conversation. |
 | `/plain-english`, through `$.process.run` | `node hooks/run-checker.mjs lint` | `PLAIN_ENGLISH_CHECK_TIMEOUT_MS: '120000'` | Checks the files you name. |
 
-`hooks/run-checker.mjs` stops the checker, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, the fallback for an extra model check when `$.model.complete` cannot be made.
+`hooks/run-checker.mjs` stops the checker, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it runs `cmd.exe /d /c taskkill /pid %PLAIN_ENGLISH_CHECKER_PID% /t /f`, with the checker's process number in that setting. This is the only shell the plugin starts, and its command is fixed text. The checker starts one more program in a single case: `claude -p`, the fallback for an extra model check when `$.model.complete` cannot be made.
 
 ### Mod can read local data and can also send data out
 
