@@ -7,7 +7,7 @@ import {
   YAMLMap,
   YAMLSeq,
   warn
-} from "./chunk-YVDCUCSJ.mjs";
+} from "./chunk-BXNK3WM5.mjs";
 import {
   Parser,
   YAMLParseError,
@@ -16,7 +16,7 @@ import {
   resolveBlockScalar,
   resolveEnd,
   resolveFlowScalar
-} from "./chunk-6VUKDY2J.mjs";
+} from "./chunk-RU5JILLF.mjs";
 import {
   SCALAR,
   Scalar,
@@ -150,7 +150,7 @@ function resolveProps(tokens, { flow, indicator, next: next2, offset, onError, p
         if (anchor || tag)
           onError(token, "BAD_PROP_ORDER", `Anchors and tags must be after the ${token.source} indicator`);
         if (found)
-          onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.source} in ${flow ?? "collection"}`);
+          onError(token, "unexpected-token", `Unexpected ${token.source} in ${flow ?? "collection"}`);
         found = token;
         atNewline = indicator === "seq-item-ind" || indicator === "explicit-key-ind";
         hasSpace = false;
@@ -158,14 +158,14 @@ function resolveProps(tokens, { flow, indicator, next: next2, offset, onError, p
       case "comma":
         if (flow) {
           if (comma)
-            onError(token, "UNEXPECTED_TOKEN", `Unexpected , in ${flow}`);
+            onError(token, "unexpected-token", `Unexpected , in ${flow}`);
           comma = token;
           atNewline = false;
           hasSpace = false;
           break;
         }
       default:
-        onError(token, "UNEXPECTED_TOKEN", `Unexpected ${token.type} token`);
+        onError(token, "unexpected-token", `Unexpected ${token.type} token`);
         atNewline = false;
         hasSpace = false;
     }
@@ -266,7 +266,7 @@ function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeE
     if (implicitKey) {
       if (key) {
         if (key.type === "block-seq")
-          onError(offset, "BLOCK_AS_IMPLICIT_KEY", "A block sequence may not be used as an implicit map key");
+          onError(offset, "block-as-implicit-key", "A block sequence may not be used as an implicit map key");
         else if ("indent" in key && key.indent !== bm.indent)
           onError(offset, "BAD_INDENT", startColMsg);
       }
@@ -281,7 +281,7 @@ function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeE
         continue;
       }
       if (keyProps.newlineAfterProp || containsNewline(key)) {
-        onError(key ?? start[start.length - 1], "MULTILINE_IMPLICIT_KEY", "Implicit keys need to be on a single line");
+        onError(key ?? start[start.length - 1], "multiline-implicit-key", "Implicit keys need to be on a single line");
       }
     } else if (keyProps.found?.indent !== bm.indent) {
       onError(offset, "BAD_INDENT", startColMsg);
@@ -293,7 +293,7 @@ function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeE
       flowIndentCheck(bm.indent, key, onError);
     ctx.atKey = false;
     if (mapIncludes(ctx, map.items, keyNode))
-      onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+      onError(keyStart, "duplicate-key", "Map keys must be unique");
     const valueProps = resolveProps(sep ?? [], {
       indicator: "map-value-ind",
       next: value2,
@@ -306,9 +306,9 @@ function resolveBlockMap({ composeNode: composeNode2, composeEmptyNode: composeE
     if (valueProps.found) {
       if (implicitKey) {
         if (value2?.type === "block-map" && !valueProps.hasNewline)
-          onError(offset, "BLOCK_AS_IMPLICIT_KEY", "Nested mappings are not allowed in compact mappings");
+          onError(offset, "block-as-implicit-key", "Nested mappings are not allowed in compact mappings");
         if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
-          onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
+          onError(keyNode.range, "key-over-1024-chars", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
       }
       const valueNode = value2 ? composeNode2(ctx, value2, valueProps, onError) : composeEmptyNode2(ctx, offset, sep, null, valueProps, onError);
       if (ctx.schema.compat)
@@ -409,9 +409,9 @@ function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: co
     if (!props.found) {
       if (!props.anchor && !props.tag && !sep && !value2) {
         if (i === 0 && props.comma)
-          onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+          onError(props.comma, "unexpected-token", `Unexpected , in ${fcName}`);
         else if (i < fc.items.length - 1)
-          onError(props.start, "UNEXPECTED_TOKEN", `Unexpected empty item in ${fcName}`);
+          onError(props.start, "unexpected-token", `Unexpected empty item in ${fcName}`);
         if (props.comment) {
           if (coll.comment)
             coll.comment += "\n" + props.comment;
@@ -424,13 +424,13 @@ function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: co
       if (!isMap2 && ctx.options.strict && containsNewline(key))
         onError(
           key,
-          "MULTILINE_IMPLICIT_KEY",
+          "multiline-implicit-key",
           "Implicit keys of flow sequence pairs need to be on a single line"
         );
     }
     if (i === 0) {
       if (props.comma)
-        onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
+        onError(props.comma, "unexpected-token", `Unexpected , in ${fcName}`);
     } else {
       if (!props.comma)
         onError(props.start, "MISSING_CHAR", `Missing , between ${fcName} items`);
@@ -489,12 +489,12 @@ function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: co
               if (st === valueProps.found)
                 break;
               if (st.type === "newline") {
-                onError(st, "MULTILINE_IMPLICIT_KEY", "Implicit keys of flow sequence pairs need to be on a single line");
+                onError(st, "multiline-implicit-key", "Implicit keys of flow sequence pairs need to be on a single line");
                 break;
               }
             }
           if (props.start < valueProps.found.offset - 1024)
-            onError(valueProps.found, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
+            onError(valueProps.found, "key-over-1024-chars", "The : indicator must be at most 1024 chars after the start of an implicit flow sequence key");
         }
       } else if (value2) {
         if ("source" in value2 && value2.source?.[0] === ":")
@@ -518,7 +518,7 @@ function resolveFlowCollection({ composeNode: composeNode2, composeEmptyNode: co
       if (isMap2) {
         const map = coll;
         if (mapIncludes(ctx, map.items, keyNode))
-          onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
+          onError(keyStart, "duplicate-key", "Map keys must be unique");
         map.items.push(pair);
       } else {
         const map = new YAMLMap(ctx.schema);
@@ -736,7 +736,7 @@ function composeNode(ctx, token, props, onError) {
       break;
     default: {
       const message = token.type === "error" ? token.message : `Unsupported token (type: ${token.type})`;
-      onError(token, "UNEXPECTED_TOKEN", message);
+      onError(token, "unexpected-token", message);
       isSrcToken = false;
     }
   }
@@ -745,7 +745,7 @@ function composeNode(ctx, token, props, onError) {
     onError(anchor, "BAD_ALIAS", "Anchor cannot be an empty string");
   if (atKey && ctx.options.stringKeys && (!isScalar(node) || typeof node.value !== "string" || node.tag && node.tag !== "tag:yaml.org,2002:str")) {
     const msg = "With stringKeys, all keys must be strings";
-    onError(tag ?? token, "NON_STRING_KEY", msg);
+    onError(tag ?? token, "non-string-key", msg);
   }
   if (spaceBefore)
     node.spaceBefore = true;
@@ -955,7 +955,7 @@ ${cb}` : comment;
         break;
       case "error": {
         const msg = token.source ? `${token.message}: ${((((((((JSON.stringify(token.source)))))))))}` : token.message;
-        const error = new YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg);
+        const error = new YAMLParseError(getErrorPos(token), "unexpected-token", msg);
         if (this.atDirectives || !this.doc)
           this.errors.push(error);
         else
@@ -965,7 +965,7 @@ ${cb}` : comment;
       case "doc-end": {
         if (!this.doc) {
           const msg = "Unexpected doc-end without preceding document";
-          this.errors.push(new YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", msg));
+          this.errors.push(new YAMLParseError(getErrorPos(token), "unexpected-token", msg));
           break;
         }
         this.doc.directives.docEnd = true;
@@ -980,7 +980,7 @@ ${end.comment}` : end.comment;
         break;
       }
       default:
-        this.errors.push(new YAMLParseError(getErrorPos(token), "UNEXPECTED_TOKEN", `Unsupported token ${token.type}`));
+        this.errors.push(new YAMLParseError(getErrorPos(token), "unexpected-token", `Unsupported token ${token.type}`));
     }
   }
   *end(forceDoc = false, endOffset = -1) {

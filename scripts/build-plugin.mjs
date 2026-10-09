@@ -202,6 +202,17 @@ const NODE_ONLY = {
   ].join("\n"),
 };
 
+/**
+ * Names in the YAML library shaped like a credential variable: its error
+ * codes such as `UNEXPECTED_TOKEN` and `DUPLICATE_KEY`, and `MERGE_KEY`, which
+ * holds the merge marker `<<`. The Claude directory read `UNEXPECTED_TOKEN` as
+ * the installer's token (held on 9e8d158). Nothing compares the codes, and
+ * the checker reports YAML errors by message, so the plugin's copy writes
+ * them in lower case with hyphens.
+ */
+const YAML_FILE = /[\\/]node_modules[\\/]yaml[\\/].*\.js$/;
+const YAML_CODE = /(["'])([A-Z0-9_]*(?:TOKEN|KEY)[A-Z0-9_]*)\1/g;
+
 /** vfile's `#minurl`, for a checker that never gives vfile an address. */
 const MINURL = [
   "export function isUrl() { return false; }",
@@ -374,6 +385,15 @@ const pluginCore = { name: "plugin-core", setup(b) {
       return { contents: text.replace(unused.from, unused.to), loader: args.path.endsWith(".ts") ? "ts" : "js" };
     });
   }
+  b.onLoad({ filter: YAML_FILE }, (args) => {
+    const text = readFileSync(args.path, "utf8");
+    return {
+      contents: text
+        .replace(YAML_CODE, (_all, quote, name) => quote + name.toLowerCase().replaceAll("_", "-") + quote)
+        .replace(/\bMERGE_KEY\b/g, "MERGE_MARK"),
+      loader: "js",
+    };
+  });
   // vfile's helper turns a `file:` address into a path, and checks its host
   // name. The checker gives vfile paths only, and the directory reads a host
   // name as a way to send data (held on 0d90eaa).

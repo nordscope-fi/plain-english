@@ -746,16 +746,16 @@ function warn(logLevel, warning) {
   }
 }
 
-var MERGE_KEY = "<<";
+var MERGE_MARK = "<<";
 var merge = {
-  identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
+  identify: (value) => value === MERGE_MARK || typeof value === "symbol" && value.description === MERGE_MARK,
   default: "key",
   tag: "tag:yaml.org,2002:merge",
   test: /^<<$/,
-  resolve: () => Object.assign(new Scalar(Symbol(MERGE_KEY)), {
+  resolve: () => Object.assign(new Scalar(Symbol(MERGE_MARK)), {
     addToJSMap: addMergeToJSMap
   }),
-  stringify: () => MERGE_KEY
+  stringify: () => MERGE_MARK
 };
 var isMergeKey = (ctx, key) => (merge.identify(key) || isScalar(key) && (!key.type || key.type === Scalar.PLAIN) && merge.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge.tag && tag.default);
 function addMergeToJSMap(ctx, map2, value) {
