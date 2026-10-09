@@ -23,6 +23,7 @@
 
 import { build } from "esbuild";
 import { parse as parseJavaScript } from "@babel/parser";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -312,6 +313,30 @@ export function readableSource(text, file) {
   return text;
 }
 
+const GUIDES = "https://github.com/nordscope-fi/plain-english/blob/main/";
+
+/**
+ * The ruleset as the plugin carries it. The Claude directory pairs the YAML
+ * parser's own `token` variables with any web address in the plugin (held on
+ * 92ba45e). Nothing in the plugin requests the ruleset's addresses, so its
+ * copy names this repository's guides by path, leaves out the rule source
+ * credits that only the CLI's policy page shows, and drops comments. The
+ * rules themselves are unchanged; a test compares them with the original.
+ */
+export function pluginRuleset(text) {
+  const tidy = (value, key) => {
+    if (key === "link" && typeof value === "string") return value.startsWith(GUIDES) ? value.slice(GUIDES.length) : value;
+    if (key === "sources" && Array.isArray(value)) return [];
+    if (Array.isArray(value)) return value.map((item) => tidy(item));
+    if (value === null || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, tidy(item, name)]));
+  };
+  const out = stringifyYaml(tidy(parseYaml(text)), { lineWidth: 0 });
+  const left = out.match(/https?:\/\/\S*/g);
+  if (left) throw new Error(`The plugin's ruleset still has web addresses: ${left.join(", ")}; update scripts/build-plugin.mjs.`);
+  return out;
+}
+
 /** The part of `fault` the frontmatter parser uses, without its `eval` member. */
 const FAULT_EVAL = /^\s*eval: create\(EvalError\),\n/m;
 
@@ -475,7 +500,7 @@ if (isMain) {
   const issueTools = visibleControls(issueBuild.outputFiles[0].text);
   // The built-in ruleset travels as a module the mod imports, so a check reads
   // no plugin file to find it (ADR-008).
-  const rules = generatedHeader(readableSource(`export default ${JSON.stringify(readFileSync(rulesFrom, "utf8"))};\n`, "default-rules.mjs"))
+  const rules = generatedHeader(readableSource(`export default ${JSON.stringify(pluginRuleset(readFileSync(rulesFrom, "utf8")))};\n`, "default-rules.mjs"))
     .replace("from src/plugin-core.ts", "from rules/default.yml");
   const license = readFileSync(licenseFrom, "utf8");
   const notices = thirdPartyNotices([coreBuild.metafile, shellBuild.metafile]);

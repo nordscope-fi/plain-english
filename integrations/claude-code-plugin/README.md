@@ -101,7 +101,7 @@ One, and only after you ask for it: the project's config, `.plain-english.yml` o
 
 ### Uses a credential from the user's machine
 
-Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask for through `user_config`. The checker's code carries no web address. The built-in ruleset, `hooks/core/default-rules.mjs`, links to this repository's guides and credits the sources of some rules on `github.com` and `reddit.com`; findings print those links, and nothing requests them. Tests fail if the checker's code gains a web address, an HTML library or an encoded table.
+Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask for through `user_config`. The plugin carries no web address at all. In its copy of the built-in ruleset, `hooks/core/default-rules.mjs`, each finding's link to this repository's guides is a path such as `docs/writing-style.md#readability`, and the rule source credits that only the CLI's policy page shows are left out. The rules themselves are the same. Tests fail if the plugin gains a web address, an HTML library or an encoded table.
 
 ### Bundled code
 
