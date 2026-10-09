@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.2] - 2026-10-09
+### Changed
+
+- The Claude Code plugin names no network host: the model answers its mod passes to the checker moved to a field called `answered`, and the Markdown library's `file:` address helper is replaced by one that accepts none. The Claude directory read `host` as a way to send data.
+
 ## [1.16.1] - 2026-10-09
 ### Changed
 
@@ -768,7 +773,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.2...HEAD
+[1.16.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.2
 [1.16.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.1
 [1.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.0
 [1.15.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.2

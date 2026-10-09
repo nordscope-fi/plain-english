@@ -10,7 +10,7 @@ export { claudeCodeHook } from "./agents/claude-code-hook.ts";
 export { claudeCodeChat } from "./chat/claude-code.ts";
 export { emptyFetched, NeedFiles, replay, replayIo, type CheckerIo, type Fetched, type FileFacts } from "./io.ts";
 export { pathsFor } from "./paths.ts";
-export { ModelRequest, type HostAnswer, type HostRoute } from "./adapters/judge.ts";
+export { ModelRequest, type ModAnswer, type ModAnswers } from "./adapters/judge.ts";
 export { approvalPlan, type ApprovalRequest } from "./approve.ts";
 export { projectGuidance } from "./guidance.ts";
 export { resolveRuleSet } from "./rules.ts";

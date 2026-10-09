@@ -10,7 +10,7 @@
  */
 import { decide, extractFromBash, extractFromIssue, hasAck, projectDirFor, scopedDocsFiles, HOOK_BUDGET_MS, POST_BUDGET_MS, type Channel, type Decision } from "./adapters/hook.ts";
 import { decideChat } from "./adapters/chat.ts";
-import { isJudge, CLAUDE_JUDGE_ARGS, VIBE_JUDGE_ARGS, judgeInput, lastAsked, runJudge, usableReason, overDocsJudgeLimit, type HostRoute } from "./adapters/judge.ts";
+import { isJudge, CLAUDE_JUDGE_ARGS, VIBE_JUDGE_ARGS, judgeInput, lastAsked, runJudge, usableReason, overDocsJudgeLimit, type ModAnswers } from "./adapters/judge.ts";
 import type { AgentProfile, HookEvent, NormalisedEvent } from "./agents/profile.ts";
 import { CHAT_JUDGE_PIPELINE_MS, DOCS_JUDGE_CALL_MS, nextJudgeTimeout } from "./chat/budget.ts";
 import type { ChatReader } from "./chat/reader.ts";
@@ -34,7 +34,7 @@ export interface HookCheck {
   /** The model the judge asks for, where the caller names one. */
   model?: string;
   /** The mod's answers so far (ADR-006). */
-  host?: HostRoute;
+  answered?: ModAnswers;
   /** A project folder the caller already knows, for agents whose payload lacks one. */
   chatCwd?: string;
   io: CheckerIo;
@@ -73,7 +73,7 @@ function modelCommand(agent: string, model?: string): { command: string; args: s
 
 export function hookCheck(check: HookCheck): HookResult {
   if (check.channel === "chat") return chatCheck(check);
-  const { channel, payload, profile, io, host } = check;
+  const { channel, payload, profile, io, answered } = check;
   const event: HookEvent = check.event ?? "pre";
   const env = io.env;
   const unavailable = (reason: string) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
@@ -109,8 +109,8 @@ export function hookCheck(check: HookCheck): HookResult {
   // choices before disclosing their input, so the checker owns every model call.
   const semanticPhase = ruleSet.failOn === "never" ? (profile.advisoryPhase ?? "pre") : "pre";
   if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
-    const deadline = host?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
-    if (host) host.deadline = deadline;
+    const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
+    if (answered) answered.deadline = deadline;
     for (const request of requests) {
       if (hasAck(request.channel, projectDir, undefined, io) || overDocsJudgeLimit(request.input)) continue;
       const timeoutMs = Math.max(0, deadline - io.now());
@@ -124,7 +124,7 @@ export function hookCheck(check: HookCheck): HookResult {
         timeoutMs,
         env,
         onUnavailable: unavailable,
-        ...(host ? { host } : {}),
+        ...(answered ? { answered } : {}),
       });
       if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
         decision = {
@@ -152,7 +152,7 @@ export function hookCheck(check: HookCheck): HookResult {
  * worse than no chat hook.
  */
 function chatCheck(check: HookCheck): HookResult {
-  const { payload, profile, reader, io, host } = check;
+  const { payload, profile, reader, io, answered } = check;
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader) return silent;
   const env = io.env;
@@ -171,8 +171,8 @@ function chatCheck(check: HookCheck): HookResult {
   const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
   // One deadline covers both optional model calls. Giving each call its own
   // full timeout allowed the pipeline to outlive the host hook around it.
-  const judgeDeadline = host?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
-  if (host) host.deadline = judgeDeadline;
+  const judgeDeadline = answered?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
+  if (answered) answered.deadline = judgeDeadline;
 
   const decision = decideChat(reply, {
     ruleSet,
@@ -196,7 +196,7 @@ function chatCheck(check: HookCheck): HookResult {
           timeoutMs,
           env,
           onUnavailable: unavailable,
-          ...(host ? { host } : {}),
+          ...(answered ? { answered } : {}),
         });
       };
 

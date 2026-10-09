@@ -39550,7 +39550,7 @@ var ModelRequest = class extends Error {
     this.request = request;
   }
 };
-function hostKey(filled) {
+function answerKey(filled) {
   return sha256(filled);
 }
 function hostRoute(payload, env = nodeIo.env) {
@@ -39575,13 +39575,13 @@ function hostRoute(payload, env = nodeIo.env) {
   const deadline = typeof record4["deadline"] === "number" && Number.isFinite(record4["deadline"]) ? record4["deadline"] : void 0;
   return { answers, ...deadline !== void 0 ? { deadline } : {} };
 }
-function answerFromHost(filled, opts, host) {
-  const key = hostKey(filled);
-  const index2 = host.answers.findIndex((answer2) => answer2.key === key);
+function answerFromMod(filled, opts, answered) {
+  const key = answerKey(filled);
+  const index2 = answered.answers.findIndex((answer2) => answer2.key === key);
   if (index2 === -1)
     throw new ModelRequest({ key, prompt: filled, timeoutMs: opts.timeoutMs ?? JUDGE_TIMEOUT_MS });
-  const answer = host.answers[index2];
-  if (index2 === host.answers.length - 1) {
+  const answer = answered.answers[index2];
+  if (index2 === answered.answers.length - 1) {
     const measurement = {
       provider: "claude",
       outcome: answer.text !== void 0 ? "complete" : answer.unavailable === "timed out" ? "timed_out" : "failed",
@@ -39613,8 +39613,8 @@ function runJudge(input, opts) {
   if (!opts.prompt.includes("$ARGUMENTS"))
     return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
-  if (opts.host)
-    return answerFromHost(filled, opts, opts.host);
+  if (opts.answered)
+    return answerFromMod(filled, opts, opts.answered);
   return spawnJudge(filled, opts, env);
 }
 
@@ -39668,7 +39668,7 @@ function modelCommand(agent, model) {
 function hookCheck(check) {
   if (check.channel === "chat")
     return chatCheck(check);
-  const { channel, payload, profile, io, host } = check;
+  const { channel, payload, profile, io, answered } = check;
   const event = check.event ?? "pre";
   const env = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
@@ -39694,9 +39694,9 @@ function hookCheck(check) {
     requests.push({ channel, input: JSON.stringify({ texts }) });
   const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
   if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
-    const deadline = host?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
-    if (host)
-      host.deadline = deadline;
+    const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
+    if (answered)
+      answered.deadline = deadline;
     for (const request of requests) {
       if (hasAck(request.channel, projectDir, void 0, io) || overDocsJudgeLimit(request.input))
         continue;
@@ -39713,7 +39713,7 @@ function hookCheck(check) {
         timeoutMs,
         env,
         onUnavailable: unavailable,
-        ...host ? { host } : {}
+        ...answered ? { answered } : {}
       });
       if (verdict && !verdict.ok && verdict.reason && usableReason(verdict.reason, ruleSet)) {
         decision = {
@@ -39731,7 +39731,7 @@ function hookCheck(check) {
   return { stdout: out.stdout, exitCode: out.exitCode, parsed, decision };
 }
 function chatCheck(check) {
-  const { payload, profile, reader, io, host } = check;
+  const { payload, profile, reader, io, answered } = check;
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader)
     return silent;
@@ -39746,9 +39746,9 @@ function chatCheck(check) {
   const turn = chatTurnId(payload, reader, reply, cwd, void 0, io);
   const helper = payload["agent_id"] ?? payload["subagent_id"];
   const promptId = helper ? `${turn}:helper:${String(helper)}` : turn;
-  const judgeDeadline = host?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
-  if (host)
-    host.deadline = judgeDeadline;
+  const judgeDeadline = answered?.deadline ?? io.now() + CHAT_JUDGE_PIPELINE_MS;
+  if (answered)
+    answered.deadline = judgeDeadline;
   const decision = decideChat(reply, {
     ruleSet,
     /**
@@ -39773,7 +39773,7 @@ function chatCheck(check) {
           timeoutMs,
           env,
           onUnavailable: unavailable,
-          ...host ? { host } : {}
+          ...answered ? { answered } : {}
         });
       };
       const readablePrompt = prompts["chat-readable"];
@@ -43383,7 +43383,7 @@ ${bold("Pattern families")}
 }
 async function cmdHook(args) {
   const finishCapture = initializeJudgeReceipts();
-  let host;
+  let answered;
   try {
     const name = args.positionals[0] ?? String(args.flags["channel"] ?? "docs");
     if (!isChannel(name)) {
@@ -43396,7 +43396,7 @@ async function cmdHook(args) {
     if (!raw.trim())
       return 0;
     const payload = JSON.parse(raw);
-    host = hostRoute(payload);
+    answered = hostRoute(payload);
     delete payload["plainEnglishModel"];
     const agentFlag = args.flags["agent"] === void 0 ? void 0 : String(args.flags["agent"]);
     let profile;
@@ -43415,7 +43415,7 @@ async function cmdHook(args) {
       ...channel === "chat" ? { reader: readerFor(profile.id) } : {},
       event,
       ...args.flags["model"] ? { model: String(args.flags["model"]) } : {},
-      ...host ? { host } : {},
+      ...answered ? { answered } : {},
       ...channel === "chat" && profile.id === "antigravity" && antigravityCwd(payload) ? { chatCwd: antigravityCwd(payload) } : {},
       io: nodeIo
     });
@@ -43441,11 +43441,11 @@ async function cmdHook(args) {
     }
     return result.exitCode;
   } catch (error) {
-    if (error instanceof ModelRequest && host) {
+    if (error instanceof ModelRequest && answered) {
       const model = args.flags["model"] ? String(args.flags["model"]) : void 0;
       process.stdout.write(JSON.stringify({ plainEnglishModelRequest: {
         ...error.request,
-        deadline: host.deadline,
+        deadline: answered.deadline,
         ...model ? { model } : {}
       } }));
       return 0;

@@ -65,7 +65,7 @@ async function runCore<T>(
   rounds = 12,
 ): Promise<T> {
   const fetched: Fetched = emptyFetched()
-  const host: { answers: ModelAnswer[]; deadline?: number } = { answers: [] }
+  const answered: { answers: ModelAnswer[]; deadline?: number } = { answers: [] }
   for (let round = 0; round < rounds; round++) {
     signal?.throwIfAborted()
     const notices: string[] = []
@@ -84,7 +84,7 @@ async function runCore<T>(
       defaultRules: () => DEFAULT_RULES as string,
     }, fetched)
     try {
-      const result = replay(io, (checked: unknown) => work(checked, host))
+      const result = replay(io, (checked: unknown) => work(checked, answered))
       for (const [key, value] of pending) kept.set(key, value)
       for (const notice of new Set(notices)) if (SAFE_CHECK_NOTICES.has(notice)) log($, notice)
       return result
@@ -95,7 +95,7 @@ async function runCore<T>(
       }
       if (error instanceof ModelRequest) {
         const asked = (error as unknown as { request: { key: string; prompt: string; timeoutMs: number } }).request
-        host.answers.push(await answerModel($, asked, signal))
+        answered.answers.push(await answerModel($, asked, signal))
         continue
       }
       throw error
@@ -151,8 +151,8 @@ async function adapter(
   cwd: string,
   signal: AbortSignal,
 ): Promise<string> {
-  return runCore($, cwd, (io, host) => (hookCheck({
-    channel, payload, profile: claudeCodeHook, reader: claudeCodeChat, io, host,
+  return runCore($, cwd, (io, answered) => (hookCheck({
+    channel, payload, profile: claudeCodeHook, reader: claudeCodeChat, io, answered,
   }) as { stdout: string }).stdout, signal)
 }
 
