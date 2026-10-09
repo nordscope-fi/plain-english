@@ -1,0 +1,1803 @@
+# plain-english default ruleset
+#
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH.
+#
+# docs/writing-style.md and integrations/claude-code/prompts/*.txt are GENERATED
+# from this file by `plain-english render`. CI fails if they drift. Never edit
+# the generated files by hand; edit this one and re-render.
+#
+# severity:
+#   error  blocks the write and exits non-zero
+#   warn   reported, never blocks
+#
+# unless:
+#   regexes that cancel a match. Use these for words with a legitimate
+#   technical or domain sense. A match inside code, a URL, or a blockquote is
+#   already excluded by the masking pass and needs no `unless` entry.
+
+version: 1
+
+meta:
+  title: "Writing Style: AI-Tell Patterns to Cut"
+  intro: >-
+    Applies to everything written in or by this project: chat replies, docs,
+    commit messages, PR descriptions, and issue text. Not just the channels a
+    hook can check.
+
+families:
+  - id: empty-framing
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several framing phrases delay the substance. Remove the frame and keep each point."
+  - id: promotional-language
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several promotional claims appear together. Replace them with facts or measurements."
+  - id: unsupported-authority
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several claims borrow authority without giving evidence. Name the source or qualify the claim."
+  - id: assistant-debris
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several provider artifacts or unfinished fields remain in the text."
+  - id: mechanical-transition
+    severity: warn
+    minFindings: 3
+    minRules: 2
+    minSentences: 2
+    message: "Several stock hooks give the text a repeated scripted rhythm. Start those passages with their point."
+
+punctuation:
+  - id: em-dash
+    severity: error
+    match: "—"
+    message: "No em dashes. Use a comma, parentheses, or a full stop."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md#the-em-dash-rule"
+
+  # A rate-based alternative, shipped off by default.
+  #
+  # Some published comparisons measure em dash use as a rate (roughly 10.6 per
+  # 1,000 words for GPT-4.1 against a cited baseline of 3.23). That baseline is
+  # drawn from professionally edited prose, where the em dash is a normal
+  # typographic device. In ordinary workplace and technical writing the base
+  # rate is near zero, so for most documents presence is the signal and a
+  # threshold only adds a way to miss it.
+  #
+  # This rule exists for anyone editing in a register where em dashes are
+  # genuinely common, such as published essays or long-form journalism.
+  #
+  # To use it:  em-dash -> severity: off, em-dash-density -> severity: warn
+  - id: em-dash-density
+    severity: off
+    match: "—"
+    perThousandWords: 6
+    message: "Em dash rate is above the configured threshold."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/limitations.md#the-em-dash-rule"
+
+  - id: en-dash-as-punctuation
+    severity: warn
+    match: "\\s–\\s"
+    message: "An en dash used as a sentence break is the same tell as an em dash."
+
+rules:
+  # ---------------------------------------------------------------- stock transitions
+  - id: furthermore
+    severity: error
+    family: empty-framing
+    match: "\\bfurthermore\\b"
+    message: "Start the sentence with its own point."
+
+  - id: moreover
+    severity: error
+    family: empty-framing
+    match: "\\bmoreover\\b"
+    message: "Start the sentence with its own point."
+
+  - id: in-conclusion
+    severity: error
+    family: empty-framing
+    match: "\\bin conclusion\\b"
+    message: "State the conclusion. Do not announce it."
+
+  - id: worth-noting
+    severity: error
+    family: empty-framing
+    # The tell is a verb of noticing, so the list is closed: note, understand,
+    # remember and their neighbours. "It is important to test the migration"
+    # makes a claim about what to do and stays legal.
+    match: "\\bit( is|'?s) worth (noting|mentioning)\\b|\\bit( is|'?s) important to (note|understand|remember|consider|mention|highlight|realise|realize|recognise|recognize|emphasise|emphasize|point out|keep in mind|bear in mind)\\b"
+    message: "If it is worth noting, note it."
+
+  - id: at-the-end-of-the-day
+    severity: error
+    family: empty-framing
+    # Only the discourse-marker use (followed by a comma). The literal temporal
+    # sense ("the batch runs at the end of the day") stays legal.
+    match: "\\bat the end of the day,"
+    message: "Cut the phrase and state the point."
+
+  - id: lets-dive-in
+    severity: error
+    family: empty-framing
+    match: "\\blet'?s dive in\\b"
+    message: "Start with the content."
+
+  - id: dive-into
+    severity: warn
+    match: "\\bdiv(e|es|ing) into\\b"
+    unless:
+      - "\\bdiv(e|es|ing) into (the )?(pool|water|sea|ocean|wreck)\\b"
+    message: "Usually 'read', 'look at', or just the verb for what you are doing."
+
+  - id: heres-the-thing
+    severity: warn
+    family: mechanical-transition
+    match: "\\bhere(?:'|’)s the thing\\b"
+    message: "State the thing directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: real-question-hook
+    severity: warn
+    family: mechanical-transition
+    match: "\\bthe real question is\\b"
+    message: "Ask the question directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: what-that-means-hook
+    severity: warn
+    family: mechanical-transition
+    match: "\\bhere(?:'|’)s what that means in practice\\b"
+    message: "Give the practical effect directly."
+    provenance:
+      kind: quality
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  # ---------------------------------------------------------------- corporate verbs
+  - id: leverage
+    severity: error
+    match: "\\bleverag(e|es|ed|ing)\\b"
+    unless:
+      # Finance and engineering senses are real terms.
+      - "\\b(financial|operating|debt|net|balance.sheet)\\s+leverage\\b"
+      - "\\bleverage\\s+(ratio|point|effect)\\b"
+      - "\\bleveraged\\s+(buyout|loan|finance|etf)\\b"
+    message: "Use 'use'."
+
+  - id: utilize
+    severity: error
+    # Deliberately does not match 'utilization', a real capacity-planning term.
+    match: "\\butiliz(e|es|ed|ing)\\b|\\butilis(e|es|ed|ing)\\b"
+    message: "Use 'use'."
+
+  - id: delve
+    severity: error
+    match: "\\bdelv(e|es|ed|ing)\\b"
+    message: "Use 'look at', 'read', or 'go through'."
+
+  - id: showcase
+    severity: error
+    match: "\\bshowcas(e|es|ed|ing)\\b"
+    unless:
+      - "\\b(glass|display|trophy|museum)\\s+showcase\\b"
+    message: "Use 'show'."
+
+  - id: boasts
+    severity: error
+    match: "\\bboasts\\b"
+    unless:
+      - "\\bboasts?\\s+about\\b"
+    message: "State the number without the verb: 'uptime is 99.9%'."
+
+  - id: underscores-verb
+    severity: warn
+    # The AI tell is always the transitive verb ("this underscores the need").
+    # Requiring a following determiner keeps the plural noun ("the filename
+    # underscores are significant") out of scope without needing an exception.
+    match: "\\bunderscor(e|es|ed|ing)\\s+(the|that|this|these|those|a|an|how|why|just|again|its|our|their|his|her)\\b"
+    unless:
+      # Identifier context, where the word is a literal character name.
+      - "_"
+    message: "Use 'shows', 'proves', or drop the sentence."
+
+  # ---------------------------------------------------------------- buzzwords
+  - id: seamless
+    severity: error
+    family: promotional-language
+    match: "\\bseamless(ly)?\\b"
+    unless:
+      # Manufacturing sense.
+      - "\\bseamless\\s+(pipe|tube|steel|garment|knit|weld)\\b"
+    message: "Say what actually happens, or cut the word."
+
+  - id: cutting-edge
+    severity: error
+    family: promotional-language
+    # Bounded so 'cutting edges of the sheet' does not match.
+    match: "\\bcutting[- ]edge\\b"
+    message: "Name the thing that is new."
+
+  - id: holistic
+    severity: warn
+    family: promotional-language
+    match: "\\bholistic(ally)?\\b"
+    unless:
+      - "\\bholistic\\s+(medicine|health|healing|therapy|wellness|practitioner|nutrition)\\b"
+    message: "Say which parts you mean."
+
+  - id: synergy
+    severity: error
+    family: promotional-language
+    match: "\\bsynerg(y|ies|istic|istically)\\b"
+    message: "Name the actual benefit."
+
+  - id: paradigm-shift
+    severity: error
+    family: promotional-language
+    match: "\\bparadigm shift\\b"
+    message: "Say what changed."
+
+  - id: game-changer
+    severity: error
+    family: promotional-language
+    match: "\\bgame[- ]chang(er|ing)\\b"
+    message: "Say what it changes."
+
+  - id: unlock-the
+    severity: error
+    family: promotional-language
+    # Only the marketing sense. 'unlock the door' and 'unlock the account' pass.
+    match: "\\bunlock (the|your) (potential|power|value|secret|secrets|full)\\b"
+    message: "Say what becomes possible."
+
+  - id: elevate-your
+    severity: error
+    family: promotional-language
+    match: "\\belevate your\\b"
+    message: "Say what improves."
+
+  - id: in-todays-x
+    severity: error
+    match: "\\bin today'?s (fast[- ]paced|digital|business|competitive|modern)\\b"
+    message: "Cut the opener and start with the point."
+
+  # ---------------------------------------------------------------- AI self-reference
+  - id: as-an-ai
+    severity: error
+    match: "\\bas an AI\\b|\\bas a large language model\\b"
+    message: "Cut it."
+
+  - id: assistant-citation-debris
+    severity: warn
+    family: assistant-debris
+    match: "\\bturn[0-9]+(?:search|fetch|view)[0-9]+\\b|\\b(?:oaicite|oai_citation|attributableIndex)\\b|\\[cite:\\s*[0-9]+\\]"
+    message: "Remove the provider's internal citation marker and add a real source link if the claim needs one."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: assistant-service-residue
+    severity: warn
+    family: assistant-debris
+    match: "\\bas of my (?:last )?(?:knowledge cutoff|training update)\\b|\\bin the provided search results\\b"
+    message: "Remove the assistant's service note and state the supported fact or evidence gap."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  - id: unresolved-placeholder
+    severity: warn
+    family: assistant-debris
+    match: "\\[(?:Your Name|Company Name|Describe [^\\]\\n]{1,60}|Insert [^\\]\\n]{1,60})\\]|\\bYYYY-XX-XX\\b"
+    message: "Replace the unfinished field with its value or remove it."
+    provenance:
+      kind: marker
+      confidence: high
+      scope: [chat, docs, repository]
+      reviewed: "2026-09-13"
+      sources:
+        - title: "Plain English Unslop review"
+          url: "https://github.com/asavvin-pixel/unslop"
+
+  # ---------------------------------------------------------------- soft-focus adverbs
+  # These have real technical senses, so they warn instead of blocking.
+  - id: silently
+    severity: warn
+    match: "\\bsilent(ly)?\\b"
+    unless:
+      - "\\bfails?\\s+silently\\b"
+      - "\\bfailed\\s+silently\\b"
+      - "\\bsilently\\s+(ignor|drop|discard|swallow|skip|truncat|overwrit|fail)"
+      - "\\bsilent\\s+(mode|install|failure|corruption|film|letter|partner)\\b"
+    message: "Say what happened and what it affected."
+
+  - id: quietly
+    severity: warn
+    match: "\\bquietly\\b"
+    message: "Say what happened and what it affected."
+
+  - id: mechanical
+    severity: warn
+    match: "\\bmechanical(ly)?\\b"
+    unless:
+      - "\\bmechanical\\s+(keyboard|engineer|engineering|turk|advantage|ventilation|seal|watch|pencil|switch|failure|load|part|component)\\b"
+    message: "Say what the process actually does."
+
+  - id: load-bearing
+    severity: error
+    match: "\\bload[- ]bearing\\b"
+    unless:
+      # Structural engineering sense.
+      - "\\bload[- ]bearing\\s+(wall|walls|beam|column|member|structure|capacity|frame)\\b"
+    message: "Say what depends on it."
+
+  # ---------------------------------------------------------------- padding
+  # Fixed phrases that carry no information. This is Strunk's rule 13, omit
+  # needless words, and it is the one piece of a general style guide that fits
+  # here: the phrases are a closed set, so they can be checked exactly, and a
+  # model reaches for them far more often than a person does.
+  #
+  # All warn. None of them is wrong, only long, and a rule that blocks on a
+  # phrase this ordinary is the kind of gate people learn to route around.
+  #
+  # Two of Strunk's rules deliberately did not come across. Passive voice and
+  # the "there is" opener both need a reader to tell a weak use from a correct
+  # one, and both fired on this project's own hand-edited docs: "are covered
+  # by", "is accepted by", "There is no config needed". Those belong to a
+  # general prose linter such as Vale, which the README already points at.
+  - id: the-fact-that
+    severity: warn
+    match: "\\bthe fact that\\b"
+    message: "Cut it: 'despite the fact that' is 'though'."
+
+  - id: in-order-to
+    severity: warn
+    match: "\\bin order to\\b"
+    message: "Use 'to'."
+
+  - id: in-terms-of
+    severity: warn
+    match: "\\bin terms of\\b"
+    unless:
+      # The mathematical sense: one quantity written using another.
+      - "\\b(express|expresses|expressed|defines?|defined|solves?|solved|writes?|written|rewritten|measures?|measured|states?|stated)\\s+in terms of\\b"
+    message: "Name the relation, or use 'in' or 'for'."
+
+  - id: able-to
+    severity: warn
+    match: "\\b(is|are|was|were|be|been|being)\\s+able to\\b|\\bha(s|ve|d)\\s+the ability to\\b"
+    message: "Use 'can'."
+
+  - id: a-number-of
+    severity: warn
+    match: "\\ba (number|variety) of\\b"
+    message: "Say how many, or cut the phrase."
+
+  - id: in-a-manner
+    severity: warn
+    # 'manner' and 'fashion' only. "in a useful way" is ordinary English, and
+    # firing on it would police writing that is already clear.
+    match: "\\bin (a|an) [a-z]+ (manner|fashion)\\b"
+    message: "Use the adverb: 'in a hasty manner' is 'hastily'."
+
+  - id: as-to-whether
+    severity: warn
+    match: "\\b(the question )?as to whether\\b"
+    message: "Use 'whether'."
+
+  - id: not-un
+    severity: warn
+    match: "\\bnot un[a-z]+\\b"
+    unless:
+      # Words where 'un' is not a prefix. Strip it and no English word is left,
+      # so the negation is plain rather than a rhetorical softener.
+      #
+      # Every alternative is open-ended on purpose. Closing each one with \b
+      # was the bug: the boundary landed right after 'der', so this was meant
+      # to cover "not underscores" and stopped at "not under". The same gap hid
+      # "not understood" and "not underway".
+      - "\\bnot un(der|do|less|til|animous|animity|iform|ilateral|ion|ique|ison|it|ivers)[a-z]*\\b"
+      # Negations a technical document makes on purpose. "not undefined" and
+      # "not unique" are statements of fact, not litotes.
+      #
+      # These stay closed. "unreadable" and "unsupportable" are ordinary
+      # litotes, and opening 'read' or 'support' would except them.
+      - "\\bnot (unset|un(ique|defined|initialised|initialized|installed|available|mounted|locked|committed|staged|tracked|read|used|packed|zipped|reachable|supported))\\b"
+    message: "Say what it is: 'not uncommon' is 'common'."
+
+  - id: prior-to
+    severity: warn
+    match: "\\bprior to\\b"
+    message: "Use 'before'."
+
+  - id: with-respect-to
+    severity: warn
+    match: "\\bwith (respect|regard|regards) to\\b"
+    message: "Use 'about', or name the relation."
+
+# Readability. These measure the shape of the prose rather than matching a term.
+#
+# The complaint these answer is "I get lost", which turned out not to be about
+# length. A worked example, 26 words and five unexplained terms:
+#
+#   "The OIDC trusted publisher attaches SLSA provenance to the tarball at
+#    publish time, which the registry verifies against the workflow identity
+#    asserted by the id-token claim."
+#
+# That is an ordinary-length technical sentence. What makes it hard is that
+# nothing in it was ever explained. So `unglossed-term` is the rule that earns
+# its place here, and `long-sentence` is set generously enough to leave dense
+# but explained writing alone.
+  # ---------------------------------------------------------------- borrowed vocabulary
+  #
+  # Read on 2026-08-20 against two published rulesets: the `unslop` skill in
+  # cursor/plugins, and ClaudeFire's `readable.md`. Between them they name
+  # about fifty terms this file had no rule for.
+  #
+  # GROUPED, not one rule per word. `test/corpus.test.ts` requires a case
+  # naming every live rule, so forty-five ids would mean ninety corpus entries
+  # asserting the same thing in ninety ways.
+  #
+  # THE SPLIT is whether the word has a real sense worth protecting. Puffery
+  # blocks, because there is no technical reading of "tapestry" to preserve. A
+  # metaphor borrowed into engineering warns, because the writer may be quoting
+  # somebody, or writing about the literal thing, and no pattern can tell.
+  #
+  # Fifteen further candidates are deliberately absent: surface, vector,
+  # primitive, features, enhance, crucial, seam, spine, ratchet, intricate,
+  # garner, enduring, haunted, sidecar and grooves. Every one has a
+  # common literal sense in software prose, and shipping them tuned against no
+  # evidence is how this file acquired the false positives it has twice had to
+  # remove. They wait on `plain-english record` output over real documents.
+  - id: puffery-nouns
+    severity: error
+    match: "\\b(tapestry|testament|indelible mark)\\b"
+    unless:
+      # The book, and the legal phrase. Both are the literal noun.
+      - "\\b(old|new)\\s+testament\\b"
+      - "\\blast will and testament\\b"
+    message: "Say what happened. A result is not a testament to anything."
+
+  - id: pivotal
+    severity: error
+    match: "\\bpivotal\\b"
+    message: "Say what it changed."
+
+  - id: promotional-adjectives
+    severity: error
+    family: promotional-language
+    match: "\\b(vibrant|breathtaking|groundbreaking|stunning|nestled|must-visit)\\b"
+    message: "Describe it neutrally, or give the number."
+
+  - id: evolving-landscape
+    severity: error
+    match: "\\b(ever-)?(evolving|changing|shifting)\\s+(landscape|world|field|environment)\\b"
+    message: "Name what changed and when."
+
+  - id: abstract-landscape
+    severity: error
+    # The abstract sense only. A photograph, a garden and a monitor all have a
+    # literal landscape and none of them is the tell.
+    match: "\\b(technology|technological|competitive|digital|business|security|threat|regulatory|marketing)\\s+landscape\\b"
+    message: "Name the thing that changed, or the competitors."
+
+  - id: deeply-rooted
+    severity: error
+    match: "\\bdeeply[- ]rooted\\b"
+    message: "Say where it comes from."
+
+  # Drawn on 2026-08-26 from a list of 100 phrases collected by a Claude user:
+  # https://www.reddit.com/r/claude/comments/1vyr3oc/
+  #
+  # The list mixes strong tells with ordinary prose and several malformed
+  # fragments. These rules keep the closed phrases that say nothing on their
+  # own. Broad fragments such as "potentially lead to", "make accessible" and
+  # "address the root cause" stay legal. Matching those would punish the fact
+  # they describe rather than the way it is written.
+  - id: inflated-significance
+    severity: error
+    family: promotional-language
+    match: "\\b(a stark reminder|unwavering commitment|transformative power|relentless pursuit|pav(e|es|ed|ing) the way for (the )?future|a significant step forward)\\b"
+    message: "State what changed or what the evidence shows."
+
+  - id: formulaic-importance
+    severity: warn
+    family: unsupported-authority
+    match: "\\b(provid(e|es|ed|ing)|offer(s|ed|ing)) (a )?valuable insights?\\b|\\b(significant role in shaping|play(s|ed|ing)? (a )?(crucial|significant) role)\\b|\\b(emphasi(s|z)(e|es|ed|ing)|highlight(s|ed|ing)?) (the )?(importance|need|potential)\\b"
+    message: "Name the fact or consequence instead of announcing its importance."
+
+  - id: staged-progress
+    severity: warn
+    match: "\\b(the journey begins|the path ahead|la(y|id|ys|ying) the groundwork|mark(s|ed|ing) a turning point|a significant milestone|open(s|ed|ing) (up )?(a )?new avenues?)\\b"
+    message: "Name the next step or the change without turning it into a journey."
+
+  - id: academic-fog
+    severity: warn
+    match: "\\b(a )?(nuanced|deeper|broad|comprehensive) understanding\\b|\\b(the )?complex interplay\\b|\\b(a )?delicate balance\\b|\\b(shed|sheds|shedding) light on\\b|\\b(particularly noteworthy|far[- ]reaching implications?|profound implications?|a comprehensive (overview|framework)|an ongoing dialogue|stand(s|ing)? in stark contrast)\\b"
+    message: "Replace the frame with the specific relationship, finding, or difference."
+
+  - id: abstract-metaphor-nouns
+    # Warn. Each of these has a domain where it is the ordinary word, and the
+    # tell is only the metaphorical reach. Same tier as `silently` and
+    # `holistic`, and for the same reason.
+    severity: warn
+    match: "\\b(substrate|locus|vantage|nexus|bedrock|modality|north star|flywheel|gold[- ]plating)\\b"
+    unless:
+      - "\\b(silicon|growth|culture|glass|ceramic|sapphire)\\s+substrate\\b"
+      - "\\bsubstrate\\s+(concentration|binding|specificity)\\b"
+      - "\\bvantage\\s+point\\b"
+      - "\\blocus\\s+of\\s+control\\b"
+      - "\\b(imaging|treatment|sensory|input)\\s+modality\\b"
+      - "\\bmodality\\s+of\\s+(imaging|treatment)\\b"
+    message: "Pick the concrete word: a base, a place, a link, a goal."
+
+  - id: borrowed-metaphors
+    severity: warn
+    match: "\\b(footgun|blast radius|belt and suspenders|cargo[- ]cult|smoking gun|the quiet part out loud)\\b"
+    unless:
+      # The literal one, which is a real thing an explosives or safety document
+      # is entitled to describe.
+      - "\\bblast radius\\s+of\\s+(the\\s+)?(bomb|charge|explosion|blast|device)\\b"
+    message: "Say the plain thing: an easy mistake, how much it affects, a redundant second check."
+
+  # An abstract thing given a property only a physical object has: a position,
+  # a location, a load it bears. Two of the alternatives are ported from
+  # tbhb/vale-ai-tells (MIT), FigurativeHolds and FigurativeSits. That project
+  # gates all 28 of its figurative-verb rules on the COMPLEMENT rather than on
+  # the verb, because the literal sense is everywhere ("the cat sits on the
+  # mat"), and a bare verb rule would flood.
+  #
+  # The same constraint decides `layer`, which is this project's own
+  # alternative: this file writes "the semantic layer" and "the adapter layer"
+  # throughout, so a bare word would fire on `npm run lint:self`. Only the
+  # spatial reach is matched. The "X is where Y goes wrong" alternative is also
+  # this project's own and appears in none of vale-ai-tells' 111 rules; the
+  # subject slot is a bare word because "line 40 is where the parse fails"
+  # names a real place.
+  #
+  # Warn, not error, for the reason `abstract-metaphor-nouns` gives: each verb
+  # has a domain where it is the ordinary word.
+  - id: figurative-placement
+    severity: warn
+    match: "\\b(the|a)\\s+layer\\s+(underneath|beneath|below|under|behind)\\b|\\bhold(s|ing)?\\s+up\\s+(well|under|to\\s+scrutiny|against)\\b|\\bsit(s|ting)?\\s+at\\s+the\\s+(intersection|core|centre|center|crux)\\s+of\\b|\\b(is|are)\\s+where\\s+[\\w-]+\\s+(go|goes|get|gets|break|breaks|fail|fails)\\b"
+    message: "Name the thing and say where it actually is."
+
+  # The short declarative verdict dropped in for effect, after the sentence
+  # that already made the point. Ported from tbhb/vale-ai-tells (MIT),
+  # MicDrop.yml. The trailing full stop is what makes it a verdict rather than
+  # a clause, which is why "it matters more than the cache size" is untouched.
+  #
+  # Pronoun and copula families only. The original also carries a
+  # "The <noun> is <adjective>." family, which is the highest-yield and the
+  # highest-risk half: it fires on ordinary technical assertions. That one
+  # waits on a rule that can read where the sentence sits in its paragraph.
+  #
+  # Anchored to a sentence start, which the corpus forced: without it the
+  # rule fired on "We shipped v0.1.3 today and it works.", where the clause
+  # ends the sentence but is not a verdict dropped after one.
+  - id: mic-drop
+    severity: warn
+    match: "(?<=^|[.!?]\\s|\\n)(It|This|That)(?:'s| is| was)\\s+(key|crucial|critical|intentional|deliberate|elegant|subtle|telling|striking|by design|no accident)\\.|(?<=^|[.!?]\\s|\\n)(It|This|That)\\s+(matters|works|compounds|adds up|pays off)\\."
+    message: "Fold the point into the sentence before it, or cut it."
+
+  - id: fancy-is
+    severity: warn
+    match: "\\b(serves|serve|stands|stand)\\s+as\\b"
+    unless:
+      # A process really can serve as a proxy or a cache. The tell is the verb
+      # standing in for "is" on something that is not serving anybody.
+      - "\\b(serves|serve)\\s+as\\s+(a|an|the)\\s+(reverse\\s+)?(proxy|cache|fallback|gateway|relay|load[- ]balancer|mirror|backup)\\b"
+      - "\\bstands?\\s+as\\s+(a\\s+)?(candidate|nominee|witness)\\b"
+    message: "Just say 'is' or 'has'."
+
+  - id: vague-attribution
+    severity: warn
+    family: unsupported-authority
+    match: "\\b(experts|analysts|critics|researchers|observers|industry reports|some critics|some experts)\\s+(believe|say|says|agree|argue|argues|suggest|suggests|note|notes|claim|claims)\\b"
+    message: "Name the source, or cut the claim."
+
+readability:
+  - id: unglossed-term
+    severity: warn
+    # An acronym of three or more letters, or a camel-cased name. Reported on
+    # first use only: repeating an acronym is not the problem, introducing one
+    # without saying what it does is.
+    #
+    # Suppressed by any `allow` entry, which is how a project declares its own
+    # vocabulary, and by the `known` list below.
+    kind: unglossed-term
+    message: "Say what it does, then name it."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+    # Names a reader already knows. Without these the rule fires on "GitHub",
+    # which is a camel-cased word and not jargon by any useful definition.
+    #
+    # This list is deliberately short and covers only names common enough that
+    # explaining them would insult the reader. Anything domain-specific belongs
+    # in a project's own `allow`, not here.
+    known:
+      # Platforms and companies
+      - GitHub
+      - GitLab
+      - YouTube
+      - LinkedIn
+      - PayPal
+      - DeepMind
+      - OpenAI
+      - PostgreSQL
+      - MongoDB
+      - MySQL
+      - SQLite
+      - DynamoDB
+      - JetBrains
+      - WordPress
+      - SharePoint
+      - PowerPoint
+      - HubSpot
+      - MailChimp
+      - QuickBooks
+      # Languages, runtimes and formats
+      - JavaScript
+      - TypeScript
+      - CoffeeScript
+      - PostScript
+      - JSON
+      - YAML
+      - TOML
+      - HTML
+      - CSS
+      - SQL
+      - XML
+      - CSV
+      - PDF
+      - PNG
+      - JPEG
+      - SVG
+      - URL
+      - URI
+      - API
+      - CLI
+      - GUI
+      - IDE
+      - OS
+      - macOS
+      - iOS
+      - iPhone
+      - iPad
+      - NodeJS
+      - jQuery
+      - GraphQL
+      - WebSocket
+      - WebAssembly
+      - OAuth
+      - HTTP
+      - HTTPS
+      - FTP
+      - SSH
+      - TLS
+      - SSL
+      - DNS
+      - IP
+      - CPU
+      - GPU
+      - RAM
+      - USB
+      - PDF
+      # Repository and document conventions. These name a file or a licence,
+      # not a concept, so there is nothing to explain.
+      - README
+      - CHANGELOG
+      - LICENSE
+      - CONTRIBUTING
+      - TODO
+      - MIT
+      - GPL
+      - BSD
+      # Everyday abbreviations
+      - FAQ
+      - PDF
+      - CEO
+      - CTO
+      - VAT
+      - EU
+      - UK
+      - USA
+      - PhD
+    # Ordinary English words typed in capitals for emphasis. An acronym and a
+    # shouted word are the same shape, so the rule cannot tell them apart by
+    # looking. The difference is that an acronym stands for something and a
+    # shouted word is already a word.
+    #
+    # Longer words are handled by their endings instead, in `sentences.ts`, so
+    # nothing ending in -ed, -ing, -ly, -tion or -able needs to be here.
+    #
+    # A dictionary looks like the answer and is not. The unabridged list that
+    # ships with macOS holds `roi`, `sla`, `mau`, `ram`, `ide` and `vat`, so
+    # checking against it would stop reporting ROI, SLA and MAU, which are the
+    # jargon this rule exists for. A curated list can leave out the words that
+    # are also acronyms: MAP, SOW, RAM, ARC, BUS and CAN are absent on purpose
+    # and stay reportable.
+    emphasis:
+      - "ALL"
+      - "ALWAYS"
+      - "AMBER"
+      - "AND"
+      - "ANY"
+      - "BAD"
+      - "BEFORE"
+      - "BEST"
+      - "BOTH"
+      - "BUT"
+      - "CLOSE"
+      - "DELETE"
+      - "DONE"
+      - "DOWN"
+      - "EACH"
+      - "EMPTY"
+      - "END"
+      - "ERROR"
+      - "EVER"
+      - "EVERY"
+      - "FAIL"
+      - "FALSE"
+      - "FAST"
+      - "FIRST"
+      - "FIX"
+      - "FULL"
+      - "GOOD"
+      - "GREEN"
+      - "HALF"
+      - "HERE"
+      - "HIGH"
+      - "HOW"
+      - "ITERATE"
+      - "JUST"
+      - "KEEP"
+      - "LAST"
+      - "LATER"
+      - "LEAST"
+      - "LESS"
+      - "LOW"
+      - "MAYBE"
+      - "MEDIUM"
+      - "MERGE"
+      - "MORE"
+      - "MOST"
+      - "MUST"
+      - "NEVER"
+      - "NEW"
+      - "NEXT"
+      - "NONE"
+      - "NOT"
+      - "NOTE"
+      - "NOTHING"
+      - "NOW"
+      - "OFF"
+      - "OLD"
+      - "ONCE"
+      - "ONE"
+      - "ONLY"
+      - "OPEN"
+      - "PASS"
+      - "PLEASE"
+      - "RED"
+      - "RETHINK"
+      - "REVIEW"
+      - "RIGHT"
+      - "SAFE"
+      - "SAME"
+      - "SHORT"
+      - "SKELETON"
+      - "SKIP"
+      - "SLOW"
+      - "SOME"
+      - "SOON"
+      - "STOP"
+      - "SURE"
+      - "TEST"
+      - "THEN"
+      - "THIS"
+      - "TODAY"
+      - "TRUE"
+      - "TWICE"
+      - "UNDER"
+      - "UNTIL"
+      - "UPDATE"
+      - "USE"
+      - "VERY"
+      - "WAIT"
+      - "WARNING"
+      - "WHEN"
+      - "WHY"
+      - "WITH"
+      - "WITHOUT"
+      - "WRONG"
+      - "YES"
+      - "YET"
+
+  - id: long-sentence
+    severity: warn
+    kind: long-sentence
+    # 25 would police ordinary technical writing. 35 catches genuinely tangled
+    # sentences and leaves depth alone.
+    maxWords: 35
+    message: "Split this. One idea per sentence."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+
+  # How widely the sentence lengths vary, across a whole document.
+  #
+  # `long-sentence` judges one sentence and finds nothing wrong with a document
+  # made entirely of twenty-word sentences. That is the document people put
+  # down without being able to say why: no single sentence is hard, and the
+  # short one that lets a reader rest never arrives.
+  #
+  # The figure is the standard deviation of the sentence word counts over their
+  # mean, so it compares a short page with a long one. Sentences under three
+  # words are dropped, since a heading fragment would widen the spread for
+  # free.
+  #
+  # Independent calibration, 2026-10-08: deterministic windows from MAGE
+  # contained 58 machine-labelled and 173 human-labelled documents above the
+  # 20-sentence floor. At 0.45 this flags 26 and 34 respectively. It also flags
+  # five of 95 eligible software documents from three public repositories.
+  # These samples are not representative and do not measure writing quality.
+  # The evidence does not justify a default warning. Keep the optional rule
+  # and its threshold for projects that choose this rhythm constraint.
+  # See docs/investigations/readability-calibration/README.md and issue #51.
+  - id: sentence-spread
+    severity: off
+    kind: sentence-spread
+    minSpread: 0.45
+    # The two shortest files here score 0.403 on five sentences and 0.391 on
+    # eight. Neither is uniform prose, they are too short to have a spread at
+    # all, and the floor is what keeps them out.
+    minSentences: 20
+    message: "Let a short sentence land between the long ones."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#readability"
+
+  # A waiver records that somebody silenced a rule, and nothing about why. The
+  # reader who meets it later cannot tell a considered exception from a rule
+  # somebody found annoying, so the waiver cannot be reviewed or removed.
+  #
+  # This one rule ignores in-file suppression. It has to: `disable-file`
+  # silences every rule in the document, so a reasonless `disable-file` would be
+  # the single waiver that could never be reported. It is turned off in config,
+  # or by an `allow` pattern matching the line, and by nothing else.
+  - id: unexplained-suppression
+    severity: warn
+    kind: unexplained-suppression
+    message: "Say why after a colon: `disable leverage: finance sense`."
+    link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#suppressions"
+
+# Sentence shapes a regex cannot reach. These are checked by the semantic layer
+# only. `render` copies them into the generated prompt text and into the docs.
+structures:
+  - id: binary-contrast
+    name: "Binary contrast cliche"
+    description: "Stating what something is not, then what it is, as a rhetorical flourish."
+    bad: "This isn't just a bug. It's a trust problem."
+    good: "This bug will make people distrust the report."
+
+  - id: short-clause-contrast
+    name: "Short-clause contrast (X rather than Y)"
+    description: >-
+      The same move compressed into one clause. Needs judgment: "rather than" is
+      often perfectly ordinary ("fix the cause rather than the symptom"). Flag it
+      only when it is a paired noun-vs-noun contrast added for effect.
+    bad: "Treat that as a floor rather than a rate."
+    good: "Treat that as a floor: real usage is probably higher, since the sample skews toward older records."
+
+  - id: throat-clearing
+    name: "Throat-clearing opener"
+    description: "Stalling before the actual point."
+    bad: "Here's the thing: the deal stalled because..."
+    good: "The deal stalled because..."
+
+  - id: faux-insight
+    name: "Faux-insight setup"
+    description: "Manufactured suspense before a plain fact."
+    bad: "What nobody tells you about churn is..."
+    good: "State the fact directly."
+
+  - id: abstract-physical-metaphor
+    name: "Physical metaphor on an abstract thing"
+    description: >-
+      Giving a process, a claim or a system a property only a physical object
+      has: a position, a location, a weight it carries. The metaphor sounds
+      like an explanation and names nothing. `figurative-placement` reaches a
+      few fixed shapes of this; the rest needs a reader.
+    bad: "Enrichment is where stacks go bad, and attribution only holds up if the layer underneath the reporting is clean."
+    good: "Their enrichment step drops 12% of records before scoring, so the attribution report counts fewer leads than the CRM does."
+
+  - id: weasel-attribution
+    name: "Weasel attribution"
+    description: "A claim backed by an unnamed authority."
+    bad: "Experts agree this is best practice."
+    good: "Name the actual source, or drop the claim."
+
+  - id: fake-strong-verbs
+    name: "Fake-strong verbs on weak claims"
+    description: "Inflating what something plainly does."
+    bad: "This property serves as a centralized hub for deal stage."
+    good: "This property stores the deal stage."
+
+  - id: meta-commentary
+    name: "Meta-commentary about the writing itself"
+    description: "Narrating that you are being clear or honest instead of just being clear or honest."
+    bad: "To be transparent, I want to flag that..."
+    good: "State the flag."
+
+  - id: synonym-cycling
+    name: "Synonym cycling"
+    description: "Restating the same point across consecutive sentences in near-identical words to sound thorough."
+    bad: "This is a major issue. It's a significant problem. This really matters."
+    good: "Say it once."
+
+  - id: hedging-stacks
+    name: "Hedging stacks"
+    description: "Piling up qualifiers instead of picking one."
+    bad: "It's possible that this might potentially cause..."
+    good: "This could cause..."
+
+  - id: colon-reveal
+    name: "Colon reveal"
+    description: >-
+      A noun phrase, a colon, then a lowercase dramatic reveal that restates the
+      phrase as a surprise. Use colons for lists, labels, and quotes, not fake
+      drama. Rewrite as a plain sentence.
+    bad: "The best part: it learns from every interaction."
+    good: "It learns from every interaction, which is what makes it work."
+
+  - id: negative-listing
+    name: "Negative listing"
+    description: "Defining something by what it is not, stacking negations before the actual claim."
+    bad: "Not a tool. Not a platform. A partner."
+    good: "A partner."
+
+  - id: dramatic-fragmentation
+    name: "Dramatic fragmentation"
+    description: "Breaking a single point into a staccato of sentence fragments for emphasis instead of clarity."
+    bad: "That's it. That's the whole thing."
+    good: "That is the entire mechanism."
+
+  - id: robotic-rhythm
+    name: "Robotic rhythm"
+    description: >-
+      Repeated sentence shapes or identical paragraph structures across a piece,
+      so every sentence lands the same way. Vary the shape only when it helps
+      the point. Needs judgment: a list of short sentences is fine when each one
+      carries a distinct fact.
+    bad: "The system runs. The system checks. The system reports. The system logs. The system alerts."
+    good: "The system runs, checks, reports, logs, and alerts."
+
+  - id: rhetorical-setup
+    name: "Rhetorical setup"
+    description: "A self-answered question or fake suspense that delays the point."
+    bad: "What if I told you the answer was right in front of you all along?"
+    good: "The answer was right in front of you all along."
+
+  - id: summary-recap
+    name: "Summary-recap ending"
+    description: "A final paragraph that restates the piece the reader just finished. End on the last concrete point or next action instead."
+    bad: "In conclusion, we've seen that the system works and delivers value."
+    good: "The system cut deploy time from 40 minutes to 4."
+
+  - id: formatting-slop
+    name: "Formatting as emphasis"
+    description: >-
+      Emoji in headings, bold sprinkled mid-sentence for emphasis, bullet lists
+      where two sentences of prose would read better, and headers over
+      two-sentence sections. Format should follow the content, not decorate it.
+      Needs judgment: a bullet list is correct when each item is a distinct fact
+      or step.
+    bad: "## Key Insight: **It's That Simple**"
+    good: "The key insight is simple."
+
+# ---------------------------------------------------------------------------
+# Chat.
+#
+# The one channel a hook could not reach when this file was written, and the
+# reason is worth stating: a chat reply is not a tool call. That is no longer
+# the whole story. Three of the four supported agents now carry the final
+# assistant message on a stop event, so `plain-english hook chat` can judge it
+# and hand a finding back to the model. See docs/limitations.md for which
+# agent reaches how far.
+#
+# Two things live here that live nowhere else.
+#
+# The SCOPE line. Everything above this section applies to text somebody else
+# will read later: a doc, a commit, an issue. Chat is read once, by one person,
+# who is in the middle of something. The rules that make chat readable would
+# make a commit message useless, so the boundary has to be stated rather than
+# assumed.
+#
+# LEVELS. Three renderings of one list, strictly nested, so a reader can pick
+# how much shaping they want without anybody forking the ruleset. `render`
+# emits one output style per level and CI checks that brief is a subset of
+# standard and standard a subset of full.
+chat:
+  scope: >-
+    Applies to what appears in the chat window. Not to code, comments, or the
+    docs, plans and memory files you write, which stay as precise as they need
+    to be.
+
+  # Default. Drives the AGENTS.md fragment, which is one file and cannot carry
+  # three levels, and decides which style `plain-english init` selects.
+  level: standard
+
+  levels:
+    - id: brief
+      name: "Plain English (brief)"
+      description: "Lead with the answer. Explain a term before naming it."
+      # A checklist, not an abridged essay. Rendering one heading and one
+      # paragraph per rule put this level at 613 words, which is not brief by
+      # enough to change how it reads.
+      form: bullets
+    - id: standard
+      name: "Plain English"
+      description: "Plain language, named decisions, and when to expand instead."
+      # Bullets here too, measured on 2026-08-20. Sections put this level at
+      # 1441 words once the shape and the worked examples arrived. Bullets take
+      # the same fourteen rules, both examples and the skeleton to 988, which
+      # is shorter than the 1093 it ran at carrying neither. `full` is where
+      # every rule still gets its paragraph.
+      form: bullets
+    - id: full
+      name: "Plain English (full)"
+      description: "Typed problem cards, running state, and time estimates."
+
+  # The skeleton, and the only entry in this section that is a shape rather
+  # than a rule about one. Everything else here tells a model what not to do
+  # with a reply it has already decided how to build. Measured against the
+  # published styles this ruleset was read alongside, the part they spend their
+  # length on is the shape and the worked examples, and this file had neither.
+  #
+  # Reaches the style inside a fenced block, which the masking pass blanks, so
+  # the placeholder text is never linted as prose.
+  shape:
+    name: "The shape of a reply"
+    description: >-
+      Three parts, and the third only when there is a choice. A reply that
+      needs nothing from the reader ends at the second.
+    template: |
+      <the result, the problem, or the thing to do>
+
+      <the detail that supports it, and the line any claim rests on>
+
+      <what you need decided, and what each option costs>
+    levels: [standard, full]
+
+  # Worked replies, both halves.
+  #
+  # Every guidance entry already carries a one-line `bad` and `good`, which
+  # shows a sentence. These show a whole reply, which is the unit the rules are
+  # actually about: `answer-before-qualifying` and `rank-and-cap-lists` are
+  # both invisible in a single sentence.
+  #
+  # A `bad` half opens with a phrase `tells` bans, because an example of the
+  # reply nobody should write has to contain one. `render` puts these in a
+  # blockquote and `mask.ts` skips a blockquote node, so the style still lints
+  # clean under the rules it illustrates. `test/render.test.ts` asserts both
+  # halves of that: the phrase is present, and every level lints clean.
+  examples:
+    - id: a-result
+      name: "A result, and nothing outstanding"
+      ask: "Why is my build slow?"
+      bad: |
+        Great question. Let me start by looking at how your build is
+        configured. There are a few pieces here: the CI cache, the dependency
+        install, and the compile step. Looking at the first of these, caching
+        is often where slowness comes from in projects like this one.
+      good: |
+        `node-sass` rebuilds from source on every CI run, because the
+        dependency cache misses. Replacing it with `sass` removes the native
+        build step.
+
+        Want me to make the swap and run the stylesheet tests?
+      note: >-
+        The first reply announces what it is about to do and arrives at no
+        answer. The second names the cause in its first clause and ends with
+        one thing to decide.
+      levels: [standard, full]
+
+    - id: a-choice
+      name: "A reply that needs a decision"
+      ask: "Should we cache the API responses?"
+      bad: |
+        There are pros and cons to consider here. Caching would improve
+        performance, though it introduces staleness. It depends on your
+        requirements and your tolerance for out-of-date data. Both approaches
+        are valid and it is worth thinking about which fits your case.
+      good: |
+        Yes, with a 60-second window. Your pricing endpoint is read 40 times
+        for every write, so almost every read is currently redundant.
+
+        The cost is that a price change takes up to a minute to appear. If
+        that is too long, cache only the catalogue and leave pricing live.
+
+        Which of the two?
+      note: >-
+        The first reply is even-handed and decides nothing, which leaves the
+        work with the reader. The second recommends, prices the recommendation,
+        and asks one question.
+      levels: [standard, full]
+
+    - id: length-that-was-asked-for
+      name: "Length the reader asked for"
+      ask: "Walk me through how the gate decides to hold a turn."
+      good: |
+        Three checks run in order, and any one of them can hold the turn.
+
+        First the deterministic pass reads the reply for banned phrases. It is
+        instant and it never asks anything.
+
+        Then the counts run: length, how many names the reply carries, and its
+        average sentence. A count that fires does not block on its own.
+
+        Last, a model reads the reply and the question that prompted it, and
+        decides whether the length was earned. Only then does the turn stop.
+      note: >-
+        No ceiling applies here. The reader asked to be walked through it, which
+        is the first of the overrides below, so the length is the answer rather
+        than padding around it.
+      levels: [full]
+
+  guidance:
+    - id: lead-with-the-outcome
+      name: "Open with what this is"
+      short: "First line names the subject and says whether it is a result, a problem, or a question. No preamble."
+      description: >-
+        The first line names the subject and says whether this is a result, a
+        problem, or a question. When there is something to do, it is the first
+        line instead. No preamble, no restating the request.
+      bad: "Let me look at how your auth flow works. There are a few pieces here."
+      good: "Run `npm install jsonwebtoken`, then edit `src/auth.ts:42`."
+      levels: [brief, standard, full]
+
+    - id: explain-before-naming
+      name: "Explain a thing before naming it"
+      short: "Plain description first, then the term, so the name lands on something already understood."
+      description: >-
+        Give the plain description first, then the technical term, so the name
+        lands on something the reader already understands. An acronym
+        introduced before its explanation makes the reader carry an unknown
+        through the rest of the sentence.
+      bad: "Provenance is attached at publish time."
+      good: "GitHub signs a receipt proving where the code came from. That receipt is called provenance."
+      levels: [brief, standard, full]
+
+    - id: say-what-needs-a-decision
+      name: "Say what needs a decision"
+      short: "When the reader must choose, end with the decision and each option's cost. Otherwise stop without adding a status line."
+      description: >-
+        When a reply contains a choice, end with what the reader has to decide
+        and what each option costs. When nothing is needed from them, end the
+        reply. Do not add a sentence that merely announces that no decision or
+        action remains.
+      levels: [brief, standard, full]
+
+    - id: depth-is-welcome
+      name: "Depth is welcome, unexplained depth is not"
+      short: "Keep the detail, explain the terms. Split a sentence past {{maxWords}} words."
+      # {{maxWords}} is filled in by `render` from the long-sentence rule, so
+      # the number here can never disagree with the number the linter enforces.
+      description: >-
+        Technical detail is the point of the conversation. Keep it. The failure
+        mode is a term nobody defined, not a subject that is hard. Long
+        sentences are fine when they carry one idea. Past about {{maxWords}}
+        words they usually carry three, so split them.
+      levels: [brief, standard, full]
+
+    - id: names-not-internals
+      name: "Names, not internals"
+      short: "Name projects, files and features. Leave signatures, traces and config keys out unless asked."
+      description: >-
+        Refer to projects, files and features by name. Keep function
+        signatures, stack traces, config keys and line-by-line walkthroughs out
+        of the reply unless the reader asks for them or they are the subject.
+      levels: [standard, full]
+
+    - id: analogy-over-spec
+      name: "Prefer an analogy to a specification"
+      short: "Say what happened in ordinary words, then name it."
+      description: >-
+        One good comparison usually beats a paragraph of accurate detail. Say
+        what happened in ordinary words first, then name it.
+      bad: "The fetch call returned 404."
+      good: "The app asked for a page that is not there. That is a 404."
+      levels: [standard, full]
+
+    - id: offer-the-detail
+      name: "Offer the detail, do not dump it"
+      short: "Say in one line that the deeper layer exists. Let the reader pull on it."
+      description: >-
+        When a technical layer is worth having, say in one line that it exists
+        and let the reader pull on it.
+      levels: [standard, full]
+
+    - id: quote-the-decisive-line
+      name: "Quote the line a claim rests on"
+      short: "Verbatim, then what it means in plain words. This outranks brevity."
+      description: >-
+        When a claim depends on real output, quote the decisive line verbatim,
+        then say in plain words what it means. This outranks brevity: a short
+        reply that asserts a result nobody can check is worse than a long one.
+      levels: [standard, full]
+
+    - id: keep-claims-grounded
+      name: "Keep every claim tied to evidence"
+      short: "Preserve facts and qualifications. Label assumptions, judgments, and gaps instead of filling them in."
+      description: >-
+        Keep factual claims and qualifications from the source. Do not add a
+        plausible detail to make an answer sound complete. Say when a statement
+        is an assumption, a judgment, or a gap in the available evidence.
+      levels: [brief, standard, full]
+
+    - id: preserve-the-requested-edit
+      name: "Match the requested editing strength"
+      short: "For a light edit, fix only clear faults. Preserve the requested form and useful structure."
+      description: >-
+        Treat a light edit as a request to fix unambiguous faults while keeping
+        meaning, form, and useful structure. Remove empty repetition only when
+        the reader did not ask for a close edit.
+      levels: [standard, full]
+
+    - id: answer-before-qualifying
+      name: "Answer before qualifying"
+      short: "Answer, result or recommendation first. Only the caveats that change what the reader does."
+      description: >-
+        Lead with the answer, the result or the recommendation. Caveats go
+        after it, and only the ones that change what the reader does.
+      levels: [standard, full]
+
+    - id: raise-it-only-if-it-matters
+      name: "Raise an objection only when it changes something"
+      short: "Only when it changes correctness, safety, cost or the ask. Otherwise it is noise."
+      description: >-
+        Say it when it affects correctness, safety, cost, or what the reader
+        has asked for. A true point that changes nothing is noise, and a
+        downside raised to look even-handed is worse than noise.
+      levels: [standard, full]
+
+    - id: rank-and-cap-lists
+      name: "Rank a list, and keep it short"
+      short: "Five ranked beats ten unranked. Split into now and later."
+      description: >-
+        Past about five items a list stops being read. Split it into now and
+        later, or must and nice to have. Five ranked beats ten unranked.
+      levels: [standard, full]
+
+    - id: one-thing-at-a-time
+      name: "Finish one thing before raising the next"
+      short: "Answer the first, then offer the second as its own question."
+      description: >-
+        When a second issue turns up, finish the first and then offer the
+        second as its own question. A question you can answer yourself is not
+        a second issue: answer it and fold the result in.
+      bad: "Here is the fix. Also your dependency is stale, and the README is out of date, and..."
+      good: "Here is the fix. Separately: there is a stale dependency. Want that next?"
+      levels: [standard, full]
+
+    - id: restate-where-we-are
+      name: "Restate where we are"
+      short: "Say what is done, what is next, and what you need. The reader cannot hold step 3 of 5."
+      description: >-
+        The reader cannot hold "step 3 of 5" between messages. Say what is
+        done, what is next, and what you need from them. If the session has a
+        task list, let it do the restating rather than narrating the plan twice.
+      bad: "Done. Ready for the next part?"
+      good: "Step 3 of 5 done: schema updated. Next: backfill the column. Run it?"
+      # Standard since 2026-08-19. It was `full` only, so the rendered style
+      # this machine runs did not carry it, and a four-word reply reading
+      # "Phase 3, question 4:" drew "I have NO idea what this is about, or what
+      # I am responding to". No count reaches a four-word reply. This rule is
+      # the only thing that does.
+      levels: [standard, full]
+
+    - id: time-estimates
+      name: "Estimate in concrete units"
+      short: "Give a number and the condition it depends on."
+      description: >-
+        A vague estimate carries no information. Give a number and the
+        condition it depends on.
+      bad: "This will take some work."
+      good: "About 15 minutes if tests already cover this. An afternoon if not."
+      levels: [full]
+
+    - id: typed-problem-cards
+      name: "One card per distinct issue"
+      short: "One card per issue: a type label, a short heading, one or two sentences."
+      description: >-
+        When a reply covers several separate problems, give each one a type
+        label (defect, question, blocker, improvement), a short heading, and
+        one or two sentences. Keep them visually separate so they can be
+        scanned rather than read.
+      levels: [full]
+
+    - id: withdraw-the-whole-claim
+      name: "Withdraw the whole claim, not the sentence"
+      short: "Name the wrong claim, state the corrected one, say what depended on it."
+      description: >-
+        When something you said turns out to be wrong, name the wrong claim,
+        state the corrected one, and say which of your earlier conclusions
+        depended on it. Then continue from the corrected position rather than
+        defending a narrower version of the old one.
+      levels: [full]
+
+  # Chat blocks where a document only reports.
+  #
+  # The top-level `failOn` decides whether a lint run fails a build, and its
+  # default stays `never` so installing this package cannot break anyone's CI.
+  # A reply has no build to fail. The cost of blocking here is a few seconds
+  # and a rewrite; the cost of not blocking is that the reader has already read
+  # the reply by the time anything objects to it, which is what fifteen of
+  # seventeen repositories on this machine were doing.
+  failOn: error
+
+  # What one reply may ask the reader to carry.
+  #
+  # Every other rule in this file judges words and sentences. These three judge
+  # the reply as a whole, because that is where the complaints landed. Seven
+  # days of transcripts, read 2026-08-18: thirteen replies drew an explicit
+  # complaint, every one was 264 words or longer, four produced no finding at
+  # all, and across all thirteen the linter fired 69 times without once naming
+  # the fault the reader named.
+  #
+  # Chat only. A document that runs long is doing its job.
+  #
+  # All three are `error` rather than `warn` because a warning cannot hold a
+  # turn, and a gate that reports after the reader has already read the reply
+  # is the thing this set exists to replace. The semantic judge is what keeps
+  # that honest: it waives a reply whose depth was asked for.
+  limits:
+    - id: reply-length
+      kind: reply-length
+      severity: error
+      # 225, and it is measured rather than chosen. Re-read on 2026-08-19 over
+      # the 218 replies the gate itself judged in three days: 250 let a
+      # 232-word reply through that the reader answered with "Eh?". At 225 the
+      # pair fires on 24% of replies against 14%, and the judge waives what was
+      # asked for. Fenced output does not count toward it.
+      #
+      # It does not reach a 157-word reply that also drew a complaint, and
+      # nothing sane does: that needs 150, which fires on 42% of everything and
+      # would get switched off. `restate-where-we-are` is the answer to that
+      # one, not a lower number here.
+      maxWords: 225
+      message: "Lead with the answer and cut the scaffolding, or say in one line that the detail exists."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    - id: reader-load
+      kind: reader-load
+      severity: error
+      # Distinct backticked names, counted absolutely and never as a rate.
+      # Density pointed the wrong way: in the replies that drew a complaint it
+      # was LOWER than in long replies generally, 2.4 per 100 words against
+      # 4.1. The total separated them, a median of 18 against 12.
+      #
+      # 12 since 2026-08-19, down from 15. The three-day re-read put the
+      # 90th-percentile reply at 15 names exactly, so the old number was
+      # measuring the top tenth rather than the load a reader complains about.
+      #
+      # Held at 12 on 2026-08-20 while the counter changed under it. It read
+      # backticked spans only, so a reply could set fifteen names in a table
+      # and cost the counter nothing; it now reads identifier-shaped text
+      # anywhere in the reply. Measured over 18,488 replies: the median load
+      # goes 0 to 1, the 90th percentile 9 to 14, and 12 fires on 11.1% of
+      # replies where it used to fire on 7.2%.
+      #
+      # Not raised to 20, which would have restored the old rate. The number
+      # was chosen to sit under the 90th percentile of the load a reader
+      # complains about, and the counter is now closer to measuring that load
+      # rather than measuring how often somebody reached for backticks. The
+      # judge waives what was genuinely asked for, which is what makes the
+      # stricter reading affordable.
+      #
+      # A floor, not the whole load. The reply that prompted this scores 11 and
+      # would still pass, because half of what it asked the reader to carry was
+      # ordinary-looking words used as names. No pattern reaches those, which
+      # is why `judge` gained `reads-as-an-internal-note` in the same change.
+      # A project can now declare exact spellings through `names`. No default
+      # product list guesses which ordinary words refer to tools in a project.
+      maxTerms: 12
+      message: "Name the thing, not its configuration. Say what it does before you name it."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    # Whether the reply ever lets up.
+    #
+    # `long-sentence` judges one sentence and finds nothing wrong with a reply
+    # made entirely of fifteen-word sentences. That is the reply people put
+    # down: no single sentence is hard, and there is nowhere to rest.
+    #
+    # Measured on 2026-08-19 over the 218 replies the gate itself judged. The
+    # corpus median is 11.6 words a sentence and the 90th percentile is 14.8.
+    # Of the four replies the reader stopped on and said so, every one ran
+    # above the median: 13.5, 14.5, 15.7 and 16.6.
+    #
+    # The negative result is the more useful half, and it is why this rule is
+    # about pace rather than vocabulary. Three other readings of "too dense"
+    # were tested on the same four replies and all three went the wrong way.
+    # Those replies carried FEWER nominalisations (words like "registration"
+    # and "validation"), FEWER stacked modifiers, and SHORTER words than the
+    # corpus. They were written in plainer words than average and were still
+    # the ones nobody could get through.
+    #
+    # Calibrated on four replies, which is not many. Revisit it against a
+    # fuller week before treating 13 as settled.
+    - id: reply-pace
+      kind: reply-pace
+      # Advisory until the provisional four-reply calibration survives the
+      # private transcript benchmark. A mean sentence length does not measure
+      # the variation the rule's message asks for, and blocking at 13 produced
+      # a clear false positive at 14.3 words per sentence on 2026-08-30.
+      severity: warn
+      maxMeanWords: 13
+      # A two-sentence answer has no pace. Without this the rule would fire on
+      # a one-line answer that happened to need twenty words.
+      minWords: 80
+      message: "Let a short sentence land between the long ones."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+    # The ask at the end.
+    #
+    # `say-what-needs-a-decision` asks a reply with a choice in it to end by
+    # naming the choice. This is the other half. An ask the reader has to
+    # unpack before answering leaves them worse off than no ask at all, and it
+    # is the last thing they read, so it is what they answer.
+    #
+    # Two measures, because the fault comes in two shapes: one long, one
+    # nested. Over the three days to 2026-08-19, 64 replies ended in a
+    # question and 10 were long or nested. One of the ten was answered with
+    # "That last sentence: what does that mean?".
+    - id: unreadable-ask
+      kind: unreadable-ask
+      severity: error
+      # 15 words. The asks that were answered without comment ran 4 to 14.
+      maxWords: 15
+      # One subordinating clause. "Want me to look at whether the JSON merge
+      # has the same by-name behaviour the TOML path documents?" carries two,
+      # and the reader could not answer it.
+      maxClauses: 1
+      message: "Ask for one thing, in one clause. Put the detail in the sentence before it."
+      link: "https://github.com/nordscope-fi/plain-english/blob/main/docs/writing-style.md#chat"
+
+  # Deterministic and chat-only. Phrases rather than regexes on purpose: the
+  # pattern is generated from this list, so the wording shown to a model and
+  # the wording matched by `lint --chat` cannot drift apart.
+  #
+  # `at: start` anchors to the beginning of the reply, which is where an
+  # opener has to be to be an opener. `at: anywhere` does not anchor.
+  tells:
+    - id: affirmation-opener
+      severity: error
+      at: start
+      phrases:
+        - "Great question"
+        - "Good question"
+        - "Excellent question"
+        - "Excellent point"
+        - "You're absolutely right"
+        - "That's an excellent point"
+      message: "Start with the answer."
+      levels: [brief, standard, full]
+
+    - id: announced-structure
+      severity: error
+      at: anywhere
+      phrases:
+        - "I'll start by"
+        - "I'll begin by"
+        - "Let me start by"
+        - "Let me begin by"
+        - "To answer your question"
+        - "I'll first explain"
+      message: "Do it instead of announcing it."
+      levels: [brief, standard, full]
+
+    - id: closing-pleasantry
+      severity: error
+      at: anywhere
+      phrases:
+        - "Hope this helps"
+        - "Hope that helps"
+        - "Let me know if you need anything else"
+        - "Feel free to ask"
+        - "Happy to clarify"
+      message: "End when the answer is done."
+      levels: [brief, standard, full]
+
+    - id: concession-formula
+      # Warn, not block. "fair point" said plainly is ordinary English; the
+      # tell is the phrase standing in for a correction instead of making one,
+      # and no pattern can tell those apart. Same tier as `silently` and
+      # `holistic`, and for the same reason.
+      severity: warn
+      at: anywhere
+      # These stand in for a correction instead of making one. The test is
+      # functional: did the sentence name the error and its consequence, or
+      # only acknowledge that there was friction.
+      phrases:
+        - "fair point"
+        - "fair hit"
+        - "what survives"
+        - "the pattern you're naming"
+        - "worth your attention"
+      message: "Name the error, the correction, and what it changes."
+      levels: [standard, full]
+
+    - id: error-theatre
+      # Warn. "Something went wrong" is a legitimate sentence when it is what
+      # the log says.
+      severity: warn
+      at: anywhere
+      phrases:
+        - "Uh oh"
+        - "Oh no"
+        - "There seems to be a problem"
+        - "Something went wrong"
+      message: "State the cause and the fix."
+      levels: [standard, full]
+
+  # Not matchable by a pattern, so they are stated rather than checked.
+  avoid:
+    - text: "Open with a summary of what was just asked."
+      levels: [brief, standard, full]
+    - text: "Claim something is done without having checked."
+      levels: [brief, standard, full]
+    - text: "Bury the decision in the middle of a paragraph."
+      levels: [brief, standard, full]
+    - text: "Pad a hedge. Keep one that carries real uncertainty and cut the rest."
+      levels: [standard, full]
+    - text: "Report whether somebody else's earlier answer was right, unless that is the question."
+      levels: [standard, full]
+
+  # Calibration, and not optional.
+  #
+  # This repo has already paid for this lesson once. The semantic gate refused
+  # one README twelve times because nothing in its prompt said a pass was the
+  # normal answer, and it twice flagged wording it had itself proposed a turn
+  # earlier. A shaping prompt fails the same way in the other direction, by
+  # clipping an answer that needed to be long. These are the cases where the
+  # shape gives way and the answer wins.
+  # What the judge reads for, beyond whether the length was earned.
+  #
+  # A pattern can find an acronym and a camel-cased name. It cannot find "the
+  # JSON merge", "by-name behaviour" or "the TOML path documents", which are
+  # ordinary words carrying a technical sense, and those are what the reader
+  # actually stops on. Measured on 2026-08-19: `unglossed-term` fired zero
+  # times on all five replies that drew a complaint, and its most frequent hits
+  # corpus-wide included ROLES, SECURITY, HAS and FROM.
+  #
+  # So this is asked of the model, which reads meaning, rather than added to a
+  # word list. It runs on the replies a count has already stopped, which costs
+  # no extra call.
+  # Can this reply be read by the person who asked?
+  #
+  # Its own call, before the length judge. The two questions pull against each
+  # other: the length judge is hunting for a reason to waive and this one for a
+  # reason to refuse, so a single prompt answers whichever it was framed
+  # around. Measured 2026-08-20 across four replies, two runs each. Alone, this
+  # separated them every time: the reply the reader answered with "I have no
+  # idea of anything you just wrote" scored 3 and 6, and the three replies that
+  # were fine scored 1, 0 and 0. Folded into the length prompt, the same model
+  # passed the unreadable reply twice and refused a good one.
+  #
+  # A COUNT, not a judgement, and that is the whole trick. Asked "could a
+  # reader follow this?" the judge says yes, because it knows every term in the
+  # reply and cannot simulate not knowing. Asked to LIST the terms nothing
+  # explains, it lists them.
+  readable:
+    # 2, and the gap around it is wide. Final measurement 2026-08-20, five
+    # replies, three runs each, on the prompt as shipped:
+    #
+    #   the reply that prompted this   4  3  7   refused every run
+    #   a short plain answer           0  0  0
+    #   a walkthrough that was asked for   0  0  0
+    #   a short answer quoting output  0  0  0
+    #   the reply explaining this fix  1  1  2
+    #
+    # Nothing legitimate came within two of the line and the unreadable reply
+    # never came close to it. A false refusal costs one rewrite and no more:
+    # `shouldBlock` holds a turn once and records it, so there is never a loop.
+    maxUnexplained: 2
+    description: >-
+      List every term the reply NAMES but never EXPLAINS. A term counts as
+      explained only if the reply says, in ordinary words, what that thing is.
+      Names of rules, tools, files, flags, commands and version numbers all
+      count, including ones inside a table or a fenced block. Do not credit a
+      term as explained because you happen to know what it means. Quoted
+      command output does not count: a number or a path inside quoted output is
+      evidence, not a name the reader has to carry.
+
+  judge:
+    - id: unexplained-terms
+      description: >-
+        A term arrives doing work in the sentence and nothing in the reply says
+        what it is. Not an acronym only: "the JSON merge", "by-name behaviour"
+        and "the retry path" are the shape that stops a reader. Refuse when the
+        reply cannot be acted on without knowing one, and quote it.
+    - id: no-let-up
+      description: >-
+        Every sentence carries a full load for the whole reply. Refuse when
+        breaking two or three of them in half would cost nothing.
+
+    # Added 2026-08-20, after a reply drew "I have no idea of anything you just
+    # wrote". Every check before this one asks whether the reply is too long.
+    # None of them asks whether it can be read, and length was not what went
+    # wrong: the reply was a grid of six rule names and five tool names, none
+    # of them explained.
+    #
+    # No count reaches it, and that is measured rather than assumed. Under the
+    # name counter the reply scores 11, below the limit of 12, because half the
+    # load was ordinary-looking words used as names. Only a reader can see this
+    # fault, so only the judge can hold it.
+    - id: answers-a-question-nobody-asked
+      description: >-
+        The reader asked something small and the reply answered something
+        large. Refuse when the first sentence does not answer the question as
+        it was put, and say what the one-sentence answer was.
+
+  expand:
+    - "The reader asked you to explain, or to walk them through it."
+    - "The action is hard to reverse. Confirm before acting."
+    - "The options are the answer. Give two to four, ranked, one line of cost each."
+    - "A claim rests on real output. Quote the line, then say what it means."
+    - "Three turns have ended in 'still broken'. Name the assumption that might be wrong."
+    - "A rule would delete the answer. The answer wins and the shape stays."
+
+# ---------------------------------------------------------------------------
+# HOW TO WRITE A DOCUMENT
+#
+# Everything above this line says what to cut. The word rules, the readability
+# rules and the sentence shapes are all prohibitions, and until this section
+# existed they were the whole document channel: a judge listing terms to flag,
+# and a reference titled "AI-Tell Patterns to Cut". A document can obey every
+# one of them and still bury what it is for on the third screen.
+#
+# The chat channel has had both halves all along. `chat.guidance` says how to
+# write a reply and the tells say what not to write in one. This is the missing
+# half for documents.
+#
+# TWO READERS, ONE LIST. `render` sends each entry to a skill, which tells a
+# writer what to do, and to the `docs` gate prompt, which needs the same rule
+# phrased as the fault to look for. `flag` carries that second phrasing, so the
+# guidance and the gate cannot drift into disagreeing about the same rule.
+#
+# NO LEVELS AND NO LIMITS, unlike `chat`. A reply is read once, in a terminal,
+# by somebody waiting; a document is read when somebody needs it, and one that
+# runs long is doing its job. There is no menu of lengths to pick from here.
+docs:
+  scope: >-
+    Applies to markdown written into a repository: READMEs, guides, reference
+    pages and architecture decision records. Not to chat, which has its own
+    rules, and not to a commit message or an issue body, which are shorter than
+    anything here would make sense of.
+
+  # Loaded on demand rather than every turn. An output style is session-global
+  # and there is only one slot, which the chat style holds; a skill costs
+  # nothing until somebody writes a document.
+  skill:
+    name: writing-a-document
+    description: >-
+      How to shape a markdown document in this project: what the first
+      paragraph carries, what a heading promises, and when to show a command
+      instead of describing one. Use when writing or editing any .md file.
+
+  guidance:
+    - id: purpose-in-the-first-paragraph
+      name: "Say what the document is for before you explain anything"
+      short: "First paragraph: who this is for and what they will be able to do."
+      description: >-
+        A reader arrives at a document to find out whether it is the one they
+        need. That decision is made in the first paragraph or by closing the
+        tab, so it is the one place background cannot go. Name the reader and
+        what they will be able to do, then start explaining.
+      flag: "The document opens with background or history instead of saying what it is for and who it is for."
+      bad: "Configuration in this project has evolved over several releases. Originally settings lived in a single file."
+      good: "This page is for anyone adding a rule to the ruleset. By the end you will have one rule shipping with a test."
+
+    - id: a-heading-is-a-promise
+      name: "A heading is a promise about what follows"
+      short: "Name the question the section answers, and answer it there."
+      description: >-
+        Somebody scanning a document reads only the headings, so each one has
+        to say what its section settles. A heading that names a topic rather
+        than a question leaves the reader to open every section to find out
+        which one they wanted.
+      flag: "A heading names a topic rather than the question its section answers, or promises something the section does not deliver."
+      bad: "## Configuration"
+      good: "## Where settings are read from, and which file wins"
+
+    - id: show-the-command
+      name: "Show the command, do not describe it"
+      short: "A command, a path or real output beats a sentence about one."
+      description: >-
+        A reader can copy a command. They cannot copy a description of one, and
+        they will get it wrong reconstructing it. The same holds for a file
+        path, a config snippet and the output somebody should expect to see.
+      flag: "The document describes a command, path or config in prose where showing it would be shorter and unambiguous."
+      bad: "Install the package globally and then run the lint subcommand against your documentation directory."
+      good: "`npx plain-english lint docs/`"
+
+    - id: name-the-reader
+      name: "Write for one reader, not for everybody"
+      short: "Pick the reader. Assumed knowledge follows from that choice."
+      description: >-
+        What counts as too much detail is a fact about who is reading. A page
+        that serves a first-time user and a maintainer at once explains what
+        one of them already knows and skips what the other needs. Pick one, and
+        link to the page that serves the other.
+      flag: "The document serves two audiences at once, explaining basics one reader already has while skipping detail the other needs."
+
+    - id: no-heading-without-content
+      name: "No heading with nothing under it"
+      short: "Cut an empty section or a stub. A promise nobody kept costs trust."
+      description: >-
+        A heading followed by one sentence saying the section is coming later
+        reads as an outline somebody stopped filling in, and it teaches the
+        reader that the other headings may be empty too. Cut it, or write it.
+      flag: "A heading is followed by a placeholder, a stub, or a note that the section is not written yet."
+
+    - id: say-what-it-costs
+      name: "When you recommend something, say what it costs"
+      short: "Every recommendation carries its price and when to choose otherwise."
+      description: >-
+        A recommendation with no cost attached reads as marketing, and a reader
+        who later meets the cost stops trusting the page that hid it. Name the
+        tradeoff and the case where the other choice is right.
+      flag: "The document recommends an approach without naming its cost or the case where a different choice is better."
+      bad: "Use the blocking mode. It catches problems early."
+      good: "Use the blocking mode when the repository is yours. It fails a build on a finding, so on a shared repository start advisory."
+
+    - id: keep-claims-grounded
+      name: "Keep claims tied to the supplied evidence"
+      short: "Preserve facts and qualifications. Label assumptions, judgments, and missing evidence."
+      description: >-
+        Do not fill a missing fact with a plausible detail. Keep qualifications
+        that affect the conclusion, and label an assumption or judgment where
+        the evidence does not settle the point.
+      flag: "The document adds an unsupported factual claim, presents an assumption as fact, or removes a material qualification."
+
+    - id: preserve-the-requested-form
+      name: "Preserve the requested form when editing"
+      short: "A light edit keeps meaning, genre, and useful structure."
+      description: >-
+        When the request asks for a light or careful edit, change only clear
+        faults. Keep the document's meaning, genre, and useful structure.
+      flag: "The edit changes the document's genre, scope, or useful structure without the request asking for that change."

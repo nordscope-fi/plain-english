@@ -1,24 +1,37 @@
 import type { Register } from 'claude-code'
+import { check } from './core/entry.mjs'
 
 /**
  * Directory probe: the shape of an in-mod checker, with no program started.
- * It reads the conversation (tool.call), the session folder and one project
- * file, and asks the session's own model. Never submitted; it exists to see
- * which of the directory's mod findings this shape raises.
+ * It runs the real plain-english core (rules and Markdown parsing) on proposed
+ * writes and finished replies, reads the reply transcript Claude Code names,
+ * asks the session's own model, and writes the project config at a fixed
+ * path. Never submitted; it exists to see which directory findings this
+ * shape raises.
  */
-const BANNED = /\b(furthermore|moreover|seamless)\b/i
+let rules: string | undefined
 
 export const register: Register = (on) => {
   on('tool.call', { tool: 'Write' }, async ($, e, next) => {
+    rules ??= await $.fs.read(`${$.plugin.root}/rules/default.yml`)
     const content = typeof e['content'] === 'string' ? e['content'] : ''
     const cwd = await $.session.cwd()
-    const config = (await $.fs.exists('.plain-english.yml')) ? await $.fs.read('.plain-english.yml') : ''
-    const strict = /failOn:\s*error/.test(config)
-    const found = BANNED.exec(content)
-    if (!found) return next(e)
-    const reply = await $.model.complete({ model: 'haiku', prompt: `Is "${found[0]}" filler in this text? Answer yes or no.\n\n${content}`, timeoutMs: 20_000 })
-    const filler = reply.isAnswered && /yes/i.test(reply.text)
-    if (strict && filler) return { deny: `Rewrite without "${found[0]}" (checked in ${cwd}).` }
-    return next(e)
+    const found = check(rules, content)
+    if (found.length === 0) return next(e)
+    const reply = await $.model.complete({ model: 'haiku', prompt: `Is this filler? Answer yes or no.\n\n${content}`, timeoutMs: 20_000 })
+    if (reply.isAnswered && /yes/i.test(reply.text) && content.includes('APPROVE-PROBE')) {
+      const existing = (await $.fs.exists('.plain-english.yml')) ? await $.fs.read('.plain-english.yml') : 'version: 1\n'
+      await $.fs.write('.plain-english.yml', `${existing}# approved in ${cwd}\n`)
+    }
+    return { deny: `Found: ${found.join(', ')}` }
+  })
+
+  on('classic.Stop', async ($, e, next) => {
+    rules ??= await $.fs.read(`${$.plugin.root}/rules/default.yml`)
+    const path = typeof e['transcript_path'] === 'string' ? e['transcript_path'] : undefined
+    const transcript = path ? await $.fs.read(path) : ''
+    const last = transcript.trim().split('\n').at(-1) ?? ''
+    const found = check(rules, last)
+    return found.length ? { decision: 'block', reason: `Rewrite: ${found.join(', ')}` } : next(e)
   })
 }
