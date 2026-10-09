@@ -353,23 +353,20 @@ var VFile = class {
   }
   get basename() {
     return typeof this.path === "string" ? minpath.basename(this.path) : void 0;
-  }
-  set basename(basename2) {
+  } set basename(basename2) {
     assertNonEmpty(basename2, "basename");
     assertPart(basename2, "basename");
     this.path = minpath.join(this.dirname || "", basename2);
   }
   get dirname() {
     return typeof this.path === "string" ? minpath.dirname(this.path) : void 0;
-  }
-  set dirname(dirname2) {
+  } set dirname(dirname2) {
     assertPath2(this.basename, "dirname");
     this.path = minpath.join(dirname2 || "", this.basename);
   }
   get extname() {
     return typeof this.path === "string" ? minpath.extname(this.path) : void 0;
-  }
-  set extname(extname2) {
+  } set extname(extname2) {
     assertPart(extname2, "extname");
     assertPath2(this.dirname, "extname");
     if (extname2) {
@@ -384,8 +381,7 @@ var VFile = class {
   }
   get path() {
     return this.history[this.history.length - 1];
-  }
-  set path(path) {
+  } set path(path) {
     if (isUrl(path)) {
       path = urlToPath(path);
     }
@@ -396,8 +392,7 @@ var VFile = class {
   }
   get stem() {
     return typeof this.path === "string" ? minpath.basename(this.path, this.extname) : void 0;
-  }
-  set stem(stem) {
+  } set stem(stem) {
     assertNonEmpty(stem, "stem");
     assertPart(stem, "stem");
     this.path = minpath.join(this.dirname || "", stem + (this.extname || ""));

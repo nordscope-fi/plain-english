@@ -170,19 +170,19 @@ function readabilityDescription(r: ReadabilityRule): string {
 }
 
 /** docs/writing-style.md */
-export function renderWritingStyle(set: RuleSet): string {
+export function renderWritingStyle(ruleset: RuleSet): string {
   const out: string[] = [];
   out.push(BANNER, "");
-  out.push(`# ${set.meta.title}`, "");
-  if (set.meta.intro) out.push(set.meta.intro, "");
+  out.push(`# ${ruleset.meta.title}`, "");
+  if (ruleset.meta.intro) out.push(ruleset.meta.intro, "");
 
   // Before the prohibitions, not after them. This document opened straight
   // into a table of banned words, so a reader arriving with a blank page found
   // forty things not to do and nothing to do.
-  if (set.docs.guidance.length) {
+  if (ruleset.docs.guidance.length) {
     out.push("## Writing a document", "");
-    if (set.docs.scope) out.push(...wrap(set.docs.scope), "");
-    for (const g of set.docs.guidance) {
+    if (ruleset.docs.scope) out.push(...wrap(ruleset.docs.scope), "");
+    for (const g of ruleset.docs.guidance) {
       out.push(`### ${g.name ?? g.id}`, "");
       if (g.description) out.push(...wrap(g.description), "");
       if (g.bad) out.push(`Not this: ${g.bad}`);
@@ -204,7 +204,7 @@ export function renderWritingStyle(set: RuleSet): string {
   out.push("## Words and phrases", "");
   out.push("| Term | Severity | Instead | Why |");
   out.push("|---|---|---|---|");
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     if (rule.severity === "off") continue;
     const why = rule.link ? `[notes](${rule.link})` : "";
     out.push(
@@ -213,7 +213,7 @@ export function renderWritingStyle(set: RuleSet): string {
   }
   out.push("");
 
-  const withExceptions = set.rules.filter((r) => r.unless?.length && r.severity !== "off");
+  const withExceptions = ruleset.rules.filter((r) => r.unless?.length && r.severity !== "off");
   if (withExceptions.length) {
     out.push("## Exceptions", "");
     out.push(
@@ -231,7 +231,7 @@ export function renderWritingStyle(set: RuleSet): string {
     "A word list cannot reach these. They are judged by the semantic layer, or by you.",
     "",
   );
-  for (const s of set.structures) {
+  for (const s of ruleset.structures) {
     out.push(`### ${s.name}`, "");
     out.push(s.description, "");
     if (s.bad) out.push(`Bad: ${s.bad}`);
@@ -244,7 +244,7 @@ export function renderWritingStyle(set: RuleSet): string {
   // those anchors resolve to. Without them every such finding printed a dead
   // link. They are split because they answer different questions: one reads the
   // shape of a sentence, the other reads what the author did about a finding.
-  const live = set.readability.filter((r) => r.severity !== "off");
+  const live = ruleset.readability.filter((r) => r.severity !== "off");
   const shape = live.filter((r) => r.kind !== "unexplained-suppression");
   const waivers = live.filter((r) => r.kind === "unexplained-suppression");
 
@@ -263,7 +263,7 @@ export function renderWritingStyle(set: RuleSet): string {
 
   // The chat channel gets its own heading because its rules apply to one reply
   // and to nothing else, and because the `link` on each of them points here.
-  const limits = (set.chat.limits ?? []).filter((r) => r.severity !== "off");
+  const limits = (ruleset.chat.limits ?? []).filter((r) => r.severity !== "off");
   if (limits.length) {
     out.push("## Chat", "");
     out.push(
@@ -325,15 +325,15 @@ export function renderWritingStyle(set: RuleSet): string {
   return out.join("\n");
 }
 
-function ruleListForPrompt(set: RuleSet): string {
-  const blocking = set.rules
+function ruleListForPrompt(ruleset: RuleSet): string {
+  const blocking = ruleset.rules
     .filter((r) => r.severity === "error")
     .map((r) => humanise(r));
   return blocking.join("; ");
 }
 
-function structureListForPrompt(set: RuleSet): string {
-  return set.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
+function structureListForPrompt(ruleset: RuleSet): string {
+  return ruleset.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
 }
 
 const JSON_CONTRACT =
@@ -409,10 +409,10 @@ export function vocabularyTerms(pattern: string): string[] {
  * here knows what a Deal is" to the deterministic rules was still asked for a
  * gloss by the model. An entry opts in with `semantic: true`.
  */
-export function vocabularyForPrompt(set: RuleSet): string {
+export function vocabularyForPrompt(ruleset: RuleSet): string {
   const named: string[] = [];
   const patterns: string[] = [];
-  for (const entry of set.allow) {
+  for (const entry of ruleset.allow) {
     if (!entry.semantic) continue;
     const terms = vocabularyTerms(entry.pattern);
     if (terms.length) named.push(...terms);
@@ -439,17 +439,17 @@ export function vocabularyForPrompt(set: RuleSet): string {
  * this repository are unchanged by that section. It appears only in the copies
  * `init` writes into a project that asked for it.
  */
-export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "tool"): Record<string, string> {
-  const words = ruleListForPrompt(set);
-  const shapes = structureListForPrompt(set);
-  const vocabulary = vocabularyForPrompt(set);
+export function renderPrompts(ruleset: RuleSet, inputFormat: "tool" | "prose" = "tool"): Record<string, string> {
+  const words = ruleListForPrompt(ruleset);
+  const shapes = structureListForPrompt(ruleset);
+  const vocabulary = vocabularyForPrompt(ruleset);
   /** The vocabulary paragraph, or nothing, without leaving a blank line. */
   const vocab = vocabulary ? [vocabulary, ""] : [];
 
   // The docs channel is the only one that gets these. A commit message and an
   // issue body are not documents, and a gate demanding a purpose paragraph
   // from a one-line commit is a gate people switch off.
-  const shapeFaults = set.docs.guidance
+  const shapeFaults = ruleset.docs.guidance
     .map((g) => g.flag)
     .filter((f): f is string => Boolean(f));
   const shapeLine = shapeFaults.length
@@ -502,7 +502,7 @@ export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "too
    * against each other and a single prompt answers whichever it was framed
    * around. Runs first: a reply nobody can decode has no length worth earning.
    */
-  const readable = set.chat.readable
+  const readable = ruleset.chat.readable
     ? [
         TXT_BANNER,
         "",
@@ -514,7 +514,7 @@ export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "too
         "Hook input (the reader's last message, then the reply):",
         "$ARGUMENTS",
         "",
-        ...wrap(set.chat.readable.description),
+        ...wrap(ruleset.chat.readable.description),
         "",
         // The declared vocabulary matters more here than anywhere else: it is
         // precisely the list of terms this project's readers already have, so
@@ -529,7 +529,7 @@ export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "too
         // Enumerating is a task it can do; judging readability is not, because
         // it can read anything.
         "First list them. Then set \"ok\" to false if and only if the list holds more than",
-        `${set.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
+        `${ruleset.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
         "one sentence what the reply should have led with.",
         "",
         "Your reason is shown to the reader and goes back to the model, so it is held to",
@@ -668,7 +668,7 @@ export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "too
     // reply can be READ. A reply that cannot be read has no length worth
     // earning, so the second question has to be asked first.
     'Return {"ok": true}, waiving the length, if ANY of these hold:',
-    ...set.chat.expand.map((e) => `- ${e}`),
+    ...ruleset.chat.expand.map((e) => `- ${e}`),
     "- The reader asked a question whose honest answer is genuinely this long.",
     "- The bulk of the reply is quoted output, a table, code, or a command to run.",
     "",
@@ -677,11 +677,11 @@ export function renderPrompts(set: RuleSet, inputFormat: "tool" | "prose" = "too
     "about to do, it covers a second topic nobody asked about, or it names files, keys",
     "and flags where a plain description would do.",
     "",
-    ...(set.chat.judge.length
+    ...(ruleset.chat.judge.length
       ? [
           "Refuse for these as well, and they outrank the calibration below. A count",
           "brought the reply here; these are what the count cannot see.",
-          ...set.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
+          ...ruleset.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
           "",
         ]
       : []),
@@ -734,9 +734,9 @@ function shortOf(g: { short?: string; description?: string; name?: string; id: s
  * It carries structure and glossing. The deterministic linter keeps owning
  * banned terms, so neither restates the other.
  */
-function styleBody(set: RuleSet, level: string): string[] {
-  const chat = set.chat;
-  const maxWords = set.readability.find((r) => r.kind === "long-sentence")?.maxWords;
+function styleBody(ruleset: RuleSet, level: string): string[] {
+  const chat = ruleset.chat;
+  const maxWords = ruleset.readability.find((r) => r.kind === "long-sentence")?.maxWords;
   // A placeholder rather than a hardcoded number, so the threshold the style
   // states and the threshold `long-sentence` enforces are the same value.
   const fill = (s: string): string =>
@@ -748,10 +748,10 @@ function styleBody(set: RuleSet, level: string): string[] {
     out.push("## What this applies to", "", ...wrap(fill(chat.scope)), "");
   }
 
-  if (set.profileGuidance?.length) {
+  if (ruleset.profileGuidance?.length) {
     out.push("## This project's observed style", "");
     out.push(...wrap("These stable observations describe the repository's existing prose. They guide wording and never change lint results."), "");
-    for (const note of set.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
+    for (const note of ruleset.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
     out.push("");
   }
 
@@ -959,9 +959,9 @@ function wrap(text: string, continuation = "", width = 78): string[] {
  * Select it with `/config`. The standalone `/output-style` command was removed
  * in Claude Code v2.1.91.
  */
-export function renderOutputStyle(set: RuleSet, level?: string): string {
-  const id = level ?? set.chat.level;
-  const meta = set.chat.levels.find((l) => l.id === id);
+export function renderOutputStyle(ruleset: RuleSet, level?: string): string {
+  const id = level ?? ruleset.chat.level;
+  const meta = ruleset.chat.levels.find((l) => l.id === id);
   return [
     "---",
     `name: ${meta?.name ?? "Plain English"}`,
@@ -973,7 +973,7 @@ export function renderOutputStyle(set: RuleSet, level?: string): string {
     "",
     "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit. -->",
     "",
-    ...styleBody(set, id),
+    ...styleBody(ruleset, id),
     "",
   ].join("\n");
 }
@@ -985,8 +985,8 @@ export function renderOutputStyle(set: RuleSet, level?: string): string {
  * already selected "Plain English" in `/config` keeps working across this
  * change rather than finding its style renamed out from under it.
  */
-export function outputStylePath(set: RuleSet, level: string): string {
-  return level === set.chat.level
+export function outputStylePath(ruleset: RuleSet, level: string): string {
+  return level === ruleset.chat.level
     ? "integrations/claude-code/output-styles/plain-english.md"
     : `integrations/claude-code/output-styles/plain-english-${level}.md`;
 }
@@ -999,8 +999,8 @@ export function outputStylePath(set: RuleSet, level: string): string {
  * is one slot, which the chat style holds. A skill loads when somebody writes
  * a document and costs nothing the rest of the time.
  */
-export function docsSkillPath(set: RuleSet): string {
-  return `integrations/claude-code/skills/${set.docs.skill.name}/SKILL.md`;
+export function docsSkillPath(ruleset: RuleSet): string {
+  return `integrations/claude-code/skills/${ruleset.docs.skill.name}/SKILL.md`;
 }
 
 /**
@@ -1009,8 +1009,8 @@ export function docsSkillPath(set: RuleSet): string {
  * No `keep-coding-instructions`: that key tells an output style host to hold
  * on to its own engineering instructions, and a skill is not an output style.
  */
-export function renderDocsSkill(set: RuleSet): string {
-  const docs = set.docs;
+export function renderDocsSkill(ruleset: RuleSet): string {
+  const docs = ruleset.docs;
   const out: string[] = [
     "---",
     `name: ${docs.skill.name}`,
@@ -1025,10 +1025,10 @@ export function renderDocsSkill(set: RuleSet): string {
 
   if (docs.scope) out.push(...wrap(docs.scope), "");
 
-  if (set.profileGuidance?.length) {
+  if (ruleset.profileGuidance?.length) {
     out.push("## This project's observed style", "");
     out.push(...wrap("Follow these stable observations where they fit the document. They do not override facts, requested form, or readability."), "");
-    for (const note of set.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
+    for (const note of ruleset.profileGuidance) out.push(...wrap(`- ${note}`, "  "));
     out.push("");
   }
 
@@ -1071,7 +1071,7 @@ export const AGENTS_MD_END = "<!-- plain-english:end -->";
  * Wrapped in markers because, unlike every other generated file here, this one
  * is spliced into a file the project also writes by hand.
  */
-export function renderAgentsFragment(set: RuleSet): string {
+export function renderAgentsFragment(ruleset: RuleSet): string {
   return [
     AGENTS_MD_START,
     "<!-- GENERATED by `plain-english render` from rules/default.yml. Do not edit by hand:",
@@ -1088,25 +1088,25 @@ export function renderAgentsFragment(set: RuleSet): string {
     "",
     // One file, so it carries one level. Claude Code gets all of them as
     // separate output styles; every other agent gets the default.
-    ...styleBody(set, set.chat.level),
+    ...styleBody(ruleset, ruleset.chat.level),
     "",
     AGENTS_MD_END,
     "",
   ].join("\n");
 }
 
-export function renderAll(set: RuleSet, root: string, io: CheckerIo = nodeIo): RenderTarget[] {
+export function renderAll(ruleset: RuleSet, root: string, io: CheckerIo = nodeIo): RenderTarget[] {
   const resolve = (...paths: string[]) => io.path.resolve(io.cwd, ...paths);
-  const prompts = renderPrompts(set);
+  const prompts = renderPrompts(ruleset);
   return [
-    { path: resolve(root, "docs/writing-style.md"), content: renderWritingStyle(set) },
+    { path: resolve(root, "docs/writing-style.md"), content: renderWritingStyle(ruleset) },
     {
       path: resolve(root, "integrations/agents-md/plain-english.md"),
-      content: renderAgentsFragment(set),
+      content: renderAgentsFragment(ruleset),
     },
-    ...set.chat.levels.map((level) => ({
-      path: resolve(root, ...outputStylePath(set, level.id).split("/")),
-      content: renderOutputStyle(set, level.id),
+    ...ruleset.chat.levels.map((level) => ({
+      path: resolve(root, ...outputStylePath(ruleset, level.id).split("/")),
+      content: renderOutputStyle(ruleset, level.id),
     })),
     ...Object.entries(prompts).map(([name, content]) => ({
       path: resolve(root, `integrations/claude-code/prompts/${name}.txt`),
@@ -1114,11 +1114,11 @@ export function renderAll(set: RuleSet, root: string, io: CheckerIo = nodeIo): R
     })),
     // Guarded, so a ruleset with no `docs` key writes exactly the files it
     // wrote before this section existed.
-    ...(set.docs.guidance.length
+    ...(ruleset.docs.guidance.length
       ? [
           {
-            path: resolve(root, ...docsSkillPath(set).split("/")),
-            content: renderDocsSkill(set),
+            path: resolve(root, ...docsSkillPath(ruleset).split("/")),
+            content: renderDocsSkill(ruleset),
           },
         ]
       : []),

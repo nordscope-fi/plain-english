@@ -75,7 +75,7 @@ export function hookCheck(check: HookCheck): HookResult {
   if (check.channel === "chat") return chatCheck(check);
   const { channel, payload, profile, io, answered } = check;
   const event: HookEvent = check.event ?? "pre";
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason: string) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
 
   // The post event is not holding up a write, so the tight budget buys
@@ -108,7 +108,7 @@ export function hookCheck(check: HookCheck): HookResult {
   // as the deterministic pass. Installed prompt hooks cannot enforce those
   // choices before disclosing their input, so the checker owns every model call.
   const semanticPhase = ruleSet.failOn === "never" ? (profile.advisoryPhase ?? "pre") : "pre";
-  if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
+  if (event === semanticPhase && decision.allow && !isJudge(environment) && modelChecksEnabled(ruleSet, profile, io)) {
     const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
     if (answered) answered.deadline = deadline;
     for (const request of requests) {
@@ -122,7 +122,7 @@ export function hookCheck(check: HookCheck): HookResult {
         ...modelCommand(profile.id, check.model),
         cwd: io.path.resolve(io.cwd, projectDir),
         timeoutMs,
-        env,
+        env: environment,
         onUnavailable: unavailable,
         ...(answered ? { answered } : {}),
       });
@@ -155,7 +155,7 @@ function chatCheck(check: HookCheck): HookResult {
   const { payload, profile, reader, io, answered } = check;
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader) return silent;
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason: string) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
 
   const reply = reader.current(payload, io);
@@ -183,7 +183,7 @@ function chatCheck(check: HookCheck): HookResult {
      * package did before the judge existed.
      */
     judge: (r, findings) => {
-      if (isJudge(env) || !modelChecksEnabled(ruleSet, profile, io)) return undefined;
+      if (isJudge(environment) || !modelChecksEnabled(ruleSet, profile, io)) return undefined;
       const prompts = renderPrompts(ruleSet);
       const input = judgeInput(r, lastAsked(payload, reader, io), findings);
       const run = (prompt: string) => {
@@ -194,7 +194,7 @@ function chatCheck(check: HookCheck): HookResult {
           ...modelCommand(profile.id),
           cwd: io.path.resolve(io.cwd, cwd),
           timeoutMs,
-          env,
+          env: environment,
           onUnavailable: unavailable,
           ...(answered ? { answered } : {}),
         });

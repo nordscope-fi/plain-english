@@ -13,8 +13,8 @@ import {
   resolveRuleSet,
   sentences,
   sha256
-} from "./chunk-GXQ4ZCID.mjs";
-import "./chunk-BXNK3WM5.mjs";
+} from "./chunk-4ISUF7UJ.mjs";
+import "./chunk-44INKBC4.mjs";
 import "./chunk-RU5JILLF.mjs";
 import {
   isMap,
@@ -1737,8 +1737,8 @@ var VIBE_JUDGE_ARGS = [
   "0.05",
   "-p"
 ];
-function isJudge(env = nodeIo.env) {
-  return env[JUDGE_MARKER] === "1";
+function isJudge(environment = nodeIo.env) {
+  return environment[JUDGE_MARKER] === "1";
 }
 function lastAsked(payload, reader, io) {
   for (const key of ["prompt", "user_message", "userMessage", "last_user_message"]) {
@@ -1834,12 +1834,12 @@ function answerFromMod(filled, opts, answered) {
   return verdict;
 }
 function runJudge(input, opts) {
-  const env = opts.env ?? nodeIo.env;
-  if (isJudge(env)) return void 0;
+  const environment = opts.env ?? nodeIo.env;
+  if (isJudge(environment)) return void 0;
   if (!opts.prompt.includes("$ARGUMENTS")) return void 0;
   const filled = opts.prompt.replace("$ARGUMENTS", input);
   if (opts.answered) return answerFromMod(filled, opts, opts.answered);
-  return spawnJudge(filled, opts, env);
+  return spawnJudge(filled, opts, environment);
 }
 
 function field(payload, ...names) {
@@ -2340,12 +2340,12 @@ function humanise(rule) {
   }).replace(/\[- \]/g, "-").replace(/\[[^\]]+\]\+/g, "...").replace(/([^)\]?])\?/g, "$1").replace(/\\b/g, "").replace(/\\s\+?/g, " ").replace(/\\([.\-'])/g, "$1").replace(/\\/g, "").replace(/\s+/g, " ").trim();
   return alternatives.map(render).filter(Boolean).join(", ");
 }
-function ruleListForPrompt(set) {
-  const blocking = set.rules.filter((r) => r.severity === "error").map((r) => humanise(r));
+function ruleListForPrompt(ruleset) {
+  const blocking = ruleset.rules.filter((r) => r.severity === "error").map((r) => humanise(r));
   return blocking.join("; ");
 }
-function structureListForPrompt(set) {
-  return set.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
+function structureListForPrompt(ruleset) {
+  return ruleset.structures.map((s) => `${s.name} (${s.description.replace(/\s+/g, " ").trim()})`).join("; ");
 }
 var JSON_CONTRACT = 'Respond with ONLY JSON, nothing else: {"ok": true} if it passes, or {"ok": false, "reason": "<quote the offending substring verbatim, then give a one-line plain rewrite>"} if it does not.';
 var CALIBRATION = [
@@ -2374,10 +2374,10 @@ function vocabularyTerms(pattern) {
   }
   return out;
 }
-function vocabularyForPrompt(set) {
+function vocabularyForPrompt(ruleset) {
   const named = [];
   const patterns = [];
-  for (const entry of set.allow) {
+  for (const entry of ruleset.allow) {
     if (!entry.semantic) continue;
     const terms = vocabularyTerms(entry.pattern);
     if (terms.length) named.push(...terms);
@@ -2390,12 +2390,12 @@ function vocabularyForPrompt(set) {
   }
   return `PROJECT VOCABULARY. This project's readers already know these, so never ask for a gloss or an explanation of them: ${parts.join(", ")}.`;
 }
-function renderPrompts(set, inputFormat = "tool") {
-  const words = ruleListForPrompt(set);
-  const shapes = structureListForPrompt(set);
-  const vocabulary = vocabularyForPrompt(set);
+function renderPrompts(ruleset, inputFormat = "tool") {
+  const words = ruleListForPrompt(ruleset);
+  const shapes = structureListForPrompt(ruleset);
+  const vocabulary = vocabularyForPrompt(ruleset);
   const vocab = vocabulary ? [vocabulary, ""] : [];
-  const shapeFaults = set.docs.guidance.map((g) => g.flag).filter((f) => Boolean(f));
+  const shapeFaults = ruleset.docs.guidance.map((g) => g.flag).filter((f) => Boolean(f));
   const shapeLine = shapeFaults.length ? [
     `- Faults of shape. About what the document does, not which words it uses: ${shapeFaults.join(" ")}`
   ] : [];
@@ -2435,7 +2435,7 @@ function renderPrompts(set, inputFormat = "tool") {
     "",
     JSON_CONTRACT
   ].join("\n");
-  const readable = set.chat.readable ? [
+  const readable = ruleset.chat.readable ? [
     TXT_BANNER,
     "",
     "A reply is about to be sent. You are checking one thing about it.",
@@ -2446,11 +2446,11 @@ function renderPrompts(set, inputFormat = "tool") {
     "Hook input (the reader's last message, then the reply):",
     "$ARGUMENTS",
     "",
-    ...wrap(set.chat.readable.description),
+    ...wrap(ruleset.chat.readable.description),
     "",
     ...vocab,
     'First list them. Then set "ok" to false if and only if the list holds more than',
-    `${set.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
+    `${ruleset.chat.readable.maxUnexplained} entries. When it is false, "reason" names the listed terms and says in`,
     "one sentence what the reply should have led with.",
     "",
     "Your reason is shown to the reader and goes back to the model, so it is held to",
@@ -2549,7 +2549,7 @@ function renderPrompts(set, inputFormat = "tool") {
     "$ARGUMENTS",
     "",
     'Return {"ok": true}, waiving the length, if ANY of these hold:',
-    ...set.chat.expand.map((e) => `- ${e}`),
+    ...ruleset.chat.expand.map((e) => `- ${e}`),
     "- The reader asked a question whose honest answer is genuinely this long.",
     "- The bulk of the reply is quoted output, a table, code, or a command to run.",
     "",
@@ -2558,10 +2558,10 @@ function renderPrompts(set, inputFormat = "tool") {
     "about to do, it covers a second topic nobody asked about, or it names files, keys",
     "and flags where a plain description would do.",
     "",
-    ...set.chat.judge.length ? [
+    ...ruleset.chat.judge.length ? [
       "Refuse for these as well, and they outrank the calibration below. A count",
       "brought the reply here; these are what the count cannot see.",
-      ...set.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
+      ...ruleset.chat.judge.flatMap((j) => wrap(`- ${j.description}`, "  ")),
       ""
     ] : [],
     "When you refuse, `reason` must say what the reply should have led with, in one",
@@ -2619,7 +2619,7 @@ function hookCheck(check) {
   if (check.channel === "chat") return chatCheck(check);
   const { channel, payload, profile, io, answered } = check;
   const event = check.event ?? "pre";
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
   const budgetMs = event === "post" ? POST_BUDGET_MS : HOOK_BUDGET_MS;
   const parsed = profile.parse(payload);
@@ -2640,7 +2640,7 @@ function hookCheck(check) {
   const texts = channel === "github" && parsed.tool === "bash" ? extractFromBash(String(parsed.input["command"] ?? ""), parsed.cwd || projectDir, io) : channel === "issue" ? extractFromIssue(parsed.input) : [];
   if (texts.length) requests.push({ channel, input: JSON.stringify({ texts }) });
   const semanticPhase = ruleSet.failOn === "never" ? profile.advisoryPhase ?? "pre" : "pre";
-  if (event === semanticPhase && decision.allow && !isJudge(env) && modelChecksEnabled(ruleSet, profile, io)) {
+  if (event === semanticPhase && decision.allow && !isJudge(environment) && modelChecksEnabled(ruleSet, profile, io)) {
     const deadline = answered?.deadline ?? io.now() + DOCS_JUDGE_CALL_MS;
     if (answered) answered.deadline = deadline;
     for (const request of requests) {
@@ -2653,8 +2653,7 @@ function hookCheck(check) {
         prompt,
         ...modelCommand(profile.id, check.model),
         cwd: io.path.resolve(io.cwd, projectDir),
-        timeoutMs,
-        env,
+        timeoutMs, env: environment,
         onUnavailable: unavailable,
         ...answered ? { answered } : {}
       });
@@ -2677,7 +2676,7 @@ function chatCheck(check) {
   const { payload, profile, reader, io, answered } = check;
   const silent = { stdout: "", exitCode: 0 };
   if (!profile.emitChat || !reader) return silent;
-  const env = io.env;
+  const environment = io.env;
   const unavailable = (reason) => io.notice(`plain-english: extra model check ${reason}; pattern checks still apply.`);
   const reply = reader.current(payload, io);
   if (!reply || !reply.text.trim()) return silent;
@@ -2692,7 +2691,7 @@ function chatCheck(check) {
   const decision = decideChat(reply, {
     ruleSet,
     judge: (r, findings) => {
-      if (isJudge(env) || !modelChecksEnabled(ruleSet, profile, io)) return void 0;
+      if (isJudge(environment) || !modelChecksEnabled(ruleSet, profile, io)) return void 0;
       const prompts = renderPrompts(ruleSet);
       const input = judgeInput(r, lastAsked(payload, reader, io), findings);
       const run = (prompt2) => {
@@ -2702,8 +2701,7 @@ function chatCheck(check) {
           prompt: prompt2,
           ...modelCommand(profile.id),
           cwd: io.path.resolve(io.cwd, cwd),
-          timeoutMs,
-          env,
+          timeoutMs, env: environment,
           onUnavailable: unavailable,
           ...answered ? { answered } : {}
         });
@@ -3061,9 +3059,9 @@ function approvalConfig(directory, io) {
   }
   return { path: io.path.join(directory, ".plain-english.yml"), exists: false };
 }
-function notApprovable(set, ruleId) {
-  if (set.structures.some((structure) => structure.id === ruleId)) return "This rule cannot be approved as project vocabulary.";
-  const known = set.rules.some((rule) => rule.id === ruleId) || set.readability.some((rule) => rule.id === ruleId) || (set.families ?? []).some((family) => `family-${family.id}` === ruleId);
+function notApprovable(ruleset, ruleId) {
+  if (ruleset.structures.some((structure) => structure.id === ruleId)) return "This rule cannot be approved as project vocabulary.";
+  const known = ruleset.rules.some((rule) => rule.id === ruleId) || ruleset.readability.some((rule) => rule.id === ruleId) || (ruleset.families ?? []).some((family) => `family-${family.id}` === ruleId);
   return known ? void 0 : `no rule ${ruleId}`;
 }
 function approvalPlan(cwd, request, ruleSetFor2, io = nodeIo) {
@@ -3094,11 +3092,11 @@ function approvalPlan(cwd, request, ruleSetFor2, io = nodeIo) {
   }
 }
 
-function projectGuidance(set, io = nodeIo) {
+function projectGuidance(ruleset, io = nodeIo) {
   const defaultNames = new Set(loadDefault(io).readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []));
-  const names = [...new Set(set.readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []))].filter((name) => !defaultNames.has(name));
-  const vocabulary = vocabularyForPrompt(set);
-  const notes = set.profileGuidance ?? [];
+  const names = [...new Set(ruleset.readability.flatMap((rule) => rule.kind === "unglossed-term" ? rule.known ?? [] : []))].filter((name) => !defaultNames.has(name));
+  const vocabulary = vocabularyForPrompt(ruleset);
+  const notes = ruleset.profileGuidance ?? [];
   if (!names.length && !vocabulary && !notes.length) return "";
   return [
     "Plain English project guidance. Preserve facts, qualifications, and the reader's requested form.",

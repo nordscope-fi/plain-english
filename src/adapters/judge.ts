@@ -62,8 +62,8 @@ export const VIBE_JUDGE_ARGS = [
 ];
 
 /** Whether this process is itself a judge, and must not start another. */
-export function isJudge(env: Env = nodeIo.env): boolean {
-  return env[JUDGE_MARKER] === "1";
+export function isJudge(environment: Env = nodeIo.env): boolean {
+  return environment[JUDGE_MARKER] === "1";
 }
 
 /**
@@ -251,8 +251,8 @@ export function answerKey(filled: string): string {
 }
 
 /** Read the mod's answers off a payload, or `undefined` when the route is off. */
-export function hostRoute(payload: Record<string, unknown>, env: Env = nodeIo.env): ModAnswers | undefined {
-  if (env["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host") return undefined;
+export function hostRoute(payload: Record<string, unknown>, environment: Env = nodeIo.env): ModAnswers | undefined {
+  if (environment["PLAIN_ENGLISH_MODEL_ROUTE"] !== "host") return undefined;
   const raw = payload["plainEnglishModel"];
   const record = typeof raw === "object" && raw !== null && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
   const answers = Array.isArray(record["answers"]) ? record["answers"].flatMap((item): ModAnswer[] => {
@@ -305,11 +305,11 @@ function answerFromMod(filled: string, opts: JudgeOptions, answered: ModAnswers)
  * brings answers, and its build carries no way to start a program (ADR-008).
  */
 export function runJudge(input: string, opts: JudgeOptions): Verdict | undefined {
-  const env = opts.env ?? nodeIo.env;
-  if (isJudge(env)) return undefined;
+  const environment = opts.env ?? nodeIo.env;
+  if (isJudge(environment)) return undefined;
   if (!opts.prompt.includes("$ARGUMENTS")) return undefined;
 
   const filled = opts.prompt.replace("$ARGUMENTS", input);
   if (opts.answered) return answerFromMod(filled, opts, opts.answered);
-  return spawnJudge(filled, opts, env);
+  return spawnJudge(filled, opts, environment);
 }

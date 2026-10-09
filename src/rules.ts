@@ -1080,25 +1080,25 @@ export function phrasePattern(phrase: string): string {
  *
  * Returned compiled, so a caller cannot forget.
  */
-export function chatRuleSet(set: RuleSet, level?: string): RuleSet {
+export function chatRuleSet(ruleset: RuleSet, level?: string): RuleSet {
   return compile({
-    ...set,
-    rules: [...set.rules.map((r) => ({ ...r })), ...chatRules(set, level)],
+    ...ruleset,
+    rules: [...ruleset.rules.map((r) => ({ ...r })), ...chatRules(ruleset, level)],
     readability: [
-      ...set.readability
+      ...ruleset.readability
         .filter((r) => r.kind !== "unexplained-suppression")
         .map((r) => ({ ...r })),
       // The reply limits, which apply here and nowhere else. A document that
       // runs long is doing its job; a reply that runs long is the complaint
       // this package heard most often over seven days of transcripts.
-      ...(set.chat.limits ?? []).map((r) => ({ ...r })),
+      ...(ruleset.chat.limits ?? []).map((r) => ({ ...r })),
     ],
-    allow: [...set.allow],
+    allow: [...ruleset.allow],
   });
 }
 
-export function chatRules(set: RuleSet, level?: string): Rule[] {
-  return set.chat.tells
+export function chatRules(ruleset: RuleSet, level?: string): Rule[] {
+  return ruleset.chat.tells
     .filter((t) => t.severity !== "off")
     .filter((t) => level === undefined || inLevel(t, level))
     .filter((t) => t.phrases.length)
@@ -1240,12 +1240,12 @@ function toRuleSet(raw: RawSet): RuleSet {
 
 /** Load the built-in ruleset. */
 export function loadDefault(io: CheckerIo = nodeIo): RuleSet {
-  const set = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
+  const ruleset = toRuleSet(parseSet(io.defaultRules(), "rules/default.yml"));
   const source = {
     title: "Plain English design rationale",
     url: "https://github.com/nordscope-fi/plain-english/blob/main/docs/design-rationale.md",
   };
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     rule.provenance ??= {
       kind: "both",
       confidence: "medium",
@@ -1254,13 +1254,13 @@ export function loadDefault(io: CheckerIo = nodeIo): RuleSet {
       sources: [source],
     };
   }
-  for (const rule of set.readability) {
+  for (const rule of ruleset.readability) {
     rule.provenance ??= { kind: "quality", confidence: "medium", scope: ["prose"], reviewed: "2026-09-13", sources: [source] };
   }
-  for (const structure of set.structures) {
+  for (const structure of ruleset.structures) {
     structure.provenance ??= { kind: "both", confidence: "experimental", scope: ["semantic-review"], reviewed: "2026-09-13", sources: [source] };
   }
-  return set;
+  return ruleset;
 }
 
 /**
@@ -1486,25 +1486,25 @@ export function loadConfig(path: string, io: CheckerIo = nodeIo): RuleSet {
   const raw = parseSet(text, path);
   const overlay = toRuleSet(raw);
   const ext = raw.extends;
-  let set: RuleSet;
-  if (ext === undefined || ext === "default") set = merge(loadDefault(io), overlay);
+  let ruleset: RuleSet;
+  if (ext === undefined || ext === "default") ruleset = merge(loadDefault(io), overlay);
   else {
     if (typeof ext !== "string") throw new RuleError(`${path}: extends must be a string`);
     const basePath = io.path.isAbsolute(ext) ? ext : io.path.resolve(io.path.dirname(path), ext);
-    set = merge(loadConfig(basePath, io), overlay);
+    ruleset = merge(loadConfig(basePath, io), overlay);
   }
-  if (set.profile) {
-    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path), set.profile.file), io);
+  if (ruleset.profile) {
+    const profile = readWritingProfile(io.path.resolve(io.path.dirname(path), ruleset.profile.file), io);
     if (profile) {
-      set.profileGuidance = writingProfileGuidance(profile);
-      set.profileState = {
-        file: set.profile.file,
+      ruleset.profileGuidance = writingProfileGuidance(profile);
+      ruleset.profileState = {
+        file: ruleset.profile.file,
         sourceHash: profile.sourceHash,
         genres: Object.fromEntries(Object.entries(profile.genres).map(([name, row]) => [name, row.status])),
       };
     }
   }
-  return set;
+  return ruleset;
 }
 
 /**
@@ -1529,8 +1529,8 @@ export function resolveRuleSet(from: string, io: CheckerIo = nodeIo): RuleSet {
  * Compile every regex once. Throws on an invalid or unsafe pattern, naming the
  * rule so the author knows which line of their config to fix.
  */
-export function compile(set: RuleSet): RuleSet {
-  set.families ??= [];
+export function compile(ruleset: RuleSet): RuleSet {
+  ruleset.families ??= [];
   const guard = (source: string, where: string) => {
     const unsafe = findUnsafe(source);
     if (unsafe) {
@@ -1543,7 +1543,7 @@ export function compile(set: RuleSet): RuleSet {
     }
   };
 
-  for (const rule of set.rules) {
+  for (const rule of ruleset.rules) {
     if (rule.severity === "off" || !rule.match) continue;
     guard(rule.match, `rule '${rule.id}'`);
     try {
@@ -1571,15 +1571,15 @@ export function compile(set: RuleSet): RuleSet {
   // Defensive on every list: `compile` is public, and a ruleset assembled by a
   // consumer rather than loaded from YAML may carry only the sections it uses.
   const ids = new Set([
-    ...(set.rules ?? []).map((r) => r.id),
-    ...(set.readability ?? []).map((r) => r.id),
-    ...(set.chat?.tells ?? []).map((t) => t.id),
-    ...(set.chat?.limits ?? []).map((r) => r.id),
-    ...set.families.map((family) => `family-${family.id}`),
+    ...(ruleset.rules ?? []).map((r) => r.id),
+    ...(ruleset.readability ?? []).map((r) => r.id),
+    ...(ruleset.chat?.tells ?? []).map((t) => t.id),
+    ...(ruleset.chat?.limits ?? []).map((r) => r.id),
+    ...ruleset.families.map((family) => `family-${family.id}`),
   ]);
 
-  const familyIds = new Set(set.families.map((family) => family.id));
-  for (const entry of [...(set.rules ?? []), ...(set.readability ?? [])]) {
+  const familyIds = new Set(ruleset.families.map((family) => family.id));
+  for (const entry of [...(ruleset.rules ?? []), ...(ruleset.readability ?? [])]) {
     if (entry.family && !familyIds.has(entry.family)) {
       throw new RuleError(`rule '${entry.id}' names unknown family '${entry.family}'`);
     }
@@ -1588,11 +1588,11 @@ export function compile(set: RuleSet): RuleSet {
   // A bare string reaching here means a caller built the ruleset by hand
   // rather than loading it, which the public API allows. Normalise instead of
   // rejecting: the string form is still the language, it just came in raw.
-  set.allow = (set.allow ?? []).map((a) =>
+  ruleset.allow = (ruleset.allow ?? []).map((a) =>
     typeof a === "string" ? { pattern: a as string } : a,
   );
 
-  set.allowRe = set.allow.map((a, i) => {
+  ruleset.allowRe = ruleset.allow.map((a, i) => {
     guard(a.pattern, `allow[${i}]`);
     let re: RegExp;
     try {
@@ -1620,5 +1620,5 @@ export function compile(set: RuleSet): RuleSet {
     }
     return compiled;
   });
-  return set;
+  return ruleset;
 }

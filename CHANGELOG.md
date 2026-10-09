@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.5] - 2026-10-10
+### Changed
+
+- The Claude Code plugin names no variable after a command that lists the environment, and no line in it begins with one. The ruleset's variable is now `ruleset` and the environment's `environment`, and the plugin's copy of the YAML parser calls its set type `setTag`. The Claude directory read lines such as `set = merge(...)` as the shell's `set`.
+
 ## [1.16.4] - 2026-10-09
 ### Changed
 
@@ -783,7 +788,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.4...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.5...HEAD
+[1.16.5]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.5
 [1.16.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.4
 [1.16.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.3
 [1.16.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.2

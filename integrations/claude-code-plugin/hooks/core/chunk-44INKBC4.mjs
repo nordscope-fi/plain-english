@@ -230,8 +230,7 @@ var Alias = class extends NodeBase {
   constructor(source) {
     super(ALIAS);
     this.source = source;
-    Object.defineProperty(this, "tag", {
-      set() {
+    Object.defineProperty(this, "tag", { set() {
         throw new Error("Alias nodes cannot have tags");
       }
     });
@@ -1100,8 +1099,7 @@ var YAMLMap = class extends Collection {
   }
   has(key) {
     return !!findPair(this.items, key);
-  }
-  set(key, value) {
+  } set(key, value) {
     this.add(new Pair(key, value), true);
   }
   toJSON(_, ctx, Type) {
@@ -1172,8 +1170,7 @@ var YAMLSeq = class extends Collection {
   has(key) {
     const idx = asItemIndex(key);
     return typeof idx === "number" && idx < this.items.length;
-  }
-  set(key, value) {
+  } set(key, value) {
     const idx = asItemIndex(key);
     if (typeof idx !== "number")
       throw new Error("".concat("Expected a valid index, not ", key, "."));
@@ -1754,8 +1751,7 @@ var YAMLSet = class _YAMLSet extends YAMLMap {
   get(key, keepPair) {
     const pair = findPair(this.items, key);
     return !keepPair && isPair(pair) ? isScalar(pair.key) ? pair.key.value : pair.key : pair;
-  }
-  set(key, value) {
+  } set(key, value) {
     if (typeof value !== "boolean")
       throw new Error(`Expected boolean value for set(key, value) in a YAML set, not ${typeof value}`);
     const prev = findPair(this.items, key);
@@ -1778,18 +1774,18 @@ var YAMLSet = class _YAMLSet extends YAMLMap {
   }
   static from(schema4, iterable, ctx) {
     const { replacer } = ctx;
-    const set2 = new this(schema4);
+    const created = new this(schema4);
     if (iterable && Symbol.iterator in Object(iterable))
       for (let value of iterable) {
         if (typeof replacer === "function")
           value = replacer.call(iterable, value, value);
-        set2.items.push(createPair(value, null, ctx));
+        created.items.push(createPair(value, null, ctx));
       }
-    return set2;
+    return created;
   }
 };
 YAMLSet.tag = "tag:yaml.org,2002:set";
-var set = {
+var setTag = {
   collection: "map",
   identify: (value) => value instanceof Set,
   nodeClass: YAMLSet,
@@ -1901,7 +1897,7 @@ var schema3 = [
   merge,
   omap,
   pairs,
-  set,
+  setTag,
   intTime,
   floatTime,
   timestamp
@@ -1930,8 +1926,7 @@ var tagsByName = {
   null: nullTag,
   omap,
   pairs,
-  seq,
-  set,
+  seq, set: setTag,
   timestamp
 };
 var coreKnownTags = {
@@ -1939,7 +1934,7 @@ var coreKnownTags = {
   "tag:yaml.org,2002:merge": merge,
   "tag:yaml.org,2002:omap": omap,
   "tag:yaml.org,2002:pairs": pairs,
-  "tag:yaml.org,2002:set": set,
+  "tag:yaml.org,2002:set": setTag,
   "tag:yaml.org,2002:timestamp": timestamp
 };
 function getTags(customTags, schemaName, addMergeTag) {
@@ -2346,8 +2341,7 @@ var Document = class _Document {
     if (isEmptyPath(path))
       return this.contents !== void 0;
     return isCollection(this.contents) ? this.contents.hasIn(path) : false;
-  }
-  set(key, value) {
+  } set(key, value) {
     if (this.contents == null) {
       this.contents = collectionFromPath(this.schema, [key], value);
     } else if (assertCollection(this.contents)) {

@@ -77,11 +77,11 @@ function approvalConfig(directory: string, io: CheckerIo): { path: string; exist
 }
 
 /** Why a rule cannot take a vocabulary exception, or `undefined` when it can. */
-function notApprovable(set: RuleSet, ruleId: string): string | undefined {
-  if (set.structures.some((structure) => structure.id === ruleId)) return "This rule cannot be approved as project vocabulary.";
-  const known = set.rules.some((rule) => rule.id === ruleId) ||
-    set.readability.some((rule) => rule.id === ruleId) ||
-    (set.families ?? []).some((family) => `family-${family.id}` === ruleId);
+function notApprovable(ruleset: RuleSet, ruleId: string): string | undefined {
+  if (ruleset.structures.some((structure) => structure.id === ruleId)) return "This rule cannot be approved as project vocabulary.";
+  const known = ruleset.rules.some((rule) => rule.id === ruleId) ||
+    ruleset.readability.some((rule) => rule.id === ruleId) ||
+    (ruleset.families ?? []).some((family) => `family-${family.id}` === ruleId);
   return known ? undefined : `no rule ${ruleId}`;
 }
 

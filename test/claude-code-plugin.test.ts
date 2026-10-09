@@ -130,7 +130,7 @@ describe("the plugin's hook files as the directory reads them", () => {
   // file in the plugin carries a name shaped like a credential variable.
   it("carry no name shaped like a credential variable", () => {
     const files = [...coreFiles(), "hooks/register.ts", ...readdirSync(resolve(PLUGIN, "skills"), { recursive: true, encoding: "utf8" })
-      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`)];
+      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`), "README.md"];
     for (const file of files) {
       const text = readFileSync(resolve(PLUGIN, file), "utf8");
       expect(text.match(/\b[A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL)[A-Z0-9_]*\b/g) ?? [], file).toEqual([]);
@@ -143,10 +143,46 @@ describe("the plugin's hook files as the directory reads them", () => {
   // build writes every such template as plain joining instead.
   it("drop no credential word into a template substitution", () => {
     const files = [...coreFiles(), "hooks/register.ts", ...readdirSync(resolve(PLUGIN, "skills"), { recursive: true, encoding: "utf8" })
-      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`)];
+      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`), "README.md"];
     for (const file of files) {
       const text = readFileSync(resolve(PLUGIN, file), "utf8");
       expect(text.match(/\$\{[^}]*(?:key|token|secret|passw|auth|credential)[^}]*\}/gi) ?? [], file).toEqual([]);
+    }
+  });
+
+  // Held on 31b7cb9: "this plugin reads the installer's environment (printenv
+  // / env / export -p / set) (file hooks/core/chunk-GXQ4ZCID.mjs)", where
+  // lines began `set = merge(...)` and `set.allow = ...`: the ruleset in a
+  // variable called `set`. No variable in the plugin is named after one of
+  // those commands, and no line begins with one.
+  it("name nothing after a command that lists the environment", async () => {
+    const { parse } = await import("@babel/parser");
+    const words = new Set(["set", "env", "printenv", "declare", "typeset", "compgen"]);
+    for (const file of ["README.md", ...readdirSync(resolve(PLUGIN, "skills"), { recursive: true, encoding: "utf8" })
+      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`)]) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text.match(/^\s*(?:set|env|printenv|declare|typeset|compgen)\b.*|^\s*export\s+-p.*/gm) ?? [], file).toEqual([]);
+    }
+    for (const file of [...coreFiles(), "hooks/register.ts"]) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text.match(/^\s*(?:set|env|printenv|declare|typeset|compgen)\b.*|^\s*export\s+-p.*/gm) ?? [], file).toEqual([]);
+      const found: string[] = [];
+      const walk = (node: unknown, parent: Record<string, unknown>, key: string): void => {
+        if (!node || typeof node !== "object") return;
+        const n = node as Record<string, unknown> & { type?: string; name?: string; loc?: { start: { line: number } } };
+        if (typeof n.type !== "string") return;
+        if (n.type === "Identifier" && words.has(n.name!)) {
+          const asKey = key === "key" && !parent["computed"] && !parent["shorthand"];
+          const asProperty = parent["type"] === "MemberExpression" && key === "property" && !parent["computed"];
+          if (!asKey && !asProperty) found.push(`${n.name}@${n.loc!.start.line}`);
+        }
+        for (const [k, v] of Object.entries(n)) {
+          if (k === "loc") continue;
+          if (Array.isArray(v)) v.forEach((c) => walk(c, n, k)); else walk(v, n, k);
+        }
+      };
+      walk(parse(text, { sourceType: "module", plugins: file.endsWith(".ts") ? ["typescript"] : [] }).program, {}, "");
+      expect(found, file).toEqual([]);
     }
   });
 
