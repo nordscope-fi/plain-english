@@ -61,14 +61,61 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
-  it("keep every bundled file under the directory's 1 MiB read limit", () => {
-    // Held as "Files or downloads the validator couldn't inspect" at 1.7 MB.
-    const dist = resolve(PLUGIN, "dist");
-    const files = readdirSync(dist, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
-    expect(files.length).toBeGreaterThan(1);
-    for (const file of files) {
+  // The pre-submission checklist: "Keep every file that isn't an image or font
+  // under 256 KiB" and "Keep the plugin to 512 files or fewer", both held as
+  // "Files or downloads the validator couldn't inspect".
+  it("keep every file under the directory's 256 KiB read limit, and the plugin under 512 files", () => {
+    const all = readdirSync(PLUGIN, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && !resolve(entry.parentPath).includes(`${resolve(PLUGIN, ".claude-plugin", "types")}`));
+    expect(all.length).toBeLessThanOrEqual(512);
+    for (const file of all) {
       const path = resolve(file.parentPath, file.name);
-      expect(statSync(path).size, path).toBeLessThan(1024 * 1024);
+      if (/\.(png|jpe?g|gif|webp|woff2?|ttf|otf)$/i.test(file.name)) continue;
+      expect(statSync(path).size, path).toBeLessThan(256 * 1024);
+    }
+  });
+
+  // Windows CI, 2026-10-08: a path compared with backslashes let the split
+  // move the CLI's own entry module out of cli.mjs.
+  it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
+    expect(readFileSync(resolve(PLUGIN, "dist/cli.mjs"), "utf8")).toContain("catch AI writing tells before they land");
+  });
+
+  // Held as "Mod starts a program with a command the directory couldn't read
+  // in full": every program the mod starts is written as fixed text.
+  it("start every program with a command written as fixed text", () => {
+    const source = readFileSync(resolve(PLUGIN, "hooks/register.ts"), "utf8");
+    const commands = [...source.matchAll(/\$\.process\.(?:run\(|spawn\(\{\s*argv:\s*)(\[[^\]]*\])/g)].map((match) => match[1]!);
+    expect(commands.length).toBeGreaterThanOrEqual(7);
+    for (const command of commands) {
+      expect(command, command).toMatch(/^\[\s*'[^'$`]*'(?:\s*,\s*'[^'$`]*')*\s*\]$/);
+    }
+  });
+
+  it("run the checker from the plugin folder in the project folder the mod names", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-wrapper-"));
+    try {
+      writeFileSync(resolve(dir, "notes.md"), "Furthermore, it works.\n");
+      const ran = spawnSync(process.execPath, ["hooks/run-checker.mjs", "lint"], {
+        cwd: PLUGIN,
+        encoding: "utf8",
+        env: { ...process.env, PLAIN_ENGLISH_CWD: dir, PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(["notes.md"]), PLAIN_ENGLISH_CHECK_TIMEOUT_MS: "20000" },
+      });
+      expect(ran.stdout + ran.stderr).toContain("furthermore");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("explain that source prose needs the npm package, since the plugin leaves the parser out", () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-plugin-source-"));
+    try {
+      writeFileSync(resolve(dir, "a.ts"), 'const greeting = "Hello there.";\n');
+      const ran = spawnSync(process.execPath, [resolve(PLUGIN, "dist/cli.mjs"), "lint", "--source-prose", resolve(dir, "a.ts")], { cwd: dir, encoding: "utf8" });
+      expect(ran.status).toBe(2);
+      expect(ran.stderr).toContain("npm package");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

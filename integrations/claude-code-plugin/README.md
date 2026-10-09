@@ -72,16 +72,16 @@ This section answers the Claude directory's checks one call at a time. Paths are
 
 ### Programs the mod starts
 
-Every program is `node`, the runtime Claude Code itself uses. No shell is started, so no command line is parsed or expanded. Each command is fixed text, apart from the values marked as variable below.
+Every program is `node`, the runtime Claude Code itself uses, started in the plugin folder. No shell is started, so no command line is parsed or expanded. Every command is fixed text. The project folder reaches the checker in the `PLAIN_ENGLISH_CWD` setting, and the paths you type in `PLAIN_ENGLISH_LINT_PATHS`.
 
 | Where in `hooks/register.ts` | Command | Why |
 | --- | --- | --- |
-| `runChecker`, through `$.process.spawn` | `node hooks/run-checker.mjs dist/cli.mjs hook <channel> --agent claude-code`, with the event as JSON on standard input | Runs the bundled checker on one proposed write or finished reply. `<channel>` is one of `docs`, `github`, `issue` or `chat`. |
-| term approval, through `$.process.run` | `node dist/cli.mjs approve`, with the request as JSON on standard input | Checks and then saves one approved term in the project config. The mod runs it twice: once to check, and once to write after you confirm. |
-| `prompt.context`, through `$.process.run` | `node dist/cli.mjs guidance` | Reads the project's declared vocabulary to add to the conversation. |
-| `/plain-english`, through `$.process.run` | `node dist/cli.mjs lint <paths>` | Checks files you name. `<paths>` are the paths you typed. |
+| `spawnHook`, through `$.process.spawn` | `node hooks/run-checker.mjs hook docs --agent claude-code`, and the same with `github`, `issue` or `chat`, each written out in full, with the event as JSON on standard input | Runs the bundled checker on one proposed write or finished reply. The event on standard input is data for the checker to read, not code. |
+| term approval, through `$.process.run` | `node hooks/run-checker.mjs approve`, with the request as JSON on standard input | Checks and then saves one approved term in the project config. The mod runs it twice: once to check, and once to write after you confirm. |
+| `prompt.context`, through `$.process.run` | `node hooks/run-checker.mjs guidance` | Reads the project's declared vocabulary to add to the conversation. |
+| `/plain-english`, through `$.process.run` | `node hooks/run-checker.mjs lint` | Checks the files you name. |
 
-`hooks/run-checker.mjs` starts the checker as a child process and stops it, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, as the fallback for an extra model check when `$.model.complete` cannot be made.
+`hooks/run-checker.mjs` starts the checker, `dist/cli.mjs` beside it, as a child process in the project folder, and stops it, with any child of its own, when Claude Code cancels the hook or its time runs out. On Windows it uses `taskkill` for that. The checker starts one more program in a single case: `claude -p`, as the fallback for an extra model check when `$.model.complete` cannot be made.
 
 ### What leaves the machine, and where it goes
 

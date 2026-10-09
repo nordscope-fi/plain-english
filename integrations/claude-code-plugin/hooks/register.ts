@@ -8,14 +8,6 @@ import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, 
 const MARKDOWN = /\.(md|markdown|mdx)$/i
 
 /**
- * The CLI as `scripts/build-plugin.mjs` bundles it on every `npm run build`:
- * one file with every dependency inlined, committed beside this module so an
- * install from the marketplace needs nothing else. The ruleset it reads sits
- * at `../rules/default.yml` relative to it, where `rules.ts` looks.
- */
-const CLI = 'dist/cli.mjs'
-
-/**
  * The CLI's own hook budget is half a second of matching; the chat judge may
  * shell to a model and take seconds. Both stay far under the ten-minute cap,
  * and time inside `$.process.spawn` never counts against the hook's budget.
@@ -56,7 +48,9 @@ interface ApprovalStep { root: string; config: string; exists: boolean; hash: st
  * write, and the mod reads and writes no file of its own.
  */
 async function approvalStep($: EngineInterface, cwd: string, request: Record<string, unknown>): Promise<ApprovalStep> {
-  const ran = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'approve'], { cwd, stdin: JSON.stringify(request), timeoutMs: 5_000 })
+  const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'approve'], {
+    cwd: $.plugin.root, env: projectEnv(cwd, 5_000), stdin: JSON.stringify(request), timeoutMs: 6_000,
+  })
   if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || 'The approval check did not run.')
   let answer: Record<string, unknown>
   try { answer = JSON.parse(ran.stdout) as Record<string, unknown> } catch { throw new Error('The approval check returned an unreadable answer.') }
@@ -160,6 +154,25 @@ async function answerModel($: EngineInterface, asked: ModelRequest, signal: Abor
   }
 }
 
+/**
+ * The settings every checker run gets. The mod starts `hooks/run-checker.mjs`
+ * from the plugin folder with fixed arguments, so the Claude directory can read
+ * each command in full; the wrapper runs the CLI in this project folder.
+ */
+function projectEnv(cwd: string, timeoutMs: number): Record<string, string> {
+  return { PLAIN_ENGLISH_CWD: cwd, PLAIN_ENGLISH_CHECK_TIMEOUT_MS: String(timeoutMs) }
+}
+
+/** One hook run per channel, each command written out in full. */
+function spawnHook($: EngineInterface, channel: Channel, init: { cwd: string; env: Record<string, string>; input: string }) {
+  switch (channel) {
+    case 'docs': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'docs', '--agent', 'claude-code'], ...init })
+    case 'github': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'github', '--agent', 'claude-code'], ...init })
+    case 'issue': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'issue', '--agent', 'claude-code'], ...init })
+    case 'chat': return $.process.spawn({ argv: ['node', 'hooks/run-checker.mjs', 'hook', 'chat', '--agent', 'claude-code'], ...init })
+  }
+}
+
 /** One CLI run: its output, held to the byte limits, and its exit code. */
 async function runChecker(
   $: EngineInterface,
@@ -171,10 +184,8 @@ async function runChecker(
 ): Promise<{ stdout: string; stderr: string }> {
   // The stream follows the dispatch's cancellation signal. The asynchronous
   // wrapper relays it to the CLI's group, including a synchronous model child.
-  const stream = $.process.spawn({
-    argv: ['node', `${$.plugin.root}/hooks/run-checker.mjs`, `${$.plugin.root}/${CLI}`, 'hook', channel, '--agent', 'claude-code'],
-    cwd, env: variables, input: JSON.stringify(payload),
-  })
+  const init = { cwd: $.plugin.root, env: { ...variables, PLAIN_ENGLISH_CWD: cwd }, input: JSON.stringify(payload) }
+  const stream = spawnHook($, channel, init)
   const ran = { stdout: '', stderr: '', exitCode: null as number | null }
   const bytes = { stdout: 0, stderr: 0 }
   const stop = () => { void stream.return({ code: null, signal: null }).catch(() => {}) }
@@ -382,7 +393,7 @@ export const register: Register = on => {
     const base = await next(e)
     try {
       const cwd = await $.session.cwd()
-      const ran = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'guidance'], { cwd, timeoutMs: 5_000 })
+      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'guidance'], { cwd: $.plugin.root, env: projectEnv(cwd, 5_000), timeoutMs: 6_000 })
       if (ran.exitCode !== 0) throw new Error(ran.stderr.trim() || `exit ${ran.exitCode}`)
       const text = ran.stdout.trim()
       if (new TextEncoder().encode(text).length > 32_768) throw new Error('Project writing guidance is too large (over 32 KB). Reduce project vocabulary or writing observations before loading it.')
@@ -415,9 +426,11 @@ export const register: Register = on => {
       return { text: String(error) }
     }
     try {
-      const ran = await $.process.run(['node', `${$.plugin.root}/${CLI}`, 'lint', ...paths.map(path => path.startsWith('-') ? `./${path}` : path)], {
-        cwd,
-        timeoutMs: 120_000,
+      const typed = paths.map(path => path.startsWith('-') ? `./${path}` : path)
+      const ran = await $.process.run(['node', 'hooks/run-checker.mjs', 'lint'], {
+        cwd: $.plugin.root,
+        env: { ...projectEnv(cwd, 120_000), PLAIN_ENGLISH_LINT_PATHS: JSON.stringify(typed) },
+        timeoutMs: 125_000,
       })
       const text = (ran.stdout + ran.stderr).trim()
       if (ran.exitCode !== 0 && (ran.exitCode !== 1 || text === '')) {
