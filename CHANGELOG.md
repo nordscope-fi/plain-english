@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-10-09
+### Changed
+
+- The Claude Code plugin's copy of the built-in ruleset names this repository's guides by path, and leaves out rule source credits and comments, so the plugin carries no web address. The rules are unchanged. The Claude directory paired the ruleset's addresses with the YAML parser's own variable names.
+
 ## [1.16.0] - 2026-10-09
 ### Changed
 
@@ -763,7 +768,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.1
 [1.16.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.0
 [1.15.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.2
 [1.15.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.1
