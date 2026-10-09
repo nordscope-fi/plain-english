@@ -130,7 +130,7 @@ function parseBlockScalarHeader({ offset, props }, strict, onError) {
     }
   }
   if (error !== -1)
-    onError(error, "UNEXPECTED_TOKEN", `Block scalar header includes extra characters: ${source}`);
+    onError(error, "unexpected-token", `Block scalar header includes extra characters: ${source}`);
   let hasSpace = false;
   let comment = "";
   let length = source.length;
@@ -151,12 +151,12 @@ function parseBlockScalarHeader({ offset, props }, strict, onError) {
         comment = token.source.substring(1);
         break;
       case "error":
-        onError(token, "UNEXPECTED_TOKEN", token.message);
+        onError(token, "unexpected-token", token.message);
         length += token.source.length;
         break;
       default: {
         const message = `Unexpected token in block scalar header: ${token.type}`;
-        onError(token, "UNEXPECTED_TOKEN", message);
+        onError(token, "unexpected-token", message);
         const ts = token.source;
         if (ts && typeof ts === "string")
           length += ts.length;
@@ -204,7 +204,7 @@ function resolveEnd(end, offset, reqSpace, onError) {
           hasSpace = true;
           break;
         default:
-          onError(token, "UNEXPECTED_TOKEN", `Unexpected ${type} at node end`);
+          onError(token, "unexpected-token", `Unexpected ${type} at node end`);
       }
       offset += source.length;
     }
@@ -231,7 +231,7 @@ function resolveFlowScalar(scalar, strict, onError) {
       value = doubleQuotedValue(source, _onError);
       break;
     default:
-      onError(scalar, "UNEXPECTED_TOKEN", `Expected a flow scalar value, but found: ${type}`);
+      onError(scalar, "unexpected-token", `Expected a flow scalar value, but found: ${type}`);
       return {
         value: "",
         type: null,

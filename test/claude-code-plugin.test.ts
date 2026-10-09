@@ -123,6 +123,20 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // Held on 9e8d158: "this plugin reads the installer's token (file
+  // hooks/core/chunk-6VUKDY2J.mjs)", the one file whose only capital name was
+  // the YAML parser's error code `UNEXPECTED_TOKEN`, shaped like `GITHUB_TOKEN`.
+  // The finding clears when every part that reads a credential is gone, so no
+  // file in the plugin carries a name shaped like a credential variable.
+  it("carry no name shaped like a credential variable", () => {
+    const files = [...coreFiles(), "hooks/register.ts", ...readdirSync(resolve(PLUGIN, "skills"), { recursive: true, encoding: "utf8" })
+      .filter((name) => name.endsWith(".md")).map((name) => `skills/${name}`)];
+    for (const file of files) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      expect(text.match(/\b[A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL)[A-Z0-9_]*\b/g) ?? [], file).toEqual([]);
+    }
+  });
+
   // Held on 852d825 as "a string that looks like encoded data": an HTML
   // library's entity table. The checker reads issue HTML with its own reader.
   it("carry no HTML library or encoded entity table", () => {
