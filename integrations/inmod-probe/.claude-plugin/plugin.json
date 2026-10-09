@@ -1,0 +1,7 @@
+{
+  "name": "inmod-probe",
+  "version": "0.0.1",
+  "description": "A test plugin that checks whether the Claude directory raises its mod findings for a checker that runs inside the mod.",
+  "author": { "name": "Nordscope" },
+  "license": "MIT"
+}
