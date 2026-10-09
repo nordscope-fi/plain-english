@@ -21,7 +21,6 @@ export function antigravityCwd(raw: Record<string, unknown>): string | undefined
 export const antigravity: AgentProfile = {
   id: "antigravity",
   label: "Google Antigravity CLI",
-  docs: "https://antigravity.google/docs/hooks/",
   detect(raw) {
     return typeof raw["conversationId"] === "string" &&
       (Array.isArray(raw["workspacePaths"]) || typeof raw["toolCall"] === "object");

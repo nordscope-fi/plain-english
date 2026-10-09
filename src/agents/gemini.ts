@@ -17,7 +17,6 @@ const CHANNELS = [
 export const gemini: AgentProfile = {
   id: "gemini",
   label: "Google Gemini CLI",
-  docs: "https://geminicli.com/docs/hooks/reference/",
 
   detect(raw) {
     return typeof raw["hook_event_name"] === "string" &&

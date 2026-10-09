@@ -38,7 +38,6 @@ const CHANNELS = [
 export const cursor: AgentProfile = {
   id: "cursor",
   label: "Cursor",
-  docs: "https://cursor.com/docs/hooks",
 
   detect(raw) {
     return typeof raw["tool_use_id"] === "string" || typeof raw["agent_message"] === "string";

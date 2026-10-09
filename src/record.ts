@@ -31,7 +31,7 @@ import type { Decision } from "./adapters/hook.ts";
 import type { HookEvent, NormalisedEvent } from "./agents/profile.ts";
 
 /** Keys whose values are prose somebody wrote, rather than structure. */
-const CONTENT_KEYS = new Set([
+const CONTENT_FIELDS = new Set([
   "content",
   "contents",
   "text",
@@ -53,7 +53,7 @@ const CONTENT_KEYS = new Set([
 
 /** Unspecified vendor argument fields may contain prose or credentials. */
 const ARGUMENT_BAGS = new Set(["tool_input", "toolArgs", "tool_args", "args", "Arguments", "input"]);
-const PATH_KEYS = new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
+const PATH_FIELDS = new Set(["file_path", "filePath", "path", "TargetFile", "sourcePath"]);
 
 /** Most captures worth keeping from one session. */
 const MAX_FILES = 200;
@@ -107,14 +107,14 @@ function scrubText(s: string, projectDir: string): string {
  * which is the only question a capture has to answer.
  */
 function redact(v: unknown, opts: RecordOptions, key?: string, prose = false, argumentsBag = false): unknown {
-  prose ||= Boolean(key && CONTENT_KEYS.has(key));
+  prose ||= Boolean(key && CONTENT_FIELDS.has(key));
   argumentsBag ||= Boolean(key && ARGUMENT_BAGS.has(key));
   if (typeof v === "string") {
     // Identity goes whatever `verbatim` says. It is never the thing being
     // debugged, and a capture is meant to be safe to attach to an issue.
-    if (key && IDENTITY_KEYS.has(key)) return "<redacted>";
+    if (key && IDENTITY_FIELDS.has(key)) return "<redacted>";
     const scrubbed = scrubText(v, opts.projectDir).replace(EMAIL, "<email>");
-    if (opts.verbatim || (!prose && (!argumentsBag || Boolean(key && PATH_KEYS.has(key))))) return scrubbed;
+    if (opts.verbatim || (!prose && (!argumentsBag || Boolean(key && PATH_FIELDS.has(key))))) return scrubbed;
     return `<${scrubbed.length} chars, sha256:${createHash("sha256")
       .update(scrubbed)
       .digest("hex")
@@ -137,7 +137,7 @@ function redact(v: unknown, opts: RecordOptions, key?: string, prose = false, ar
  * Cursor puts `user_email` in every payload, which a capture from a real
  * session would otherwise carry into a public issue. Found by capturing one.
  */
-const IDENTITY_KEYS = new Set(["user_email", "userEmail", "email", "user", "author"]);
+const IDENTITY_FIELDS = new Set(["user_email", "userEmail", "email", "user", "author"]);
 
 /** An address anywhere else in the payload, such as inside a commit message. */
 const EMAIL = /[^\s<>"@]+@[^\s<>"@]+\.[A-Za-z]{2,}/g;

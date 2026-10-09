@@ -82,7 +82,6 @@ exec node "$CLAUDE_PROJECT_DIR/${RUNNER}" hook ${channel} --agent claude-code${m
 export const claudeCode: AgentProfile = {
   id: "claude-code",
   label: "Claude Code",
-  docs: "https://code.claude.com/docs/en/hooks",
 
   detect(raw) {
     return typeof raw["tool_name"] === "string" && !!process.env["CLAUDE_PROJECT_DIR"];

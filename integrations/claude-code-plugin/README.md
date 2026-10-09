@@ -95,21 +95,33 @@ Every command and every setting is fixed text at the call, started in the plugin
 
 ### Mod can read local data and can also send data out
 
-The local data is `$.session.cwd()`, the session's working folder. It goes to the checker as `cwd` in the request on standard input, so the checker reads that project's config and files. It leaves the machine only as described next.
+What the mod reads: `session.cwd`, the session's working folder.
+
+What it sends, and where: that folder's path, to the plain-english checker on the same computer. The way out the directory names is `process.run`. It starts `node hooks/run-checker.mjs` from the plugin folder and writes the path to that program's standard input, so the checker reads that project's config and files. The path does not leave the computer.
 
 ### Mod can read the conversation and can also send data out
 
-The mod reads the conversation in three hooks. `tool.call` reads proposed writes, commands and tracker-tool calls; `classic.Stop` and `classic.SubagentStop` read finished replies. Each passes what it read to the checker on standard input.
+What the mod reads: in `tool.call`, proposed file writes, shell commands and tracker-tool calls; in `classic.Stop` and `classic.SubagentStop`, finished replies and your last question.
 
-Only the extra model checks send anything off the machine, and only to Claude. Through `$.model.complete`, the session's own model and account receive the text being checked: a proposed document, a commit or issue text, or a finished reply and your last question. The fallback `claude -p` sends the same text to the same account. Neither the mod nor the checker makes any other network request. Set `modelChecks: false` to keep everything on the machine.
+What it sends, and where:
+
+- **To the checker on the same computer**, through `process.run` and `process.spawn`: the text being checked, on the standard input of `node hooks/run-checker.mjs`.
+- **To Claude**, through `model.complete`: the same text, for the extra model checks, using the session's own model and account. When that call cannot be made, the checker runs `claude -p`, which sends the same text to the same account.
+
+Nothing else leaves the computer. Neither the mod nor the checker makes any other network request. Set `modelChecks: false` to keep everything on the computer.
 
 ### Uses a credential from the user's machine
 
-Nothing in the plugin reads a credential, and nothing sends one anywhere. The scan pairs web addresses with code it reads as a credential, and every case here is one of these:
+Nothing in the plugin reads a credential, so there is no value to ask for through `user_config`. In each finding the address and the "credential" are unrelated: the address is text the checker prints or follows no link to, and the "credential" is an ordinary word in code. No file sends anything to any of these addresses.
 
-- **Web addresses:** the bundled checker ships without comments, so the only addresses left are its own data. One is the documentation page of each supported agent, which `init` prints. Others are this repository's pages, which findings link to. The last is the schema address that a code-scanning report must name, the standard format GitHub reads for findings. `rules/default.yml` links to this repository's pages the same way.
-- **"Key" and environment reads:** `key` is an ordinary variable name, as in `for (const key of Object.keys(obj))`. The checker reads its own settings, such as `PLAIN_ENGLISH_CHECK_TIMEOUT_MS`, and the folders where each agent keeps its transcripts. It passes the environment as it is to `claude -p` only in that fallback, so that program can sign in to the account it already uses.
-- **The ruleset's words:** `rules/default.yml` contains "secret" and "token" only inside example sentences.
+| Address in the plugin | What the address is | What a scan may read as a credential beside it |
+| --- | --- | --- |
+| `github.com` (bundled checker) | This repository's pages: the design notes, recorded as the source of each built-in rule that names no other, and the project page in a code-scanning report. | Nothing. Its lists of allowed field names are called `ALLOW_FIELDS` and the like. |
+| `json.schemastore.org` | The schema address that a code-scanning report (the format GitHub reads for findings) must name. It is written into the report, never requested. | The fallback that runs `claude -p` passes the environment unchanged, so that program can sign in to the account it already uses. Nothing in it is read or sent anywhere else. |
+| `github.com` (`rules/default.yml`) | Links to this repository's pages, and credits to the sources of some rules, printed with findings. | The ruleset's example sentences and comments, which contain words such as "set", "secret" and "token". |
+| `http://` | The prefix the bundled Markdown parser adds to a web address it finds in a document, such as `www.example.com`. | The bundled YAML and Markdown parsers name each piece of text they split a document into a `token`, and the YAML parser's error codes include `DUPLICATE_KEY`. |
+
+A test fails if the bundle ever holds a host this table does not answer.
 
 ### Files written
 
