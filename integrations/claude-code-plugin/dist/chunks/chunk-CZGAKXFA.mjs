@@ -1601,7 +1601,7 @@ var require_parser = __commonJS({
       }
       *next(source) {
         this.source = source;
-        if (node_process.env.LOG_TOKENS)
+        if (false)
           console.log("|", cst.prettyToken(source));
         if (this.atScalar) {
           this.atScalar = false;

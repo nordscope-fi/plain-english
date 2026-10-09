@@ -4,6 +4,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.15.2] - 2026-10-09
+### Changed
+
+- The Claude Code plugin's copy of the `yaml` library leaves its two debug switches off, so the bundle reads no `LOG_STREAM` or `LOG_TOKENS` setting. The directory's scan read them as a credential.
+- The `not-un` rule's pattern lists `unset` on its own. It matches the same text; the old form spelled `|set|`, which the scan read as a shell command.
+
 ## [1.15.1] - 2026-10-09
 ### Changed
 
@@ -743,7 +749,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.15.2...HEAD
+[1.15.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.2
 [1.15.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.1
 [1.15.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.15.0
 [1.14.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.14.3

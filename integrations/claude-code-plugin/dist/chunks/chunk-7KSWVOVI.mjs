@@ -36,7 +36,7 @@ import {
   require_resolve_block_scalar,
   require_resolve_end,
   require_resolve_flow_scalar
-} from "./chunk-LXD3KRBZ.mjs";
+} from "./chunk-CZGAKXFA.mjs";
 import {
   require_Scalar,
   require_identity
@@ -1048,7 +1048,7 @@ ${cb}` : comment;
         yield* this.end(forceDoc, endOffset);
       }
       *next(token) {
-        if (node_process.env.LOG_STREAM)
+        if (false)
           console.dir(token, { depth: null });
         switch (token.type) {
           case "directive":

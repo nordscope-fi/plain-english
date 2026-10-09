@@ -6,7 +6,7 @@ import {
   readWritingProfile,
   require_dist,
   writingProfileGuidance
-} from "./chunk-I3YPERO3.mjs";
+} from "./chunk-7KSWVOVI.mjs";
 import {
   __toESM
 } from "./chunk-PF56VIE4.mjs";

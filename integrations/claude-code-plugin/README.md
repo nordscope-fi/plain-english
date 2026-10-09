@@ -118,8 +118,8 @@ Nothing in the plugin reads a credential, so there is no value to ask for throug
 | --- | --- | --- |
 | `github.com` (bundled checker) | This repository's pages: the design notes, recorded as the source of each built-in rule that names no other, and the project page in a code-scanning report. | Nothing. Its lists of allowed field names are called `ALLOW_FIELDS` and the like. |
 | `json.schemastore.org` | The schema address that a code-scanning report (the format GitHub reads for findings) must name. It is written into the report, never requested. | The fallback that runs `claude -p` passes the environment unchanged, so that program can sign in to the account it already uses. Nothing in it is read or sent anywhere else. |
-| `github.com` (`rules/default.yml`) | Links to this repository's pages, and credits to the sources of some rules, printed with findings. | The ruleset's example sentences and comments, which contain words such as "set", "secret" and "token". |
-| `http://` | The prefix the bundled Markdown parser adds to a web address it finds in a document, such as `www.example.com`. | The bundled YAML and Markdown parsers name each piece of text they split a document into a `token`, and the YAML parser's error codes include `DUPLICATE_KEY`. |
+| `github.com` (`rules/default.yml`) | Links to this repository's pages, and credits to the sources of some rules, printed with findings. | The ruleset's example sentences, which contain words such as "secret" and "token". No pattern in it spells a shell command such as `set`. |
+| `http://` | The prefix the bundled Markdown parser adds to a web address it finds in a document, such as `www.example.com`. | The bundled YAML and Markdown parsers name each piece of text they split a document into a `token`, and the YAML parser's error codes include `DUPLICATE_KEY`. The YAML library's two debug switches, which read `LOG_STREAM` and `LOG_TOKENS` from the environment, are off in the plugin's copy, so the bundle reads neither. |
 
 A test fails if the bundle ever holds a host this table does not answer.
 

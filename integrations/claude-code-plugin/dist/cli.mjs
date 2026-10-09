@@ -32,7 +32,7 @@ import {
   resolveProfile,
   scopedDocsFiles,
   vibeHome
-} from "./chunks/chunk-ZHSN4YLF.mjs";
+} from "./chunks/chunk-G36BL6US.mjs";
 import "./chunks/chunk-KO7RI5VA.mjs";
 import {
   decodeHTMLStrict
@@ -45,25 +45,25 @@ import {
   renderPrompts,
   vocabularyForPrompt,
   writeTargets
-} from "./chunks/chunk-QVPKEWLK.mjs";
+} from "./chunks/chunk-2EKP6FDN.mjs";
 import {
   RuleError,
   chatRuleSet,
   compile,
   loadDefault,
   resolveRuleSet
-} from "./chunks/chunk-LSOPSMK4.mjs";
+} from "./chunks/chunk-LJ4DOMHN.mjs";
 import {
   approveWritingProfile,
   buildWritingProfile,
   matchesAny,
   require_dist,
   writingProfileYaml
-} from "./chunks/chunk-I3YPERO3.mjs";
+} from "./chunks/chunk-7KSWVOVI.mjs";
 import "./chunks/chunk-SL3U5VVG.mjs";
 import "./chunks/chunk-CTGZG7FF.mjs";
 import "./chunks/chunk-SS63RESI.mjs";
-import "./chunks/chunk-LXD3KRBZ.mjs";
+import "./chunks/chunk-CZGAKXFA.mjs";
 import "./chunks/chunk-BK3ZJ2GD.mjs";
 import "./chunks/chunk-WRN6OLP2.mjs";
 import "./chunks/chunk-2F3B5C5G.mjs";

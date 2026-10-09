@@ -199,6 +199,23 @@ const noSourceParser = { name: "no-source-parser", setup(b) {
 } };
 
 /**
+ * The `yaml` library prints its tokens when `LOG_STREAM` or `LOG_TOKENS` is set,
+ * a switch for debugging the library itself. The Claude directory's scan reads
+ * those environment reads as the installer's key, beside the Markdown parser's
+ * `http://` prefix, so the plugin's copy leaves the switches off. The build
+ * fails if the library no longer reads them where this expects.
+ */
+const YAML_DEBUG = /node_process\.env\.LOG_(?:STREAM|TOKENS)/g;
+const noYamlDebugSwitches = { name: "no-yaml-debug-switches", setup(b) {
+  b.onLoad({ filter: /[\\/]yaml[\\/]dist[\\/](?:parse[\\/]parser|compose[\\/]composer)\.js$/ }, (args) => {
+    const text = readFileSync(args.path, "utf8");
+    if (!YAML_DEBUG.test(text)) throw new Error(`yaml no longer reads LOG_STREAM or LOG_TOKENS in ${args.path}; update scripts/build-plugin.mjs.`);
+    YAML_DEBUG.lastIndex = 0;
+    return { contents: text.replace(YAML_DEBUG, "false"), loader: "js" };
+  });
+} };
+
+/**
  * Bundle the CLI as `dist/cli.mjs` and the pieces it imports, each under
  * SPLIT_AT.
  *
@@ -241,7 +258,7 @@ export async function bundleCli() {
       // never shrank the piece that held the other.
       preserveSymlinks: true,
       logLevel: "silent",
-      plugins: [noSourceParser],
+      plugins: [noSourceParser, noYamlDebugSwitches],
     });
     let split = false;
     for (const output of Object.values(result.metafile.outputs)) {
