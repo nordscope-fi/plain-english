@@ -75,6 +75,24 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
+  // The directory's "Uses a credential" hold pairs any web address in a file
+  // with any read it takes for a credential. Library comments carried most of
+  // them, so the bundles ship without comments. Every address left must come
+  // from this project's own source: agent documentation links, this
+  // repository's pages and the SARIF schema identifier.
+  it("carry no web address that this project's own source does not", () => {
+    const pattern = /https?:\/\/[^\s"'`)<>\]]+/g;
+    const own = new Set<string>();
+    for (const entry of readdirSync(resolve(ROOT, "src"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile()))
+      for (const address of readFileSync(resolve(entry.parentPath, entry.name), "utf8").match(pattern) ?? []) own.add(address);
+    for (const address of readFileSync(resolve(ROOT, "rules/default.yml"), "utf8").match(pattern) ?? []) own.add(address);
+    for (const entry of readdirSync(resolve(PLUGIN, "dist"), { recursive: true, withFileTypes: true }).filter((item) => item.isFile())) {
+      const path = resolve(entry.parentPath, entry.name);
+      const foreign = (readFileSync(path, "utf8").match(pattern) ?? []).filter((address) => !own.has(address));
+      expect(foreign, path).toEqual([]);
+    }
+  });
+
   // Windows CI, 2026-10-08: a path compared with backslashes let the split
   // move the CLI's own entry module out of cli.mjs.
   it("keep the CLI's entry module in dist/cli.mjs when the bundle is split", () => {
