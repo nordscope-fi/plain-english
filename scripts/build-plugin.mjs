@@ -238,10 +238,126 @@ const YAML_SET = [
 ];
 const YAML_CODE = /(["'])([A-Z0-9_]*(?:TOKEN|KEY)[A-Z0-9_]*)\1/g;
 
-/** vfile's `#minurl`, for a checker that never gives vfile an address. */
-const MINURL = [
-  "export function isUrl() { return false; }",
-  "export function urlToPath() { throw new TypeError(\"The plugin gives vfile paths only.\"); }",
+/**
+ * Library code the Claude directory names in a mod (warnings on 27280ca): a
+ * getter or `defineProperty`, which "runs the mod's code when a value is
+ * merely read", and reflection (`getPrototypeOf`, a value's `constructor`).
+ * The plugin's copy of each library writes these as plain data properties
+ * and methods instead. Each edit must match the stated number of times, and
+ * every file named here must be bundled, so a library update that moves one
+ * fails the build.
+ *
+ * - YAML stores its node type, a collection's schema and the schema's three
+ *   base tags as plain properties, and its map and sequence tag names as
+ *   static fields. An alias no longer refuses a tag through a setter; YAML
+ *   reports a tag on an alias as an error before it would set one.
+ * - YAML's node `clone` copies through the prototype. Nothing in the checker
+ *   clones a YAML node, so the plugin's copy refuses instead.
+ * - YAML adds a map key with `defineProperty` only so that a key named
+ *   `__proto__` cannot replace the object's prototype. Every other key gives
+ *   the same result by assignment, so the plugin's copy assigns, and refuses
+ *   a key whose property name is `__proto__`. A merged key can be a list or
+ *   other value, so the check reads the name the key becomes.
+ * - YAML's composer reads the class it built a collection with from the
+ *   collection; the plugin's copy names the class the same way the resolvers
+ *   chose it.
+ * - The Markdown parser's splice buffer gives its length through a getter,
+ *   and its constructs reach it as a module namespace, which the bundler
+ *   builds from getters. The plugin's copy uses a `size()` method and a plain
+ *   object.
+ * - The syntax tree visitor names each visit function for debugging.
+ *   Nothing reads the name.
+ */
+const LIBRARY_EDITS = [
+  ...YAML_SET,
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]Node\.js$/, edits: [
+    ["Object.defineProperty(this, NODE_TYPE, { value: type });", "this[NODE_TYPE] = type;"],
+    [/\n    clone\(\) \{\n[^]*?\n    \}\n/g, "\n    clone() {\n        throw new Error('The plugin\\'s YAML copy does not clone nodes.');\n    }\n"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]Collection\.js$/, edits: [
+    ["Object.defineProperty(this, 'schema', {\n            value: schema,\n            configurable: true,\n            enumerable: false,\n            writable: true\n        });", "this.schema = schema;"],
+    [/\n    clone\(schema\) \{\n[^]*?\n    \}\n/g, "\n    clone() {\n        throw new Error('The plugin\\'s YAML copy does not clone nodes.');\n    }\n"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]Alias\.js$/, edits: [
+    ["\n        Object.defineProperty(this, 'tag', {\n            set() {\n                throw new Error('Alias nodes cannot have tags');\n            }\n        });", ""],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]Pair\.js$/, edits: [
+    ["Object.defineProperty(this, NODE_TYPE, { value: PAIR });", "this[NODE_TYPE] = PAIR;"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]doc[\\/]Document\.js$/, edits: [
+    ["Object.defineProperty(this, NODE_TYPE, { value: DOC });", "this[NODE_TYPE] = DOC;"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]schema[\\/]Schema\.js$/, edits: [
+    ["Object.defineProperty(this, MAP, { value: map });", "this[MAP] = map;"],
+    ["Object.defineProperty(this, SCALAR, { value: string });", "this[SCALAR] = string;"],
+    ["Object.defineProperty(this, SEQ, { value: seq });", "this[SEQ] = seq;"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]YAMLMap\.js$/, edits: [
+    ["    static get tagName() {\n        return 'tag:yaml.org,2002:map';\n    }", "    static tagName = 'tag:yaml.org,2002:map';"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]YAMLSeq\.js$/, edits: [
+    ["    static get tagName() {\n        return 'tag:yaml.org,2002:seq';\n    }", "    static tagName = 'tag:yaml.org,2002:seq';"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]nodes[\\/]addPairToJSMap\.js$/, edits: [
+    ["            if (stringKey in map)\n                Object.defineProperty(map, stringKey, {\n                    value: jsValue,\n                    writable: true,\n                    enumerable: true,\n                    configurable: true\n                });\n            else\n                map[stringKey] = jsValue;",
+      "            if (stringKey === '__proto__')\n                throw new Error('The plugin refuses a YAML key named __proto__.');\n            map[stringKey] = jsValue;"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]schema[\\/]yaml-1\.1[\\/]merge\.js$/, edits: [
+    ["        else if (!Object.prototype.hasOwnProperty.call(map, key)) {\n            Object.defineProperty(map, key, {\n                value,\n                writable: true,\n                enumerable: true,\n                configurable: true\n            });\n        }",
+      "        else {\n            const name = typeof key === 'symbol' ? key : String(key);\n            if (name === '__proto__')\n                throw new Error('The plugin refuses a YAML key named __proto__.');\n            if (!Object.prototype.hasOwnProperty.call(map, name))\n                map[name] = value;\n        }"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]compose[\\/]compose-collection\.js$/, edits: [
+    ["const Coll = coll.constructor;", "const Coll = tag?.nodeClass ?? (token.type === 'block-map' || (token.type !== 'block-seq' && token.start.source === '{') ? YAMLMap : YAMLSeq);"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]stringify[\\/]stringify\.js$/, edits: [
+    ["const name = obj?.constructor?.name ?? (obj === null ? 'null' : typeof obj);", "const name = obj === null ? 'null' : typeof obj;"],
+  ] },
+  { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]parse[\\/]parser\.js$/, edits: [
+    ["get sourceToken() {", "currentSourceToken() {"],
+    ["this.sourceToken", "this.currentSourceToken()", 60],
+  ] },
+  { file: /[\\/]micromark[\\/]lib[\\/]parse\.js$/, edits: [
+    ["import * as defaultConstructs from './constructs.js';",
+      "import { attentionMarkers, contentInitial, disable, document as documentConstructs, flow as flowConstructs, flowInitial, insideSpan, string as stringConstructs, text as textConstructs } from './constructs.js';\nconst defaultConstructs = { attentionMarkers, contentInitial, disable, document: documentConstructs, flow: flowConstructs, flowInitial, insideSpan, string: stringConstructs, text: textConstructs };"],
+  ] },
+  { file: /[\\/]micromark[\\/]lib[\\/]constructs\.js$/, edits: [
+    [/^export /gm, "export ", 9],
+  ] },
+  { file: /[\\/]micromark-util-subtokenize[\\/]lib[\\/]splice-buffer\.js$/, edits: [
+    ["  get length() {", "  size() {"],
+  ] },
+  { file: /[\\/]micromark-util-subtokenize[\\/]index\.js$/, edits: [
+    ["while (++index < events.length) {", "while (++index < events.size()) {"],
+  ] },
+  { file: /[\\/]unist-util-visit-parents[\\/]lib[\\/]index\.js$/, edits: [
+    [/\n    if \(typeof value\.type === 'string'\) \{\n[^]*?\n    \}\n/g, "\n"],
+  ] },
+];
+const LIBRARY_FILE = /[\\/]node_modules[\\/](?:yaml|micromark|micromark-util-subtokenize|unist-util-visit-parents)[\\/].*\.js$/;
+
+/** Apply each `[from, to, count]` edit, refusing when `from` is found any other number of times. */
+function applyEdits(text, edits, path) {
+  for (const [from, to, count = 1] of edits) {
+    const found = typeof from === "string" ? text.split(from).length - 1 : (text.match(from) ?? []).length;
+    if (found !== count) throw new Error(`Expected ${count} \`${String(from).trim()}\` in ${path}, found ${found}; update scripts/build-plugin.mjs.`);
+    text = typeof from === "string" ? text.replaceAll(from, () => to) : text.replace(from, () => to);
+  }
+  return text;
+}
+
+/** The file `toNlcst` reads: its text, through `String(file)`, and a message list. */
+const VFILE = [
+  "export class VFile {",
+  "  constructor(value) {",
+  "    this.value = String(value);",
+  "    this.data = {};",
+  "    this.messages = [];",
+  "    this.history = [];",
+  "  }",
+  "  toString() {",
+  "    return this.value;",
+  "  }",
+  "}",
 ].join("\n");
 
 /**
@@ -468,31 +584,35 @@ const pluginCore = { name: "plugin-core", setup(b) {
       return { contents: text.replace(unused.from, unused.to), loader: args.path.endsWith(".ts") ? "ts" : "js" };
     });
   }
-  b.onLoad({ filter: YAML_FILE }, (args) => {
+  const edited = new Set();
+  b.onStart(() => edited.clear());
+  b.onLoad({ filter: LIBRARY_FILE }, (args) => {
     let text = readFileSync(args.path, "utf8");
-    for (const { file, edits } of YAML_SET) {
-      if (!file.test(args.path)) continue;
-      for (const [from, to] of edits) {
-        const found = text.split(from).length - 1;
-        if (found !== 1) throw new Error(`Expected one \`${from.trim()}\` in ${args.path}, found ${found}; update scripts/build-plugin.mjs.`);
-        text = text.replace(from, to);
-      }
+    for (const entry of LIBRARY_EDITS) {
+      if (!entry.file.test(args.path)) continue;
+      text = applyEdits(text, entry.edits, args.path);
+      edited.add(entry);
     }
-    return {
-      contents: text
+    if (YAML_FILE.test(args.path)) {
+      text = text
         .replace(YAML_CODE, (_all, quote, name) => quote + name.toLowerCase().replaceAll("_", "-") + quote)
-        .replace(/\bMERGE_KEY\b/g, "MERGE_MARK"),
-      loader: "js",
-    };
+        .replace(/\bMERGE_KEY\b/g, "MERGE_MARK");
+    }
+    return { contents: text, loader: "js" };
   });
-  // vfile's helper turns a `file:` address into a path, and checks its host
-  // name. The checker gives vfile paths only, and the directory reads a host
-  // name as a way to send data (held on 0d90eaa).
-  b.onResolve({ filter: /^#minurl$/ }, (args) => {
-    if (!/[\\/]vfile[\\/]lib[\\/]index\.js$/.test(args.importer)) throw new Error(`Unexpected #minurl import from ${args.importer}; update scripts/build-plugin.mjs.`);
-    return { path: "minurl", namespace: "plain-english-minurl" };
+  b.onEnd((result) => {
+    if (result.errors.length) return;
+    const missed = LIBRARY_EDITS.filter((entry) => !edited.has(entry)).map((entry) => entry.file);
+    if (missed.length) throw new Error(`No bundled file matched ${missed.join(", ")}; update scripts/build-plugin.mjs.`);
   });
-  b.onLoad({ filter: /.*/, namespace: "plain-english-minurl" }, () => ({ contents: MINURL, loader: "js" }));
+  // The sentence layer gives the Markdown converter a file only for its text
+  // and its message list. vfile's class keeps its path behind getters and
+  // setters, which the directory names; the plugin's file is plain data.
+  b.onResolve({ filter: /^vfile$/ }, (args) => {
+    if (!/[\\/]src[\\/]sentences\.ts$/.test(args.importer)) throw new Error(`Unexpected vfile import from ${args.importer}; update scripts/build-plugin.mjs.`);
+    return { path: "vfile", namespace: "plain-english-vfile" };
+  });
+  b.onLoad({ filter: /.*/, namespace: "plain-english-vfile" }, () => ({ contents: VFILE, loader: "js" }));
   b.onResolve({ filter: /^format$/ }, () => ({ path: "format", namespace: "plain-english-format" }));
   b.onLoad({ filter: /.*/, namespace: "plain-english-format" }, () => ({ contents: FORMAT, loader: "js" }));
   // `fault.eval` is never called here, and the directory blocks a mod naming `eval`.

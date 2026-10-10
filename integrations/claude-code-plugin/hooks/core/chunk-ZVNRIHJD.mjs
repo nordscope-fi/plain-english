@@ -101,13 +101,10 @@ function toJS(value, arg, ctx) {
 
 var NodeBase = class {
   constructor(type) {
-    Object.defineProperty(this, NODE_TYPE, { value: type });
+    this[NODE_TYPE] = type;
   }
   clone() {
-    const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
-    if (this.range)
-      copy.range = this.range.slice();
-    return copy;
+    throw new Error("The plugin's YAML copy does not clone nodes.");
   }
   toJS(doc, { mapAsMap, maxAliasCount, onAnchor, reviver } = {}) {
     if (!isDocument(doc))

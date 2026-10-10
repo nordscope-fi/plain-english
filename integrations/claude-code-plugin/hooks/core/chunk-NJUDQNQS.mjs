@@ -22,7 +22,7 @@ import {
   isSeq,
   stringifyString,
   toJS
-} from "./chunk-E7FTBMZN.mjs";
+} from "./chunk-ZVNRIHJD.mjs";
 
 var BREAK =   Symbol("break visit");
 var SKIP =   Symbol("skip children");
@@ -230,10 +230,6 @@ var Alias = class extends NodeBase {
   constructor(source) {
     super(ALIAS);
     this.source = source;
-    Object.defineProperty(this, "tag", { set() {
-        throw new Error("Alias nodes cannot have tags");
-      }
-    });
   }
   resolve(doc, ctx) {
     if (ctx?.maxAliasCount === 0)
@@ -418,21 +414,10 @@ var isEmptyPath = (path) => path == null || typeof path === "object" && !!path[S
 var Collection = class extends NodeBase {
   constructor(type, schema4) {
     super(type);
-    Object.defineProperty(this, "schema", {
-      value: schema4,
-      configurable: true,
-      enumerable: false,
-      writable: true
-    });
+    this.schema = schema4;
   }
-  clone(schema4) {
-    const copy = Object.create(Object.getPrototypeOf(this), Object.getOwnPropertyDescriptors(this));
-    if (schema4)
-      copy.schema = schema4;
-    copy.items = copy.items.map((it) => isNode(it) || isPair(it) ? it.clone(schema4) : it);
-    if (this.range)
-      copy.range = this.range.slice();
-    return copy;
+  clone() {
+    throw new Error("The plugin's YAML copy does not clone nodes.");
   }
   addIn(path, value) {
     if (isEmptyPath(path))
@@ -569,7 +554,7 @@ function getTagObject(tags, item) {
     tagObj = tags.find((t) => t.nodeClass && obj instanceof t.nodeClass);
   }
   if (!tagObj) {
-    const name = obj?.constructor?.name ?? (obj === null ? "null" : typeof obj);
+    const name = obj === null ? "null" : typeof obj;
     throw new Error(`Tag not resolved for ${name} value`);
   }
   return tagObj;
@@ -779,13 +764,12 @@ function mergeValue(ctx, map2, value) {
         map2.set(key, value2);
     } else if (map2 instanceof Set) {
       map2.add(key);
-    } else if (!Object.prototype.hasOwnProperty.call(map2, key)) {
-      Object.defineProperty(map2, key, {
-        value: value2,
-        writable: true,
-        enumerable: true,
-        configurable: true
-      });
+    } else {
+      const name = typeof key === "symbol" ? key : String(key);
+      if (name === "__proto__")
+        throw new Error("The plugin refuses a YAML key named __proto__.");
+      if (!Object.prototype.hasOwnProperty.call(map2, name))
+        map2[name] = value2;
     }
   }
   return map2;
@@ -808,15 +792,9 @@ function addPairToJSMap(ctx, map2, { key, value }) {
     } else {
       const stringKey = stringifyKey(key, jsKey, ctx);
       const jsValue = toJS(value, stringKey, ctx);
-      if (stringKey in map2)
-        Object.defineProperty(map2, stringKey, {
-          value: jsValue,
-          writable: true,
-          enumerable: true,
-          configurable: true
-        });
-      else
-        map2[stringKey] = jsValue;
+      if (stringKey === "__proto__")
+        throw new Error("The plugin refuses a YAML key named __proto__.");
+      map2[stringKey] = jsValue;
     }
   }
   return map2;
@@ -853,7 +831,7 @@ function createPair(key, value, ctx) {
 }
 var Pair = class _Pair {
   constructor(key, value = null) {
-    Object.defineProperty(this, NODE_TYPE, { value: PAIR });
+    this[NODE_TYPE] = PAIR;
     this.key = key;
     this.value = value;
   }
@@ -1028,9 +1006,7 @@ function findPair(items, key) {
   return void 0;
 }
 var YAMLMap = class extends Collection {
-  static get tagName() {
-    return "tag:yaml.org,2002:map";
-  }
+  static tagName = "tag:yaml.org,2002:map";
   constructor(schema4) {
     super(MAP, schema4);
     this.items = [];
@@ -1143,9 +1119,7 @@ var map = {
 };
 
 var YAMLSeq = class extends Collection {
-  static get tagName() {
-    return "tag:yaml.org,2002:seq";
-  }
+  static tagName = "tag:yaml.org,2002:seq";
   constructor(schema4) {
     super(SEQ, schema4);
     this.items = [];
@@ -1980,9 +1954,9 @@ var Schema = class _Schema {
     this.knownTags = resolveKnownTags ? coreKnownTags : {};
     this.tags = getTags(customTags, this.name, merge2);
     this.toStringOptions = toStringDefaults ?? null;
-    Object.defineProperty(this, MAP, { value: map });
-    Object.defineProperty(this, SCALAR, { value: string });
-    Object.defineProperty(this, SEQ, { value: seq });
+    this[MAP] = map;
+    this[SCALAR] = string;
+    this[SEQ] = seq;
     this.sortMapEntries = typeof sortMapEntries === "function" ? sortMapEntries : sortMapEntries === true ? sortMapEntriesByKey : null;
   }
   clone() {
@@ -2212,7 +2186,7 @@ var Document = class _Document {
     this.comment = null;
     this.errors = [];
     this.warnings = [];
-    Object.defineProperty(this, NODE_TYPE, { value: DOC });
+    this[NODE_TYPE] = DOC;
     let _replacer = null;
     if (typeof replacer === "function" || Array.isArray(replacer)) {
       _replacer = replacer;
