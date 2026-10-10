@@ -1,0 +1,5 @@
+{
+  "name": "pe-cowork-probe",
+  "version": "0.1.0",
+  "description": "Throwaway probe for plain-english issue 151: records which hook events Cowork delivers and tests one refused write and one held reply. Does nothing until switched on with a marker."
+}

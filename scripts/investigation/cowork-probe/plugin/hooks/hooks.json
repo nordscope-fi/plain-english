@@ -1,0 +1,20 @@
+{
+  "description": "Throwaway probe for plain-english issue 151. Inactive until a prompt contains pe-probe:on or the task folder holds PE-COWORK-PROBE.md.",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "if command -v node >/dev/null 2>&1; then node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.mjs\" SessionStart; else echo '{\"systemMessage\":\"pe-probe: SessionStart ran, but no node on PATH\"}'; fi" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "if command -v node >/dev/null 2>&1; then node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.mjs\" UserPromptSubmit; else echo '{\"systemMessage\":\"pe-probe: UserPromptSubmit ran, but no node on PATH\"}'; fi" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "timeout": 60, "command": "if command -v node >/dev/null 2>&1; then node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.mjs\" PreToolUse; else echo '{\"systemMessage\":\"pe-probe: PreToolUse ran, but no node on PATH\"}'; fi" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "if command -v node >/dev/null 2>&1; then node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.mjs\" PostToolUse; fi" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "if command -v node >/dev/null 2>&1; then node \"${CLAUDE_PLUGIN_ROOT}/hooks/observe.mjs\" Stop; else echo '{\"systemMessage\":\"pe-probe: Stop ran, but no node on PATH\"}'; fi" }] }
+    ]
+  }
+}
