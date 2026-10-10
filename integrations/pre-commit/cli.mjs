@@ -38263,6 +38263,8 @@ function writingSkillPath() {
 }
 var WRITING_SKILL_DESCRIPTION = "Plain-English writing rules and a draft checker. Use when answering a question, drafting an email, report or document, or reviewing prose. Not for code.";
 function renderWritingSkill(ruleset) {
+  const emDash = ruleset.rules.find((r) => r.id === "em-dash" && r.severity !== "off");
+  const shortReplies = emDash?.message ? `Shorter replies get no check, so follow the rules below and this one by hand: ${emDash.message}` : "Shorter replies follow the rules below without a check.";
   const out = [
     "---",
     `name: ${WRITING_SKILL_NAME}`,
@@ -38277,7 +38279,7 @@ function renderWritingSkill(ruleset) {
     "",
     "## When to run the check",
     "",
-    ...wrap("Run it on every document, email or report you write, and on any reply longer than about 100 words. Shorter replies follow the rules below without a check."),
+    ...wrap(`Run it on every document, email or report you write, and on any reply longer than about 100 words. ${shortReplies}`),
     "",
     ...wrap("In Claude Code, do not run it. The plain-english plugin already checks there, so follow the rules and skip the script."),
     "",

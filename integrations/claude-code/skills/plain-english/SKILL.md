@@ -14,7 +14,8 @@ returns questions about the ones only a reader can judge.
 ## When to run the check
 
 Run it on every document, email or report you write, and on any reply longer
-than about 100 words. Shorter replies follow the rules below without a check.
+than about 100 words. Shorter replies get no check, so follow the rules below
+and this one by hand: No em dashes. Use a comma, parentheses, or a full stop.
 
 In Claude Code, do not run it. The plain-english plugin already checks there,
 so follow the rules and skip the script.
