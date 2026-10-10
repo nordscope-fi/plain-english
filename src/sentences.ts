@@ -20,8 +20,8 @@ import { frontmatter } from "micromark-extension-frontmatter";
 import { toNlcst } from "mdast-util-to-nlcst";
 import { ParseEnglish } from "parse-english";
 import { toString as nlcstToString } from "nlcst-to-string";
-import { visit } from "unist-util-visit";
 import { VFile } from "vfile";
+import { walk } from "./tree-walk.ts";
 
 const FRONTMATTER = ["yaml", { type: "toml", marker: "+" }] as const;
 
@@ -79,14 +79,15 @@ export function sentences(text: string): Sentence[] {
   if (!tree) return [];
 
   const out: Sentence[] = [];
-  visit(tree as never, "SentenceNode", (node: NlcstNode) => {
+  walk(tree, (node) => {
+    if (node.type !== "SentenceNode") return;
     const start = node.position?.start?.offset;
     const end = node.position?.end?.offset;
     if (start == null || end == null) return;
 
     let words = 0;
-    visit(node as never, "WordNode", () => {
-      words++;
+    walk(node, (n) => {
+      if (n.type === "WordNode") words++;
     });
     if (words === 0) return;
 
@@ -108,9 +109,11 @@ export function jargonTerms(text: string): Term[] {
 
   const out: Term[] = [];
   let index = -1;
-  visit(tree as never, "SentenceNode", (sentence: NlcstNode) => {
+  walk(tree, (sentence) => {
+    if (sentence.type !== "SentenceNode") return;
     index++;
-    visit(sentence as never, "WordNode", (word: NlcstNode) => {
+    walk(sentence, (word) => {
+      if (word.type !== "WordNode") return;
       const value = nlcstToString(word as never);
       if (!JARGON.test(value)) return;
       const start = word.position?.start?.offset;

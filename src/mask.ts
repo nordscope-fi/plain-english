@@ -23,7 +23,7 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { frontmatter } from "micromark-extension-frontmatter";
-import { visit } from "unist-util-visit";
+import { walk } from "./tree-walk.ts";
 
 /**
  * Node types whose text a reader reads.
@@ -58,15 +58,35 @@ interface Span {
   end: number;
 }
 
-/** Spans of prose within the source, from the parsed document. */
-function proseSpans(text: string): Span[] {
-  const tree = fromMarkdown(text, {
+interface TreeNode {
+  type: string;
+  children?: TreeNode[];
+  position?: { start?: { offset?: number }; end?: { offset?: number } };
+}
+
+function parse(text: string): TreeNode {
+  return fromMarkdown(text, {
     extensions: [gfm(), frontmatter([...FRONTMATTER])],
     mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
   });
+}
 
+/** Fenced and indented code blocks, in document order. */
+function codeBlockSpans(tree: TreeNode): Span[] {
   const spans: Span[] = [];
-  visit(tree, (node) => {
+  walk(tree, (node) => {
+    if (node.type !== "code") return;
+    const s = node.position?.start?.offset;
+    const e = node.position?.end?.offset;
+    if (s != null && e != null) spans.push({ start: s, end: e });
+  });
+  return spans;
+}
+
+/** Spans of prose within the source, from the parsed document. */
+function proseSpans(tree: TreeNode): Span[] {
+  const spans: Span[] = [];
+  walk(tree, (node) => {
     // A table's cells hold identifiers and values far more often than prose,
     // and the ecosystem convention (mdast-util-to-nlcst) is to skip them.
     if (node.type === "table") return "skip";
@@ -106,25 +126,59 @@ function proseSpans(text: string): Span[] {
  * `Use <code>leverage()</code> here.` still produced a finding. These tag pairs
  * carry code by definition, so the span between them is not prose.
  */
-const INLINE_CODE_TAGS = /<(code|pre|kbd|samp|var|tt)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+const CODE_TAG_OPEN = /<(code|pre|kbd|samp|var|tt)\b/gi;
 
+/**
+ * What `<(code|...)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi` matched, read in one
+ * pass. That regex rescanned to the end of the document at every opener whose
+ * tag never closed, so a write full of them took quadratic time and could
+ * outlast a hook's budget (#138). Here the next `>` and each name's next
+ * closing tag are found once and reused until the scan passes them.
+ */
 function inlineHtmlCodeSpans(text: string): Span[] {
   const spans: Span[] = [];
-  INLINE_CODE_TAGS.lastIndex = 0;
+  const closers = new Map<string, { re: RegExp; at: number; end: number }>();
+  let gt = -1;
+  CODE_TAG_OPEN.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = INLINE_CODE_TAGS.exec(text)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  while ((m = CODE_TAG_OPEN.exec(text)) !== null) {
+    const nameEnd = m.index + m[0].length;
+    if (gt < nameEnd) gt = text.indexOf(">", nameEnd);
+    if (gt === -1) break; // No opener from here on can finish its tag.
+    const name = m[1]!.toLowerCase();
+    let close = closers.get(name);
+    if (close === undefined) {
+      close = { re: new RegExp(`</${name}\\s*>`, "gi"), at: -2, end: -2 };
+      closers.set(name, close);
+    }
+    // A closing tag found for an earlier opener is still the first one after
+    // this opener when it lies past this opener's `>`. Not found then means
+    // not found now.
+    if (close.at !== -1 && close.at <= gt) {
+      close.re.lastIndex = gt + 1;
+      const c = close.re.exec(text);
+      close.at = c ? c.index : -1;
+      close.end = c ? c.index + c[0].length : -1;
+    }
+    if (close.at === -1) continue;
+    spans.push({ start: m.index, end: close.end });
+    CODE_TAG_OPEN.lastIndex = close.end;
   }
   return spans;
 }
 
-/** HTML comments, for the matching pass. */
+/**
+ * HTML comments, for the matching pass. Found with `indexOf` rather than a
+ * lazy regex, which rescanned to the end at every unclosed `<!--` (#138).
+ */
 function commentSpans(text: string): Span[] {
   const spans: Span[] = [];
-  const re = /<!--[\s\S]*?-->/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  let at = text.indexOf("<!--");
+  while (at !== -1) {
+    const close = text.indexOf("-->", at + 4);
+    if (close === -1) break;
+    spans.push({ start: at, end: close + 3 });
+    at = text.indexOf("<!--", close + 3);
   }
   return spans;
 }
@@ -134,9 +188,11 @@ function commentSpans(text: string): Span[] {
  * spaces. Length and newline positions are preserved.
  */
 export function maskNonProse(text: string, opts: MaskOptions = {}): string {
+  let tree: TreeNode;
   let spans: Span[];
   try {
-    spans = proseSpans(text);
+    tree = parse(text);
+    spans = proseSpans(tree);
   } catch {
     // A parser failure must never turn into a linter crash. Falling back to
     // "nothing is prose" is the safe direction: it under-reports rather than
@@ -175,32 +231,19 @@ export function maskNonProse(text: string, opts: MaskOptions = {}): string {
     // the directive reader can see them. A comment inside a fenced code block
     // is part of the `code` node, not an `html` node, so it stays blanked and
     // an example directive in the docs is not treated as a live directive.
+    // Comments and code blocks both come in document order, so one pointer
+    // walks the blocks. This used to parse the whole document again for each
+    // comment, quadratic in a write full of them (#138).
+    const code = codeBlockSpans(tree);
+    let c = 0;
     for (const { start, end } of commentSpans(text)) {
-      if (isInsideCode(text, start)) continue;
+      while (c < code.length && code[c]!.end <= start) c++;
+      if (c < code.length && code[c]!.start <= start) continue;
       for (let i = start; i < end && i < text.length; i++) out[i] = text[i]!;
     }
   }
 
   return out.join("");
-}
-
-/** True when an offset falls inside a fenced or indented code block. */
-function isInsideCode(text: string, offset: number): boolean {
-  try {
-    const tree = fromMarkdown(text, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
-    });
-    let inside = false;
-    visit(tree, "code", (node) => {
-      const s = node.position?.start?.offset;
-      const e = node.position?.end?.offset;
-      if (s != null && e != null && offset >= s && offset < e) inside = true;
-    });
-    return inside;
-  } catch {
-    return false;
-  }
 }
 
 /** Convenience for callers that want the prose only. */
@@ -211,4 +254,4 @@ export function proseOnly(text: string): string {
     .join("\n");
 }
 
-export const __testing = { proseSpans, commentSpans, isInsideCode };
+export const __testing = { proseSpans, commentSpans, codeBlockSpans, inlineHtmlCodeSpans };

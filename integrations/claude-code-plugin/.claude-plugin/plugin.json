@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.17.2",
+  "version": "1.17.3",
   "description": "Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them. In Claude Code it checks Markdown writes, commit and pull request messages and tracker issues, and holds a chat reply with a clear tell for a rewrite. In Claude chat and Cowork, a writing skill gives Claude the rules and checks substantial drafts.",
   "author": { "name": "Nordscope", "url": "https://github.com/nordscope-fi" },
   "homepage": "https://github.com/nordscope-fi/plain-english",

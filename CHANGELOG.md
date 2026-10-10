@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.3] - 2026-10-10
+### Fixed
+
+- A document full of unclosed `<code>` tags, unclosed HTML comments or closed HTML comments no longer slows the checker down before any rule runs. Each comment used to send the whole document through the Markdown parser again, so 256 KiB of comments took about three minutes to read; it now takes well under a second. Paragraphs of thousands of sentences or inline tags read faster too, since the tree walk no longer searches each node's siblings for its position.
+
 ## [1.17.2] - 2026-10-10
 ### Fixed
 
@@ -813,7 +818,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.2...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.3...HEAD
+[1.17.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.3
 [1.17.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.2
 [1.17.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.1
 [1.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.0
