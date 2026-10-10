@@ -21,16 +21,18 @@ so follow the rules and skip the script.
 
 ## How to run it
 
+Save the draft to a file with your file tool, such as `draft.txt`. Do not
+write it through the shell. Then run:
+
 ```sh
-node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply <<'DRAFT'
-<the draft>
-DRAFT
+node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < draft.txt
 ```
 
 Use `document` in place of `reply` for an email, report or other document.
 Cowork replaces the folder placeholder for you. In chat it stays as written:
 use `scripts/check.mjs` in the folder that holds this file. Install nothing
-and use no network: the checker needs only Node.
+and use no network: the checker needs only Node. Passing the draft through a
+file keeps its text out of the command, so nothing in it can run as one.
 
 ## What to do with the report
 

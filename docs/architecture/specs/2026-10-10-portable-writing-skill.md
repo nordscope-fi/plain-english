@@ -129,10 +129,14 @@ export function checkDraft(request: unknown, io: CheckerIo, options?: { budgetMs
 standard input:
 
 ```sh
-node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply <<'DRAFT'
-...the draft...
-DRAFT
+node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < draft.txt
 ```
+
+- **How the draft gets there.** Claude saves it to a file with its file tool,
+  and the shell redirects that file into the script. A heredoc would end at the
+  first line matching its delimiter, so pasted prose carrying that line would
+  run the rest as shell commands. A security review of the first version of
+  the skill text flagged exactly that.
 
 - **Where it is found.** The skills guide says "Claude Code and Cowork replace
   `${CLAUDE_SKILL_DIR}` with the skill's folder when the skill loads". Chat

@@ -655,6 +655,14 @@ describe("renderWritingSkill", () => {
     expect(flat).toContain("In Claude Code");
   });
 
+  it("passes the draft through a file, so no text in it can run as a command", () => {
+    // A heredoc ends at the first line matching its delimiter, so pasted prose
+    // carrying that line would run the rest as shell commands.
+    expect(skill).not.toContain("<<");
+    expect(skill).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < draft.txt');
+    expect(skill.replace(/\s+/g, " ")).toContain("with your file tool");
+  });
+
   it("carries no line that runs a command when the skill loads", () => {
     // The directory holds a skill line of the form !`command` that runs a file
     // from a subfolder.
