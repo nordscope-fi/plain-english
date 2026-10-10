@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.4] - 2026-10-10
+### Fixed
+
+- The `writing-a-document` skill's description is quoted in its header. It held a colon followed by a space, which Claude Code accepted but a strict YAML parser rejects, and the Claude plugin directory held the submitted version because it could not read the skill.
+
 ## [1.17.3] - 2026-10-10
 ### Fixed
 
@@ -818,7 +823,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.3...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.4...HEAD
+[1.17.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.4
 [1.17.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.3
 [1.17.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.2
 [1.17.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.1

@@ -160,7 +160,7 @@ pass `--paths-from-stdin` and give it one path per line on standard input.
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.17.3
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.17.4
   with:
     paths: docs README.md
     fail-on: error
@@ -177,7 +177,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.17.3
+    rev: v1.17.4
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg

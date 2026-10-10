@@ -15,6 +15,7 @@ import { chatRules, compile, inLevel, loadDefault, merge } from "../src/rules.ts
 import { lintText } from "../src/lint.ts";
 import type { Rule } from "../src/rules.ts";
 import { resolve } from "node:path";
+import { parse as parseYaml } from "yaml";
 
 const rule = (match: string): Rule => ({ id: "x", severity: "error", match });
 
@@ -704,5 +705,38 @@ describe("renderWritingSkill", () => {
   it("is one of the files render writes", () => {
     const paths = renderAll(set, "/repo").map((t) => t.path);
     expect(paths).toContain(resolve("/repo", writingSkillPath()));
+  });
+});
+
+/**
+ * The Claude directory could not read the submitted plugin's
+ * `writing-a-document` skill: its description held "project: what", and a
+ * colon followed by a space is not allowed in an unquoted YAML value. Claude
+ * Code read it anyway; the directory's scan held the version with "Couldn't
+ * confirm what the plugin runs or connects to".
+ */
+describe("generated frontmatter", () => {
+  it("parses as strict YAML and keeps each value as written, in every generated file", () => {
+    const set = loadDefault();
+    let headers = 0;
+    for (const { path, content } of renderAll(set, ".")) {
+      const m = content.match(/^---\n([\s\S]*?)\n---\n/);
+      if (!m) continue;
+      headers++;
+      const parsed = parseYaml(m[1]!, { strict: true }) as Record<string, unknown>;
+      for (const line of m[1]!.split("\n")) {
+        const key = line.slice(0, line.indexOf(":"));
+        expect(typeof parsed[key], `${path}: ${key}`).not.toBe("undefined");
+      }
+    }
+    expect(headers).toBeGreaterThan(3);
+  });
+
+  it("quotes a description only when YAML needs it", () => {
+    const set = loadDefault();
+    const docs = { ...set.docs, skill: { ...set.docs.skill, description: "Shape a document: lead with its purpose." } };
+    const header = renderAll({ ...set, docs }, ".").find((t) => t.path.replace(/\\/g, "/").endsWith("writing-a-document/SKILL.md"))!.content.split("\n");
+    expect(header).toContain('description: "Shape a document: lead with its purpose."');
+    expect(renderOutputStyle(set).split("\n")).toContain(`description: ${set.chat.levels.find((l) => l.id === set.chat.level)!.description}`);
   });
 });
