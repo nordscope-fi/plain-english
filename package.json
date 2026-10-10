@@ -1,6 +1,6 @@
 {
   "name": "plain-english",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "description": "Catch AI writing tells and unexplained jargon before they land. Prose linter with native hooks for Claude Code, Copilot, Codex, Cursor, Vibe, Gemini CLI, Antigravity and Qwen Code.",
   "keywords": [
     "linter",

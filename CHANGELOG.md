@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-10-10
+### Fixed
+
+- The writing skill's draft check lists at most 5 findings per rule and 50 in all, errors first, with a note saying what was left out. A long draft full of tells used to produce several megabytes of JSON, which chat's code tool showed to Claude only in part.
+
 ## [1.17.0] - 2026-10-10
 ### Added
 
@@ -803,7 +808,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.1...HEAD
+[1.17.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.1
 [1.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.0
 [1.16.6]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.6
 [1.16.5]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.5
