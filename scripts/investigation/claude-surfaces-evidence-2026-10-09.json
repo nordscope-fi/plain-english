@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-09T16:40:35.417Z",
+  "packageVersion": "1.15.0",
+  "gitCommit": "39c0ad6b9875926484a3e4807dab4da5d8aa2b13",
+  "nodeVersion": "v26.10.0",
+  "claudeVersion": "2.1.295 (Claude Code)",
+  "scope": "Local relocation and synthetic event checks. No cloud session, model request, install, publication, or live Cowork event.",
+  "sourceEntrySha256": "2a11b104a689894726246728891290333654d2e58dc882b45952e65f92c90e6f",
+  "tempDirectory": "/var/folders/pp/gtdm8gg117ldbwylfj9_54ph0000gn/T/plain-english-130-ALkCOe",
+  "fileCount": 39,
+  "totalBytes": 1264708,
+  "largestFile": {
+    "path": "skills/writing-a-document/scripts/runtime/dist/chunks/chunk-I3YPERO3.mjs",
+    "bytes": 168017
+  },
+  "observations": [
+    {
+      "name": "relocated CLI version",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 84,
+      "stdout": "1.15.0",
+      "stderr": ""
+    },
+    {
+      "name": "document draft findings",
+      "passed": true,
+      "exitCode": 1,
+      "elapsedMs": 108,
+      "stdout": "{\n  \"errorCount\": 3,\n  \"warnCount\": 0,\n  \"files\": [\n    {\n      \"file\": \"<stdin>\",\n      \"findings\": [\n        {\n          \"ruleId\": \"furthermore\",\n          \"severity\": \"error\",\n          \"match\": \"Furthermore\",\n          \"line\": 1,\n          \"column\": 1,\n          \"lineText\": \"Furthermore, leverage this seamless solution.\",\n          \"message\": \"Start the sentence with its own point.\"\n        },\n        {\n          \"ruleId\": \"leverage\",\n          \"severity\": \"error\",\n          \"match\": \"leverage\",\n          \"line\": 1,\n          \"column\": 14,\n          \"lineText\": \"Furthermore, leverage this seamless solution.\",\n          \"message\": \"Use 'use'.\"\n        },\n        {\n          \"ruleId\": \"seamless\",\n          \"severity\": \"error\",\n          \"match\": \"seamless\",\n          \"line\": 1,\n          \"column\": 28,\n          \"lineText\": \"Furthermore, leverage this seamless solution.\",\n          \"message\": \"Say what actually happens, or cut the word.\"\n        }\n      ]\n    }\n  ]\n}",
+      "stderr": ""
+    },
+    {
+      "name": "clean document draft",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 106,
+      "stdout": "{\n  \"errorCount\": 0,\n  \"warnCount\": 0,\n  \"files\": []\n}",
+      "stderr": ""
+    },
+    {
+      "name": "code example is masked",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 105,
+      "stdout": "{\n  \"errorCount\": 0,\n  \"warnCount\": 0,\n  \"files\": []\n}",
+      "stderr": ""
+    },
+    {
+      "name": "chat lint scans saved sessions instead of the supplied draft",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 103,
+      "stdout": "{\n  \"errorCount\": 0,\n  \"warnCount\": 0,\n  \"files\": []\n}",
+      "stderr": "plain-english: Claude Code not scanned: no transcripts at /var/folders/pp/gtdm8gg117ldbwylfj9_54ph0000gn/T/plain-english-130-ALkCOe/empty-claude-settings/projects. Either none have been written yet, or CLAUDE_CODE_SKIP_PROMPT_HISTORY is set, which turns them off"
+    },
+    {
+      "name": "Markdown write denied",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 116,
+      "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"This file contains writing that reads as machine-generated:\\n\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. <!-- plain-english-disable-next-line leverage: replace this with your reason -->\\n  2. add the path to `exclude` in .plain-english.yml\\n  3. set the reported rules to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-docs\\n  It waives this channel for 10 minutes, then expires on its own.\"}}",
+      "stderr": ""
+    },
+    {
+      "name": "clean Markdown write allowed",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 116,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "Word document write is outside current coverage",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 100,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "reply finding requests continuation",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 110,
+      "stdout": "{\"decision\":\"block\",\"reason\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"Great question\\\" (affirmation-opener) Start with the answer.\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. set the reported rules to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\",\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"Great question\\\" (affirmation-opener) Start with the answer.\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. set the reported rules to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+      "stderr": ""
+    },
+    {
+      "name": "clean reply ends normally",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 108,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "reply loop guard permits ending",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 110,
+      "stdout": "{\"systemMessage\":\"This reply contains writing that reads as machine-generated:\\n\\n  line 1: \\\"Great question\\\" (affirmation-opener) Start with the answer.\\n  line 1: \\\"leverage\\\" (leverage) Use 'use'.\\n\\nRewrite the quoted text in plain, direct language.\\nFull ruleset: docs/writing-style.md\\n\\nNarrower ways to allow this, in order of preference:\\n  1. set the reported rules to `severity: warn` in .plain-english.yml\\n\\nLast resort, and the human's call, not yours: touch .plain-english-ack-chat\\n  It waives this channel for 10 minutes, then expires on its own.\"}",
+      "stderr": ""
+    },
+    {
+      "name": "missing reply payload produces no check",
+      "passed": true,
+      "exitCode": 0,
+      "elapsedMs": 86,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "traditional-hook plugin validates in installed Claude Code",
+      "passed": true,
+      "exitCode": 0,
+      "stdout": "Validating plugin manifest: /var/folders/pp/gtdm8gg117ldbwylfj9_54ph0000gn/T/plain-english-130-ALkCOe/plugin/.claude-plugin/plugin.json\n\n✔ Validation passed",
+      "stderr": ""
+    }
+  ]
+}
