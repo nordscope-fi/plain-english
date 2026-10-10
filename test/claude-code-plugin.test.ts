@@ -12,10 +12,10 @@
  */
 
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resolveRuleSet } from "../src/rules.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -34,8 +34,9 @@ function json(path: string): Record<string, unknown> {
 describe("the plugin's hook files as the directory reads them", () => {
   // Control characters, zero-width and direction marks, line and paragraph separators, byte-order mark.
   const INVISIBLE = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F\\u200B-\\u200F\\u2028-\\u202E\\u2060-\\u2064\\uFEFF]");
-  const CORE = resolve(PLUGIN, "hooks/core");
-  const coreFiles = () => readdirSync(CORE).filter((name) => name.endsWith(".mjs")).map((name) => `hooks/core/${name}`);
+  const CORE_PATH = "skills/plain-english/scripts/core";
+  const CORE = resolve(PLUGIN, CORE_PATH);
+  const coreFiles = () => readdirSync(CORE).filter((name) => name.endsWith(".mjs")).map((name) => `${CORE_PATH}/${name}`);
   const hookFiles = () => ["hooks/register.ts", "hooks/wire.ts", "hooks/shell.mjs", "hooks/issue-tools.mjs", ...coreFiles()];
 
   it("contain no invisible or control characters", () => {
@@ -77,6 +78,8 @@ describe("the plugin's hook files as the directory reads them", () => {
     expect(readFileSync(resolve(PLUGIN, "hooks/register.ts"), "utf8")).not.toMatch(/\$\.process\b/);
     expect(existsSync(resolve(PLUGIN, "hooks/run-checker.mjs"))).toBe(false);
     expect(existsSync(resolve(PLUGIN, "dist"))).toBe(false);
+    // The core moved into the writing skill (ADR-009), and only one copy ships.
+    expect(existsSync(resolve(PLUGIN, "hooks/core"))).toBe(false);
     for (const file of coreFiles()) {
       const text = readFileSync(resolve(PLUGIN, file), "utf8");
       expect(text, file).not.toMatch(/from\s*["']node:|import\(\s*["']node:|require\(/);
@@ -257,8 +260,8 @@ describe("the plugin's hook files as the directory reads them", () => {
   });
 
   it("refuses a config key that would replace an object's prototype", async () => {
-    const core = await import("../integrations/claude-code-plugin/hooks/core/plugin-core.mjs");
-    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const core = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/plugin-core.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/default-rules.mjs");
     const dir = mkdtempSync(resolve(tmpdir(), "pe-proto-"));
     try {
       // A plain key, and a list key merged in under YAML 1.1, which turns into
@@ -292,15 +295,15 @@ describe("the plugin's hook files as the directory reads them", () => {
 
   // Held on 8083a60: `|set|` in a ruleset regex read as the shell's `set`.
   it("ship a ruleset with no pattern that spells a shell command", async () => {
-    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/default-rules.mjs");
     expect(String(rules).match(/\|\s*(?:set|env|printenv)\s*\|/g) ?? []).toEqual([]);
   });
 
   // The mod's own path, run in Node: the bundled core asks for files, gets
   // them, and decides, exactly as the mod's `runCore` drives it.
   it("decide a check from the bundled core with files fetched in rounds, as the mod does", async () => {
-    const core = await import("../integrations/claude-code-plugin/hooks/core/plugin-core.mjs");
-    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const core = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/plugin-core.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/default-rules.mjs");
     const dir = mkdtempSync(resolve(tmpdir(), "pe-core-"));
     try {
       writeFileSync(resolve(dir, ".plain-english.yml"), "version: 1\nextends: default\nfailOn: error\n");
@@ -443,10 +446,10 @@ describe("the Claude Code plugin", () => {
   it("ships the bundled core and a ruleset with no web address that loads the same rules", async () => {
     // `pretest` runs `npm run build`, which writes both, so this reads what a
     // marketplace install would get once the build is committed.
-    const bundle = readFileSync(resolve(PLUGIN, "hooks/core/plugin-core.mjs"), "utf8");
+    const bundle = readFileSync(resolve(PLUGIN, "skills/plain-english/scripts/core/plugin-core.mjs"), "utf8");
     expect(bundle.slice(0, 200)).toContain("// GENERATED by scripts/build-plugin.mjs");
     expect(bundle).not.toContain("from \"mdast-util-from-markdown\"");
-    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/default-rules.mjs");
     expect(String(rules).match(/https?:\/\/\S*/g) ?? []).toEqual([]);
     const { parse } = await import("yaml");
     const plugin = parse(String(rules));
@@ -468,6 +471,8 @@ describe("the Claude Code plugin", () => {
       "output-styles/plain-english-brief.md",
       "output-styles/plain-english-full.md",
       "skills/writing-a-document/SKILL.md",
+      "skills/plain-english/SKILL.md",
+      "skills/plain-english/scripts/check.mjs",
     ]) {
       expect(readFileSync(resolve(PLUGIN, path), "utf8")).toBe(
         readFileSync(resolve(ROOT, "integrations/claude-code", path), "utf8"),
@@ -558,5 +563,104 @@ describe("the Claude Code plugin", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * The writing skill as Claude chat receives it (ADR-009). Chat copies a
+ * skill's own folder into its code environment and nothing else from the
+ * plugin, so the checker's core lives inside the skill and runs from there.
+ */
+describe("the plain-english skill as chat receives it", () => {
+  const SKILL = resolve(PLUGIN, "skills/plain-english");
+  const filesIn = (dir: string) =>
+    readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => resolve(entry.parentPath, entry.name).slice(dir.length + 1))
+      .sort();
+
+  it("names the package version the plugin does", async () => {
+    const { default: version } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/version.mjs");
+    expect(version).toBe(json(resolve(ROOT, "package.json")).version);
+  });
+
+  it("keeps every path within three segments of the skill root", () => {
+    for (const file of filesIn(SKILL)) expect(file.split(/[\\/]/).length, file).toBeLessThanOrEqual(3);
+  });
+
+  it("runs a script that imports no Node module, builds no code and starts nothing", () => {
+    const text = readFileSync(resolve(SKILL, "scripts/check.mjs"), "utf8");
+    expect(text).not.toMatch(/from\s*["']node:|import\(\s*["']node:|require\(/);
+    expect(text).not.toMatch(/\beval\b|\bnew Function\b|child_process|\bspawn(?:Sync)?\(/);
+    expect(text).not.toMatch(/https?:\/\//);
+  });
+
+  describe("run from a folder holding only the skill", () => {
+    let work = "";
+    let copy = "";
+    beforeAll(() => {
+      work = mkdtempSync(resolve(tmpdir(), "pe-skill-"));
+      copy = resolve(work, "plain-english");
+      cpSync(SKILL, copy, { recursive: true });
+    });
+    afterAll(() => rmSync(work, { recursive: true, force: true }));
+
+    const run = (args: string[], input: string, folder = copy) => {
+      const result = spawnSync(process.execPath, [resolve(folder, "scripts/check.mjs"), ...args], {
+        cwd: work, input, encoding: "utf8", timeout: 30_000,
+      });
+      // A crash prints to standard error and leaves standard output empty.
+      expect(result.stderr, result.stderr).toBe("");
+      return { code: result.status, report: JSON.parse(result.stdout) as Record<string, unknown> & { findings: { ruleId: string }[] } };
+    };
+
+    it("finds problems in a reply and exits 1", () => {
+      const { code, report } = run(["reply"], "Great question. We leverage this approach.");
+      expect(code).toBe(1);
+      expect(report.status).toBe("checked");
+      expect(report.version).toBe(json(resolve(ROOT, "package.json")).version);
+      expect(report.findings.map((f) => f.ruleId)).toContain("leverage");
+    });
+
+    it("passes a clean reply and exits 0", () => {
+      expect(run(["reply"], "The build takes two minutes.")).toMatchObject({ code: 0, report: { status: "checked", findings: [] } });
+    });
+
+    it("applies no reply limit to a document", () => {
+      const long = Array(60).fill("The build takes two minutes.").join(" ");
+      expect(run(["document"], long).report.findings.map((f) => f.ruleId)).not.toContain("reply-length");
+    });
+
+    it("reports empty input as invalid and exits 2", () => {
+      expect(run(["reply"], "")).toMatchObject({ code: 2, report: { status: "invalid" } });
+    });
+
+    it.each([[[]], [["Reply"]]])("reports a missing or misspelled kind %j as invalid and exits 2", (args) => {
+      const { code, report } = run(args, "The build takes two minutes.");
+      expect(code).toBe(2);
+      expect(report.status).toBe("invalid");
+    });
+
+    it("answers a very large draft with a report, not a crash", () => {
+      const { report } = run(["document"], "The build takes two minutes. ".repeat(10_000));
+      expect(["checked", "incomplete"]).toContain(report.status);
+    });
+
+    it("gives up on input that never closes and reports invalid", async () => {
+      const child = spawn(process.execPath, [resolve(copy, "scripts/check.mjs"), "reply"], { cwd: work });
+      child.stdin.write("The build takes two minutes.");
+      let out = "";
+      child.stdout.on("data", (chunk) => (out += chunk));
+      const code = await new Promise<number | null>((done) => child.on("close", done));
+      expect(code).toBe(2);
+      expect(JSON.parse(out).status).toBe("invalid");
+    }, 20_000);
+
+    it("reports unavailable and exits 2 when the core does not load", () => {
+      const broken = resolve(work, "broken");
+      cpSync(copy, broken, { recursive: true });
+      rmSync(resolve(broken, "scripts/core/plugin-core.mjs"));
+      expect(run(["reply"], "The build takes two minutes.", broken)).toMatchObject({ code: 2, report: { status: "unavailable" } });
+    });
   });
 });

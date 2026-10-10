@@ -4,6 +4,15 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-10
+### Added
+
+- The Claude Code plugin carries a writing skill, `plain-english`, for Claude chat and Cowork. It gives Claude the reply rules there, and checks a substantial draft with a script that runs the plugin's own checker. Claude passes the draft to the script through a file, so nothing in the draft can run as a command. The checker's core gains `checkDraft`, which checks a reply or document passed as text and reports whether every check ran.
+
+### Changed
+
+- The plugin's bundled checker moved from `hooks/core/` to `skills/plain-english/scripts/core/`, so the mod and the writing skill share one copy.
+
 ## [1.16.6] - 2026-10-10
 ### Changed
 
@@ -794,7 +803,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.6...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.0
 [1.16.6]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.6
 [1.16.5]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.5
 [1.16.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.4

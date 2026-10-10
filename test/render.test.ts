@@ -8,6 +8,8 @@ import {
   renderAll,
   outputStylePath,
   vocabularyTerms,
+  renderWritingSkill,
+  writingSkillPath,
 } from "../src/render.ts";
 import { chatRules, compile, inLevel, loadDefault, merge } from "../src/rules.ts";
 import { lintText } from "../src/lint.ts";
@@ -619,5 +621,74 @@ describe("project vocabulary in the prompts", () => {
     expect(vocabularyTerms("\\b(Deal|Contact)\\b")).toEqual(["Deal", "Contact"]);
     expect(vocabularyTerms("\\bSegments?\\b")).toEqual(["Segment"]);
     expect(vocabularyTerms("hs_[a-z_]+")).toEqual([]);
+  });
+});
+
+describe("renderWritingSkill", () => {
+  const set = compile(loadDefault());
+  const skill = renderWritingSkill(set);
+
+  it("is a skill named plain-english, with a description the host can load it from", () => {
+    const front = skill.split("\n---\n")[0];
+    expect(front).toMatch(/^---\nname: plain-english\ndescription: .+/);
+    const description = front.match(/description: (.*)/)?.[1] ?? "";
+    // An older help article caps it at 200 characters; the skills guide at 1,024.
+    expect(description.length).toBeLessThanOrEqual(200);
+    for (const task of ["email", "report", "question", "review"]) expect(description).toContain(task);
+  });
+
+  it("carries the reply rules the output style carries, so the two cannot drift", () => {
+    const style = renderOutputStyle(set);
+    const body = style.slice(style.indexOf("## What this applies to"));
+    expect(skill).toContain(body.trim());
+  });
+
+  it("says when to check, how to run the script, and what to do with each status", () => {
+    // The generator wraps prose at 78 columns, so compare with line breaks collapsed.
+    const flat = skill.replace(/\s+/g, " ");
+    expect(flat).toContain("longer than about 100 words");
+    expect(flat).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply');
+    expect(flat).toContain("`scripts/check.mjs`");
+    for (const status of ["checked", "incomplete", "invalid", "unavailable", "mayStand", "review"]) {
+      expect(flat).toContain(status);
+    }
+    expect(flat).toContain("In Claude Code");
+  });
+
+  it("passes the draft through a file, so no text in it can run as a command", () => {
+    // A heredoc ends at the first line matching its delimiter, so pasted prose
+    // carrying that line would run the rest as shell commands.
+    expect(skill).not.toContain("<<");
+    expect(skill).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < /tmp/plain-english-draft-');
+    expect(skill.replace(/\s+/g, " ")).toContain("with your file tool");
+  });
+
+  it("saves the draft in a temporary folder, never the person's, and deletes it after", () => {
+    const flat = skill.replace(/\s+/g, " ");
+    expect(flat).toContain("in a temporary folder");
+    expect(flat).toContain("Never save it in the person's folder");
+    expect(flat).toContain("Delete the file after the check");
+    expect(flat).not.toContain("< draft.txt");
+  });
+
+  it("reads the review lines as faults to fix, not as refusals", () => {
+    expect(skill.replace(/\s+/g, " ")).toContain("read it as: fix this before sending");
+  });
+
+  it("says what to do when the script does not start, as in chat with the placeholder", () => {
+    const flat = skill.replace(/\s+/g, " ");
+    expect(flat).toContain("In chat it stays as written and the command fails");
+    expect(flat).toContain("A Node error with no JSON report");
+  });
+
+  it("carries no line that runs a command when the skill loads", () => {
+    // The directory holds a skill line of the form !`command` that runs a file
+    // from a subfolder.
+    expect(skill).not.toMatch(/!`/);
+  });
+
+  it("is one of the files render writes", () => {
+    const paths = renderAll(set, "/repo").map((t) => t.path);
+    expect(paths).toContain(resolve("/repo", writingSkillPath()));
   });
 });
