@@ -186,12 +186,65 @@ describe("the plugin's hook files as the directory reads them", () => {
     }
   });
 
-  // Warned on adac5d2: "README.md body contains a download-and-execute shell
-  // pattern", the `npx plain-english init` line. The plugin's README names
-  // no package launcher and pipes nothing into a shell.
-  it("show no download-and-run command in the README", () => {
-    const text = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
-    expect(text.match(/\b(?:npx|bunx|uvx|pnpm dlx|yarn dlx|pipx run)\b.*|\b(?:curl|wget)\b.*|\|\s*(?:ba)?sh\b.*/gi) ?? []).toEqual([]);
+  // Warned on adac5d2 and again on 27280ca: "README.md body contains a
+  // download-and-execute shell pattern". The plugin's README lost its `npx`
+  // line first; the repository's README still ran every command through
+  // `npx`, one of them piped into it. Neither names a package launcher or
+  // pipes into a shell.
+  it("show no download-and-run command in either README", () => {
+    for (const file of [resolve(PLUGIN, "README.md"), resolve(ROOT, "README.md")]) {
+      const text = readFileSync(file, "utf8");
+      expect(text.match(/\b(?:npx|bunx|uvx|pnpm dlx|yarn dlx|pipx run|uv run|npm exec)\b.*|\b(?:curl|wget)\b.*|\|\s*(?:ba|z)?sh\b.*/gi) ?? [], file).toEqual([]);
+    }
+  });
+
+  // Warned on 27280ca: "Mod defines a value that runs the mod's code when it is
+  // merely read or awaited" (defineProperty, in 7 files) and "Mod uses a form
+  // that can hide what its code does" (getPrototypeOf twice, a value's
+  // constructor once). The plugin's copy of each library uses plain data
+  // properties and methods instead, so no file in the mod defines an
+  // accessor, a then method or a Proxy, or looks up a prototype.
+  it("define no accessor and look up no prototype in the mod's code", async () => {
+    const { parse } = await import("@babel/parser");
+    for (const file of [...coreFiles(), "hooks/register.ts"]) {
+      const text = readFileSync(resolve(PLUGIN, file), "utf8");
+      const found: string[] = [];
+      const walk = (node: unknown): void => {
+        if (!node || typeof node !== "object") return;
+        const n = node as Record<string, unknown> & { type?: string; kind?: string; name?: string; loc?: { start: { line: number } } };
+        if (typeof n.type !== "string") return;
+        const at = `@${n.loc?.start.line}`;
+        const key = (n["key"] as { name?: string } | undefined)?.name;
+        if ((n.type === "ClassMethod" || n.type === "ObjectMethod") && (n.kind === "get" || n.kind === "set")) found.push(`${n.kind} ${key}${at}`);
+        if ((n.type === "ClassMethod" || n.type === "ObjectMethod" || n.type === "ObjectProperty") && key === "then") found.push(`then${at}`);
+        if (n.type === "Identifier" && ["defineProperty", "defineProperties", "getPrototypeOf", "setPrototypeOf", "Proxy", "Reflect", "__defineGetter__", "__lookupGetter__"].includes(n.name!)) found.push(`${n.name}${at}`);
+        if ((n.type === "MemberExpression" || n.type === "OptionalMemberExpression") && ["constructor", "__proto__"].includes((n["property"] as { name?: string }).name!)) found.push(`.${(n["property"] as { name?: string }).name}${at}`);
+        for (const [k, v] of Object.entries(n)) {
+          if (k === "loc") continue;
+          if (Array.isArray(v)) v.forEach(walk); else walk(v);
+        }
+      };
+      walk(parse(text, { sourceType: "module", plugins: file.endsWith(".ts") ? ["typescript"] : [] }).program);
+      expect(found, file).toEqual([]);
+    }
+  });
+
+  it("refuses a config key that would replace an object's prototype", async () => {
+    const core = await import("../integrations/claude-code-plugin/hooks/core/plugin-core.mjs");
+    const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
+    const dir = mkdtempSync(resolve(tmpdir(), "pe-proto-"));
+    try {
+      const fetched = core.emptyFetched();
+      fetched.reads.set(resolve(dir, ".plain-english.yml"), "version: 1\nextends: default\n__proto__:\n  polluted: true\n");
+      const io = core.replayIo({
+        cwd: dir, path: core.pathsFor(dir), env: {}, home: undefined, now: () => Date.now(), notice: () => {},
+        state: { get: () => undefined, set: () => true }, defaultRules: () => rules,
+      }, fetched);
+      expect(() => core.resolveRuleSet(dir, io)).toThrow("__proto__");
+      expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   // Held on 852d825 as "a string that looks like encoded data": an HTML

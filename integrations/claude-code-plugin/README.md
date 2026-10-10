@@ -114,25 +114,16 @@ The word `token` in the bundled code belongs to the YAML and Markdown parsers, w
 
 ### Bundled code
 
-`hooks/core/` is the checker from this repository, built by `scripts/build-plugin.mjs` for a runtime without Node. The build changes nothing the checker does, and these are its rules:
+`hooks/core/` is the checker from this repository, built by `scripts/build-plugin.mjs` for a runtime without Node. These are the build's rules. Apart from the one config key named under plain data, the checker behaves as it does on the command line:
 
 - **Stand-ins for Node-only parts.** The parts that read files, start the command-line fallback or write evaluation receipts are replaced with stand-ins that do none of those things. The mod passes its own file access to every check, and the build fails if any Node import remains.
 - **Readable files.** The bundle is unminified, has no comments, and has no line over 1,000 characters. Long strings and regular expressions are split into pieces joined when the code runs, and each regular expression is checked identical as the build runs.
 - **Size.** Every file is under the directory's read limit of 262,144 bytes.
 - **No `eval`.** The bundled `fault` library's unused `eval` member is removed, and the `format` package is replaced with a ten-line formatter.
+- **Plain data, no accessors.** The bundled libraries' getters, setters, `Object.defineProperty` calls and prototype lookups are rewritten as plain properties and methods: the YAML library's node and schema fields, the Markdown parser's splice buffer and construct list, and the file object the sentence layer needs. The tree walker no longer names its visitor function for debugging. The YAML library's node `clone`, which nothing in the checker calls, refuses instead of copying through the prototype. One input reads differently from the command-line checker: a config key named `__proto__` is refused, where the command-line checker stores it as an ordinary key.
 - **No unused web addresses.** The Markdown parser's `http://` prefix for a bare `www.` link is dropped, since the checker never reads the address, and each rule's default source names the design notes by path.
 
 Jira and Confluence HTML is read by the checker's own small reader, which decodes the entities that text uses, so no HTML library and no encoded entity table is bundled.
-
-### Library code the directory names for review
-
-The directory names some ordinary code in bundled libraries, because the same shapes can hide what code does. Here is what each is for:
-
-- **Getters and setters:** the `vfile` library's file object, which keeps `path`, `basename`, `dirname`, `extname` and `stem` in step when one changes. The YAML library's `tagName` on its map and list types, and the `sourceToken` its parser builds on request. The markdown parser's `length` on its splice buffer, a list it keeps in two halves.
-- **`Object.defineProperty`:** the bundler's helper that lists each module's exports. The YAML library marking a node's type, a document's schema and its map, scalar and list types, stopping an alias node from taking a tag, and adding map keys that are not plain names. The tree walker naming its visitor function.
-- **`Object.getPrototypeOf` and a value's `constructor`:** the YAML library copying a node or a schema with its class, building a list of the same kind as one it copies, and naming a value's type in an error message.
-
-None of these reaches outside the checker: they shape the libraries' own objects, and the mod passes the checker only the files, answers and settings described above.
 
 The same checker is published on npm with a signed record of the GitHub build that produced it.
 

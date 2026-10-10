@@ -4,6 +4,12 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.16.6] - 2026-10-10
+### Changed
+
+- The Claude Code plugin's bundled libraries define no getter, setter or `Object.defineProperty` property and look up no prototype or `constructor`; the build writes each as a plain property or method. The Claude directory warned that such code "runs the mod's code when it is merely read" and "can hide what its code does". The plugin's config reader now refuses a key named `__proto__`, and the YAML node `clone` method, which the checker never calls, refuses instead of copying.
+- The README runs every command through an npm script, `npm run prose --`, set up by `npm pkg set scripts.prose=plain-english`, in place of `npx`. The Claude directory warned that `npx` lines are a download-and-run pattern.
+
 ## [1.16.5] - 2026-10-10
 ### Changed
 
@@ -788,7 +794,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.5...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.16.6...HEAD
+[1.16.6]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.6
 [1.16.5]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.5
 [1.16.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.4
 [1.16.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.3

@@ -59,10 +59,12 @@ rewrite hints:
 
 ```bash
 npm install -D plain-english
-npx plain-english lint .
+npm pkg set scripts.prose=plain-english
+npm run prose -- lint .
 ```
 
-Node 20 or newer is required. The first run needs no config. Blocking is opt-in. You can
+The second line adds a `prose` script to `package.json`, so every command runs the copy
+you installed. Node 20 or newer is required. The first run needs no config. Blocking is opt-in. You can
 tune the rules before they stop a build.
 
 To make blocking findings return a failing exit code, add `.plain-english.yml`:
@@ -93,8 +95,8 @@ The built-in rules cover:
 severity, and rewrite hint:
 
 ```bash
-npx plain-english explain
-npx plain-english explain unglossed-term
+npm run prose -- explain
+npm run prose -- explain unglossed-term
 ```
 
 The explanation also shows whether a check is a writing-quality rule, a known
@@ -128,8 +130,8 @@ and everything excluded from scanning.
 starter config. It merges with files that already exist.
 
 ```bash
-npx plain-english init --agent codex --dry-run
-npx plain-english init --agent codex
+npm run prose -- init --agent codex --dry-run
+npm run prose -- init --agent codex
 ```
 
 The dry run shows the diff first.
@@ -156,13 +158,13 @@ To check a list of files from another command, give it one path per line on
 standard input:
 
 ```bash
-git diff --name-only -- '*.md' | npx plain-english lint --paths-from-stdin
+git diff --name-only -- '*.md' | npm run prose -- lint --paths-from-stdin
 ```
 
 ### GitHub Actions
 
 ```yaml
-- uses: nordscope-fi/plain-english/integrations/github-action@v1.16.5
+- uses: nordscope-fi/plain-english/integrations/github-action@v1.16.6
   with:
     paths: docs README.md
     fail-on: error
@@ -179,7 +181,7 @@ If the repository already uses [pre-commit](https://pre-commit.com), add:
 ```yaml
 repos:
   - repo: https://github.com/nordscope-fi/plain-english
-    rev: v1.16.5
+    rev: v1.16.6
     hooks:
       - id: plain-english
       - id: plain-english-commit-msg
@@ -226,7 +228,7 @@ A bare pattern suppresses every rule on a matching line. Naming the affected rul
 hiding unrelated findings. Check the cost of each allowance with:
 
 ```bash
-npx plain-english lint --show-suppressed
+npm run prose -- lint --show-suppressed
 ```
 
 A complete example lives in [`examples/revops.yml`](examples/revops.yml).
@@ -247,9 +249,9 @@ profile:
 Build it, check it in, then rerun `init` so agent guidance includes the stable results:
 
 ```bash
-npx plain-english profile
-npx plain-english profile --check
-npx plain-english init --agent all
+npm run prose -- profile
+npm run prose -- profile --check
+npm run prose -- init --agent all
 ```
 
 The profile stores paths, hashes, counts, summaries, common sentence connectors, and
@@ -258,7 +260,7 @@ insufficient or mixed and do not reach agent guidance. Connectors and recurring 
 also wait for explicit approval:
 
 ```bash
-npx plain-english profile --approve technical-doc:connectives,technical-doc:domainTerms
+npm run prose -- profile --approve technical-doc:connectives,technical-doc:domainTerms
 ```
 
 Approvals and the `preferences` mapping survive regeneration. Use `preferences` for

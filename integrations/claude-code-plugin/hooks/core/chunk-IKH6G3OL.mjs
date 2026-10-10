@@ -3,9 +3,6 @@ import {
   characterEntities
 } from "./chunk-KWWQFVSE.mjs";
 import {
-  stringifyPosition
-} from "./chunk-4A7VIGHI.mjs";
-import {
   asciiAlpha,
   asciiAlphanumeric,
   asciiAtext,
@@ -20,9 +17,6 @@ import {
   unicodePunctuation,
   unicodeWhitespace
 } from "./chunk-UGEYTODJ.mjs";
-import {
-  __export
-} from "./chunk-7P6ASYW6.mjs";
 
 var emptyOptions = {};
 function toString(value, options) {
@@ -50,9 +44,9 @@ function one(value, includeImageAlt, includeHtml) {
 }
 function all(values, includeImageAlt, includeHtml) {
   const result = [];
-  let index = -1;
-  while (++index < values.length) {
-    result[index] = one(values[index], includeImageAlt, includeHtml);
+  let index2 = -1;
+  while (++index2 < values.length) {
+    result[index2] = one(values[index2], includeImageAlt, includeHtml);
   }
   return result.join("");
 }
@@ -101,9 +95,9 @@ function push(list2, items) {
 var hasOwnProperty = {}.hasOwnProperty;
 function combineExtensions(extensions) {
   const all2 = {};
-  let index = -1;
-  while (++index < extensions.length) {
-    syntaxExtension(all2, extensions[index]);
+  let index2 = -1;
+  while (++index2 < extensions.length) {
+    syntaxExtension(all2, extensions[index2]);
   }
   return all2;
 }
@@ -127,11 +121,11 @@ function syntaxExtension(all2, extension2) {
   }
 }
 function constructs(existing, list2) {
-  let index = -1;
+  let index2 = -1;
   const before = [];
-  while (++index < list2.length) {
+  while (++index2 < list2.length) {
     ;
-    (list2[index].add === "after" ? existing : before).push(list2[index]);
+    (list2[index2].add === "after" ? existing : before).push(list2[index2]);
   }
   splice(existing, 0, 0, before);
 }
@@ -235,23 +229,23 @@ function initializeDocument(effects) {
       }
       const indexBeforeExits = self.events.length;
       let indexBeforeFlow = indexBeforeExits;
-      let point2;
+      let point3;
       while (indexBeforeFlow--) {
         if (self.events[indexBeforeFlow][0] === "exit" && self.events[indexBeforeFlow][1].type === "chunkFlow") {
-          point2 = self.events[indexBeforeFlow][1].end;
+          point3 = self.events[indexBeforeFlow][1].end;
           break;
         }
       }
       exitContainers(continued);
-      let index = indexBeforeExits;
-      while (index < self.events.length) {
-        self.events[index][1].end = {
-          ...point2
+      let index2 = indexBeforeExits;
+      while (index2 < self.events.length) {
+        self.events[index2][1].end = {
+          ...point3
         };
-        index++;
+        index2++;
       }
       splice(self.events, indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
-      self.events.length = index;
+      self.events.length = index2;
       return checkNewContainers(code);
     }
     return start(code);
@@ -329,12 +323,12 @@ function initializeDocument(effects) {
     childFlow.defineSkip(token.start);
     childFlow.write(stream);
     if (self.parser.lazy[token.start.line]) {
-      let index = childFlow.events.length;
-      while (index--) {
+      let index2 = childFlow.events.length;
+      while (index2--) {
         if (
-          childFlow.events[index][1].start.offset < lineStartOffset &&  
-          (!childFlow.events[index][1].end ||  
-          childFlow.events[index][1].end.offset > lineStartOffset)
+          childFlow.events[index2][1].start.offset < lineStartOffset &&  
+          (!childFlow.events[index2][1].end ||  
+          childFlow.events[index2][1].end.offset > lineStartOffset)
         ) {
           return;
         }
@@ -342,32 +336,32 @@ function initializeDocument(effects) {
       const indexBeforeExits = self.events.length;
       let indexBeforeFlow = indexBeforeExits;
       let seen;
-      let point2;
+      let point3;
       while (indexBeforeFlow--) {
         if (self.events[indexBeforeFlow][0] === "exit" && self.events[indexBeforeFlow][1].type === "chunkFlow") {
           if (seen) {
-            point2 = self.events[indexBeforeFlow][1].end;
+            point3 = self.events[indexBeforeFlow][1].end;
             break;
           }
           seen = true;
         }
       }
       exitContainers(continued);
-      index = indexBeforeExits;
-      while (index < self.events.length) {
-        self.events[index][1].end = {
-          ...point2
+      index2 = indexBeforeExits;
+      while (index2 < self.events.length) {
+        self.events[index2][1].end = {
+          ...point3
         };
-        index++;
+        index2++;
       }
       splice(self.events, indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
-      self.events.length = index;
+      self.events.length = index2;
     }
   }
   function exitContainers(size) {
-    let index = stack.length;
-    while (index-- > size) {
-      const entry = stack[index];
+    let index2 = stack.length;
+    while (index2-- > size) {
+      const entry = stack[index2];
       self.containerState = entry[1];
       entry[0].exit.call(self, effects);
     }
@@ -395,9 +389,9 @@ function classifyCharacter(code) {
 
 function resolveAll(constructs2, events, context) {
   const called = [];
-  let index = -1;
-  while (++index < constructs2.length) {
-    const resolve = constructs2[index].resolveAll;
+  let index2 = -1;
+  while (++index2 < constructs2.length) {
+    const resolve = constructs2[index2].resolveAll;
     if (resolve && !called.includes(resolve)) {
       events = resolve(events, context);
       called.push(resolve);
@@ -412,7 +406,7 @@ var attention = {
   tokenize: tokenizeAttention
 };
 function resolveAllAttention(events, context) {
-  let index = -1;
+  let index2 = -1;
   let open;
   let group;
   let text3;
@@ -421,21 +415,21 @@ function resolveAllAttention(events, context) {
   let use;
   let nextEvents;
   let offset;
-  while (++index < events.length) {
-    if (events[index][0] === "enter" && events[index][1].type === "attentionSequence" && events[index][1]._close) {
-      open = index;
+  while (++index2 < events.length) {
+    if (events[index2][0] === "enter" && events[index2][1].type === "attentionSequence" && events[index2][1]._close) {
+      open = index2;
       while (open--) {
         if (events[open][0] === "exit" && events[open][1].type === "attentionSequence" && events[open][1]._open &&  
-        context.sliceSerialize(events[open][1]).charCodeAt(0) === context.sliceSerialize(events[index][1]).charCodeAt(0)) {
-          if ((events[open][1]._close || events[index][1]._open) && (events[index][1].end.offset - events[index][1].start.offset) % 3 && !((events[open][1].end.offset - events[open][1].start.offset + events[index][1].end.offset - events[index][1].start.offset) % 3)) {
+        context.sliceSerialize(events[open][1]).charCodeAt(0) === context.sliceSerialize(events[index2][1]).charCodeAt(0)) {
+          if ((events[open][1]._close || events[index2][1]._open) && (events[index2][1].end.offset - events[index2][1].start.offset) % 3 && !((events[open][1].end.offset - events[open][1].start.offset + events[index2][1].end.offset - events[index2][1].start.offset) % 3)) {
             continue;
           }
-          use = events[open][1].end.offset - events[open][1].start.offset > 1 && events[index][1].end.offset - events[index][1].start.offset > 1 ? 2 : 1;
+          use = events[open][1].end.offset - events[open][1].start.offset > 1 && events[index2][1].end.offset - events[index2][1].start.offset > 1 ? 2 : 1;
           const start = {
             ...events[open][1].end
           };
           const end = {
-            ...events[index][1].start
+            ...events[index2][1].start
           };
           movePoint(start, -use);
           movePoint(end, use);
@@ -449,7 +443,7 @@ function resolveAllAttention(events, context) {
           closingSequence = {
             type: use > 1 ? "strongSequence" : "emphasisSequence",
             start: {
-              ...events[index][1].start
+              ...events[index2][1].start
             },
             end
           };
@@ -459,7 +453,7 @@ function resolveAllAttention(events, context) {
               ...events[open][1].end
             },
             end: {
-              ...events[index][1].start
+              ...events[index2][1].start
             }
           };
           group = {
@@ -474,7 +468,7 @@ function resolveAllAttention(events, context) {
           events[open][1].end = {
             ...openingSequence.start
           };
-          events[index][1].start = {
+          events[index2][1].start = {
             ...closingSequence.end
           };
           nextEvents = [];
@@ -482,25 +476,25 @@ function resolveAllAttention(events, context) {
             nextEvents = push(nextEvents, [["enter", events[open][1], context], ["exit", events[open][1], context]]);
           }
           nextEvents = push(nextEvents, [["enter", group, context], ["enter", openingSequence, context], ["exit", openingSequence, context], ["enter", text3, context]]);
-          nextEvents = push(nextEvents, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + 1, index), context));
+          nextEvents = push(nextEvents, resolveAll(context.parser.constructs.insideSpan.null, events.slice(open + 1, index2), context));
           nextEvents = push(nextEvents, [["exit", text3, context], ["enter", closingSequence, context], ["exit", closingSequence, context], ["exit", group, context]]);
-          if (events[index][1].end.offset - events[index][1].start.offset) {
+          if (events[index2][1].end.offset - events[index2][1].start.offset) {
             offset = 2;
-            nextEvents = push(nextEvents, [["enter", events[index][1], context], ["exit", events[index][1], context]]);
+            nextEvents = push(nextEvents, [["enter", events[index2][1], context], ["exit", events[index2][1], context]]);
           } else {
             offset = 0;
           }
-          splice(events, open - 1, index - open + 3, nextEvents);
-          index = open + nextEvents.length - offset - 2;
+          splice(events, open - 1, index2 - open + 3, nextEvents);
+          index2 = open + nextEvents.length - offset - 2;
           break;
         }
       }
     }
   }
-  index = -1;
-  while (++index < events.length) {
-    if (events[index][1].type === "attentionSequence") {
-      events[index][1].type = "data";
+  index2 = -1;
+  while (++index2 < events.length) {
+    if (events[index2][1].type === "attentionSequence") {
+      events[index2][1].type = "data";
     }
   }
   return events;
@@ -530,10 +524,10 @@ function tokenizeAttention(effects, ok) {
     return ok(code);
   }
 }
-function movePoint(point2, offset) {
-  point2.column += offset;
-  point2.offset += offset;
-  point2._bufferIndex += offset;
+function movePoint(point3, offset) {
+  point3.column += offset;
+  point3.offset += offset;
+  point3._bufferIndex += offset;
 }
 
 var autolink = {
@@ -1050,12 +1044,12 @@ var codeText = {
 function resolveCodeText(events) {
   let tailExitIndex = events.length - 4;
   let headEnterIndex = 3;
-  let index;
+  let index2;
   let enter;
   if ((events[headEnterIndex][1].type === "lineEnding" || events[headEnterIndex][1].type === "space") && (events[tailExitIndex][1].type === "lineEnding" || events[tailExitIndex][1].type === "space")) {
-    index = headEnterIndex;
-    while (++index < tailExitIndex) {
-      if (events[index][1].type === "codeTextData") {
+    index2 = headEnterIndex;
+    while (++index2 < tailExitIndex) {
+      if (events[index2][1].type === "codeTextData") {
         events[headEnterIndex][1].type = "codeTextPadding";
         events[tailExitIndex][1].type = "codeTextPadding";
         headEnterIndex += 2;
@@ -1064,20 +1058,20 @@ function resolveCodeText(events) {
       }
     }
   }
-  index = headEnterIndex - 1;
+  index2 = headEnterIndex - 1;
   tailExitIndex++;
-  while (++index <= tailExitIndex) {
+  while (++index2 <= tailExitIndex) {
     if (enter === void 0) {
-      if (index !== tailExitIndex && events[index][1].type !== "lineEnding") {
-        enter = index;
+      if (index2 !== tailExitIndex && events[index2][1].type !== "lineEnding") {
+        enter = index2;
       }
-    } else if (index === tailExitIndex || events[index][1].type === "lineEnding") {
+    } else if (index2 === tailExitIndex || events[index2][1].type === "lineEnding") {
       events[enter][1].type = "codeTextData";
-      if (index !== enter + 2) {
-        events[enter][1].end = events[index - 1][1].end;
-        events.splice(enter + 2, index - enter - 2);
-        tailExitIndex -= index - enter - 2;
-        index = enter + 2;
+      if (index2 !== enter + 2) {
+        events[enter][1].end = events[index2 - 1][1].end;
+        events.splice(enter + 2, index2 - enter - 2);
+        tailExitIndex -= index2 - enter - 2;
+        index2 = enter + 2;
       }
       enter = void 0;
     }
@@ -1160,14 +1154,14 @@ var SpliceBuffer = class {
     this.left = initial ? [...initial] : [];
     this.right = [];
   }
-  get(index) {
-    if (index < 0 || index >= this.left.length + this.right.length) {
-      throw new RangeError("Cannot access index `" + index + "` in a splice buffer of size `" + (this.left.length + this.right.length) + "`");
+  get(index2) {
+    if (index2 < 0 || index2 >= this.left.length + this.right.length) {
+      throw new RangeError("Cannot access index `" + index2 + "` in a splice buffer of size `" + (this.left.length + this.right.length) + "`");
     }
-    if (index < this.left.length) return this.left[index];
-    return this.right[this.right.length - index + this.left.length - 1];
+    if (index2 < this.left.length) return this.left[index2];
+    return this.right[this.right.length - index2 + this.left.length - 1];
   }
-  get length() {
+  size() {
     return this.left.length + this.right.length;
   }
   shift() {
@@ -1236,7 +1230,7 @@ function chunkedPush(list2, right) {
 
 function subtokenize(eventsArray) {
   const jumps = {};
-  let index = -1;
+  let index2 = -1;
   let event;
   let lineIndex;
   let otherIndex;
@@ -1245,12 +1239,12 @@ function subtokenize(eventsArray) {
   let subevents;
   let more;
   const events = new SpliceBuffer(eventsArray);
-  while (++index < events.length) {
-    while (index in jumps) {
-      index = jumps[index];
+  while (++index2 < events.size()) {
+    while (index2 in jumps) {
+      index2 = jumps[index2];
     }
-    event = events.get(index);
-    if (index && event[1].type === "chunkFlow" && events.get(index - 1)[1].type === "listItemPrefix") {
+    event = events.get(index2);
+    if (index2 && event[1].type === "chunkFlow" && events.get(index2 - 1)[1].type === "listItemPrefix") {
       subevents = event[1]._tokenizer.events;
       otherIndex = 0;
       if (otherIndex < subevents.length && subevents[otherIndex][1].type === "lineEndingBlank") {
@@ -1270,12 +1264,12 @@ function subtokenize(eventsArray) {
     }
     if (event[0] === "enter") {
       if (event[1].contentType) {
-        Object.assign(jumps, subcontent(events, index));
-        index = jumps[index];
+        Object.assign(jumps, subcontent(events, index2));
+        index2 = jumps[index2];
         more = true;
       }
     } else if (event[1]._container) {
-      otherIndex = index;
+      otherIndex = index2;
       lineIndex = void 0;
       while (otherIndex--) {
         otherEvent = events.get(otherIndex);
@@ -1296,9 +1290,9 @@ function subtokenize(eventsArray) {
         event[1].end = {
           ...events.get(lineIndex)[1].start
         };
-        parameters = events.slice(lineIndex, index);
+        parameters = events.slice(lineIndex, index2);
         parameters.unshift(event);
-        events.splice(lineIndex, index - lineIndex + 1, parameters);
+        events.splice(lineIndex, index2 - lineIndex + 1, parameters);
       }
     }
   }
@@ -1322,7 +1316,7 @@ function subcontent(events, eventIndex) {
   const gaps = {};
   let stream;
   let previous2;
-  let index = -1;
+  let index2 = -1;
   let current = token;
   let adjust = 0;
   let start = 0;
@@ -1351,11 +1345,11 @@ function subcontent(events, eventIndex) {
     current = current.next;
   }
   current = token;
-  while (++index < childEvents.length) {
+  while (++index2 < childEvents.length) {
     if (
-      childEvents[index][0] === "exit" && childEvents[index - 1][0] === "enter" && childEvents[index][1].type === childEvents[index - 1][1].type && childEvents[index][1].start.line !== childEvents[index][1].end.line
+      childEvents[index2][0] === "exit" && childEvents[index2 - 1][0] === "enter" && childEvents[index2][1].type === childEvents[index2 - 1][1].type && childEvents[index2][1].start.line !== childEvents[index2][1].end.line
     ) {
-      start = index + 1;
+      start = index2 + 1;
       breaks.push(start);
       current._tokenizer = void 0;
       current.previous = void 0;
@@ -1369,18 +1363,18 @@ function subcontent(events, eventIndex) {
   } else {
     breaks.pop();
   }
-  index = breaks.length;
-  while (index--) {
-    const slice = childEvents.slice(breaks[index], breaks[index + 1]);
+  index2 = breaks.length;
+  while (index2--) {
+    const slice = childEvents.slice(breaks[index2], breaks[index2 + 1]);
     const start2 = startPositions.pop();
     jumps.push([start2, start2 + slice.length - 1]);
     events.splice(start2, 2, slice);
   }
   jumps.reverse();
-  index = -1;
-  while (++index < jumps.length) {
-    gaps[adjust + jumps[index][0]] = adjust + jumps[index][1];
-    adjust += jumps[index][1] - jumps[index][0] - 1;
+  index2 = -1;
+  while (++index2 < jumps.length) {
+    gaps[adjust + jumps[index2][0]] = adjust + jumps[index2][1];
+    adjust += jumps[index2][1] - jumps[index2][0] - 1;
   }
   return gaps;
 }
@@ -1955,16 +1949,16 @@ var nonLazyContinuationStart = {
   tokenize: tokenizeNonLazyContinuationStart
 };
 function resolveToHtmlFlow(events) {
-  let index = events.length;
-  while (index--) {
-    if (events[index][0] === "enter" && events[index][1].type === "htmlFlow") {
+  let index2 = events.length;
+  while (index2--) {
+    if (events[index2][0] === "enter" && events[index2][1].type === "htmlFlow") {
       break;
     }
   }
-  if (index > 1 && events[index - 2][1].type === "linePrefix") {
-    events[index][1].start = events[index - 2][1].start;
-    events[index + 1][1].start = events[index - 2][1].start;
-    events.splice(index - 2, 2);
+  if (index2 > 1 && events[index2 - 2][1].type === "linePrefix") {
+    events[index2][1].start = events[index2 - 2][1].start;
+    events[index2 + 1][1].start = events[index2 - 2][1].start;
+    events.splice(index2 - 2, 2);
   }
   return events;
 }
@@ -1973,7 +1967,7 @@ function tokenizeHtmlFlow(effects, ok, nok) {
   let marker;
   let closingTag;
   let buffer;
-  let index;
+  let index2;
   let markerB;
   return start;
   function start(code) {
@@ -2016,7 +2010,7 @@ function tokenizeHtmlFlow(effects, ok, nok) {
     if (code === 91) {
       effects.consume(code);
       marker = 5;
-      index = 0;
+      index2 = 0;
       return cdataOpenInside;
     }
     if (asciiAlpha(code)) {
@@ -2035,9 +2029,9 @@ function tokenizeHtmlFlow(effects, ok, nok) {
   }
   function cdataOpenInside(code) {
     const value = "CDATA[";
-    if (code === value.charCodeAt(index++)) {
+    if (code === value.charCodeAt(index2++)) {
       effects.consume(code);
-      if (index === value.length) {
+      if (index2 === value.length) {
         return self.interrupt ? ok : continuation;
       }
       return cdataOpenInside;
@@ -2325,7 +2319,7 @@ var htmlText = {
 function tokenizeHtmlText(effects, ok, nok) {
   const self = this;
   let marker;
-  let index;
+  let index2;
   let returnState;
   return start;
   function start(code) {
@@ -2360,7 +2354,7 @@ function tokenizeHtmlText(effects, ok, nok) {
     }
     if (code === 91) {
       effects.consume(code);
-      index = 0;
+      index2 = 0;
       return cdataOpenInside;
     }
     if (asciiAlpha(code)) {
@@ -2403,9 +2397,9 @@ function tokenizeHtmlText(effects, ok, nok) {
   }
   function cdataOpenInside(code) {
     const value = "CDATA[";
-    if (code === value.charCodeAt(index++)) {
+    if (code === value.charCodeAt(index2++)) {
       effects.consume(code);
-      return index === value.length ? cdata : cdataOpenInside;
+      return index2 === value.length ? cdata : cdataOpenInside;
     }
     return nok(code);
   }
@@ -2639,15 +2633,15 @@ var referenceCollapsedConstruct = {
   tokenize: tokenizeReferenceCollapsed
 };
 function resolveAllLabelEnd(events) {
-  let index = -1;
+  let index2 = -1;
   const newEvents = [];
-  while (++index < events.length) {
-    const token = events[index][1];
-    newEvents.push(events[index]);
+  while (++index2 < events.length) {
+    const token = events[index2][1];
+    newEvents.push(events[index2]);
     if (token.type === "labelImage" || token.type === "labelLink" || token.type === "labelEnd") {
       const offset = token.type === "labelImage" ? 4 : 2;
       token.type = "data";
-      index += offset;
+      index2 += offset;
     }
   }
   if (events.length !== newEvents.length) {
@@ -2656,31 +2650,31 @@ function resolveAllLabelEnd(events) {
   return events;
 }
 function resolveToLabelEnd(events, context) {
-  let index = events.length;
+  let index2 = events.length;
   let offset = 0;
   let token;
   let open;
   let close;
   let media;
-  while (index--) {
-    token = events[index][1];
+  while (index2--) {
+    token = events[index2][1];
     if (open) {
       if (token.type === "link" || token.type === "labelLink" && token._inactive) {
         break;
       }
-      if (events[index][0] === "enter" && token.type === "labelLink") {
+      if (events[index2][0] === "enter" && token.type === "labelLink") {
         token._inactive = true;
       }
     } else if (close) {
-      if (events[index][0] === "enter" && (token.type === "labelImage" || token.type === "labelLink") && !token._balanced) {
-        open = index;
+      if (events[index2][0] === "enter" && (token.type === "labelImage" || token.type === "labelLink") && !token._balanced) {
+        open = index2;
         if (token.type !== "labelLink") {
           offset = 2;
           break;
         }
       }
     } else if (token.type === "labelEnd") {
-      close = index;
+      close = index2;
     }
   }
   const group = {
@@ -2722,12 +2716,12 @@ function resolveToLabelEnd(events, context) {
 }
 function tokenizeLabelEnd(effects, ok, nok) {
   const self = this;
-  let index = self.events.length;
+  let index2 = self.events.length;
   let labelStart;
   let defined;
-  while (index--) {
-    if ((self.events[index][1].type === "labelImage" || self.events[index][1].type === "labelLink") && !self.events[index][1]._balanced) {
-      labelStart = self.events[index][1];
+  while (index2--) {
+    if ((self.events[index2][1].type === "labelImage" || self.events[index2][1].type === "labelLink") && !self.events[index2][1]._balanced) {
+      labelStart = self.events[index2][1];
       break;
     }
   }
@@ -3085,25 +3079,25 @@ var setextUnderline = {
   tokenize: tokenizeSetextUnderline
 };
 function resolveToSetextUnderline(events, context) {
-  let index = events.length;
+  let index2 = events.length;
   let content3;
   let text3;
   let definition2;
-  while (index--) {
-    if (events[index][0] === "enter") {
-      if (events[index][1].type === "content") {
-        content3 = index;
+  while (index2--) {
+    if (events[index2][0] === "enter") {
+      if (events[index2][1].type === "content") {
+        content3 = index2;
         break;
       }
-      if (events[index][1].type === "paragraph") {
-        text3 = index;
+      if (events[index2][1].type === "paragraph") {
+        text3 = index2;
       }
     } else {
-      if (events[index][1].type === "content") {
-        events.splice(index, 1);
+      if (events[index2][1].type === "content") {
+        events.splice(index2, 1);
       }
-      if (!definition2 && events[index][1].type === "definition") {
-        definition2 = index;
+      if (!definition2 && events[index2][1].type === "definition") {
+        definition2 = index2;
       }
     }
   }
@@ -3134,11 +3128,11 @@ function tokenizeSetextUnderline(effects, ok, nok) {
   let marker;
   return start;
   function start(code) {
-    let index = self.events.length;
+    let index2 = self.events.length;
     let paragraph;
-    while (index--) {
-      if (self.events[index][1].type !== "lineEnding" && self.events[index][1].type !== "linePrefix" && self.events[index][1].type !== "content") {
-        paragraph = self.events[index][1].type === "paragraph";
+    while (index2--) {
+      if (self.events[index2][1].type !== "lineEnding" && self.events[index2][1].type !== "linePrefix" && self.events[index2][1].type !== "content") {
+        paragraph = self.events[index2][1].type === "paragraph";
         break;
       }
     }
@@ -3245,10 +3239,10 @@ function initializeFactory(field) {
         return true;
       }
       const list2 = constructs2[code];
-      let index = -1;
+      let index2 = -1;
       if (list2) {
-        while (++index < list2.length) {
-          const item = list2[index];
+        while (++index2 < list2.length) {
+          const item = list2[index2];
           if (!item.previous || item.previous.call(self, self.previous)) {
             return true;
           }
@@ -3261,19 +3255,19 @@ function initializeFactory(field) {
 function createResolver(extraResolver) {
   return resolveAllText;
   function resolveAllText(events, context) {
-    let index = -1;
+    let index2 = -1;
     let enter;
-    while (++index <= events.length) {
+    while (++index2 <= events.length) {
       if (enter === void 0) {
-        if (events[index] && events[index][1].type === "data") {
-          enter = index;
-          index++;
+        if (events[index2] && events[index2][1].type === "data") {
+          enter = index2;
+          index2++;
         }
-      } else if (!events[index] || events[index][1].type !== "data") {
-        if (index !== enter + 2) {
-          events[enter][1].end = events[index - 1][1].end;
-          events.splice(enter + 2, index - enter - 2);
-          index = enter + 2;
+      } else if (!events[index2] || events[index2][1].type !== "data") {
+        if (index2 !== enter + 2) {
+          events[enter][1].end = events[index2 - 1][1].end;
+          events.splice(enter + 2, index2 - enter - 2);
+          index2 = enter + 2;
         }
         enter = void 0;
       }
@@ -3287,12 +3281,12 @@ function resolveAllLineSuffixes(events, context) {
     if ((eventIndex === events.length || events[eventIndex][1].type === "lineEnding") && events[eventIndex - 1][1].type === "data") {
       const data = events[eventIndex - 1][1];
       const chunks = context.sliceStream(data);
-      let index = chunks.length;
+      let index2 = chunks.length;
       let bufferIndex = -1;
       let size = 0;
       let tabs;
-      while (index--) {
-        const chunk = chunks[index];
+      while (index2--) {
+        const chunk = chunks[index2];
         if (typeof chunk === "string") {
           bufferIndex = chunk.length;
           while (chunk.charCodeAt(bufferIndex - 1) === 32) {
@@ -3306,7 +3300,7 @@ function resolveAllLineSuffixes(events, context) {
           size++;
         } else if (chunk === -1) {
         } else {
-          index++;
+          index2++;
           break;
         }
       }
@@ -3317,8 +3311,8 @@ function resolveAllLineSuffixes(events, context) {
         const token = {
           type: eventIndex === events.length || tabs || size < 2 ? "lineSuffix" : "hardBreakTrailing",
           start: {
-            _bufferIndex: index ? bufferIndex : data.start._bufferIndex + bufferIndex,
-            _index: data.start._index + index,
+            _bufferIndex: index2 ? bufferIndex : data.start._bufferIndex + bufferIndex,
+            _index: data.start._index + index2,
             line: data.end.line,
             column: data.end.column - size,
             offset: data.end.offset - size
@@ -3343,18 +3337,6 @@ function resolveAllLineSuffixes(events, context) {
   return events;
 }
 
-var constructs_exports = {};
-__export(constructs_exports, {
-  attentionMarkers: () => attentionMarkers,
-  contentInitial: () => contentInitial,
-  disable: () => disable,
-  document: () => document2,
-  flow: () => flow2,
-  flowInitial: () => flowInitial,
-  insideSpan: () => insideSpan,
-  string: () => string2,
-  text: () => text2
-});
 var document2 = {
   [42]: list,
   [43]: list,
@@ -3418,7 +3400,7 @@ var disable = {
 };
 
 function createTokenizer(parser, initialize, from) {
-  let point2 = {
+  let point3 = {
     _bufferIndex: -1,
     _index: 0,
     line: from && from.line || 1,
@@ -3481,7 +3463,7 @@ function createTokenizer(parser, initialize, from) {
       line,
       column,
       offset
-    } = point2;
+    } = point3;
     return {
       _bufferIndex,
       _index,
@@ -3496,15 +3478,15 @@ function createTokenizer(parser, initialize, from) {
   }
   function main() {
     let chunkIndex;
-    while (point2._index < chunks.length) {
-      const chunk = chunks[point2._index];
+    while (point3._index < chunks.length) {
+      const chunk = chunks[point3._index];
       if (typeof chunk === "string") {
-        chunkIndex = point2._index;
-        if (point2._bufferIndex < 0) {
-          point2._bufferIndex = 0;
+        chunkIndex = point3._index;
+        if (point3._bufferIndex < 0) {
+          point3._bufferIndex = 0;
         }
-        while (point2._index === chunkIndex && point2._bufferIndex < chunk.length) {
-          go(chunk.charCodeAt(point2._bufferIndex));
+        while (point3._index === chunkIndex && point3._bufferIndex < chunk.length) {
+          go(chunk.charCodeAt(point3._bufferIndex));
         }
       } else {
         go(chunk);
@@ -3518,22 +3500,22 @@ function createTokenizer(parser, initialize, from) {
   }
   function consume(code) {
     if (markdownLineEnding(code)) {
-      point2.line++;
-      point2.column = 1;
-      point2.offset += code === -3 ? 2 : 1;
+      point3.line++;
+      point3.column = 1;
+      point3.offset += code === -3 ? 2 : 1;
       accountForPotentialSkip();
     } else if (code !== -1) {
-      point2.column++;
-      point2.offset++;
+      point3.column++;
+      point3.offset++;
     }
-    if (point2._bufferIndex < 0) {
-      point2._index++;
+    if (point3._bufferIndex < 0) {
+      point3._index++;
     } else {
-      point2._bufferIndex++;
-      if (point2._bufferIndex ===  
-      chunks[point2._index].length) {
-        point2._bufferIndex = -1;
-        point2._index++;
+      point3._bufferIndex++;
+      if (point3._bufferIndex ===  
+      chunks[point3._index].length) {
+        point3._bufferIndex = -1;
+        point3._index++;
       }
     }
     context.previous = code;
@@ -3649,7 +3631,7 @@ function createTokenizer(parser, initialize, from) {
       restore
     };
     function restore() {
-      point2 = startPoint;
+      point3 = startPoint;
       context.previous = startPrevious;
       context.currentConstruct = startCurrentConstruct;
       context.events.length = startEventsIndex;
@@ -3658,9 +3640,9 @@ function createTokenizer(parser, initialize, from) {
     }
   }
   function accountForPotentialSkip() {
-    if (point2.line in columnStart && point2.column < 2) {
-      point2.column = columnStart[point2.line];
-      point2.offset += columnStart[point2.line] - 1;
+    if (point3.line in columnStart && point3.column < 2) {
+      point3.column = columnStart[point3.line];
+      point3.offset += columnStart[point3.line] - 1;
     }
   }
 }
@@ -3689,11 +3671,11 @@ function sliceChunks(chunks, token) {
   return view;
 }
 function serializeChunks(chunks, expandTabs) {
-  let index = -1;
+  let index2 = -1;
   const result = [];
   let atTab;
-  while (++index < chunks.length) {
-    const chunk = chunks[index];
+  while (++index2 < chunks.length) {
+    const chunk = chunks[index2];
     let value;
     if (typeof chunk === "string") {
       value = chunk;
@@ -3729,10 +3711,11 @@ function serializeChunks(chunks, expandTabs) {
   return result.join("");
 }
 
+var defaultConstructs = { attentionMarkers, contentInitial, disable, document: document2, flow: flow2, flowInitial, insideSpan, string: string2, text: text2 };
 function parse(options) {
   const settings = options || {};
   const constructs2 = (
-    combineExtensions([constructs_exports, ...settings.extensions || []])
+    combineExtensions([defaultConstructs, ...settings.extensions || []])
   );
   const parser = {
     constructs: constructs2,
@@ -3852,6 +3835,31 @@ function decode($0, $1, $2) {
     return decodeNumericCharacterReference($2.slice(hex ? 2 : 1), hex ? 16 : 10);
   }
   return decodeNamedCharacterReference($2) || $0;
+}
+
+function stringifyPosition(value) {
+  if (!value || typeof value !== "object") {
+    return "";
+  }
+  if ("position" in value || "type" in value) {
+    return position(value.position);
+  }
+  if ("start" in value || "end" in value) {
+    return position(value);
+  }
+  if ("line" in value || "column" in value) {
+    return point(value);
+  }
+  return "";
+}
+function point(point3) {
+  return index(point3 && point3.line) + ":" + index(point3 && point3.column);
+}
+function position(pos) {
+  return point(pos && pos.start) + "-" + point(pos && pos.end);
+}
+function index(value) {
+  return value && typeof value === "number" ? value : 1;
 }
 
 var own2 = {}.hasOwnProperty;
@@ -3984,11 +3992,11 @@ function compiler(options) {
     };
     const listStack = [];
     const prepared = [];
-    let index = -1;
-    while (++index < events.length) {
-      prepared.push(events[index]);
-      if (events[index][1].type === "listOrdered" || events[index][1].type === "listUnordered") {
-        if (events[index][0] === "enter") {
+    let index2 = -1;
+    while (++index2 < events.length) {
+      prepared.push(events[index2]);
+      if (events[index2][1].type === "listOrdered" || events[index2][1].type === "listUnordered") {
+        if (events[index2][0] === "enter") {
           listStack.push(prepared.length - 1);
         } else {
           const tail = listStack.pop();
@@ -3997,26 +4005,26 @@ function compiler(options) {
       }
     }
     events = prepared;
-    index = -1;
-    while (++index < events.length) {
-      const handler = config[events[index][0]];
-      if (events[index][0] === "enter" && config.beforeEnter.length > 0) {
+    index2 = -1;
+    while (++index2 < events.length) {
+      const handler = config[events[index2][0]];
+      if (events[index2][0] === "enter" && config.beforeEnter.length > 0) {
         callListeners(config.beforeEnter, {
           ...context,
-          sliceSerialize: events[index][2].sliceSerialize
-        }, events[index][1]);
+          sliceSerialize: events[index2][2].sliceSerialize
+        }, events[index2][1]);
       }
-      if (own2.call(handler, events[index][1].type)) {
-        handler[events[index][1].type].call({
+      if (own2.call(handler, events[index2][1].type)) {
+        handler[events[index2][1].type].call({
           ...context,
-          sliceSerialize: events[index][2].sliceSerialize
-        }, events[index][1]);
+          sliceSerialize: events[index2][2].sliceSerialize
+        }, events[index2][1]);
       }
-      if (events[index][0] === "exit" && config.afterExit.length > 0) {
+      if (events[index2][0] === "exit" && config.afterExit.length > 0) {
         callListeners(config.afterExit, {
           ...context,
-          sliceSerialize: events[index][2].sliceSerialize
-        }, events[index][1]);
+          sliceSerialize: events[index2][2].sliceSerialize
+        }, events[index2][1]);
       }
     }
     if (context.tokenStack.length > 0) {
@@ -4025,32 +4033,32 @@ function compiler(options) {
       handler.call(context, void 0, tail[0]);
     }
     tree.position = {
-      start: point(events.length > 0 ? events[0][1].start : {
+      start: point2(events.length > 0 ? events[0][1].start : {
         line: 1,
         column: 1,
         offset: 0
       }),
-      end: point(events.length > 0 ? events[events.length - 2][1].end : {
+      end: point2(events.length > 0 ? events[events.length - 2][1].end : {
         line: 1,
         column: 1,
         offset: 0
       })
     };
-    index = -1;
-    while (++index < config.transforms.length) {
-      tree = config.transforms[index](tree) || tree;
+    index2 = -1;
+    while (++index2 < config.transforms.length) {
+      tree = config.transforms[index2](tree) || tree;
     }
     return tree;
   }
   function callListeners(listeners, context, token) {
-    let index = -1;
-    while (++index < listeners.length) {
-      listeners[index].call(context, token);
+    let index2 = -1;
+    while (++index2 < listeners.length) {
+      listeners[index2].call(context, token);
     }
   }
   function prepareList(events, start) {
     const end = events.length - 1;
-    let index = start - 1;
+    let index2 = start - 1;
     let containerBalance = -1;
     let listSpread = false;
     let listItem2;
@@ -4058,8 +4066,8 @@ function compiler(options) {
     let firstBlankLineIndex;
     let atMarker;
     const insertions = [];
-    while (++index <= end) {
-      const event = events[index];
+    while (++index2 <= end) {
+      const event = events[index2];
       switch (event[1].type) {
         case "listUnordered":
         case "listOrdered":
@@ -4075,7 +4083,7 @@ function compiler(options) {
         case "lineEndingBlank": {
           if (event[0] === "enter") {
             if (listItem2 && !atMarker && !containerBalance && !firstBlankLineIndex) {
-              firstBlankLineIndex = index;
+              firstBlankLineIndex = index2;
             }
             atMarker = void 0;
           }
@@ -4094,7 +4102,7 @@ function compiler(options) {
       }
       if (!containerBalance && event[0] === "enter" && event[1].type === "listItemPrefix" || containerBalance === -1 && event[0] === "exit" && (event[1].type === "listUnordered" || event[1].type === "listOrdered")) {
         if (listItem2) {
-          let tailIndex = index;
+          let tailIndex = index2;
           lineIndex = void 0;
           while (tailIndex--) {
             const tailEvent = events[tailIndex];
@@ -4116,7 +4124,7 @@ function compiler(options) {
           }
           listItem2.end = Object.assign({}, lineIndex ? events[lineIndex][1].start : event[1].end);
           insertions.push({
-            at: lineIndex || index,
+            at: lineIndex || index2,
             event: ["exit", listItem2, event[2]]
           });
         }
@@ -4129,7 +4137,7 @@ function compiler(options) {
           };
           listItem2 = item;
           insertions.push({
-            at: index,
+            at: index2,
             event: ["enter", item, event[2]]
           });
           firstBlankLineIndex = void 0;
@@ -4139,12 +4147,12 @@ function compiler(options) {
     }
     const listEvents = events.splice(start);
     let insertion = 0;
-    index = -1;
-    while (++index < listEvents.length) {
-      while (insertion < insertions.length && insertions[insertion].at === start + index) {
+    index2 = -1;
+    while (++index2 < listEvents.length) {
+      while (insertion < insertions.length && insertions[insertion].at === start + index2) {
         events.push(insertions[insertion++].event);
       }
-      events.push(listEvents[index]);
+      events.push(listEvents[index2]);
     }
     events[start][1]._spread = listSpread;
   }
@@ -4168,7 +4176,7 @@ function compiler(options) {
     this.stack.push(node2);
     this.tokenStack.push([token, errorHandler || void 0]);
     node2.position = {
-      start: point(token.start),
+      start: point2(token.start),
       end: void 0
     };
   }
@@ -4196,7 +4204,7 @@ function compiler(options) {
         handler.call(this, token, open[0]);
       }
     }
-    node2.position.end = point(token.end);
+    node2.position.end = point2(token.end);
   }
   function resume() {
     return toString(this.stack.pop());
@@ -4277,7 +4285,7 @@ function compiler(options) {
     if (!tail || tail.type !== "text") {
       tail = text3();
       tail.position = {
-        start: point(token.start),
+        start: point2(token.start),
         end: void 0
       };
       siblings.push(tail);
@@ -4287,13 +4295,13 @@ function compiler(options) {
   function onexitdata(token) {
     const tail = this.stack.pop();
     tail.value += this.sliceSerialize(token);
-    tail.position.end = point(token.end);
+    tail.position.end = point2(token.end);
   }
   function onexitlineending(token) {
     const context = this.stack[this.stack.length - 1];
     if (this.data.atHardBreak) {
       const tail = context.children[context.children.length - 1];
-      tail.position.end = point(token.end);
+      tail.position.end = point2(token.end);
       this.data.atHardBreak = void 0;
       return;
     }
@@ -4408,7 +4416,7 @@ function compiler(options) {
   }
   function onexitcharacterreference(token) {
     const tail = this.stack.pop();
-    tail.position.end = point(token.end);
+    tail.position.end = point2(token.end);
   }
   function onexitautolinkprotocol(token) {
     onexitdata.call(this, token);
@@ -4546,7 +4554,7 @@ function compiler(options) {
     };
   }
 }
-function point(d) {
+function point2(d) {
   return {
     line: d.line,
     column: d.column,
@@ -4554,9 +4562,9 @@ function point(d) {
   };
 }
 function configure(combined, extensions) {
-  let index = -1;
-  while (++index < extensions.length) {
-    const value = extensions[index];
+  let index2 = -1;
+  while (++index2 < extensions.length) {
+    const value = extensions[index2];
     if (Array.isArray(value)) {
       configure(combined, value);
     } else {

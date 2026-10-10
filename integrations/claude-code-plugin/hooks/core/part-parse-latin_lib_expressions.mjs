@@ -12,7 +12,6 @@ import {
   word,
   wordSymbolInner
 } from "./chunk-VC7IYITB.mjs";
-import "./chunk-7P6ASYW6.mjs";
 export {
   affixSymbol,
   digitStart,
