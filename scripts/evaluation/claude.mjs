@@ -7,6 +7,7 @@ import { stringify } from "yaml";
 import { assertOutsideRepository, sha256, stableJson } from "./core.mjs";
 
 const MODES = ["ordinary", "guidance", "checks"];
+const USAGE_FIELDS = ["input_tokens", "output_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"];
 const ROOT = resolve(import.meta.dirname, "../..");
 
 /** Hash every shipped file that can affect an evaluated plugin. */
@@ -162,10 +163,14 @@ export function summarizeCheckReceipts(rows, captureEnabled) {
   const unpricedCalls = [...finished.values()].filter((row) => row.reportedCostUsd === null).length;
   const observedPricedCostUsd = [...finished.values()].reduce((total, row) => total + (row.reportedCostUsd ?? 0), 0);
   const incompleteCalls = [...started.keys()].filter((id) => !finished.has(id)).length;
+  // The mod's model call reports tokens and no price (#136), so totals are tokens.
+  const usageRows = [...finished.values()].filter((row) => row.usage && typeof row.usage === "object");
+  const observedUsage = usageRows.length ? Object.fromEntries(USAGE_FIELDS.map((field) =>
+    [field, usageRows.reduce((total, row) => total + (Number.isFinite(row.usage[field]) ? row.usage[field] : 0), 0)])) : null;
   return { captureEnabled, observedHookExecutions: captures.size, expectedIssuedCalls, expectedCompletedCalls,
     receiptCoverageComplete, issuedCalls: started.size, completedCalls: finished.size, incompleteCalls,
     unpricedCalls, reportedCostUsd: captureEnabled && receiptCoverageComplete && !incompleteCalls && !unpricedCalls ? observedPricedCostUsd : null,
-    observedPricedCostUsd, invoiceCostUsd: null, costBasis: "provider-reported-api-estimate" };
+    observedPricedCostUsd, observedUsage, invoiceCostUsd: null, costBasis: "provider-reported-api-estimate" };
 }
 
 /** Review individual answers before comparing style; the private key is a separate artifact. */
@@ -201,14 +206,71 @@ export function blindReviews(cases, outputs, seed) {
   return { reviews: reviews.sort((a, b) => a.id.localeCompare(b.id)), keys };
 }
 
-/** Native eval drops custom outer env; instrument its existing startup hook in the test copy. */
-export function instrumentMeasurementCapture(source, receiptPath) {
+/**
+ * Records the mod's model calls in the benchmark's copy of the plugin (#136).
+ *
+ * Since ADR-008 the checker runs inside the mod, and its one model call is
+ * `$.model.complete`, which reports tokens but no price. The copy routes that
+ * call through `__peMeasuredComplete` and opens a capture at session start.
+ * Each session writes its own file under the receipt folder with `$.fs.write`,
+ * rewriting the whole file each time, because the mod API has no append and
+ * the benchmark runs one session per case. Rows carry usage, never prose.
+ *
+ * Claude Code checks a mod's source before loading it. On 2.1.296 it refused
+ * a copy whose helper reassigned a local named `session`, reading it as one of
+ * `$`'s nouns, so no local here shares a name with one.
+ */
+export const MEASUREMENT_HELPER = String.raw`
+// Evaluation instrumentation only: capture usage metadata, not prose.
+const __peCapture: any = { rows: [], issued: 0, completed: 0, healthy: true, path: "", id: "" }
+async function __peFlush($: any) {
+  const end = { schemaVersion: 1, phase: "capture-finished", captureId: __peCapture.id,
+    issuedCalls: __peCapture.issued, completedCalls: __peCapture.completed, captureHealthy: __peCapture.healthy }
+  try { await $.fs.write(__peCapture.path, [...__peCapture.rows, end].map((row: any) => JSON.stringify(row)).join("\n") + "\n") }
+  catch { __peCapture.healthy = false }
+}
+async function __peMeasureStart($: any) {
+  if (__peCapture.path) return
+  __peCapture.id = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)
+  let label = "session"
+  try { label = String(await $.session.id()).replace(/[^A-Za-z0-9_-]/g, "_") } catch {}
+  __peCapture.path = __PE_RECEIPT_DIR__ + "/" + label + "-" + __peCapture.id + ".jsonl"
+  __peCapture.rows.push({ schemaVersion: 1, phase: "capture-enabled", captureVersion: 1, captureId: __peCapture.id })
+  await __peFlush($)
+}
+async function __peMeasuredComplete($: any, request: any, options?: any) {
+  await __peMeasureStart($)
+  const callId = __peCapture.id + "-" + (++__peCapture.issued)
+  __peCapture.rows.push({ schemaVersion: 1, phase: "started", captureId: __peCapture.id, callId })
+  await __peFlush($)
+  const reply = await $.model.complete(request, options)
+  __peCapture.completed++
+  __peCapture.rows.push({ schemaVersion: 1, phase: "finished", captureId: __peCapture.id, callId, model: String(request?.model ?? ""),
+    outcome: reply?.isAnswered ? "answered" : String(reply?.reason ?? "unknown"),
+    usage: reply?.isAnswered && reply.usage ? { ...reply.usage } : null, reportedCostUsd: null })
+  await __peFlush($)
+  return reply
+}
+`;
+
+/** The copy's source: the one model call measured, and a capture opened at session start. */
+export function instrumentMeasurementCapture(source, receiptDir) {
+  const calls = source.split("$.model.complete(").length - 1;
+  if (calls !== 1) throw new Error(`Native measurement capture requires one $.model.complete call, found ${calls}`);
   const startup = /on\(\s*['"]session\.start['"]\s*,\s*async\s*\(\s*\$\s*,[^)]*\)\s*=>\s*\{/g;
   const matches = [...source.matchAll(startup)];
   if (matches.length !== 1) throw new Error("Native measurement capture requires one known session.start hook");
   const offset = matches[0].index + matches[0][0].length;
-  const line = `\n    // Evaluation instrumentation only: capture usage metadata, not prose.\n    await $.env.set("PLAIN_ENGLISH_JUDGE_RECEIPTS", ${JSON.stringify(receiptPath)});\n`;
-  return source.slice(0, offset) + line + source.slice(offset);
+  const measured = source.slice(0, offset) + "\n    await __peMeasureStart($)\n" + source.slice(offset);
+  return measured.replace("$.model.complete(", "__peMeasuredComplete($, ") +
+    MEASUREMENT_HELPER.replace("__PE_RECEIPT_DIR__", JSON.stringify(receiptDir));
+}
+
+/** Every receipt row the copy's sessions wrote, one file per session. */
+export function readCheckReceipts(receiptDir) {
+  if (!existsSync(receiptDir)) return [];
+  return readdirSync(receiptDir).filter((name) => name.endsWith(".jsonl")).sort()
+    .flatMap((name) => readFileSync(resolve(receiptDir, name), "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)));
 }
 
 function captureSource(plugin) {
@@ -219,9 +281,9 @@ function captureSource(plugin) {
   return resolve(plugin, "hooks", hooks.modules[0]);
 }
 
-export function installMeasurementCapture(plugin, receiptPath) {
+export function installMeasurementCapture(plugin, receiptDir) {
   const path = captureSource(plugin);
-  const source = instrumentMeasurementCapture(readFileSync(path, "utf8"), receiptPath);
+  const source = instrumentMeasurementCapture(readFileSync(path, "utf8"), receiptDir);
   writeFileSync(path, source);
   return sha256(source);
 }
@@ -272,13 +334,12 @@ async function main(args) {
   const guidance = `${style}\n\n${document}`;
   mkdirSync(out, { recursive: true, mode: 0o700 });
   const pluginHash = pluginFingerprint(resolve(ROOT, "integrations/claude-code-plugin"));
-  // The bundled CLI ships in pieces, so the receipts code can sit in any of them.
-  // Receipts are written by a checker that reads PLAIN_ENGLISH_JUDGE_RECEIPTS.
-  // Since ADR-008 the plugin's checker runs inside its mod and writes none.
-  const pluginHooks = resolve(ROOT, "integrations/claude-code-plugin/hooks");
-  const captureSupported = readdirSync(pluginHooks, { recursive: true, withFileTypes: true })
-    .some((entry) => entry.isFile() && readFileSync(resolve(entry.parentPath, entry.name), "utf8").includes("PLAIN_ENGLISH_JUDGE_RECEIPTS"));
-  const captureHarnessHash = captureSupported ? sha256(instrumentMeasurementCapture(readFileSync(captureSource(resolve(ROOT, "integrations/claude-code-plugin")), "utf8"), resolve(out, "checks-check-usage.jsonl"))) : null;
+  // Receipts come from the copy's one model call, measured by the benchmark
+  // (#136). A plugin whose mod makes no such call, or several, has none.
+  const receiptDir = resolve(out, "checks-check-usage");
+  const shippedModule = readFileSync(captureSource(resolve(ROOT, "integrations/claude-code-plugin")), "utf8");
+  const captureSupported = shippedModule.split("$.model.complete(").length - 1 === 1;
+  const captureHarnessHash = captureSupported ? sha256(instrumentMeasurementCapture(shippedModule, receiptDir)) : null;
   const identity = { cases: cases.map((row) => row.caseHash), guidanceHash: sha256(guidance), pluginHash, benchmarkHash: sha256(readFileSync(import.meta.filename)), captureHarnessHash, runtime: runtimeIdentity(claudeCommand) };
   if (command === "run" && !identity.runtime.claudeVersion) {
     throw new Error("Claude executable version is unavailable; refusing to generate or compare results.");
@@ -293,7 +354,7 @@ async function main(args) {
     const plugin = resolve(out, mode);
     if (mode === "checks") {
       cpSync(resolve(ROOT, "integrations/claude-code-plugin"), plugin, { recursive: true });
-      if (captureSupported) installMeasurementCapture(plugin, resolve(out, "checks-check-usage.jsonl"));
+      if (captureSupported) installMeasurementCapture(plugin, receiptDir);
     }
     else {
       mkdirSync(resolve(plugin, ".claude-plugin"), { recursive: true });
@@ -311,7 +372,6 @@ async function main(args) {
   let spent = 0;
   for (const mode of MODES) {
     const resultPath = resolve(out, `${mode}-result.json`);
-    const receiptPath = resolve(out, `${mode}-check-usage.jsonl`);
     const modeCaptureSupported = mode === "checks" && captureSupported;
     if (!existsSync(resultPath)) {
       if (spent >= budget) throw new Error("Cost ceiling reached; partial results retained");
@@ -351,13 +411,14 @@ async function main(args) {
     }
     if (modeRows.length !== cases.length) throw new Error(`Missing ${mode} outputs`);
     outputs.push(...modeRows);
-    const receipts = existsSync(receiptPath) ? readFileSync(receiptPath, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
+    const receipts = modeCaptureSupported ? readCheckReceipts(receiptDir) : [];
     const backgroundChecks = summarizeCheckReceipts(receipts, modeCaptureSupported && receipts.some((row) => row.phase === "capture-enabled"));
     const backgroundCaptureReason = mode !== "checks" ? "This mode has no checker plugin." :
       !captureSupported ? "This plugin does not implement usage receipts." :
       !backgroundChecks.captureEnabled ? "No capture marker was received from the native checker." :
       !backgroundChecks.receiptCoverageComplete ? "Checker receipt capture was incomplete or unhealthy." :
-      backgroundChecks.reportedCostUsd === null ? "One or more model calls did not finish or report a price." : null;
+      backgroundChecks.incompleteCalls ? "One or more model calls did not finish." :
+      backgroundChecks.reportedCostUsd === null ? "The mod's model calls report tokens, not a price; see backgroundChecks.observedUsage." : null;
     metrics.push({ mode, backgroundCaptureReason, durationSeconds: result.durationSeconds ?? null, costUsd: result.costUsd ?? null,
       backgroundCheckCostUsd: backgroundChecks.reportedCostUsd, backgroundChecks,
       cliVersion: result.claudeVersion ?? null, score: result.aggregates?.overallScore ?? null });
@@ -371,7 +432,7 @@ async function main(args) {
   writeFileSync(resolve(out, "blind-review.json"), JSON.stringify(reviews, null, 2));
   writeFileSync(resolve(out, "review-key.json"), JSON.stringify(keys, null, 2));
   writeFileSync(resolve(out, "metrics.json"), JSON.stringify({ metrics, generationIdentity, humanReview: "pending", limitations:
-    "One run per task is a smoke comparison. Literal preservation does not prove factual correctness or writing quality. Native generation costs and the ceiling exclude separately spawned background checks. Receipts, when present, record provider-reported API price estimates for observed calls, not billed subscription cost or proof that every hook ran. Missing or incomplete receipts leave total background cost unknown. Unavailable telemetry is null. Repeat runs and independent blinded review are required before superiority claims." }, null, 2));
+    "One run per task is a smoke comparison. Literal preservation does not prove factual correctness or writing quality. Native generation costs and the ceiling exclude separately spawned background checks. Receipts, when present, record the checker's model calls and their token usage; the mod's model call reports no price, so background cost is given in tokens, not billed subscription cost or proof that every hook ran. Missing or incomplete receipts leave total background cost unknown. Unavailable telemetry is null. Repeat runs and independent blinded review are required before superiority claims." }, null, 2));
   process.stdout.write(`Saved ${outputs.length} outputs and ${reviews.length} blinded comparisons. Human review pending.\n`);
 }
 
