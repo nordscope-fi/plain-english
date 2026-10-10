@@ -8,9 +8,16 @@ The plugin is a mod: TypeScript functions Claude Code runs on its own events. Th
 
 Install it from the Claude plugin directory. It is also in this repository's own marketplace, `nordscope-fi/plain-english`, for Claude Code 2.1.293 or later: open `/plugin`, add that marketplace, and choose `plain-english`.
 
-The plugin carries the checker's core under `hooks/core/`, bundled with its dependencies and the built-in ruleset. Installing it copies these files and nothing else. A check starts no program: the mod runs the checker inside Claude Code.
+The plugin carries the checker's core, bundled with its dependencies and the built-in ruleset, under `skills/plain-english/scripts/core/`. It sits inside the writing skill, so the mod and the skill share one copy. Installing it copies these files and nothing else. In Claude Code a check starts no program: the mod runs the checker inside Claude Code.
 
 Each [GitHub release](https://github.com/nordscope-fi/plain-english/releases) also carries a ZIP copy of this folder with checksums. The repository marketplace already supplies the plugin. An Anthropic directory listing requires a separate account-owner submission; the [release guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/releasing.md#submit-the-directory-listing) contains the prepared details. The event checks described here target Claude Code.
+
+## What each Claude app gets
+
+- **Claude Code:** the mod. It checks Markdown writes, commit and pull request messages and tracker issues before they are saved, and holds a chat reply with a clear tell for a rewrite.
+- **Claude chat and Cowork:** the writing skill, `plain-english`. Claude loads it when a request fits its description, such as drafting an email or a report. It gives Claude the reply rules and checks every document and any reply over about 100 words. The check runs in Claude's own code environment and sends nothing anywhere.
+
+A skill loads only when the request fits, so an ordinary question may not load it. To have replies checked as a rule, add this sentence to your profile instructions: "Use the plain-english skill for any prose you write for me." You can also pick the skill by typing `/` in the message box. The plugin changes no settings itself.
 
 ## What you see
 
@@ -62,7 +69,7 @@ A failed check produces a notice rather than a clean result, and the original ac
 
 ## For reviewers: what the plugin runs, reads, writes and sends
 
-The plugin starts no program. Its mod runs the plain-english checker's core inside Claude Code's own process ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). `hooks/core/` holds that core, bundled with its dependencies, and `hooks/core/default-rules.mjs` holds the built-in ruleset. Paths are relative to the plugin folder.
+The mod starts no program. It runs the plain-english checker's core inside Claude Code's own process ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). `skills/plain-english/scripts/core/` holds that core, bundled with its dependencies, and `skills/plain-english/scripts/core/default-rules.mjs` holds the built-in ruleset. Paths are relative to the plugin folder.
 
 ### The submission statement about helper servers
 
@@ -97,7 +104,7 @@ One, and only after you ask for it: the project's config, `.plain-english.yml` o
 
 ### Uses a credential from the user's machine
 
-Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask the person for in the plugin's settings. The plugin carries no web address. In its copy of the built-in ruleset, `hooks/core/default-rules.mjs`, each finding's link to this repository's guides is a path such as `docs/writing-style.md#readability`, and the rule source credits that only the CLI's policy page shows are left out. The rules themselves are the same.
+Nothing in the plugin reads a credential: no environment variable and no key file, so there is no value to ask the person for in the plugin's settings. The plugin carries no web address. In its copy of the built-in ruleset, `skills/plain-english/scripts/core/default-rules.mjs`, each finding's link to this repository's guides is a path such as `docs/writing-style.md#readability`, and the rule source credits that only the CLI's policy page shows are left out. The rules themselves are the same.
 
 The bundled code also avoids every form the directory reads as a credential or as sending one, so a reviewer has nothing to set aside:
 
@@ -108,9 +115,13 @@ The bundled code also avoids every form the directory reads as a credential or a
 
 The word `token` in the bundled code belongs to the YAML and Markdown parsers, where it means a piece of parsed text. Tests fail if any of these forms comes back.
 
+### The writing skill's script
+
+`skills/plain-english/scripts/check.mjs` is a script the skill's instructions ask Claude to call on a draft in chat or Cowork. No hook or event starts it, and in Claude Code the instructions say not to call it. It reads the draft from standard input, prints a JSON report and exits. It imports no Node module, reads no file, opens no connection and starts no program. It imports the same core the mod does, from the folder beside it.
+
 ### Bundled code
 
-`hooks/core/` is the checker from this repository, built by `scripts/build-plugin.mjs` for a runtime without Node. These are the build's rules. Apart from the one config key named under plain data, the checker behaves as it does on the command line:
+`skills/plain-english/scripts/core/` is the checker from this repository, built by `scripts/build-plugin.mjs` for a runtime without Node. These are the build's rules. Apart from the one config key named under plain data, the checker behaves as it does on the command line:
 
 - **Stand-ins for Node-only parts.** The parts that read files, start the command-line fallback or write evaluation receipts are replaced with stand-ins that do none of those things. The mod passes its own file access to every check, and the build fails if any Node import remains.
 - **Readable files.** The bundle is unminified, has no comments, and has no line over 1,000 characters. Long strings and regular expressions are split into pieces joined when the code runs, and each regular expression is checked identical as the build runs.
@@ -135,7 +146,7 @@ Report a problem at <https://github.com/nordscope-fi/plain-english/issues>. Secu
 
 ## Develop and test
 
-The repository's build writes the checker's core and the ruleset into `hooks/core/`, and copies the generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. The [contributing guide](https://github.com/nordscope-fi/plain-english/blob/main/CONTRIBUTING.md#the-claude-code-plugin) lists the commands that build, load, validate and test the plugin. The manifest's `version` moves with each release.
+The repository's build writes the checker's core and the ruleset into `skills/plain-english/scripts/core/`, and copies the generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. The [contributing guide](https://github.com/nordscope-fi/plain-english/blob/main/CONTRIBUTING.md#the-claude-code-plugin) lists the commands that build, load, validate and test the plugin. The manifest's `version` moves with each release.
 
 ## Licence
 

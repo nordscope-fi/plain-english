@@ -25,3 +25,4 @@ on.
 | 006 | [Model checks run through the Claude Code mod when it can make the call](006-model-checks-through-the-host.md) | Accepted |
 | 007 | [Term approval reads and writes files in the checker, not the mod](007-term-approval-in-the-checker.md) | Accepted |
 | 008 | [The Claude Code plugin runs the checker inside its mod](008-checker-runs-inside-the-mod.md) | Accepted |
+| 009 | [The checker ships inside a writing skill for Claude chat and Cowork](009-checker-ships-in-a-skill.md) | Accepted |

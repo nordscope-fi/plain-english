@@ -57,8 +57,8 @@ finding. Generated reference material and the changelog are excluded in
 ## The Claude Code plugin
 
 The build writes the plugin's bundled core and ruleset into
-`integrations/claude-code-plugin/hooks/core/`. Then, from that folder, load it in a
-session, validate it and run its tests:
+`integrations/claude-code-plugin/skills/plain-english/scripts/core/`. Then,
+from the plugin folder, load it in a session, validate it and run its tests:
 
 ```bash
 npm run build
