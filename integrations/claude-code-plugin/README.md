@@ -146,7 +146,7 @@ Report a problem at <https://github.com/nordscope-fi/plain-english/issues>. Secu
 
 ## Develop and test
 
-The repository's build writes the checker's core and the ruleset into `skills/plain-english/scripts/core/`, and copies the generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. The [contributing guide](https://github.com/nordscope-fi/plain-english/blob/main/CONTRIBUTING.md#the-claude-code-plugin) lists the commands that build, load, validate and test the plugin. The manifest's `version` moves with each release.
+The repository's build writes the checker's core and the ruleset into `skills/plain-english/scripts/core/`, writes the writing skill's `scripts/version.mjs`, and copies the generated styles, the document skill, and the writing skill's `SKILL.md` and `scripts/check.mjs`. These files are committed, and CI fails when a build changes them and the change was not committed. The [contributing guide](https://github.com/nordscope-fi/plain-english/blob/main/CONTRIBUTING.md#the-claude-code-plugin) lists the commands that build, load, validate and test the plugin. The manifest's `version` moves with each release.
 
 ## Licence
 
