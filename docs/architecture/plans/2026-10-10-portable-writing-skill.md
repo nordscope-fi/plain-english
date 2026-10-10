@@ -4,7 +4,7 @@
 
 **Goal:** Add a `plain-english` skill to the Claude Code plugin that carries the checker into Claude chat and Cowork and checks a draft passed as text.
 
-**Architecture:** A new pure function, `checkDraft`, joins the core that `scripts/build-plugin.mjs` bundles. The build copies that bundle into the skill's own folder. Beside it sits a small script that reads a draft on standard input and prints a JSON report. `plain-english render` generates the skill's `SKILL.md` from the ruleset, reusing the output style's reply rules.
+**Architecture:** A new pure function, `checkDraft`, joins the core that `scripts/build-plugin.mjs` bundles. The build writes that core into the skill's own folder, where the mod also loads it, so there is one copy. Beside it sits a small script that reads a draft on standard input and prints a JSON report. `plain-english render` generates the skill's `SKILL.md` from the ruleset, reusing the output style's reply rules.
 
 **Tech Stack:** TypeScript (strict), vitest, esbuild through `scripts/build-plugin.mjs`, Node 20 or later.
 
@@ -13,30 +13,26 @@
 ## Global Constraints
 
 - Every plugin file stays under 262,144 bytes, and the plugin under 512 files (the existing test in `test/claude-code-plugin.test.ts`).
-- No path inside the skill is more than four segments below the skill root. The upload page refused "Zip file contains path more than 10 folders deep".
+- No path inside the skill is more than three segments below the skill root. The upload page refused "Zip file contains path more than 10 folders deep".
 - `check.mjs` has no `node:` import, no `require`, no `eval`, and starts no program.
 - `checkDraft` reads no file, keeps no state, and makes no model call. The bundled ruleset arrives through `io.defaultRules()`.
+- No bundled core file contains an uppercase template such as `${CLAUDE_SKILL_DIR}`; the existing test holds this. The renderers are not bundled today, so the placeholder in `SKILL.md`'s generator stays out of the core.
+- `SKILL.md`'s description is at most 200 characters, and `SKILL.md` has no line of the form `` !`command` ``.
 - The plugin README keeps no command block, and no sentence in it pairs a download or fetch with a run (existing README tests).
 - Engines floor stays `"node": ">=20"`; the chat environment measured `v22.22.0`.
 - Every Markdown file under `docs/` passes `npm run lint:self`.
+- Before pushing: `claude plugin validate --strict .`, `claude plugin validate --strict integrations/claude-code-plugin` and `claude plugin test integrations/claude-code-plugin`, as CI runs them.
 - The release is a minor bump, made with `npm version minor --no-git-tag-version`.
 
 ## Review Focus
 
 1. A reply that quotes a banned phrase inside a code block, as Claude does when explaining a rule. Expected: no finding for the quoted phrase.
 2. A draft carrying a suppression comment such as `<!-- plain-english-disable-next-line leverage: x -->`. Expected: the finding still appears, because a draft carries no waivers.
-3. The script called with nothing on standard input. Expected: an `invalid` report and exit 2, with no hang.
-4. The script called with no kind or a misspelled one, such as `Reply`. Expected: an `invalid` report naming the bad kind, exit 2.
-5. A very large draft, such as 300,000 characters. Expected: valid JSON with status `checked` or `incomplete`, never a crash.
+3. The script called with nothing on standard input, or with input that never closes. Expected: an `invalid` report and exit 2, within about 10 seconds at worst.
+4. The script called with no kind or a misspelled one, such as `Reply`. Expected: an `invalid` report naming the bad kind, exit 2, without reading standard input.
+5. A very large draft, such as 290,000 characters. Expected: valid JSON with status `checked` or `incomplete`, never a crash.
 
 Tests for 1 and 2 are in Task 1; tests for 3, 4 and 5 are in Task 3.
-
-## Changes from the spec
-
-Two details changed while reading the code for this plan. Task 4 updates the spec to match.
-
-- **Version.** The core has no package version. `checkDraft` returns no `version` field; the script adds it from a `scripts/version.mjs` the build writes.
-- **Time budget.** A reply uses the hook budget (`HOOK_BUDGET_MS`, 500 ms), as `decideChat` does. A document uses the command line's budget (`DEFAULT_BUDGET_MS`, 2,000 ms), as `lint` does. Inline suppression is off for both kinds.
 
 ---
 
@@ -371,7 +367,8 @@ describe("renderWritingSkill", () => {
     const front = skill.split("\n---\n")[0];
     expect(front).toMatch(/^---\nname: plain-english\ndescription: .+/);
     const description = front.match(/description: (.*)/)?.[1] ?? "";
-    expect(description.length).toBeLessThanOrEqual(1024);
+    // An older help article caps it at 200 characters; the skills guide at 1,024.
+    expect(description.length).toBeLessThanOrEqual(200);
     for (const task of ["email", "report", "question", "review"]) expect(description).toContain(task);
   });
 
@@ -383,11 +380,18 @@ describe("renderWritingSkill", () => {
 
   it("says when to check, how to run the script, and what to do with each status", () => {
     expect(skill).toContain("longer than about 100 words");
-    expect(skill).toContain("scripts/check.mjs reply");
+    expect(skill).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply');
+    expect(skill).toContain("`scripts/check.mjs`");
     for (const status of ["checked", "incomplete", "invalid", "unavailable", "mayStand", "review"]) {
       expect(skill).toContain(status);
     }
     expect(skill).toContain("In Claude Code");
+  });
+
+  it("carries no line that runs a command when the skill loads", () => {
+    // The directory holds a skill line of the form !`command` that runs a file
+    // from a subfolder.
+    expect(skill).not.toMatch(/!`/);
   });
 
   it("is one of the files render writes", () => {
@@ -414,10 +418,10 @@ export function writingSkillPath(): string {
   return `integrations/claude-code/skills/${WRITING_SKILL_NAME}/SKILL.md`;
 }
 
+// Under 200 characters: an older help article caps a description there.
 const WRITING_SKILL_DESCRIPTION =
-  "Plain-English writing rules, with a checker for drafts. Use when answering a question, " +
-  "explaining a technical finding, drafting an email, report or other document, or reviewing " +
-  "prose someone supplies. Not for code.";
+  "Plain-English writing rules and a draft checker. Use when answering a question, " +
+  "drafting an email, report or document, or reviewing prose. Not for code.";
 
 /**
  * The writing skill for Claude chat and Cowork, where output styles do not
@@ -460,15 +464,16 @@ export function renderWritingSkill(ruleset: RuleSet): string {
     "## How to run it",
     "",
     "```sh",
-    "node <this skill's folder>/scripts/check.mjs reply <<'DRAFT'",
+    "node \"${CLAUDE_SKILL_DIR}/scripts/check.mjs\" reply <<'DRAFT'",
     "<the draft>",
     "DRAFT",
     "```",
     "",
     ...wrap(
       "Use `document` in place of `reply` for an email, report or other document. " +
-        "`<this skill's folder>` is the folder that holds this file. Install nothing and use " +
-        "no network: the checker needs only Node.",
+        "Cowork replaces the folder placeholder for you. In chat it stays as written: use " +
+        "`scripts/check.mjs` in the folder that holds this file. Install nothing and use no " +
+        "network: the checker needs only Node.",
     ),
     "",
     "## What to do with the report",
@@ -530,34 +535,57 @@ Message: `feat(render): generate the writing skill for chat and Cowork (#130)`.
 
 ---
 
-### Task 3: The skill's script, and its copy of the core
+### Task 3: Move the core into the skill, and add the script
 
 **Files:**
 - Create: `integrations/claude-code/skills/plain-english/scripts/check.mjs`
-- Modify: `scripts/build-plugin.mjs` (guidance paths; skill core copy; `version.mjs`)
-- Create (built): `integrations/claude-code-plugin/skills/plain-english/` (SKILL.md, `scripts/check.mjs`, `scripts/version.mjs`, `scripts/core/*.mjs`)
-- Test: `test/claude-code-plugin.test.ts`
+- Modify: `scripts/build-plugin.mjs` (core folder; leftover check for `hooks/core/`; `version.mjs`; guidance paths)
+- Modify: `integrations/claude-code-plugin/hooks/register.ts:5-9` (the two core imports)
+- Modify: `src/plugin-core.ts` (opening comment names the new folder)
+- Modify: `test/claude-code-plugin.test.ts`
+- Built: `integrations/claude-code-plugin/skills/plain-english/` (`SKILL.md`, `scripts/check.mjs`, `scripts/version.mjs`, `scripts/core/*.mjs`); `integrations/claude-code-plugin/hooks/core/` is removed
 
 **Interfaces:**
 - Consumes: `checkDraft` and `pathsFor` from the bundled `plugin-core.mjs` (Task 1); the generated `SKILL.md` (Task 2).
-- Produces: `node scripts/check.mjs <reply|document>` with the draft on standard input. It prints `DraftReport` plus `version` as JSON, or `{"status":"unavailable", ...}`. Exit 0 checked with no errors, 1 checked with errors, 2 otherwise.
+- Produces: `node scripts/check.mjs <reply|document>` with the draft on standard input. It prints `DraftReport` plus `version` as JSON, or `{"status":"unavailable", ...}`. Exit 0 checked with no errors, 1 checked with errors, 2 otherwise. The mod imports the core from `../skills/plain-english/scripts/core/`.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Point the existing tests at the new folder**
 
-In `test/claude-code-plugin.test.ts`, extend the path list in the test named "ships the existing writing guidance without changing it" with:
+In `test/claude-code-plugin.test.ts`, change only these code lines. Leave the comments that quote past directory messages, such as `hooks/core/chunk-6VUKDY2J.mjs`, as they are: they record what the directory said at the time.
+
+- Line 37: `const CORE = resolve(PLUGIN, "hooks/core");` becomes:
+
+```ts
+  const CORE_PATH = "skills/plain-english/scripts/core";
+  const CORE = resolve(PLUGIN, CORE_PATH);
+```
+
+- Line 38: in `coreFiles`, `` `hooks/core/${name}` `` becomes `` `${CORE_PATH}/${name}` ``.
+- Every `import("../integrations/claude-code-plugin/hooks/core/...")` (lines 260, 261, 295, 302, 303 and 449) becomes `import("../integrations/claude-code-plugin/skills/plain-english/scripts/core/...")`.
+- Line 446: `resolve(PLUGIN, "hooks/core/plugin-core.mjs")` becomes `resolve(PLUGIN, "skills/plain-english/scripts/core/plugin-core.mjs")`.
+- In the test "start no program, and carry no Node, eval or uppercase template the directory flags", after `expect(existsSync(resolve(PLUGIN, "dist"))).toBe(false);`, add:
+
+```ts
+    // The core moved into the writing skill (ADR-009), and only one copy ships.
+    expect(existsSync(resolve(PLUGIN, "hooks/core"))).toBe(false);
+```
+
+- In the test "ships the existing writing guidance without changing it", add to the path list:
 
 ```ts
       "skills/plain-english/SKILL.md",
       "skills/plain-english/scripts/check.mjs",
 ```
 
-Then append a new `describe` block:
+- [ ] **Step 2: Write the failing tests for the skill**
+
+Change the `node:child_process` import at the top of the file to `import { spawn, spawnSync } from "node:child_process";`, add `afterAll, beforeAll` to the `vitest` import, and append:
 
 ```ts
 /**
  * The writing skill as Claude chat receives it (ADR-009). Chat copies a
  * skill's own folder into its code environment and nothing else from the
- * plugin, so the skill carries its own copy of the core and runs from there.
+ * plugin, so the checker's core lives inside the skill and runs from there.
  */
 describe("the plain-english skill as chat receives it", () => {
   const SKILL = resolve(PLUGIN, "skills/plain-english");
@@ -567,23 +595,13 @@ describe("the plain-english skill as chat receives it", () => {
       .map((entry) => resolve(entry.parentPath, entry.name).slice(dir.length + 1))
       .sort();
 
-  it("carries the plugin's core unchanged", () => {
-    const core = filesIn(resolve(PLUGIN, "hooks/core"));
-    expect(filesIn(resolve(SKILL, "scripts/core"))).toEqual(core);
-    for (const file of core) {
-      expect(readFileSync(resolve(SKILL, "scripts/core", file), "utf8"), file).toBe(
-        readFileSync(resolve(PLUGIN, "hooks/core", file), "utf8"),
-      );
-    }
-  });
-
   it("names the package version the plugin does", async () => {
     const { default: version } = await import("../integrations/claude-code-plugin/skills/plain-english/scripts/version.mjs");
     expect(version).toBe(json(resolve(ROOT, "package.json")).version);
   });
 
-  it("keeps every path within four segments of the skill root", () => {
-    for (const file of filesIn(SKILL)) expect(file.split(/[\\/]/).length, file).toBeLessThanOrEqual(4);
+  it("keeps every path within three segments of the skill root", () => {
+    for (const file of filesIn(SKILL)) expect(file.split(/[\\/]/).length, file).toBeLessThanOrEqual(3);
   });
 
   it("runs a script that imports no Node module, builds no code and starts nothing", () => {
@@ -594,13 +612,21 @@ describe("the plain-english skill as chat receives it", () => {
   });
 
   describe("run from a folder holding only the skill", () => {
-    const work = mkdtempSync(resolve(tmpdir(), "pe-skill-"));
-    const copy = resolve(work, "plain-english");
-    cpSync(SKILL, copy, { recursive: true });
+    let work = "";
+    let copy = "";
+    beforeAll(() => {
+      work = mkdtempSync(resolve(tmpdir(), "pe-skill-"));
+      copy = resolve(work, "plain-english");
+      cpSync(SKILL, copy, { recursive: true });
+    });
+    afterAll(() => rmSync(work, { recursive: true, force: true }));
+
     const run = (args: string[], input: string, folder = copy) => {
       const result = spawnSync(process.execPath, [resolve(folder, "scripts/check.mjs"), ...args], {
         cwd: work, input, encoding: "utf8", timeout: 30_000,
       });
+      // A crash prints to standard error and leaves standard output empty.
+      expect(result.stderr, result.stderr).toBe("");
       return { code: result.status, report: JSON.parse(result.stdout) as Record<string, unknown> & { findings: { ruleId: string }[] } };
     };
 
@@ -636,6 +662,16 @@ describe("the plain-english skill as chat receives it", () => {
       expect(["checked", "incomplete"]).toContain(report.status);
     });
 
+    it("gives up on input that never closes and reports invalid", async () => {
+      const child = spawn(process.execPath, [resolve(copy, "scripts/check.mjs"), "reply"], { cwd: work });
+      child.stdin.write("The build takes two minutes.");
+      let out = "";
+      child.stdout.on("data", (chunk) => (out += chunk));
+      const code = await new Promise<number | null>((done) => child.on("close", done));
+      expect(code).toBe(2);
+      expect(JSON.parse(out).status).toBe("invalid");
+    }, 20_000);
+
     it("reports unavailable and exits 2 when the core does not load", () => {
       const broken = resolve(work, "broken");
       cpSync(copy, broken, { recursive: true });
@@ -646,14 +682,14 @@ describe("the plain-english skill as chat receives it", () => {
 });
 ```
 
-The very large draft is 290,000 characters. The test does not prescribe `checked` over `incomplete`, because which one a slow machine reaches inside the 2,000 ms budget is not the property under test.
+The very large draft is 290,000 characters, and a measured run took 598 to 680 ms against the 2,000 ms budget. The test still accepts `incomplete`, because which status a slow machine reaches is not the property under test. The never-closing test waits out the script's 10-second limit, so it carries its own 20-second timeout.
 
-- [ ] **Step 2: Run the tests to watch them fail**
+- [ ] **Step 3: Run the tests to watch them fail**
 
-Run: `npx vitest run test/claude-code-plugin.test.ts -t "plain-english skill"`
-Expected: FAIL, because `integrations/claude-code-plugin/skills/plain-english` does not exist.
+Run: `npx vitest run test/claude-code-plugin.test.ts`
+Expected: FAIL. The existing directory tests fail on the missing `skills/plain-english/scripts/core`, and the new block fails on the missing skill folder.
 
-- [ ] **Step 3: Write the script**
+- [ ] **Step 4: Write the script**
 
 Create `integrations/claude-code/skills/plain-english/scripts/check.mjs`:
 
@@ -666,10 +702,24 @@ Create `integrations/claude-code/skills/plain-english/scripts/check.mjs`:
 
 const kind = process.argv[2];
 
+// Read only when the kind is valid, and stop waiting after 10 seconds. Input
+// that never closes would otherwise hold the script until the caller's own
+// timeout.
 let text = "";
-if (!process.stdin.isTTY) {
+let readFailed = "";
+if (!process.stdin.isTTY && (kind === "reply" || kind === "document")) {
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) text += chunk;
+  const timer = setTimeout(() => {
+    readFailed = "Standard input did not close within 10 seconds. Pass the draft with a heredoc.";
+    process.stdin.destroy();
+  }, 10_000);
+  try {
+    for await (const chunk of process.stdin) text += chunk;
+  } catch (error) {
+    readFailed ||= `Standard input failed: ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 let report;
@@ -691,7 +741,9 @@ try {
     state: { get: nothing, set: () => false },
     defaultRules: () => rules,
   };
-  report = { ...core.checkDraft({ text, kind }, io), version };
+  report = readFailed
+    ? { status: "invalid", kind, findings: [], review: [], notes: [readFailed], version }
+    : { ...core.checkDraft({ text, kind }, io), version };
 } catch (error) {
   const reason = error instanceof Error ? error.message : String(error);
   report = { status: "unavailable", findings: [], review: [], notes: [`The checker did not load: ${reason}`] };
@@ -701,140 +753,136 @@ process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 process.exitCode = report.status !== "checked" ? 2 : report.findings.some((f) => f.severity === "error") ? 1 : 0;
 ```
 
-- [ ] **Step 4: Teach the build to copy the skill**
+A missing or misspelled kind skips the read and reaches `checkDraft` with empty text. `checkDraft` checks the kind first, so the report names the kind.
+
+- [ ] **Step 5: Move the core in the build**
 
 In `scripts/build-plugin.mjs`:
 
-1. Add to `guidancePaths`:
+1. Change `const coreDir = resolve(plugin, "hooks", "core");` to:
+
+```js
+// The checker's core lives inside the writing skill, the one folder Claude
+// chat copies into its code environment. The mod imports it from there, so
+// one copy serves both (ADR-009).
+const coreDir = resolve(plugin, "skills", "plain-english", "scripts", "core");
+const oldCoreDir = resolve(plugin, "hooks", "core");
+const skillVersionTo = resolve(plugin, "skills", "plain-english", "scripts", "version.mjs");
+```
+
+`rulesTo` is already defined from `coreDir`, so the ruleset moves with it.
+
+2. Add to `guidancePaths`:
 
 ```js
   "skills/plain-english/SKILL.md",
   "skills/plain-english/scripts/check.mjs",
 ```
 
-2. Beside the other paths near the top, add:
-
-```js
-const skillScripts = resolve(plugin, "skills", "plain-english", "scripts");
-const skillCoreDir = resolve(skillScripts, "core");
-const skillVersionTo = resolve(skillScripts, "version.mjs");
-```
-
-3. Before `const isMain`, add two helpers, so the plugin's core and the skill's copy are checked and written by the same code:
-
-```js
-/** What differs between the built core and the copy in `dir`, each named under `label`. */
-function staleCore(dir, label, files, rules) {
-  const stale = [];
-  const shipped = new Set(filesUnder(dir));
-  shipped.delete("default-rules.mjs");
-  for (const file of files) {
-    const target = resolve(dir, file.path);
-    if (!shipped.delete(file.path) || readFileSync(target, "utf8") !== file.text) stale.push(`${label}/${file.path}`);
-  }
-  for (const leftover of shipped) stale.push(`${label}/${leftover} (no longer built)`);
-  const rulesAt = resolve(dir, "default-rules.mjs");
-  if (!existsSync(rulesAt) || readFileSync(rulesAt, "utf8") !== rules) stale.push(`${label}/default-rules.mjs`);
-  return stale;
-}
-
-/** Write the built core into `dir` whole, so a piece the split no longer produces does not linger. */
-function writeCore(dir, files, rules) {
-  rmSync(dir, { recursive: true, force: true });
-  for (const file of files) {
-    const target = resolve(dir, file.path);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, file.text, "utf8");
-  }
-  writeFileSync(resolve(dir, "default-rules.mjs"), rules, "utf8");
-}
-```
-
-4. In the main block, after `const pkg = pluginPackageJson(version);`, add:
+3. In the main block, after `const pkg = pluginPackageJson(version);`, add:
 
 ```js
   const skillVersion = `// GENERATED by scripts/build-plugin.mjs from package.json. Do not edit.\nexport default ${JSON.stringify(version)};\n`;
 ```
 
-5. Replace the existing stale check for the core, from `const shipped = new Set(filesUnder(coreDir));` through the `default-rules.mjs` comparison, with:
+4. In the stale checks, change each `hooks/core/` label to `skills/plain-english/scripts/core/` (three places: the changed-file push, the leftover push and the `default-rules.mjs` push). After the `dist/` leftover check, add:
 
 ```js
-  const stale = [
-    ...staleCore(coreDir, "hooks/core", coreBuild.files, rules),
-    ...staleCore(skillCoreDir, "skills/plain-english/scripts/core", coreBuild.files, rules),
-  ];
+  if (existsSync(oldCoreDir)) stale.push("hooks/core/ (moved into skills/plain-english/scripts/core/)");
   if (!existsSync(skillVersionTo) || readFileSync(skillVersionTo, "utf8") !== skillVersion) {
     stale.push("skills/plain-english/scripts/version.mjs");
   }
 ```
 
-Keep the `dist/` and `rules/` leftover checks that sat between those lines, below the new block.
+5. In the write branch, after `rmSync(coreDir, { recursive: true, force: true });`, add `rmSync(oldCoreDir, { recursive: true, force: true });`. After `writeFileSync(rulesTo, rules, "utf8");`, add `writeFileSync(skillVersionTo, skillVersion, "utf8");`. Change the final message's `integrations/claude-code-plugin/hooks/core/` to `integrations/claude-code-plugin/skills/plain-english/scripts/core/`.
 
-6. In the write branch, replace the existing `rmSync(coreDir, ...)` and the loop writing `coreBuild.files`, and the later `writeFileSync(rulesTo, rules, "utf8")`, with:
+6. Update the two comments that name `hooks/core/` (the file's opening comment and the one above `bundleCore`) to the new folder.
 
-```js
-    writeCore(coreDir, coreBuild.files, rules);
-    writeCore(skillCoreDir, coreBuild.files, rules);
-    writeFileSync(skillVersionTo, skillVersion, "utf8");
+- [ ] **Step 6: Point the mod at the new folder**
+
+In `integrations/claude-code-plugin/hooks/register.ts`, change the two imports:
+
+```ts
+} from '../skills/plain-english/scripts/core/plugin-core.mjs'
+import DEFAULT_RULES from '../skills/plain-english/scripts/core/default-rules.mjs'
 ```
 
-Keep `rmSync(distDir, ...)` and `rmSync(rulesDir, ...)` where they are. The guidance loop already copies `SKILL.md` and `check.mjs`, and makes their folders.
+In `src/plugin-core.ts`, change "bundles this into `hooks/core/`" to "bundles this into `skills/plain-english/scripts/core/`, where the mod and the writing skill's script both import it".
 
-- [ ] **Step 5: Build, and run the tests to watch them pass**
+- [ ] **Step 7: Build, and run the tests to watch them pass**
 
 Run: `npm run build && npx vitest run test/claude-code-plugin.test.ts`
-Expected: PASS, including the existing size test, which now also walks the skill's files. Then run `node scripts/build-plugin.mjs --check` and expect `plugin: bundle and ruleset match the working tree`.
+Expected: PASS. The build removes `hooks/core/` and writes the skill folder. Then run `node scripts/build-plugin.mjs --check` and expect `plugin: bundle and ruleset match the working tree`.
 
-- [ ] **Step 6: Run the whole suite**
+- [ ] **Step 8: Run Anthropic's checks**
+
+Run each, from the repository root:
+
+```bash
+claude plugin validate --strict .
+claude plugin validate --strict integrations/claude-code-plugin
+claude plugin test integrations/claude-code-plugin
+```
+
+Expected: `✔ Validation passed` twice, then `36 pass` and `0 fail`. A probe on 10 October gave exactly these results for this layout on Claude Code 2.1.296. The README warning about a missing install line is not new; the README leaves the install command out on purpose.
+
+- [ ] **Step 9: Run the whole suite**
 
 Run: `npm test && npm run render -- --check && npm run policy:check`
 Expected: all PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add integrations/claude-code/skills/plain-english/scripts/check.mjs scripts/build-plugin.mjs test/claude-code-plugin.test.ts integrations/claude-code-plugin
+git add -A integrations/claude-code-plugin integrations/claude-code/skills/plain-english/scripts/check.mjs scripts/build-plugin.mjs src/plugin-core.ts test/claude-code-plugin.test.ts
 git commit -F <message file>
 ```
 
-Message: `feat(claude-code): carry the checker into chat in the writing skill (#130)`.
+Message: `feat(claude-code): move the checker into the writing skill and add its script (#130)`. `-A` on the plugin folder records the removal of `hooks/core/`.
 
 ---
 
-### Task 4: Documentation, decision record and release
+### Task 4: Listing text, documentation, decision record and release
 
 **Files:**
 - Create: `docs/architecture/adr/009-checker-ships-in-a-skill.md`
-- Modify: `integrations/claude-code-plugin/README.md` (Install paragraph; new reviewer subsection)
-- Modify: `docs/architecture/specs/2026-10-10-portable-writing-skill.md` (the two changes listed above)
+- Modify: `integrations/claude-code-plugin/.claude-plugin/plugin.json` (`description`)
+- Modify: `.claude-plugin/marketplace.json` (both `description` fields)
+- Modify: `integrations/claude-code-plugin/README.md` (core path in three places; a section per app; a reviewer subsection)
+- Modify: `CONTRIBUTING.md:60` (core path)
 - Modify: `CHANGELOG.md`, `package.json`, `package-lock.json` (bump)
 
 **Interfaces:**
 - Consumes: everything built in Tasks 1 to 3.
 - Produces: the release.
 
-- [ ] **Step 1: Write the decision record**
+- [ ] **Step 1: Make the listing text match each app**
 
-Copy `docs/architecture/adr/_template.md` to `docs/architecture/adr/009-checker-ships-in-a-skill.md` and fill its headings:
+The directory policy says "descriptions must precisely match actual functionality", and the listing reads `plugin.json` and the README. Set `description` in `integrations/claude-code-plugin/.claude-plugin/plugin.json` to:
 
-- **Status:** Accepted. **Date:** the day of the commit.
-- **Context:** output styles and mods do not load in Claude chat or Cowork; skills do. The 10 October live test ran the bundled checker in chat on the web and the phone on Node `v22.22.0`. Chat copies a skill's own folder only.
-- **Decision:** the plugin carries a `plain-english` skill holding a copy of `hooks/core/` and a script that calls `checkDraft`. The function returns `checked`, `incomplete` or `invalid`; the script adds `unavailable`. It reads no file, keeps no state and makes no model call; judge checks come back as questions.
-- **Consequences:** a second copy of the core in the plugin; the build checks both. In Claude Code the skill's instructions say not to run the script.
-- **Alternatives considered:** three, each rejected.
-  - Faking a Claude Code hook event couples the skill to that format, and a failed check looks clean.
-  - The self-contained command-line file from the pre-commit integration is about 1.6 MB, over the 262,144-byte limit.
-  - The mod importing the skill's copy changes a part the directory already reviewed.
-- **Re-evaluation triggers:** chat stops providing Node 20 or later; the directory classifies a mixed package for Claude Code only; the core copy pushes the plugin near 512 files.
+```text
+Catches stock AI phrases, vague claims and unexplained jargon before a reader sees them. In Claude Code it checks Markdown writes, commit and pull request messages and tracker issues, and holds a chat reply with a clear tell for a rewrite. In Claude chat and Cowork, a writing skill gives Claude the rules and checks substantial drafts.
+```
+
+In `.claude-plugin/marketplace.json`, set the marketplace `description` to `The plain-english prose linter: a Claude Code mod that refuses writes and holds replies, and a writing skill for Claude chat and Cowork.`, and the plugin entry's `description` to `Catches stock AI phrases, vague claims and unexplained jargon. Checks writes and replies in Claude Code, and drafts in Claude chat and Cowork.`
 
 - [ ] **Step 2: Update the plugin README**
 
-In `integrations/claude-code-plugin/README.md`, after the Install section's second paragraph, add:
+In `integrations/claude-code-plugin/README.md`:
+
+- Line 11: "The plugin carries the checker's core under `hooks/core/`" becomes "The plugin carries the checker's core under `skills/plain-english/scripts/core/`, inside the writing skill, so the mod and the skill share one copy".
+- Line 113: "`hooks/core/` is the checker from this repository" becomes "`skills/plain-english/scripts/core/` is the checker from this repository".
+- Line 138: "writes the checker's core and the ruleset into `hooks/core/`" becomes "writes the checker's core and the ruleset into `skills/plain-english/scripts/core/`".
+
+After the Install section, add:
 
 ```markdown
-The plugin also carries a writing skill, `plain-english`, for Claude chat and Cowork, where the mod does not load. The skill gives Claude the reply rules. For a substantial draft, it tells Claude to check the text with a script in the skill's own folder, which holds a copy of the same checker. In Claude Code the skill gives the rules only, because the mod already checks there.
+## What each Claude app gets
 
-To make the skill load more often in chat, add this sentence to your profile instructions: "Use the plain-english skill for any prose you write for me." The plugin changes no settings itself.
+- **Claude Code:** the mod. It checks Markdown writes, commit and pull request messages and tracker issues before they are saved, and holds a chat reply with a clear tell for a rewrite.
+- **Claude chat and Cowork:** the writing skill, `plain-english`. Claude loads it when a request fits its description, such as drafting an email or a report. It gives Claude the reply rules and checks every document and any reply over about 100 words. The check runs in Claude's own code environment and sends nothing anywhere.
+
+A skill loads only when the request fits, so an ordinary question may not load it. To have replies checked as a rule, add this sentence to your profile instructions: "Use the plain-english skill for any prose you write for me." You can also pick the skill by typing `/` in the message box. The plugin changes no settings itself.
 ```
 
 Under `## For reviewers: what the plugin runs, reads, writes and sends`, before `### Bundled code`, add:
@@ -842,46 +890,59 @@ Under `## For reviewers: what the plugin runs, reads, writes and sends`, before 
 ```markdown
 ### The writing skill's script
 
-`skills/plain-english/scripts/check.mjs` is a script the skill's instructions ask Claude to call on a draft in chat or Cowork. No hook or event starts it. It reads the draft from standard input, prints a JSON report and exits. It imports no Node module, reads no file, opens no connection and starts no program. `skills/plain-english/scripts/core/` is an exact copy of `hooks/core/`, which the build writes and a test compares file by file.
+`skills/plain-english/scripts/check.mjs` is a script the skill's instructions ask Claude to call on a draft in chat or Cowork. No hook or event starts it, and in Claude Code the instructions say not to call it. It reads the draft from standard input, prints a JSON report and exits. It imports no Node module, reads no file, opens no connection and starts no program. It imports the same core the mod does, from the folder beside it.
 ```
 
 Run: `npx vitest run test/claude-code-plugin.test.ts -t README`
 Expected: PASS. If the sentence test fails, find the sentence that pairs a download or fetch word with a run word, and split it.
 
-- [ ] **Step 3: Update the spec**
+- [ ] **Step 3: Update CONTRIBUTING**
 
-In `docs/architecture/specs/2026-10-10-portable-writing-skill.md`:
+In `CONTRIBUTING.md`, line 60, change `integrations/claude-code-plugin/hooks/core/` to `integrations/claude-code-plugin/skills/plain-english/scripts/core/`.
 
-- remove `version: string;` from the `DraftReport` block and add a line under the script section: the script adds `version` from `scripts/version.mjs`, which the build writes;
-- change the reply budget sentence to name `HOOK_BUDGET_MS` for a reply and `DEFAULT_BUDGET_MS` for a document, with inline suppression off for both.
+- [ ] **Step 4: Write the decision record**
 
-- [ ] **Step 4: Changelog and bump**
+Copy `docs/architecture/adr/_template.md` to `docs/architecture/adr/009-checker-ships-in-a-skill.md` and fill its headings:
+
+- **Status:** Accepted. **Date:** the day of the commit.
+- **Context:** output styles and mods do not load in Claude chat or Cowork; skills do. The 10 October live test ran the bundled checker in chat on the web and the phone on Node `v22.22.0`; no Anthropic page promises Node there. Chat copies a skill's own folder only. The directory portal lists the plugin for all three apps.
+- **Decision:** the checker's core moves from `hooks/core/` into `skills/plain-english/scripts/core/`, and the mod imports it from there. A script beside it calls `checkDraft`, which returns `checked`, `incomplete` or `invalid`; the script adds `unavailable`. It reads no file, keeps no state and makes no model call. Judge checks come back as questions.
+- **Consequences:** one copy of the core. The mod's imports reach into the skill's folder. In Claude Code the skill's instructions say not to run the script. Replies are checked only when the skill loads, so the README offers a profile sentence.
+- **Alternatives considered:** four, each rejected.
+  - Faking a Claude Code hook event couples the skill to that format, and a failed check looks clean.
+  - The self-contained command-line file from the pre-commit integration is about 1.6 MB, over the 262,144-byte limit.
+  - A second copy of the core in the skill puts the same code through the directory's scan on every version.
+  - A separate plugin for chat and Cowork means two listings and two reviews; the portal showed one plugin can be listed everywhere.
+- **Re-evaluation triggers:** chat stops providing Node 20 or later; the directory flags the mod importing from a skill folder; the portal stops listing the plugin outside Claude Code.
+
+- [ ] **Step 5: Changelog and bump**
 
 Add under `## [Unreleased]` in `CHANGELOG.md`:
 
 ```markdown
 ### Added
 
-- The Claude Code plugin carries a writing skill, `plain-english`, for Claude chat and Cowork. It gives Claude the reply rules there, and checks a substantial draft with a script that holds its own copy of the checker. The checker's core gains `checkDraft`, which checks a reply or document passed as text and reports whether every check ran.
+- The Claude Code plugin carries a writing skill, `plain-english`, for Claude chat and Cowork. It gives Claude the reply rules there, and checks a substantial draft with a script that runs the plugin's own checker. The checker's core gains `checkDraft`, which checks a reply or document passed as text and reports whether every check ran.
+
+### Changed
+
+- The plugin's bundled checker moved from `hooks/core/` to `skills/plain-english/scripts/core/`, so the mod and the writing skill share one copy.
 ```
 
-Run: `npm version minor --no-git-tag-version`
-Then: `npm run build` (the plugin's `package.json` and the skill's `version.mjs` follow the new version).
+Bump the minor version with the command in `AGENTS.md` (`npm version minor` with the flag that skips the tag), then run `npm run build` so the plugin's `package.json` and the skill's `version.mjs` follow the new version.
 
-- [ ] **Step 5: Verify everything**
+- [ ] **Step 6: Verify everything**
 
 Run: `npm test && npm run render -- --check && npm run policy:check && npm run lint:self`
+Then the three commands from Task 3, Step 8.
 Expected: all PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
-```bash
-git add docs/architecture/adr/009-checker-ships-in-a-skill.md integrations/claude-code-plugin docs/architecture/specs/2026-10-10-portable-writing-skill.md CHANGELOG.md package.json package-lock.json
-git commit -F <message file>
-```
+Stage `docs/architecture/adr/009-checker-ships-in-a-skill.md`, `integrations/claude-code-plugin`, `.claude-plugin/marketplace.json`, `CONTRIBUTING.md`, `CHANGELOG.md`, `package.json` and `package-lock.json`, and commit with a message file.
 
 Message: `docs(claude-code): record ADR-009 and release the writing skill (#130)`.
 
-- [ ] **Step 7: Ship**
+- [ ] **Step 8: Ship**
 
-Follow the `pe-ship` skill from its Step 6: push, open the pull request, wait for CI, hand over the merge command. The live checks in the spec's "What must hold before release" are the owner's, after merge and before the directory submission.
+Follow the `pe-ship` skill from its Step 6: push, open the pull request, wait for CI, hand over the merge command. The hand checks in the spec's "What must hold before release" come before the directory submission for this first version, and before merging for any later one.
