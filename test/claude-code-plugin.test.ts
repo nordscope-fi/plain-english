@@ -191,6 +191,19 @@ describe("the plugin's hook files as the directory reads them", () => {
   // line first; the repository's README still ran every command through
   // `npx`, one of them piped into it. Neither names a package launcher or
   // pipes into a shell.
+  // Warned again on f09af87, with no launcher left in either README. The
+  // plugin's README still paired getting something with running it in one
+  // sentence: "Nothing is downloaded at install, no script runs", "the mod
+  // fetches the file ... then runs the check again", and "Extract an archive,
+  // then pass its directory to claude --plugin-dir". No sentence there pairs
+  // the two.
+  it("pair no download or fetch with a run in one sentence of the plugin's README", () => {
+    const text = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
+    const sentences = text.split(/(?<=[.!?:;])\s+|\n+/);
+    expect(sentences.filter((sentence) => /\b(?:download\w*|fetch\w*|extract\w*|archive\w*)\b/i.test(sentence)
+      && /\b(?:run\w*|exec\w*|execut\w*|start\w*|launch\w*|pass\w*)\b|--plugin-dir/i.test(sentence))).toEqual([]);
+  });
+
   it("show no download-and-run command in either README", () => {
     for (const file of [resolve(PLUGIN, "README.md"), resolve(ROOT, "README.md")]) {
       const text = readFileSync(file, "utf8");
