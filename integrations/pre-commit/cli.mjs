@@ -205,7 +205,7 @@ var require_visit = __commonJS({
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP3 = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove node");
-    function visit2(node3, visitor) {
+    function visit(node3, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node3)) {
         const cd = visit_(null, node3.contents, visitor_, Object.freeze([node3]));
@@ -214,9 +214,9 @@ var require_visit = __commonJS({
       } else
         visit_(null, node3, visitor_, Object.freeze([]));
     }
-    visit2.BREAK = BREAK;
-    visit2.SKIP = SKIP3;
-    visit2.REMOVE = REMOVE;
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP3;
+    visit.REMOVE = REMOVE;
     function visit_(key, node3, visitor, path3) {
       const ctrl = callVisitor(key, node3, visitor, path3);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
@@ -350,7 +350,7 @@ var require_visit = __commonJS({
         throw new Error(`Cannot replace node with ${pt} parent`);
       }
     }
-    exports.visit = visit2;
+    exports.visit = visit;
     exports.visitAsync = visitAsync;
   }
 });
@@ -360,7 +360,7 @@ var require_directives = __commonJS({
   "node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var visit2 = require_visit();
+    var visit = require_visit();
     var escapeChars = {
       "!": "%21",
       ",": "%2C",
@@ -504,7 +504,7 @@ var require_directives = __commonJS({
         let tagNames;
         if (doc && tagEntries.length > 0 && identity.isNode(doc.contents)) {
           const tags = {};
-          visit2.visit(doc.contents, (_key, node3) => {
+          visit.visit(doc.contents, (_key, node3) => {
             if (identity.isNode(node3) && node3.tag)
               tags[node3.tag] = true;
           });
@@ -531,7 +531,7 @@ var require_anchors = __commonJS({
   "node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     var identity = require_identity();
-    var visit2 = require_visit();
+    var visit = require_visit();
     function anchorIsValid(anchor) {
       if (/[\x00-\x19\s,[\]{}]/.test(anchor)) {
         const sa = JSON.stringify(anchor);
@@ -542,7 +542,7 @@ var require_anchors = __commonJS({
     }
     function anchorNames(root) {
       const anchors = /* @__PURE__ */ new Set();
-      visit2.visit(root, {
+      visit.visit(root, {
         Value(_key, node3) {
           if (node3.anchor)
             anchors.add(node3.anchor);
@@ -722,7 +722,7 @@ var require_Alias = __commonJS({
   "node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     var anchors = require_anchors();
-    var visit2 = require_visit();
+    var visit = require_visit();
     var identity = require_identity();
     var Node = require_Node();
     var toJS = require_toJS();
@@ -748,7 +748,7 @@ var require_Alias = __commonJS({
           nodes = ctx.aliasResolveCache;
         } else {
           nodes = [];
-          visit2.visit(doc, {
+          visit.visit(doc, {
             Node: (_key, node3) => {
               if (identity.isAlias(node3) || identity.hasAnchor(node3))
                 nodes.push(node3);
@@ -5670,15 +5670,15 @@ var require_cst_visit = __commonJS({
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP3 = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove item");
-    function visit2(cst, visitor) {
+    function visit(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
       _visit(Object.freeze([]), cst, visitor);
     }
-    visit2.BREAK = BREAK;
-    visit2.SKIP = SKIP3;
-    visit2.REMOVE = REMOVE;
-    visit2.itemAtPath = (cst, path3) => {
+    visit.BREAK = BREAK;
+    visit.SKIP = SKIP3;
+    visit.REMOVE = REMOVE;
+    visit.itemAtPath = (cst, path3) => {
       let item = cst;
       for (const [field2, index2] of path3) {
         const tok = item?.[field2];
@@ -5689,8 +5689,8 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit2.parentCollection = (cst, path3) => {
-      const parent = visit2.itemAtPath(cst, path3.slice(0, -1));
+    visit.parentCollection = (cst, path3) => {
+      const parent = visit.itemAtPath(cst, path3.slice(0, -1));
       const field2 = path3[path3.length - 1][0];
       const coll = parent?.[field2];
       if (coll && "items" in coll)
@@ -5721,7 +5721,7 @@ var require_cst_visit = __commonJS({
       }
       return typeof ctrl === "function" ? ctrl(item, path3) : ctrl;
     }
-    exports.visit = visit2;
+    exports.visit = visit;
   }
 });
 
@@ -7370,7 +7370,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse4(src, reviver, options) {
+    function parse5(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7411,7 +7411,7 @@ var require_public_api = __commonJS({
         return value2.toString(options);
       return new Document.Document(value2, _replacer, options).toString(options);
     }
-    exports.parse = parse4;
+    exports.parse = parse5;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument2;
     exports.stringify = stringify;
@@ -7437,7 +7437,7 @@ var require_dist = __commonJS({
     var lineCounter = require_line_counter();
     var parser = require_parser();
     var publicApi = require_public_api();
-    var visit2 = require_visit();
+    var visit = require_visit();
     exports.Composer = composer.Composer;
     exports.Document = Document.Document;
     exports.Schema = Schema.Schema;
@@ -7465,8 +7465,8 @@ var require_dist = __commonJS({
     exports.parseAllDocuments = publicApi.parseAllDocuments;
     exports.parseDocument = publicApi.parseDocument;
     exports.stringify = publicApi.stringify;
-    exports.visit = visit2.visit;
-    exports.visitAsync = visit2.visitAsync;
+    exports.visit = visit.visit;
+    exports.visitAsync = visit.visitAsync;
   }
 });
 
@@ -10551,14 +10551,14 @@ var require_lib = __commonJS({
         super.checkParams(node3, false, true);
         this.scope.exit();
       }
-      forwardNoArrowParamsConversionAt(node3, parse5) {
+      forwardNoArrowParamsConversionAt(node3, parse6) {
         let result;
         if (this.state.noArrowParamsConversionAt.includes(this.offsetToSourcePos(node3.start))) {
           this.state.noArrowParamsConversionAt.push(this.state.start);
-          result = parse5();
+          result = parse6();
           this.state.noArrowParamsConversionAt.pop();
         } else {
-          result = parse5();
+          result = parse6();
         }
         return result;
       }
@@ -21969,7 +21969,7 @@ var require_lib = __commonJS({
         return result;
       }
     };
-    function parse4(input, options) {
+    function parse5(input, options) {
       var _options;
       if (((_options = options) == null ? void 0 : _options.sourceType) === "unambiguous") {
         options = Object.assign({}, options);
@@ -22056,7 +22056,7 @@ var require_lib = __commonJS({
       }
       return cls;
     }
-    exports.parse = parse4;
+    exports.parse = parse5;
     exports.parseExpression = parseExpression;
     exports.tokTypes = tokTypes;
   }
@@ -29316,12 +29316,12 @@ function visitParents(tree, test, visitor, reverse) {
           typeof value2.name === "string" ? value2.name : void 0
         )
       );
-      Object.defineProperty(visit2, "name", {
+      Object.defineProperty(visit, "name", {
         value: "node (" + color(node3.type + (name ? "<" + name + ">" : "")) + ")"
       });
     }
-    return visit2;
-    function visit2() {
+    return visit;
+    function visit() {
       let result = empty;
       let subresult;
       let offset;
@@ -29694,28 +29694,6 @@ function handleDelete(node3, _, state, info) {
 }
 function peekDelete() {
   return "~";
-}
-
-// node_modules/unist-util-visit/lib/index.js
-function visit(tree, testOrVisitor, visitorOrReverse, maybeReverse) {
-  let reverse;
-  let test;
-  let visitor;
-  if (typeof testOrVisitor === "function" && typeof visitorOrReverse !== "function") {
-    test = void 0;
-    visitor = testOrVisitor;
-    reverse = visitorOrReverse;
-  } else {
-    test = testOrVisitor;
-    visitor = visitorOrReverse;
-    reverse = maybeReverse;
-  }
-  visitParents(tree, test, overload, reverse);
-  function overload(node3, parents) {
-    const parent = parents[parents.length - 1];
-    const index2 = parent ? parent.children.indexOf(node3) : void 0;
-    return visitor(node3, index2, parent);
-  }
 }
 
 // node_modules/mdast-util-gfm-table/lib/index.js
@@ -31399,16 +31377,43 @@ function value(token) {
   this.config.exit.data.call(this, token);
 }
 
+// dist/tree-walk.js
+function walk(root, visitor) {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node3 = stack.pop();
+    if (visitor(node3) === "skip")
+      continue;
+    const kids = node3.children ?? [];
+    for (let i = kids.length - 1; i >= 0; i--)
+      stack.push(kids[i]);
+  }
+}
+
 // dist/mask.js
 var PROSE_NODES = /* @__PURE__ */ new Set(["text"]);
 var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
-function proseSpans(text4) {
-  const tree = fromMarkdown(text4, {
+function parse2(text4) {
+  return fromMarkdown(text4, {
     extensions: [gfm(), frontmatter([...FRONTMATTER])],
     mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
   });
+}
+function codeBlockSpans(tree) {
   const spans = [];
-  visit(tree, (node3) => {
+  walk(tree, (node3) => {
+    if (node3.type !== "code")
+      return;
+    const s = node3.position?.start?.offset;
+    const e = node3.position?.end?.offset;
+    if (s != null && e != null)
+      spans.push({ start: s, end: e });
+  });
+  return spans;
+}
+function proseSpans(tree) {
+  const spans = [];
+  walk(tree, (node3) => {
     if (node3.type === "table")
       return "skip";
     if (node3.type === "html")
@@ -31433,29 +31438,56 @@ function proseSpans(text4) {
   });
   return spans;
 }
-var INLINE_CODE_TAGS = /<(code|pre|kbd|samp|var|tt)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+var CODE_TAG_OPEN = /<(code|pre|kbd|samp|var|tt)\b/gi;
 function inlineHtmlCodeSpans(text4) {
   const spans = [];
-  INLINE_CODE_TAGS.lastIndex = 0;
+  const closers = /* @__PURE__ */ new Map();
+  let gt = -1;
+  CODE_TAG_OPEN.lastIndex = 0;
   let m;
-  while ((m = INLINE_CODE_TAGS.exec(text4)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  while ((m = CODE_TAG_OPEN.exec(text4)) !== null) {
+    const nameEnd = m.index + m[0].length;
+    if (gt < nameEnd)
+      gt = text4.indexOf(">", nameEnd);
+    if (gt === -1)
+      break;
+    const name = m[1].toLowerCase();
+    let close3 = closers.get(name);
+    if (close3 === void 0) {
+      close3 = { re: new RegExp(`</${name}\\s*>`, "gi"), at: -2, end: -2 };
+      closers.set(name, close3);
+    }
+    if (close3.at !== -1 && close3.at <= gt) {
+      close3.re.lastIndex = gt + 1;
+      const c = close3.re.exec(text4);
+      close3.at = c ? c.index : -1;
+      close3.end = c ? c.index + c[0].length : -1;
+    }
+    if (close3.at === -1)
+      continue;
+    spans.push({ start: m.index, end: close3.end });
+    CODE_TAG_OPEN.lastIndex = close3.end;
   }
   return spans;
 }
 function commentSpans(text4) {
   const spans = [];
-  const re = /<!--[\s\S]*?-->/g;
-  let m;
-  while ((m = re.exec(text4)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  let at = text4.indexOf("<!--");
+  while (at !== -1) {
+    const close3 = text4.indexOf("-->", at + 4);
+    if (close3 === -1)
+      break;
+    spans.push({ start: at, end: close3 + 3 });
+    at = text4.indexOf("<!--", close3 + 3);
   }
   return spans;
 }
 function maskNonProse(text4, opts = {}) {
+  let tree;
   let spans;
   try {
-    spans = proseSpans(text4);
+    tree = parse2(text4);
+    spans = proseSpans(tree);
   } catch {
     return text4.replace(/[^\n\r]/g, " ");
   }
@@ -31484,32 +31516,18 @@ function maskNonProse(text4, opts = {}) {
       }
     }
   } else {
+    const code2 = codeBlockSpans(tree);
+    let c = 0;
     for (const { start, end } of commentSpans(text4)) {
-      if (isInsideCode(text4, start))
+      while (c < code2.length && code2[c].end <= start)
+        c++;
+      if (c < code2.length && code2[c].start <= start)
         continue;
       for (let i = start; i < end && i < text4.length; i++)
         out[i] = text4[i];
     }
   }
   return out.join("");
-}
-function isInsideCode(text4, offset) {
-  try {
-    const tree = fromMarkdown(text4, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
-    });
-    let inside = false;
-    visit(tree, "code", (node3) => {
-      const s = node3.position?.start?.offset;
-      const e = node3.position?.end?.offset;
-      if (s != null && e != null && offset >= s && offset < e)
-        inside = true;
-    });
-    return inside;
-  } catch {
-    return false;
-  }
 }
 
 // dist/safe-regex.js
@@ -32176,8 +32194,8 @@ var makeFinalWhiteSpaceSiblings = modifyChildren(
 
 // node_modules/unist-util-visit-children/lib/index.js
 function visitChildren(visitor) {
-  return visit2;
-  function visit2(parent) {
+  return visit;
+  function visit(parent) {
     const children = parent && parent.children;
     let index2 = -1;
     if (!children) {
@@ -33491,7 +33509,7 @@ function isUint8Array(value2) {
 
 // dist/sentences.js
 var FRONTMATTER2 = ["yaml", { type: "toml", marker: "+" }];
-function parse2(text4) {
+function parse3(text4) {
   try {
     const mdast = fromMarkdown(text4, {
       extensions: [gfm(), frontmatter([...FRONTMATTER2])],
@@ -33505,18 +33523,21 @@ function parse2(text4) {
   }
 }
 function sentences(text4) {
-  const tree = parse2(text4);
+  const tree = parse3(text4);
   if (!tree)
     return [];
   const out = [];
-  visit(tree, "SentenceNode", (node3) => {
+  walk(tree, (node3) => {
+    if (node3.type !== "SentenceNode")
+      return;
     const start = node3.position?.start?.offset;
     const end = node3.position?.end?.offset;
     if (start == null || end == null)
       return;
     let words = 0;
-    visit(node3, "WordNode", () => {
-      words++;
+    walk(node3, (n) => {
+      if (n.type === "WordNode")
+        words++;
     });
     if (words === 0)
       return;
@@ -33526,14 +33547,18 @@ function sentences(text4) {
 }
 var JARGON = /^(?:[A-Z][A-Z0-9]{2,}|[A-Z][a-z]+(?:[A-Z]\w*)+)$/;
 function jargonTerms(text4) {
-  const tree = parse2(text4);
+  const tree = parse3(text4);
   if (!tree)
     return [];
   const out = [];
   let index2 = -1;
-  visit(tree, "SentenceNode", (sentence) => {
+  walk(tree, (sentence) => {
+    if (sentence.type !== "SentenceNode")
+      return;
     index2++;
-    visit(sentence, "WordNode", (word2) => {
+    walk(sentence, (word2) => {
+      if (word2.type !== "WordNode")
+        return;
       const value2 = toString2(word2);
       if (!JARGON.test(value2))
         return;
@@ -33788,14 +33813,14 @@ var DOMAIN_STOP_WORDS = /* @__PURE__ */ new Set([
   "your",
   "you"
 ]);
-function walk(io, dir, out = []) {
+function walk2(io, dir, out = []) {
   for (const name of io.list(dir) ?? []) {
     if ([".git", "node_modules", "dist"].includes(name))
       continue;
     const path3 = io.path.resolve(dir, name);
     const kind = io.stat(path3)?.kind;
     if (kind === "directory")
-      walk(io, path3, out);
+      walk2(io, path3, out);
     else if (kind === "file" && MARKDOWN.has(io.path.extname(name).toLowerCase()))
       out.push(path3);
   }
@@ -33915,7 +33940,7 @@ function genre(files3) {
   return { status: stable ? "stable" : "mixed", ...result };
 }
 function buildWritingProfile(root, config, existing = "", io = nodeIo) {
-  const all3 = walk(io, root).map((path3) => ({ path: io.path.relative(root, path3).split("\\").join("/"), text: io.read(path3) ?? "" }));
+  const all3 = walk2(io, root).map((path3) => ({ path: io.path.relative(root, path3).split("\\").join("/"), text: io.read(path3) ?? "" }));
   const sources = {};
   const genres = {};
   for (const [name, patterns] of Object.entries(config.samples).sort(([a], [b]) => a.localeCompare(b))) {
@@ -35588,7 +35613,7 @@ function transcripts(sinceDays, now, io = nodeIo) {
   if (io.stat(root) === void 0)
     return [];
   const out = [];
-  const walk3 = (dir) => {
+  const walk4 = (dir) => {
     let names;
     try {
       names = io.list(dir);
@@ -35602,7 +35627,7 @@ function transcripts(sinceDays, now, io = nodeIo) {
       if (entry.isDirectory()) {
         if (entry.name === "memory")
           continue;
-        walk3(path3);
+        walk4(path3);
         continue;
       }
       if (!entry.isFile() || !entry.name.endsWith(".jsonl"))
@@ -35621,7 +35646,7 @@ function transcripts(sinceDays, now, io = nodeIo) {
       out.push({ path: path3, mtime });
     }
   };
-  walk3(root);
+  walk4(root);
   return out.sort((a, b) => b.mtime - a.mtime).map((f) => f.path);
 }
 function assistantText(record4) {
@@ -36267,7 +36292,7 @@ function files(options, now) {
     if (!inScope(cwd, options.cwd))
       continue;
     const chats = resolve5(tmp, project.name, "chats");
-    const walk3 = (dir, subagent) => {
+    const walk4 = (dir, subagent) => {
       let entries;
       try {
         entries = readdirSync4(dir, { withFileTypes: true });
@@ -36277,7 +36302,7 @@ function files(options, now) {
       for (const entry of entries) {
         const path3 = resolve5(dir, entry.name);
         if (entry.isDirectory()) {
-          walk3(path3, true);
+          walk4(path3, true);
           continue;
         }
         if (!/\.jsonl?$/.test(entry.name))
@@ -36293,7 +36318,7 @@ function files(options, now) {
         out.push({ path: path3, cwd, subagent, mtime });
       }
     };
-    walk3(chats, false);
+    walk4(chats, false);
   }
   return out.sort((a, b) => b.mtime - a.mtime);
 }
@@ -36593,7 +36618,7 @@ function files2(options, now) {
   for (const project of projects) {
     if (!project.isDirectory() || !looksLikeProject2(project.name, options.cwd))
       continue;
-    const walk3 = (dir, subagent) => {
+    const walk4 = (dir, subagent) => {
       let entries;
       try {
         entries = readdirSync5(dir, { withFileTypes: true });
@@ -36603,7 +36628,7 @@ function files2(options, now) {
       for (const entry of entries) {
         const path3 = resolve7(dir, entry.name);
         if (entry.isDirectory()) {
-          walk3(path3, subagent);
+          walk4(path3, subagent);
           continue;
         }
         if (!entry.name.endsWith(".jsonl"))
@@ -36619,8 +36644,8 @@ function files2(options, now) {
         out.push({ path: path3, subagent, mtime });
       }
     };
-    walk3(resolve7(root, project.name, "chats"), false);
-    walk3(resolve7(root, project.name, "subagents"), true);
+    walk4(resolve7(root, project.name, "chats"), false);
+    walk4(resolve7(root, project.name, "subagents"), true);
   }
   return out.sort((a, b) => b.mtime - a.mtime);
 }
@@ -36815,7 +36840,7 @@ function issueText(value2) {
     return value2.slice(0, LIMIT);
   const seen = /* @__PURE__ */ new WeakSet();
   let budget = LIMIT;
-  const visit2 = (value3, depth) => {
+  const visit = (value3, depth) => {
     if (depth > 64 || budget-- <= 0)
       return "";
     if (typeof value3 === "string")
@@ -36840,7 +36865,7 @@ function issueText(value2) {
         return htmlText2(node3["value"]);
       if (format === "atlas_doc_format") {
         try {
-          return visit2(JSON.parse(node3["value"].slice(0, LIMIT)), depth + 1);
+          return visit(JSON.parse(node3["value"].slice(0, LIMIT)), depth + 1);
         } catch {
           return "";
         }
@@ -36849,16 +36874,16 @@ function issueText(value2) {
         return node3["value"].slice(0, LIMIT);
     }
     if (Array.isArray(node3["content"])) {
-      const children = node3["content"].map((child) => visit2(child, depth + 1)).join("");
+      const children = node3["content"].map((child) => visit(child, depth + 1)).join("");
       return (children + (type === "paragraph" || type === "heading" || type === "listItem" ? "\n" : "")).slice(0, LIMIT);
     }
     for (const key of ["storage", "atlas_doc_format", "body", "content"]) {
       if (node3[key] !== void 0)
-        return visit2(node3[key], depth + 1);
+        return visit(node3[key], depth + 1);
     }
     return "";
   };
-  return visit2(value2, 0).trim();
+  return visit(value2, 0).trim();
 }
 function contentText(value2, format) {
   if (typeof value2 === "string" && (format === "adf" || format === "atlas_doc_format"))
@@ -41764,13 +41789,13 @@ function isGitIgnored(root, file) {
     return false;
   }
 }
-function walk2(dir, out = []) {
+function walk3(dir, out = []) {
   for (const entry of readdirSync9(dir, { withFileTypes: true })) {
     if (SKIP2.has(entry.name))
       continue;
     const full = resolve14(dir, entry.name);
     if (entry.isDirectory())
-      walk2(full, out);
+      walk3(full, out);
     else if (MARKDOWN4.has(extname(entry.name).toLowerCase()))
       out.push(full);
   }
@@ -41803,7 +41828,7 @@ function detectAgents(root) {
 function scanRepo(root, ruleset, options = {}) {
   const waivers = [];
   const skip = new Set(options.skip ?? []);
-  for (const file of walk2(resolve14(root))) {
+  for (const file of walk3(resolve14(root))) {
     const rel = toPosix(relative3(root, file));
     if (skip.has(rel))
       continue;

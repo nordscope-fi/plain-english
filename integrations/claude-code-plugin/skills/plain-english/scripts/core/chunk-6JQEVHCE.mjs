@@ -1480,8 +1480,8 @@ function visitParents(tree, test, visitor, reverse) {
     const value2 = (
       node && typeof node === "object" ? node : {}
     );
-    return visit3;
-    function visit3() {
+    return visit2;
+    function visit2() {
       let result = empty;
       let subresult;
       let offset;
@@ -1848,27 +1848,6 @@ function handleDelete(node, _, state, info) {
 }
 function peekDelete() {
   return "~";
-}
-
-function visit2(tree, testOrVisitor, visitorOrReverse, maybeReverse) {
-  let reverse;
-  let test;
-  let visitor;
-  if (typeof testOrVisitor === "function" && typeof visitorOrReverse !== "function") {
-    test = void 0;
-    visitor = testOrVisitor;
-    reverse = visitorOrReverse;
-  } else {
-    test = testOrVisitor;
-    visitor = visitorOrReverse;
-    reverse = maybeReverse;
-  }
-  visitParents(tree, test, overload, reverse);
-  function overload(node, parents) {
-    const parent = parents[parents.length - 1];
-    const index = parent ? parent.children.indexOf(node) : void 0;
-    return visitor(node, index, parent);
-  }
 }
 
 function gfmTableFromMarkdown() {
@@ -3038,15 +3017,37 @@ function value(token) {
   this.config.exit.data.call(this, token);
 }
 
+function walk(root, visitor) {
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (visitor(node) === "skip") continue;
+    const kids = node.children ?? [];
+    for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
+  }
+}
+
 var PROSE_NODES =   new Set(["text"]);
 var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
-function proseSpans(text2) {
-  const tree = fromMarkdown(text2, {
+function parse2(text2) {
+  return fromMarkdown(text2, {
     extensions: [gfm(), frontmatter([...FRONTMATTER])],
     mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
   });
+}
+function codeBlockSpans(tree) {
   const spans = [];
-  visit2(tree, (node) => {
+  walk(tree, (node) => {
+    if (node.type !== "code") return;
+    const s = node.position?.start?.offset;
+    const e = node.position?.end?.offset;
+    if (s != null && e != null) spans.push({ start: s, end: e });
+  });
+  return spans;
+}
+function proseSpans(tree) {
+  const spans = [];
+  walk(tree, (node) => {
     if (node.type === "table") return "skip";
     if (node.type === "html") return "skip";
     if (node.type === "definition") return "skip";
@@ -3064,29 +3065,52 @@ function proseSpans(text2) {
   });
   return spans;
 }
-var INLINE_CODE_TAGS = /<(code|pre|kbd|samp|var|tt)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi;
+var CODE_TAG_OPEN = /<(code|pre|kbd|samp|var|tt)\b/gi;
 function inlineHtmlCodeSpans(text2) {
   const spans = [];
-  INLINE_CODE_TAGS.lastIndex = 0;
+  const closers =   new Map();
+  let gt = -1;
+  CODE_TAG_OPEN.lastIndex = 0;
   let m;
-  while ((m = INLINE_CODE_TAGS.exec(text2)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  while ((m = CODE_TAG_OPEN.exec(text2)) !== null) {
+    const nameEnd = m.index + m[0].length;
+    if (gt < nameEnd) gt = text2.indexOf(">", nameEnd);
+    if (gt === -1) break;
+    const name = m[1].toLowerCase();
+    let close2 = closers.get(name);
+    if (close2 === void 0) {
+      close2 = { re: new RegExp(`</${name}\\s*>`, "gi"), at: -2, end: -2 };
+      closers.set(name, close2);
+    }
+    if (close2.at !== -1 && close2.at <= gt) {
+      close2.re.lastIndex = gt + 1;
+      const c = close2.re.exec(text2);
+      close2.at = c ? c.index : -1;
+      close2.end = c ? c.index + c[0].length : -1;
+    }
+    if (close2.at === -1) continue;
+    spans.push({ start: m.index, end: close2.end });
+    CODE_TAG_OPEN.lastIndex = close2.end;
   }
   return spans;
 }
 function commentSpans(text2) {
   const spans = [];
-  const re = /<!--[\s\S]*?-->/g;
-  let m;
-  while ((m = re.exec(text2)) !== null) {
-    spans.push({ start: m.index, end: m.index + m[0].length });
+  let at = text2.indexOf("<!--");
+  while (at !== -1) {
+    const close2 = text2.indexOf("-->", at + 4);
+    if (close2 === -1) break;
+    spans.push({ start: at, end: close2 + 3 });
+    at = text2.indexOf("<!--", close2 + 3);
   }
   return spans;
 }
 function maskNonProse(text2, opts = {}) {
+  let tree;
   let spans;
   try {
-    spans = proseSpans(text2);
+    tree = parse2(text2);
+    spans = proseSpans(tree);
   } catch {
     return text2.replace(/[^\n\r]/g, " ");
   }
@@ -3112,29 +3136,15 @@ function maskNonProse(text2, opts = {}) {
       }
     }
   } else {
+    const code2 = codeBlockSpans(tree);
+    let c = 0;
     for (const { start, end } of commentSpans(text2)) {
-      if (isInsideCode(text2, start)) continue;
+      while (c < code2.length && code2[c].end <= start) c++;
+      if (c < code2.length && code2[c].start <= start) continue;
       for (let i = start; i < end && i < text2.length; i++) out[i] = text2[i];
     }
   }
   return out.join("");
-}
-function isInsideCode(text2, offset) {
-  try {
-    const tree = fromMarkdown(text2, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
-    });
-    let inside = false;
-    visit2(tree, "code", (node) => {
-      const s = node.position?.start?.offset;
-      const e = node.position?.end?.offset;
-      if (s != null && e != null && offset >= s && offset < e) inside = true;
-    });
-    return inside;
-  } catch {
-    return false;
-  }
 }
 
 var emptyNodes = [];
@@ -3510,8 +3520,8 @@ var makeFinalWhiteSpaceSiblings = modifyChildren(
 );
 
 function visitChildren(visitor) {
-  return visit3;
-  function visit3(parent) {
+  return visit2;
+  function visit2(parent) {
     const children = parent && parent.children;
     let index = -1;
     if (!children) {
@@ -4125,7 +4135,7 @@ var VFile = class {
 };
 
 var FRONTMATTER2 = ["yaml", { type: "toml", marker: "+" }];
-function parse2(text2) {
+function parse3(text2) {
   try {
     const mdast = fromMarkdown(text2, {
       extensions: [gfm(), frontmatter([...FRONTMATTER2])],
@@ -4139,16 +4149,17 @@ function parse2(text2) {
   }
 }
 function sentences(text2) {
-  const tree = parse2(text2);
+  const tree = parse3(text2);
   if (!tree) return [];
   const out = [];
-  visit2(tree, "SentenceNode", (node) => {
+  walk(tree, (node) => {
+    if (node.type !== "SentenceNode") return;
     const start = node.position?.start?.offset;
     const end = node.position?.end?.offset;
     if (start == null || end == null) return;
     let words = 0;
-    visit2(node, "WordNode", () => {
-      words++;
+    walk(node, (n) => {
+      if (n.type === "WordNode") words++;
     });
     if (words === 0) return;
     out.push({ text: toString(node), words, start, end });
@@ -4157,13 +4168,15 @@ function sentences(text2) {
 }
 var JARGON = /^(?:[A-Z][A-Z0-9]{2,}|[A-Z][a-z]+(?:[A-Z]\w*)+)$/;
 function jargonTerms(text2) {
-  const tree = parse2(text2);
+  const tree = parse3(text2);
   if (!tree) return [];
   const out = [];
   let index = -1;
-  visit2(tree, "SentenceNode", (sentence) => {
+  walk(tree, (sentence) => {
+    if (sentence.type !== "SentenceNode") return;
     index++;
-    visit2(sentence, "WordNode", (word2) => {
+    walk(sentence, (word2) => {
+      if (word2.type !== "WordNode") return;
       const value2 = toString(word2);
       if (!JARGON.test(value2)) return;
       const start = word2.position?.start?.offset;
