@@ -18,11 +18,7 @@
  * still report a correct line and column against the original source.
  */
 
-import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmFromMarkdown } from "mdast-util-gfm";
-import { gfm } from "micromark-extension-gfm";
-import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
-import { frontmatter } from "micromark-extension-frontmatter";
+import { parseMarkdown } from "./markdown.ts";
 import { walk } from "./tree-walk.ts";
 
 /**
@@ -40,7 +36,6 @@ const PROSE_NODES = new Set(["text"]);
  * Frontmatter formats to recognise. YAML uses `---`, TOML uses `+++` and is
  * what Hugo and Zola emit. Missing TOML meant a title line was linted as prose.
  */
-const FRONTMATTER = ["yaml", { type: "toml", marker: "+" }] as const;
 
 export interface MaskOptions {
   /**
@@ -65,10 +60,7 @@ interface TreeNode {
 }
 
 function parse(text: string): TreeNode {
-  return fromMarkdown(text, {
-    extensions: [gfm(), frontmatter([...FRONTMATTER])],
-    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
-  });
+  return parseMarkdown(text);
 }
 
 /** Fenced and indented code blocks, in document order. */
