@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 // @ts-expect-error maintainer JavaScript tool
-import { benchmarkCases, caseDefinition, summarizeRun, blindReviews, pluginFingerprint, summarizeCheckReceipts, blindOutputReviews } from "../scripts/evaluation/claude.mjs";
+import { benchmarkCases, caseDefinition, summarizeRun, blindReviews, pluginFingerprint, summarizeCheckReceipts, blindOutputReviews, MEASUREMENT_HELPER, instrumentMeasurementCapture } from "../scripts/evaluation/claude.mjs";
 
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
@@ -64,7 +64,7 @@ describe("Claude writing benchmark", () => {
     expect(summarizeCheckReceipts(rows, true)).toEqual({
       captureEnabled: true, observedHookExecutions: 0, expectedIssuedCalls: null, expectedCompletedCalls: null,
       receiptCoverageComplete: false, issuedCalls: 3, completedCalls: 2, incompleteCalls: 1,
-      unpricedCalls: 1, reportedCostUsd: null, observedPricedCostUsd: 0.02,
+      unpricedCalls: 1, reportedCostUsd: null, observedPricedCostUsd: 0.02, observedUsage: null,
       invoiceCostUsd: null, costBasis: "provider-reported-api-estimate",
     });
     expect(summarizeCheckReceipts([], false).reportedCostUsd).toBeNull();
@@ -98,16 +98,74 @@ describe("Claude writing benchmark", () => {
     expect(result.receiptCoverageComplete).toBe(false);
     expect(result.expectedIssuedCalls).toBe(1);
   });
-  // ADR-008: the plugin's checker runs inside its mod and writes no receipts,
-  // so the copy is left as it ships and no capture is claimed (#136).
-  it("leaves the copied plugin as it ships when its checker writes no receipts", () => {
+  // #136: the checker runs inside the mod (ADR-008), so the benchmark measures
+  // the copy's one model call instead of asking a bundled CLI for receipts.
+  it("measures the copy's one model call and leaves the shipped plugin alone", () => {
     const fixture = prepared();
-    const hooks = JSON.parse(readFileSync(resolve(fixture.dir, "checks/hooks/hooks.json"), "utf8"));
-    expect(hooks.modules).toEqual(["./register.ts"]);
-    const module = readFileSync(resolve(fixture.dir, "checks/hooks/register.ts"), "utf8");
-    expect(module).not.toContain("PLAIN_ENGLISH_JUDGE_RECEIPTS");
+    const copy = readFileSync(resolve(fixture.dir, "checks/hooks/register.ts"), "utf8");
+    expect(copy.split("__peMeasuredComplete($, ").length - 1).toBe(1);
+    expect(copy).toContain("await __peMeasureStart($)");
+    expect(copy).toContain(JSON.stringify(resolve(fixture.dir, "checks-check-usage")));
+    const shipped = readFileSync(resolve(import.meta.dirname, "../integrations/claude-code-plugin/hooks/register.ts"), "utf8");
+    expect(shipped).not.toContain("__pe");
     const identity = JSON.parse(readFileSync(resolve(fixture.dir, "identity.json"), "utf8"));
-    expect(identity.captureHarnessHash).toBeNull();
+    expect(identity.captureHarnessHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("refuses to instrument a mod without exactly one model call", () => {
+    const start = "on('session.start', async ($, e, next) => {\n})\n";
+    expect(() => instrumentMeasurementCapture(start, "/r")).toThrow(/one \$\.model\.complete call, found 0/);
+    expect(() => instrumentMeasurementCapture(start + "$.model.complete(a)\n$.model.complete(b)\n", "/r")).toThrow(/found 2/);
+  });
+
+  it("writes receipts the summary reads, with usage and no prose", async () => {
+    const writes: [string, string][] = [];
+    const replies = [
+      { isAnswered: true, text: "SECRET PROSE", usage: { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 1 } },
+      { isAnswered: false, reason: "api-error", status: 500, error: "SECRET ERROR" },
+    ];
+    const $ = {
+      fs: { write: async (path: string, text: string) => { writes.push([path, text]); } },
+      session: { id: async () => "abc/1" },
+      model: { complete: async () => replies.shift() },
+    };
+    // The helper's only type notes are ": any"; removing them leaves JavaScript.
+    const code = MEASUREMENT_HELPER.replace(/\??: any/g, "").replace("__PE_RECEIPT_DIR__", JSON.stringify("/r"));
+    const helper = new Function(`${code}\nreturn { __peMeasureStart, __peMeasuredComplete };`)();
+    await helper.__peMeasureStart($);
+    expect((await helper.__peMeasuredComplete($, { model: "haiku", prompt: "SECRET PROMPT" })).text).toBe("SECRET PROSE");
+    expect((await helper.__peMeasuredComplete($, { model: "haiku", prompt: "SECRET PROMPT" })).isAnswered).toBe(false);
+    const [path, text] = writes.at(-1)!;
+    expect(path).toMatch(/^\/r\/abc_1-[a-z0-9]+-[a-z0-9]+\.jsonl$/);
+    expect(new Set(writes.map(([written]) => written)).size).toBe(1);
+    expect(text).not.toMatch(/SECRET/);
+    const summary = summarizeCheckReceipts(text.trim().split("\n").map((line) => JSON.parse(line)), true);
+    expect(summary).toMatchObject({ receiptCoverageComplete: true, issuedCalls: 2, completedCalls: 2, incompleteCalls: 0,
+      unpricedCalls: 2, reportedCostUsd: null,
+      observedUsage: { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 3, cache_creation_input_tokens: 1 } });
+  });
+
+  it("reports background tokens from the receipts every session wrote", () => {
+    const fixture = prepared();
+    const folder = resolve(fixture.dir, "checks-check-usage");
+    mkdirSync(folder);
+    const session = (id: string, tokens: number) => [
+      { schemaVersion: 1, phase: "capture-enabled", captureVersion: 1, captureId: id },
+      { schemaVersion: 1, phase: "started", captureId: id, callId: `${id}-1` },
+      { schemaVersion: 1, phase: "finished", captureId: id, callId: `${id}-1`, model: "haiku", outcome: "answered", reportedCostUsd: null,
+        usage: { input_tokens: tokens, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } },
+      { schemaVersion: 1, phase: "capture-finished", captureId: id, issuedCalls: 1, completedCalls: 1, captureHealthy: true },
+    ].map((row) => JSON.stringify(row)).join("\n") + "\n";
+    writeFileSync(resolve(folder, "one-a.jsonl"), session("a", 100));
+    writeFileSync(resolve(folder, "two-b.jsonl"), session("b", 50));
+    const result = fixture.run();
+    expect(result.status, result.stderr).toBe(0);
+    const metrics = JSON.parse(readFileSync(resolve(fixture.dir, "metrics.json"), "utf8"));
+    const checks = metrics.metrics.find((row: { mode: string }) => row.mode === "checks");
+    expect(checks.backgroundCheckCostUsd).toBeNull();
+    expect(checks.backgroundCaptureReason).toBe("The mod's model calls report tokens, not a price; see backgroundChecks.observedUsage.");
+    expect(checks.backgroundChecks).toMatchObject({ observedHookExecutions: 2, issuedCalls: 2, receiptCoverageComplete: true,
+      observedUsage: { input_tokens: 150, output_tokens: 2 } });
   });
   it("creates one shuffled correctness review per reply without exposing its mode", () => {
     const item = benchmarkCases()[0];
@@ -219,7 +277,7 @@ describe("Claude writing benchmark", () => {
     const metrics = JSON.parse(readFileSync(resolve(fixture.dir, "metrics.json"), "utf8"));
     const checks = metrics.metrics.find((row: { mode: string }) => row.mode === "checks");
     expect(checks.backgroundCheckCostUsd).toBeNull();
-    expect(checks.backgroundCaptureReason).toBe("This plugin does not implement usage receipts.");
+    expect(checks.backgroundCaptureReason).toBe("No capture marker was received from the native checker.");
   });
   it("accepts an explicitly selected Claude executable without shell expansion", () => {
     const fixture = prepared();
