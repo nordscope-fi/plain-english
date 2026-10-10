@@ -3103,6 +3103,51 @@ function projectGuidance(ruleset, io = nodeIo) {
   ].join("\n");
 }
 
+var oneLine = (text) => text.replace(/\s+/g, " ").trim();
+function asFinding(f) {
+  return {
+    ruleId: f.ruleId,
+    severity: f.severity,
+    line: f.line,
+    column: f.column,
+    quote: f.match,
+    message: f.message ?? "",
+    ...JUDGEABLE.has(f.ruleId) ? { mayStand: true } : {}
+  };
+}
+function checkDraft(request, io, options = {}) {
+  const invalid = (note, kind2) => ({
+    status: "invalid",
+    ...kind2 ? { kind: kind2 } : {},
+    findings: [],
+    review: [],
+    notes: [note]
+  });
+  if (request === null || typeof request !== "object") {
+    return invalid("The request must be an object with text and kind.");
+  }
+  const { text, kind } = request;
+  if (kind !== "reply" && kind !== "document") {
+    return invalid(`The kind must be reply or document; got ${kind === void 0 ? "none" : JSON.stringify(kind)}.`);
+  }
+  if (typeof text !== "string" || !text.trim()) {
+    return invalid("The text is empty, so there is no draft to check.", kind);
+  }
+  const base = compile(loadDefault(io));
+  const reply = kind === "reply";
+  const result = lintText(reply ? text.trim() : text, reply ? chatRuleSet(base) : base, {
+    allowInlineSuppression: false,
+    budgetMs: options.budgetMs ?? (reply ? HOOK_BUDGET_MS : DEFAULT_BUDGET_MS)
+  });
+  const findings = result.findings.map(asFinding);
+  const review = reply ? base.chat.judge.map((check) => `${check.id}: ${oneLine(check.description)}`) : base.docs.guidance.flatMap((g) => g.flag ? [`${g.id}: ${oneLine(g.flag)}`] : []);
+  if (result.timedOut.length) {
+    const rules = [...result.timedOut].sort().join(", ");
+    return { status: "incomplete", kind, findings, review, notes: [`These rules ran out of time and did not report: ${rules}.`] };
+  }
+  return { status: "checked", kind, findings, review, notes: [] };
+}
+
 var MARKDOWN2 =   new Set([".md", ".markdown", ".mdx"]);
 var SKIPPED =   new Set(["node_modules", ".git", "dist"]);
 function followed(path, io) {
@@ -3193,6 +3238,7 @@ export {
   ModelRequest,
   NeedFiles,
   approvalPlan,
+  checkDraft,
   claudeCodeChat,
   claudeCodeHook,
   countOf,

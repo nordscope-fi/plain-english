@@ -158,7 +158,7 @@ export interface ChatDecisionOptions {
  * amount of context makes acceptable: an em dash is an em dash. These two are
  * measurements whose meaning depends on what was asked.
  */
-const JUDGEABLE = new Set(["reply-length", "reader-load", "reply-pace"]);
+export const JUDGEABLE: ReadonlySet<string> = new Set(["reply-length", "reader-load", "reply-pace"]);
 
 /**
  * What to do about one reply.
