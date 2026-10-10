@@ -659,8 +659,26 @@ describe("renderWritingSkill", () => {
     // A heredoc ends at the first line matching its delimiter, so pasted prose
     // carrying that line would run the rest as shell commands.
     expect(skill).not.toContain("<<");
-    expect(skill).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < draft.txt');
+    expect(skill).toContain('node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < /tmp/plain-english-draft-');
     expect(skill.replace(/\s+/g, " ")).toContain("with your file tool");
+  });
+
+  it("saves the draft in a temporary folder, never the person's, and deletes it after", () => {
+    const flat = skill.replace(/\s+/g, " ");
+    expect(flat).toContain("in a temporary folder");
+    expect(flat).toContain("Never save it in the person's folder");
+    expect(flat).toContain("Delete the file after the check");
+    expect(flat).not.toContain("< draft.txt");
+  });
+
+  it("reads the review lines as faults to fix, not as refusals", () => {
+    expect(skill.replace(/\s+/g, " ")).toContain("read it as: fix this before sending");
+  });
+
+  it("says what to do when the script does not start, as in chat with the placeholder", () => {
+    const flat = skill.replace(/\s+/g, " ");
+    expect(flat).toContain("In chat it stays as written and the command fails");
+    expect(flat).toContain("A Node error with no JSON report");
   });
 
   it("carries no line that runs a command when the skill loads", () => {

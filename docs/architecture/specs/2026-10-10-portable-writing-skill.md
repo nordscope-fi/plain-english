@@ -129,11 +129,12 @@ export function checkDraft(request: unknown, io: CheckerIo, options?: { budgetMs
 standard input:
 
 ```sh
-node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < draft.txt
+node "${CLAUDE_SKILL_DIR}/scripts/check.mjs" reply < /tmp/plain-english-draft-<random>.txt
 ```
 
-- **How the draft gets there.** Claude saves it to a file with its file tool,
-  and the shell redirects that file into the script. A heredoc would end at the
+- **How the draft gets there.** Claude saves it with its file tool to a new
+  file in a temporary folder, never the person's own folder, and deletes it
+  after the check. The shell redirects that file into the script. A heredoc would end at the
   first line matching its delimiter, so pasted prose carrying that line would
   run the rest as shell commands. A security review of the first version of
   the skill text flagged exactly that.

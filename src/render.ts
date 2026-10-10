@@ -1108,18 +1108,20 @@ export function renderWritingSkill(ruleset: RuleSet): string {
     "## How to run it",
     "",
     ...wrap(
-      "Save the draft to a file with your file tool, such as `draft.txt`. Do not " +
-        "write it through the shell. Then run:",
+      "Save the draft with your file tool to a new file in a temporary folder, with a " +
+        "random part in its name. Never save it in the person's folder, and do not write " +
+        "it through the shell. Then run:",
     ),
     "",
     "```sh",
-    "node \"${CLAUDE_SKILL_DIR}/scripts/check.mjs\" reply < draft.txt",
+    "node \"${CLAUDE_SKILL_DIR}/scripts/check.mjs\" reply < /tmp/plain-english-draft-<random>.txt",
     "```",
     "",
     ...wrap(
       "Use `document` in place of `reply` for an email, report or other document. " +
-        "Cowork replaces the folder placeholder for you. In chat it stays as written: use " +
-        "`scripts/check.mjs` in the folder that holds this file. Install nothing and use no " +
+        "Cowork replaces the folder placeholder for you. In chat it stays as written and the " +
+        "command fails, so run `scripts/check.mjs` from the folder that holds this file " +
+        "instead. Delete the file after the check. Install nothing and use no " +
         "network: the checker needs only Node. Passing the draft through a file keeps " +
         "its text out of the command, so nothing in it can run as one.",
     ),
@@ -1128,9 +1130,19 @@ export function renderWritingSkill(ruleset: RuleSet): string {
     "",
     ...wrap("- `checked` with findings: fix each one, then run the check once more. Run it at most twice for one draft.", "  "),
     ...wrap("- A finding with `mayStand` counts length or names. Keep it when the person asked for depth.", "  "),
-    ...wrap("- `review`: answer each question about your own draft, and fix what it finds.", "  "),
+    ...wrap(
+      "- `review`: each line names a fault only a reader can see. Where a line says " +
+        "refuse, read it as: fix this before sending. Answer each about your own draft, " +
+        "and fix what it finds.",
+      "  ",
+    ),
     ...wrap("- `checked` with no findings: send the draft without mentioning the check.", "  "),
     ...wrap("- `invalid`: the call was wrong. Fix the kind or the empty text and run it again once.", "  "),
+    ...wrap(
+      "- A Node error with no JSON report: the script did not start. Check the path once, " +
+        "and if it still fails, treat it as `unavailable`.",
+      "  ",
+    ),
     ...wrap(
       "- `incomplete`, `unavailable`, or no `node`: send the draft and add one line saying it " +
         "was not fully checked.",
