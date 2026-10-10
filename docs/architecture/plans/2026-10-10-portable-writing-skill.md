@@ -27,7 +27,7 @@
 ## Review Focus
 
 1. A reply that quotes a banned phrase inside a code block, as Claude does when explaining a rule. Expected: no finding for the quoted phrase.
-2. A draft carrying a suppression comment such as `<!-- plain-english-disable-next-line leverage: x -->`. Expected: the finding still appears, because a draft carries no waivers.
+2. A draft carrying an HTML suppression comment that names the `leverage` rule. Expected: the finding still appears, because a draft carries no waivers.
 3. The script called with nothing on standard input, or with input that never closes. Expected: an `invalid` report and exit 2, within about 10 seconds at worst.
 4. The script called with no kind or a misspelled one, such as `Reply`. Expected: an `invalid` report naming the bad kind, exit 2, without reading standard input.
 5. A very large draft, such as 290,000 characters. Expected: valid JSON with status `checked` or `incomplete`, never a crash.
