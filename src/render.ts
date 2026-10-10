@@ -1077,6 +1077,14 @@ const WRITING_SKILL_DESCRIPTION =
  * writing rule.
  */
 export function renderWritingSkill(ruleset: RuleSet): string {
+  // A reply under the threshold never reaches the checker, and the reply rules
+  // below never mention punctuation, so a short reply had nothing to stop an em
+  // dash: the hand trial found one on two of three apps (#154). The rule's own
+  // message, so a project that rewords or turns it off gets that here too.
+  const emDash = ruleset.rules.find((r) => r.id === "em-dash" && r.severity !== "off");
+  const shortReplies = emDash?.message
+    ? `Shorter replies get no check, so follow the rules below and this one by hand: ${emDash.message}`
+    : "Shorter replies follow the rules below without a check.";
   const out: string[] = [
     "---",
     `name: ${WRITING_SKILL_NAME}`,
@@ -1097,7 +1105,7 @@ export function renderWritingSkill(ruleset: RuleSet): string {
     "",
     ...wrap(
       "Run it on every document, email or report you write, and on any reply longer than " +
-        "about 100 words. Shorter replies follow the rules below without a check.",
+        `about 100 words. ${shortReplies}`,
     ),
     "",
     ...wrap(

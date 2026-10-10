@@ -671,6 +671,20 @@ describe("renderWritingSkill", () => {
     expect(flat).not.toContain("< draft.txt");
   });
 
+  it("gives short replies, which are never checked, the em-dash rule in the ruleset's words (#154)", () => {
+    // The hand trial on 2026-10-10 found an em dash in the short first reply
+    // on two of three apps: under 100 words nothing runs the checker.
+    const section = skill.slice(skill.indexOf("## When to run the check"), skill.indexOf("## How to run it"));
+    const message = set.rules.find((r) => r.id === "em-dash")?.message ?? "";
+    expect(message).not.toBe("");
+    expect(section.replace(/\s+/g, " ")).toContain(message);
+  });
+
+  it("leaves the em-dash line out when a project turns the rule off", () => {
+    const off = { ...set, rules: set.rules.map((r) => (r.id === "em-dash" ? { ...r, severity: "off" as const } : r)) };
+    expect(renderWritingSkill(off).replace(/\s+/g, " ")).not.toContain("No em dashes");
+  });
+
   it("reads the review lines as faults to fix, not as refusals", () => {
     expect(skill.replace(/\s+/g, " ")).toContain("read it as: fix this before sending");
   });

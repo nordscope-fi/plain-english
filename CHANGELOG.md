@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-10-10
+### Fixed
+
+- The writing skill gives short replies the em-dash rule in plain words. A reply under about 100 words is never checked, and the hand trial on the web, desktop and phone apps found an em dash in the short first reply on two of the three.
+
 ## [1.17.1] - 2026-10-10
 ### Fixed
 
@@ -808,7 +813,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.1...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.2...HEAD
+[1.17.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.2
 [1.17.1]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.1
 [1.17.0]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.0
 [1.16.6]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.16.6
