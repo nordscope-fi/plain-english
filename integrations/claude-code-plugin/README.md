@@ -6,11 +6,7 @@ The plugin is a mod: TypeScript functions Claude Code runs on its own events. Th
 
 ## Install
 
-In a Claude Code session, version 2.1.293 or later:
-
-```text
-/plugin install plain-english --marketplace nordscope-fi/plain-english
-```
+Install it from the Claude plugin directory. It is also in this repository's own marketplace, `nordscope-fi/plain-english`, for Claude Code 2.1.293 or later: open `/plugin`, add that marketplace, and choose `plain-english`.
 
 The plugin carries the checker's core under `hooks/core/`, bundled with its dependencies and the built-in ruleset. Installing it copies these files and nothing else. A check starts no program: the mod runs the checker inside Claude Code.
 
@@ -48,7 +44,7 @@ Commands you run yourself:
 | Event | What the hook does |
 | --- | --- |
 | `tool.call` | On `Write`, `Edit` and `MultiEdit` of a `.md` or `.mdx` file, on a supported `Bash` Markdown write or message command (`git commit`, `gh pr`, `gh issue` or `gh release`), and on the Linear MCP save tools: runs the checker on the call and returns its decision. A deny refuses the call with the reason. An ask opens a dialog headed `Prose check` that names the file or command and quotes one passage with its rule; a refusal there hands Claude the full finding, and where nobody can answer it refuses. Everything else passes through untouched. |
-| `classic.Stop`, `classic.SubagentStop` | Runs the reply check. A block holds the turn with the reason, in an interactive session and under `claude -p` alike. |
+| `classic.Stop`, `classic.SubagentStop` | Runs the reply check. A block holds the turn with the reason, in an interactive session and in Claude Code's non-interactive print mode alike. |
 | `session.start` | Registers `/plain-english`. |
 | `prompt.context` | Adds declared project vocabulary and loaded writing-profile observations to the conversation. The selected output style supplies general writing guidance. |
 | `command.run` | `/plain-english [paths]` lints the working tree and prints the findings. No model turn. |
@@ -60,7 +56,7 @@ Commands you run yourself:
 - **Sends:** pattern matching stays on this machine. Extra checks ask the session's own model through Claude Code (`$.model.complete`), with your account and model service. Where Claude Code cannot make that call, the extra check is reported unavailable and the pattern result stands. Document checks receive the complete proposed document as context, including its code examples and quoted material, but judge changed prose. Chat checks can also include your last question. These calls use your plan or API usage. Set `modelChecks: false` to disable them.
 - **Keeps:** an extra check is one request with no conversation history. Provider retention follows your account and provider settings. The host conversation still follows Claude Code's normal storage behavior.
 
-The checker runs inside the mod ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). When it needs a file or a model's answer, it hands the request back; the mod reads the file through Claude Code or asks the session's model, and the checker repeats the check with the answer. A check can ask two model questions at most. Asking through the session gave the same verdicts as a separate `claude -p` on 16 test prompts, recorded in [ADR-006](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/006-model-checks-through-the-host.md).
+The checker runs inside the mod ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). When it needs a file or a model's answer, it hands the request back; the mod reads the file through Claude Code or asks the session's model, and the checker repeats the check with the answer. A check can ask two model questions at most. Asking through the session gave the same verdicts as a separate non-interactive Claude Code run on 16 test prompts, recorded in [ADR-006](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/006-model-checks-through-the-host.md).
 
 A failed check produces a notice rather than a clean result, and the original action proceeds. If an extra model check cannot run, the pattern checks still apply. Document model calls share a 15-second deadline, and chat model calls share 45 seconds. A check starts no program, so cancelling a turn leaves nothing running.
 
@@ -139,15 +135,7 @@ Report a problem at <https://github.com/nordscope-fi/plain-english/issues>. Secu
 
 ## Develop and test
 
-`npm run build` at the repository root writes the checker's core and the ruleset into `hooks/core/`. The build also copies generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. Then, from this folder:
-
-```text
-claude --plugin-dir .
-claude plugin validate --strict .
-claude plugin test .
-```
-
-The manifest's `version` moves with each release; `npm version` does that.
+The repository's build writes the checker's core and the ruleset into `hooks/core/`, and copies the generated styles and the document skill. These files are committed, and CI fails when a build changes them and the change was not committed. The [contributing guide](https://github.com/nordscope-fi/plain-english/blob/main/CONTRIBUTING.md#the-claude-code-plugin) lists the commands that build, load, validate and test the plugin. The manifest's `version` moves with each release.
 
 ## Licence
 

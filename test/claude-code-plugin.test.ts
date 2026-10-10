@@ -197,6 +197,20 @@ describe("the plugin's hook files as the directory reads them", () => {
   // fetches the file ... then runs the check again", and "Extract an archive,
   // then pass its directory to claude --plugin-dir". No sentence there pairs
   // the two.
+  // Warned again on 4a9c5cc, after both READMEs lost every launcher and the
+  // plugin's README every sentence pairing a download with a run. What was
+  // left were command blocks: the plugin's install command, and its
+  // developer commands, which load and run this folder. The plugin's README
+  // keeps no command block, and the repository's pipes nothing into a
+  // command.
+  it("hold no command block in the plugin's README and no pipe into a command in the repository's", () => {
+    const plugin = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
+    expect(plugin.match(/^```.*$/gm) ?? []).toEqual([]);
+    expect(plugin.match(/`\/plugin install[^`]*`|`(?:claude|npm) [^`]*`/g) ?? []).toEqual([]);
+    const repository = readFileSync(resolve(ROOT, "README.md"), "utf8");
+    expect(repository.match(/^[^|\n]*[^|\s][ \t]*\|[ \t]*\w.*$/gm)?.filter((line) => !line.trimStart().startsWith("|")) ?? []).toEqual([]);
+  });
+
   it("pair no download or fetch with a run in one sentence of the plugin's README", () => {
     const text = readFileSync(resolve(PLUGIN, "README.md"), "utf8");
     const sentences = text.split(/(?<=[.!?:;])\s+|\n+/);
