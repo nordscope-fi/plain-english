@@ -167,8 +167,8 @@ function resolveProps(tokens, { flow, indicator, next: next2, offset, onError, p
         hasSpace = false;
     }
   }
-  const last = tokens[tokens.length - 1];
-  const end = last ? last.offset + last.source.length : offset;
+  const last2 = tokens[tokens.length - 1];
+  const end = last2 ? last2.offset + last2.source.length : offset;
   if (reqSpace && next2 && next2.type !== "space" && next2.type !== "newline" && next2.type !== "comma" && (next2.type !== "scalar" || next2.source !== "")) {
     onError(next2.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
   }
@@ -3017,6 +3017,18 @@ function value(token) {
   this.config.exit.data.call(this, token);
 }
 
+var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
+var last;
+function parseMarkdown(text2) {
+  if (last?.text === text2) return last.tree;
+  const tree = fromMarkdown(text2, {
+    extensions: [gfm(), frontmatter([...FRONTMATTER])],
+    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
+  });
+  last = { text: text2, tree };
+  return tree;
+}
+
 function walk(root, visitor) {
   const stack = [root];
   while (stack.length > 0) {
@@ -3028,12 +3040,8 @@ function walk(root, visitor) {
 }
 
 var PROSE_NODES =   new Set(["text"]);
-var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
 function parse2(text2) {
-  return fromMarkdown(text2, {
-    extensions: [gfm(), frontmatter([...FRONTMATTER])],
-    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
-  });
+  return parseMarkdown(text2);
 }
 function codeBlockSpans(tree) {
   const spans = [];
@@ -3371,11 +3379,11 @@ function splitNode(node, childType, expression) {
         children: node.children.slice(start, index + 1)
       };
       const first = node.children[start];
-      const last = token;
-      if (first.position && last.position) {
+      const last2 = token;
+      if (first.position && last2.position) {
         parent.position = {
           start: first.position.start,
-          end: last.position.end
+          end: last2.position.end
         };
       }
       result.push(parent);
@@ -3696,9 +3704,9 @@ var mergeInnerWordSymbol = modifyChildren(
           }
           siblings.splice(index, position2 - index);
           previous2.children.push(...tokens);
-          const last = tokens[tokens.length - 1];
-          if (previous2.position && last.position) {
-            previous2.position.end = last.position.end;
+          const last2 = tokens[tokens.length - 1];
+          if (previous2.position && last2.position) {
+            previous2.position.end = last2.position.end;
           }
           return index;
         }
@@ -4009,11 +4017,11 @@ function splitNode2(node, childType, expression) {
         children: node.children.slice(start, index + 1)
       };
       const first = node.children[start];
-      const last = token;
-      if (first.position && last.position) {
+      const last2 = token;
+      if (first.position && last2.position) {
         parent.position = {
           start: first.position.start,
-          end: last.position.end
+          end: last2.position.end
         };
       }
       result.push(parent);
@@ -4134,13 +4142,16 @@ var VFile = class {
   }
 };
 
-var FRONTMATTER2 = ["yaml", { type: "toml", marker: "+" }];
+var lastSentences;
 function parse3(text2) {
+  if (lastSentences?.text === text2) return lastSentences.tree;
+  const tree = parseSentences(text2);
+  lastSentences = { text: text2, tree };
+  return tree;
+}
+function parseSentences(text2) {
   try {
-    const mdast = fromMarkdown(text2, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER2])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER2])]
-    });
+    const mdast = parseMarkdown(text2);
     return toNlcst(mdast, new VFile(text2), ParseEnglish, {
       ignore: ["blockquote"]
     });

@@ -12,18 +12,13 @@
  * finding still points at the right line.
  */
 
-import { fromMarkdown } from "mdast-util-from-markdown";
-import { gfmFromMarkdown } from "mdast-util-gfm";
-import { gfm } from "micromark-extension-gfm";
-import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
-import { frontmatter } from "micromark-extension-frontmatter";
 import { toNlcst } from "mdast-util-to-nlcst";
 import { ParseEnglish } from "parse-english";
 import { toString as nlcstToString } from "nlcst-to-string";
 import { VFile } from "vfile";
+import { parseMarkdown } from "./markdown.ts";
 import { walk } from "./tree-walk.ts";
 
-const FRONTMATTER = ["yaml", { type: "toml", marker: "+" }] as const;
 
 export interface Sentence {
   /** The sentence as a reader sees it. */
@@ -51,12 +46,22 @@ interface NlcstNode {
   position?: { start?: { offset?: number }; end?: { offset?: number } };
 }
 
+let lastSentences: { text: string; tree: NlcstNode | null } | undefined;
+
+/**
+ * The document's sentence tree. Kept for the last document, as the Markdown
+ * tree is, because each readability rule asks for it again (#156).
+ */
 function parse(text: string): NlcstNode | null {
+  if (lastSentences?.text === text) return lastSentences.tree;
+  const tree = parseSentences(text);
+  lastSentences = { text, tree };
+  return tree;
+}
+
+function parseSentences(text: string): NlcstNode | null {
   try {
-    const mdast = fromMarkdown(text, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])],
-    });
+    const mdast = parseMarkdown(text);
     // A real VFile is required. A duck-typed object with `value` and
     // `toString` is rejected with "mdast-util-to-nlcst expected file".
     //
