@@ -54,6 +54,20 @@ npm run lint:self
 finding. Generated reference material and the changelog are excluded in
 `.plain-english.yml` because they quote the terms they document.
 
+## The Claude Code plugin
+
+The build writes the plugin's bundled core and ruleset into
+`integrations/claude-code-plugin/hooks/core/`. Then, from that folder, load it in a
+session, validate it and run its tests:
+
+```bash
+npm run build
+cd integrations/claude-code-plugin
+claude --plugin-dir .
+claude plugin validate --strict .
+claude plugin test .
+```
+
 ## What gets rejected
 
 - A rule with no corpus case.

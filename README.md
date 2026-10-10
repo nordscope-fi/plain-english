@@ -154,12 +154,8 @@ writing settings or launchers into the project.
 For copy stored in JavaScript or TypeScript, use `lint src --source-prose`.
 The [source guide](docs/source-prose.md) covers React text, escapes and source positions.
 
-To check a list of files from another command, give it one path per line on
-standard input:
-
-```bash
-git diff --name-only -- '*.md' | npm run prose -- lint --paths-from-stdin
-```
+To check a list of files from another command, such as `git diff --name-only -- '*.md'`,
+pass `--paths-from-stdin` and give it one path per line on standard input.
 
 ### GitHub Actions
 
