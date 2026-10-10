@@ -234,13 +234,20 @@ describe("the plugin's hook files as the directory reads them", () => {
     const { default: rules } = await import("../integrations/claude-code-plugin/hooks/core/default-rules.mjs");
     const dir = mkdtempSync(resolve(tmpdir(), "pe-proto-"));
     try {
-      const fetched = core.emptyFetched();
-      fetched.reads.set(resolve(dir, ".plain-english.yml"), "version: 1\nextends: default\n__proto__:\n  polluted: true\n");
-      const io = core.replayIo({
-        cwd: dir, path: core.pathsFor(dir), env: {}, home: undefined, now: () => Date.now(), notice: () => {},
-        state: { get: () => undefined, set: () => true }, defaultRules: () => rules,
-      }, fetched);
-      expect(() => core.resolveRuleSet(dir, io)).toThrow("__proto__");
+      // A plain key, and a list key merged in under YAML 1.1, which turns into
+      // the same property name when it is added to the object.
+      for (const config of [
+        "version: 1\nextends: default\n__proto__:\n  polluted: true\n",
+        "%YAML 1.1\n---\nversion: 1\nextends: default\n<<: { [__proto__]: { polluted: true } }\n",
+      ]) {
+        const fetched = core.emptyFetched();
+        fetched.reads.set(resolve(dir, ".plain-english.yml"), config);
+        const io = core.replayIo({
+          cwd: dir, path: core.pathsFor(dir), env: {}, home: undefined, now: () => Date.now(), notice: () => {},
+          state: { get: () => undefined, set: () => true }, defaultRules: () => rules,
+        }, fetched);
+        expect(() => core.resolveRuleSet(dir, io), config).toThrow("__proto__");
+      }
       expect(({} as Record<string, unknown>)["polluted"]).toBeUndefined();
     } finally {
       rmSync(dir, { recursive: true, force: true });

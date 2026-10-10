@@ -764,10 +764,12 @@ function mergeValue(ctx, map2, value) {
         map2.set(key, value2);
     } else if (map2 instanceof Set) {
       map2.add(key);
-    } else if (key === "__proto__") {
-      throw new Error("The plugin refuses a YAML key named __proto__.");
-    } else if (!Object.prototype.hasOwnProperty.call(map2, key)) {
-      map2[key] = value2;
+    } else {
+      const name = typeof key === "symbol" ? key : String(key);
+      if (name === "__proto__")
+        throw new Error("The plugin refuses a YAML key named __proto__.");
+      if (!Object.prototype.hasOwnProperty.call(map2, name))
+        map2[name] = value2;
     }
   }
   return map2;

@@ -256,7 +256,8 @@ const YAML_CODE = /(["'])([A-Z0-9_]*(?:TOKEN|KEY)[A-Z0-9_]*)\1/g;
  * - YAML adds a map key with `defineProperty` only so that a key named
  *   `__proto__` cannot replace the object's prototype. Every other key gives
  *   the same result by assignment, so the plugin's copy assigns, and refuses
- *   a `__proto__` key outright.
+ *   a key whose property name is `__proto__`. A merged key can be a list or
+ *   other value, so the check reads the name the key becomes.
  * - YAML's composer reads the class it built a collection with from the
  *   collection; the plugin's copy names the class the same way the resolvers
  *   chose it.
@@ -303,7 +304,7 @@ const LIBRARY_EDITS = [
   ] },
   { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]schema[\\/]yaml-1\.1[\\/]merge\.js$/, edits: [
     ["        else if (!Object.prototype.hasOwnProperty.call(map, key)) {\n            Object.defineProperty(map, key, {\n                value,\n                writable: true,\n                enumerable: true,\n                configurable: true\n            });\n        }",
-      "        else if (key === '__proto__') {\n            throw new Error('The plugin refuses a YAML key named __proto__.');\n        }\n        else if (!Object.prototype.hasOwnProperty.call(map, key)) {\n            map[key] = value;\n        }"],
+      "        else {\n            const name = typeof key === 'symbol' ? key : String(key);\n            if (name === '__proto__')\n                throw new Error('The plugin refuses a YAML key named __proto__.');\n            if (!Object.prototype.hasOwnProperty.call(map, name))\n                map[name] = value;\n        }"],
   ] },
   { file: /[\\/]yaml[\\/]browser[\\/]dist[\\/]compose[\\/]compose-collection\.js$/, edits: [
     ["const Coll = coll.constructor;", "const Coll = tag?.nodeClass ?? (token.type === 'block-map' || (token.type !== 'block-seq' && token.start.source === '{') ? YAMLMap : YAMLSeq);"],
