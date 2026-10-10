@@ -4,6 +4,11 @@ Notable changes to this project. Format follows [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+## [1.17.5] - 2026-10-10
+### Changed
+
+- A check parses its document once instead of up to nine times, so large documents check three to four times faster. A 256 KiB page of prose in paragraphs went from 2.9 seconds to 0.84, and this repository's README repeated eight times from 0.40 seconds to 0.13.
+
 ## [1.17.4] - 2026-10-10
 ### Fixed
 
@@ -823,7 +828,8 @@ Supersedes 0.1.1, which was tagged but never published.
 - Suppression directives are read from a view with code fences blanked, so an example directive in the documentation is no longer live. The generated style guide was disabling itself.
 - CI jobs build before running the CLI.
 
-[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.4...HEAD
+[Unreleased]: https://github.com/nordscope-fi/plain-english/compare/v1.17.5...HEAD
+[1.17.5]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.5
 [1.17.4]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.4
 [1.17.3]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.3
 [1.17.2]: https://github.com/nordscope-fi/plain-english/releases/tag/v1.17.2

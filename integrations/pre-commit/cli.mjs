@@ -3984,8 +3984,8 @@ var require_resolve_props = __commonJS({
             hasSpace = false;
         }
       }
-      const last = tokens[tokens.length - 1];
-      const end = last ? last.offset + last.source.length : offset;
+      const last2 = tokens[tokens.length - 1];
+      const end = last2 ? last2.offset + last2.source.length : offset;
       if (reqSpace && next2 && next2.type !== "space" && next2.type !== "newline" && next2.type !== "comma" && (next2.type !== "scalar" || next2.source !== "")) {
         onError(next2.offset, "MISSING_CHAR", "Tags and anchors must be separated from the next token by white space");
       }
@@ -4833,9 +4833,9 @@ var require_resolve_flow_scalar = __commonJS({
         }
         pos = line.lastIndex;
       }
-      const last = /[ \t]*(.*)/sy;
-      last.lastIndex = pos;
-      match = last.exec(source);
+      const last2 = /[ \t]*(.*)/sy;
+      last2.lastIndex = pos;
+      match = last2.exec(source);
       return res + sep3 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
@@ -6742,12 +6742,12 @@ var require_parser = __commonJS({
               yield* this.pop(token);
           }
           if ((top.type === "document" || top.type === "block-map" || top.type === "block-seq") && (token.type === "block-map" || token.type === "block-seq")) {
-            const last = token.items[token.items.length - 1];
-            if (last && !last.sep && !last.value && last.start.length > 0 && findNonEmptyIndex(last.start) === -1 && (token.indent === 0 || last.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
+            const last2 = token.items[token.items.length - 1];
+            if (last2 && !last2.sep && !last2.value && last2.start.length > 0 && findNonEmptyIndex(last2.start) === -1 && (token.indent === 0 || last2.start.every((st) => st.type !== "comment" || st.indent < token.indent))) {
               if (top.type === "document")
-                top.end = last.start;
+                top.end = last2.start;
               else
-                top.items.push({ start: last.start });
+                top.items.push({ start: last2.start });
               token.items.splice(-1, 1);
             }
           }
@@ -6871,8 +6871,8 @@ var require_parser = __commonJS({
             this.onKeyLine = false;
             if (it.value) {
               const end = "end" in it.value ? it.value.end : void 0;
-              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
-              if (last?.type === "comment")
+              const last2 = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last2?.type === "comment")
                 end?.push(this.sourceToken);
               else
                 map.items.push({ start: [this.sourceToken] });
@@ -7064,8 +7064,8 @@ var require_parser = __commonJS({
           case "newline":
             if (it.value) {
               const end = "end" in it.value ? it.value.end : void 0;
-              const last = Array.isArray(end) ? end[end.length - 1] : void 0;
-              if (last?.type === "comment")
+              const last2 = Array.isArray(end) ? end[end.length - 1] : void 0;
+              if (last2?.type === "comment")
                 end?.push(this.sourceToken);
               else
                 seq.items.push({ start: [this.sourceToken] });
@@ -14688,10 +14688,10 @@ var require_lib = __commonJS({
             break;
           case "ObjectExpression":
             this.castNodeTo(node3, "ObjectPattern");
-            for (let i = 0, length = node3.properties.length, last = length - 1; i < length; i++) {
+            for (let i = 0, length = node3.properties.length, last2 = length - 1; i < length; i++) {
               var _node$extra2;
               const prop = node3.properties[i];
-              const isLast = i === last;
+              const isLast = i === last2;
               this.toAssignableObjectExpressionProp(prop, isLast, isLHS);
               if (isLast && prop.type === "RestElement" && (_node$extra2 = node3.extra) != null && _node$extra2.trailingCommaLoc) {
                 this.raise(Errors.RestTrailingComma, node3.extra.trailingCommaLoc);
@@ -14783,9 +14783,9 @@ var require_lib = __commonJS({
           case "VoidPattern":
             return true;
           case "ObjectExpression": {
-            const last = node3.properties.length - 1;
+            const last2 = node3.properties.length - 1;
             return node3.properties.every((prop, i) => {
-              return prop.type !== "ObjectMethod" && (i === last || prop.type !== "SpreadElement") && this.isAssignable(prop);
+              return prop.type !== "ObjectMethod" && (i === last2 || prop.type !== "SpreadElement") && this.isAssignable(prop);
             });
           }
           case "ObjectProperty":
@@ -31377,6 +31377,20 @@ function value(token) {
   this.config.exit.data.call(this, token);
 }
 
+// dist/markdown.js
+var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
+var last;
+function parseMarkdown(text4) {
+  if (last?.text === text4)
+    return last.tree;
+  const tree = fromMarkdown(text4, {
+    extensions: [gfm(), frontmatter([...FRONTMATTER])],
+    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
+  });
+  last = { text: text4, tree };
+  return tree;
+}
+
 // dist/tree-walk.js
 function walk(root, visitor) {
   const stack = [root];
@@ -31392,12 +31406,8 @@ function walk(root, visitor) {
 
 // dist/mask.js
 var PROSE_NODES = /* @__PURE__ */ new Set(["text"]);
-var FRONTMATTER = ["yaml", { type: "toml", marker: "+" }];
 function parse2(text4) {
-  return fromMarkdown(text4, {
-    extensions: [gfm(), frontmatter([...FRONTMATTER])],
-    mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER])]
-  });
+  return parseMarkdown(text4);
 }
 function codeBlockSpans(tree) {
   const spans = [];
@@ -32013,11 +32023,11 @@ function splitNode(node3, childType, expression) {
         children: node3.children.slice(start, index2 + 1)
       };
       const first = node3.children[start];
-      const last = token;
-      if (first.position && last.position) {
+      const last2 = token;
+      if (first.position && last2.position) {
         parent.position = {
           start: first.position.start,
-          end: last.position.end
+          end: last2.position.end
         };
       }
       result.push(parent);
@@ -32398,9 +32408,9 @@ var mergeInnerWordSymbol = modifyChildren(
           }
           siblings.splice(index2, position3 - index2);
           previous3.children.push(...tokens);
-          const last = tokens[tokens.length - 1];
-          if (previous3.position && last.position) {
-            previous3.position.end = last.position.end;
+          const last2 = tokens[tokens.length - 1];
+          if (previous3.position && last2.position) {
+            previous3.position.end = last2.position.end;
           }
           return index2;
         }
@@ -32788,11 +32798,11 @@ function splitNode2(node3, childType, expression) {
         children: node3.children.slice(start, index2 + 1)
       };
       const first = node3.children[start];
-      const last = token;
-      if (first.position && last.position) {
+      const last2 = token;
+      if (first.position && last2.position) {
         parent.position = {
           start: first.position.start,
-          end: last.position.end
+          end: last2.position.end
         };
       }
       result.push(parent);
@@ -33508,13 +33518,17 @@ function isUint8Array(value2) {
 }
 
 // dist/sentences.js
-var FRONTMATTER2 = ["yaml", { type: "toml", marker: "+" }];
+var lastSentences;
 function parse3(text4) {
+  if (lastSentences?.text === text4)
+    return lastSentences.tree;
+  const tree = parseSentences(text4);
+  lastSentences = { text: text4, tree };
+  return tree;
+}
+function parseSentences(text4) {
   try {
-    const mdast = fromMarkdown(text4, {
-      extensions: [gfm(), frontmatter([...FRONTMATTER2])],
-      mdastExtensions: [gfmFromMarkdown(), frontmatterFromMarkdown([...FRONTMATTER2])]
-    });
+    const mdast = parseMarkdown(text4);
     return toNlcst(mdast, new VFile(text4), ParseEnglish, {
       ignore: ["blockquote"]
     });
@@ -35673,12 +35687,12 @@ function assistantText(record4) {
 function subagentHandback(path3, io) {
   if (!path3)
     return void 0;
-  let last;
+  let last2;
   readJsonl(path3, (record4) => {
     if (record4["type"] === "assistant")
-      last = record4;
+      last2 = record4;
   }, io);
-  const content3 = last && last["message"]?.["content"];
+  const content3 = last2 && last2["message"]?.["content"];
   if (!Array.isArray(content3))
     return void 0;
   for (const block of content3) {
@@ -35938,12 +35952,12 @@ var codexChat = {
     if (!path3)
       return null;
     const parsed = parseRollout(path3);
-    const last = parsed.replies[parsed.replies.length - 1];
-    if (!last)
+    const last2 = parsed.replies[parsed.replies.length - 1];
+    if (!last2)
       return null;
-    const reply = { text: last.text, isSubagent, session: session || (parsed.session ?? ""), source: path3, line: last.line };
-    if (last.at)
-      reply.at = last.at;
+    const reply = { text: last2.text, isSubagent, session: session || (parsed.session ?? ""), source: path3, line: last2.line };
+    if (last2.at)
+      reply.at = last2.at;
     return reply;
   }
 };
