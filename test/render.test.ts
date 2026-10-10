@@ -735,7 +735,7 @@ describe("generated frontmatter", () => {
   it("quotes a description only when YAML needs it", () => {
     const set = loadDefault();
     const docs = { ...set.docs, skill: { ...set.docs.skill, description: "Shape a document: lead with its purpose." } };
-    const header = renderAll({ ...set, docs }, ".").find((t) => t.path.endsWith("writing-a-document/SKILL.md"))!.content.split("\n");
+    const header = renderAll({ ...set, docs }, ".").find((t) => t.path.replace(/\\/g, "/").endsWith("writing-a-document/SKILL.md"))!.content.split("\n");
     expect(header).toContain('description: "Shape a document: lead with its purpose."');
     expect(renderOutputStyle(set).split("\n")).toContain(`description: ${set.chat.levels.find((l) => l.id === set.chat.level)!.description}`);
   });
