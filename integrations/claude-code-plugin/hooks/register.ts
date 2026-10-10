@@ -5,8 +5,8 @@ import { ISSUE_TOOLS } from './issue-tools.mjs'
 import {
   approvalPlan, claudeCodeChat, claudeCodeHook, emptyFetched, formatText, hookCheck, lintTargets, lintText,
   ModelRequest, NeedFiles, pathsFor, projectGuidance, replay, replayIo, resolveRuleSet, stalledNotes, suppressedLine,
-} from './core/plugin-core.mjs'
-import DEFAULT_RULES from './core/default-rules.mjs'
+} from '../skills/plain-english/scripts/core/plugin-core.mjs'
+import DEFAULT_RULES from '../skills/plain-english/scripts/core/default-rules.mjs'
 import { askFor, noticeLine, oneLine, readChatVerdict, readPassages, readPaths, readToolVerdict, toolPayload } from './wire'
 
 /** Files the docs channel judges. The checker strips code and frontmatter itself. */

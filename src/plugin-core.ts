@@ -2,8 +2,9 @@
  * Everything the Claude Code plugin's mod calls (ADR-008), and the draft
  * check its writing skill's script calls (ADR-009).
  *
- * `scripts/build-plugin.mjs` bundles this into `hooks/core/` with no Node:
- * the mod passes its own io to every function, and the Node-only modules the
+ * `scripts/build-plugin.mjs` bundles this into
+ * `skills/plain-english/scripts/core/`, where the mod and the writing skill's
+ * script both import it. It carries no Node: the mod passes its own io to every function, and the Node-only modules the
  * CLI uses by default are replaced with ones that start and record nothing.
  */
 export { hookCheck, CONFIGURATION_UNAVAILABLE, type HookResult } from "./hook-check.ts";
