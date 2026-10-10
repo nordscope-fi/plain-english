@@ -12,9 +12,9 @@ In a Claude Code session, version 2.1.293 or later:
 /plugin install plain-english --marketplace nordscope-fi/plain-english
 ```
 
-The plugin carries the checker's core under `hooks/core/`, bundled with its dependencies and the built-in ruleset. Nothing is downloaded at install, no script runs, and a check starts no program: the mod runs the checker inside Claude Code.
+The plugin carries the checker's core under `hooks/core/`, bundled with its dependencies and the built-in ruleset. Installing it copies these files and nothing else. A check starts no program: the mod runs the checker inside Claude Code.
 
-Standalone compressed archives (ZIP) and checksums are attached to [GitHub releases](https://github.com/nordscope-fi/plain-english/releases). Extract an archive, then pass its `plain-english` directory to `claude --plugin-dir`. The repository marketplace already supplies the plugin. An Anthropic directory listing requires a separate account-owner submission; the [release guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/releasing.md#submit-the-directory-listing) contains the prepared details. The event checks described here target Claude Code.
+Each [GitHub release](https://github.com/nordscope-fi/plain-english/releases) also carries a ZIP copy of this folder with checksums. The repository marketplace already supplies the plugin. An Anthropic directory listing requires a separate account-owner submission; the [release guide](https://github.com/nordscope-fi/plain-english/blob/main/docs/releasing.md#submit-the-directory-listing) contains the prepared details. The event checks described here target Claude Code.
 
 ## What you see
 
@@ -60,7 +60,7 @@ Commands you run yourself:
 - **Sends:** pattern matching stays on this machine. Extra checks ask the session's own model through Claude Code (`$.model.complete`), with your account and model service. Where Claude Code cannot make that call, the extra check is reported unavailable and the pattern result stands. Document checks receive the complete proposed document as context, including its code examples and quoted material, but judge changed prose. Chat checks can also include your last question. These calls use your plan or API usage. Set `modelChecks: false` to disable them.
 - **Keeps:** an extra check is one request with no conversation history. Provider retention follows your account and provider settings. The host conversation still follows Claude Code's normal storage behavior.
 
-The checker runs inside the mod ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). When it needs a file or a model's answer, it hands the request back; the mod fetches the file through Claude Code or asks the session's model, then runs the check again with the answer. A check can ask two model questions at most. Asking through the session gave the same verdicts as a separate `claude -p` on 16 test prompts, recorded in [ADR-006](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/006-model-checks-through-the-host.md).
+The checker runs inside the mod ([ADR-008](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/008-checker-runs-inside-the-mod.md)). When it needs a file or a model's answer, it hands the request back; the mod reads the file through Claude Code or asks the session's model, and the checker repeats the check with the answer. A check can ask two model questions at most. Asking through the session gave the same verdicts as a separate `claude -p` on 16 test prompts, recorded in [ADR-006](https://github.com/nordscope-fi/plain-english/blob/main/docs/architecture/adr/006-model-checks-through-the-host.md).
 
 A failed check produces a notice rather than a clean result, and the original action proceeds. If an extra model check cannot run, the pattern checks still apply. Document model calls share a 15-second deadline, and chat model calls share 45 seconds. A check starts no program, so cancelling a turn leaves nothing running.
 
