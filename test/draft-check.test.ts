@@ -119,3 +119,30 @@ describe("checkDraft on input it cannot check", () => {
     expect(report.notes[0]).toContain("ran out of time");
   });
 });
+
+describe("checkDraft on a draft with many findings", () => {
+  // Each word trips a different error rule. Chat's code tool shows only part
+  // of a long output, so an unbounded report reached Claude cut off (#149).
+  const WORDS = ["leverage", "seamless", "delve", "showcase", "utilize", "synergy", "furthermore", "moreover", "cutting-edge", "game-changer", "tapestry", "pivotal"];
+
+  it("lists at most 5 findings for one rule and says how many it left out", () => {
+    const report = checkDraft({ text: "We leverage this.\n".repeat(20), kind: "document" }, rulesOnlyIo());
+    expect(report.status).toBe("checked");
+    expect(report.findings.filter((f) => f.ruleId === "leverage")).toHaveLength(5);
+    expect(report.notes.join(" ")).toContain("15 more for leverage");
+  });
+
+  it("lists at most 50 findings in all, keeping them in reading order", () => {
+    const text = Array(6).fill(WORDS.map((w) => `We ${w} it.`).join("\n")).join("\n");
+    const report = checkDraft({ text, kind: "document" }, rulesOnlyIo());
+    expect(report.status).toBe("checked");
+    expect(report.findings).toHaveLength(50);
+    const positions = report.findings.map((f) => f.line * 10_000 + f.column);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(report.notes.join(" ")).toMatch(/Showing 50 of \d+ findings/);
+  });
+
+  it("adds no note when nothing was left out", () => {
+    expect(checkDraft({ text: "We leverage this.", kind: "document" }, rulesOnlyIo()).notes).toEqual([]);
+  });
+});

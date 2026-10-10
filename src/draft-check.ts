@@ -34,7 +34,7 @@ export interface DraftReport {
   findings: DraftFinding[];
   /** Questions only a reader can answer. */
   review: string[];
-  /** Why a report is incomplete or invalid. */
+  /** Why a report is incomplete or invalid, and what a long report left out. */
   notes: string[];
 }
 
@@ -44,6 +44,37 @@ export interface DraftCheckOptions {
 }
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/**
+ * How many findings a report lists. Chat's code tool shows only part of a long
+ * output, and a 300,000-character draft full of tells made several megabytes
+ * of JSON that reached Claude cut off (#149). A draft past these limits needs
+ * a rewrite, not a longer list.
+ */
+const MAX_PER_RULE = 5;
+const MAX_FINDINGS = 50;
+
+/** The findings a report lists, and a note for each kind of cut. */
+function capped(all: DraftFinding[]): { findings: DraftFinding[]; notes: string[] } {
+  const notes: string[] = [];
+  const perRule = new Map<string, number>();
+  const leftOut = new Map<string, number>();
+  const kept = all.filter((f) => {
+    const seen = perRule.get(f.ruleId) ?? 0;
+    perRule.set(f.ruleId, seen + 1);
+    if (seen < MAX_PER_RULE) return true;
+    leftOut.set(f.ruleId, (leftOut.get(f.ruleId) ?? 0) + 1);
+    return false;
+  });
+  for (const [rule, count] of leftOut) notes.push(`${count} more for ${rule} were left out.`);
+  if (kept.length <= MAX_FINDINGS) return { findings: kept, notes };
+  // Errors before warnings, then back into reading order.
+  const chosen = new Set(
+    [...kept].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1)).slice(0, MAX_FINDINGS),
+  );
+  notes.push(`Showing ${MAX_FINDINGS} of ${all.length} findings. Fix these and check again.`);
+  return { findings: kept.filter((f) => chosen.has(f)), notes };
+}
 
 function asFinding(f: Finding): DraftFinding {
   return {
@@ -85,14 +116,14 @@ export function checkDraft(request: unknown, io: CheckerIo, options: DraftCheckO
     budgetMs: options.budgetMs ?? (reply ? HOOK_BUDGET_MS : DEFAULT_BUDGET_MS),
   });
 
-  const findings = result.findings.map(asFinding);
+  const { findings, notes } = capped(result.findings.map(asFinding));
   const review = reply
     ? base.chat.judge.map((check) => `${check.id}: ${oneLine(check.description)}`)
     : base.docs.guidance.flatMap((g) => (g.flag ? [`${g.id}: ${oneLine(g.flag)}`] : []));
 
   if (result.timedOut.length) {
     const rules = [...result.timedOut].sort().join(", ");
-    return { status: "incomplete", kind, findings, review, notes: [`These rules ran out of time and did not report: ${rules}.`] };
+    return { status: "incomplete", kind, findings, review, notes: [`These rules ran out of time and did not report: ${rules}.`, ...notes] };
   }
-  return { status: "checked", kind, findings, review, notes: [] };
+  return { status: "checked", kind, findings, review, notes };
 }

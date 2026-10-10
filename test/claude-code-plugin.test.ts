@@ -37,7 +37,10 @@ describe("the plugin's hook files as the directory reads them", () => {
   const CORE_PATH = "skills/plain-english/scripts/core";
   const CORE = resolve(PLUGIN, CORE_PATH);
   const coreFiles = () => readdirSync(CORE).filter((name) => name.endsWith(".mjs")).map((name) => `${CORE_PATH}/${name}`);
-  const hookFiles = () => ["hooks/register.ts", "hooks/wire.ts", "hooks/shell.mjs", "hooks/issue-tools.mjs", ...coreFiles()];
+  // The writing skill's script and version file are read by the directory
+  // like any other file (#149).
+  const hookFiles = () => ["hooks/register.ts", "hooks/wire.ts", "hooks/shell.mjs", "hooks/issue-tools.mjs",
+    "skills/plain-english/scripts/check.mjs", "skills/plain-english/scripts/version.mjs", ...coreFiles()];
 
   it("contain no invisible or control characters", () => {
     for (const file of hookFiles()) {
@@ -655,6 +658,21 @@ describe("the plain-english skill as chat receives it", () => {
       expect(code).toBe(2);
       expect(JSON.parse(out).status).toBe("invalid");
     }, 20_000);
+
+    // spawnSync with `input` closes standard input, so only an open pipe shows
+    // whether the script reads before it checks the kind (#149).
+    it.each([[[]], [["Reply"]]])("refuses a missing or misspelled kind %j without waiting for input", async (args) => {
+      const child = spawn(process.execPath, [resolve(copy, "scripts/check.mjs"), ...args], { cwd: work });
+      child.stdin.write("The build takes two minutes.");
+      let out = "";
+      child.stdout.on("data", (chunk) => (out += chunk));
+      const started = Date.now();
+      const code = await new Promise<number | null>((done) => child.on("close", done));
+      child.stdin.destroy();
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(code).toBe(2);
+      expect(JSON.parse(out).status).toBe("invalid");
+    }, 15_000);
 
     it("reports unavailable and exits 2 when the core does not load", () => {
       const broken = resolve(work, "broken");
