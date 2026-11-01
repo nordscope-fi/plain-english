@@ -93,7 +93,7 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.9",
-    "entities": "^7.0.1",
+    "entities": "^9.0.0",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-frontmatter": "^2.0.1",
     "mdast-util-gfm": "^3.1.0",
